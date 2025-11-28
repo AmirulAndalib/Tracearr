@@ -46,6 +46,7 @@ export const WS_EVENTS = {
   SESSION_UPDATED: 'session:updated',
   VIOLATION_NEW: 'violation:new',
   STATS_UPDATED: 'stats:updated',
+  IMPORT_PROGRESS: 'import:progress',
   SUBSCRIBE_SESSIONS: 'subscribe:sessions',
   UNSUBSCRIBE_SESSIONS: 'unsubscribe:sessions',
 } as const;

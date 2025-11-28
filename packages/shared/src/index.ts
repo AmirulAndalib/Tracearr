@@ -15,6 +15,7 @@ export type {
   SessionState,
   MediaType,
   Session,
+  SessionWithDetails,
   ActiveSession,
   // Rule
   RuleType,
@@ -37,6 +38,9 @@ export type {
   LibraryStats,
   // Settings
   Settings,
+  // Tautulli import
+  TautulliImportProgress,
+  TautulliImportResult,
   // WebSocket
   ServerToClientEvents,
   ClientToServerEvents,
@@ -79,6 +83,8 @@ export {
   statsQuerySchema,
   // Settings
   updateSettingsSchema,
+  // Tautulli import
+  tautulliImportSchema,
 } from './schemas.js';
 
 // Schema input type exports
@@ -93,6 +99,7 @@ export type {
   ViolationQueryInput,
   StatsQueryInput,
   UpdateSettingsInput,
+  TautulliImportInput,
 } from './schemas.js';
 
 // Constant exports

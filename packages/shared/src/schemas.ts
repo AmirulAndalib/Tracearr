@@ -143,6 +143,14 @@ export const updateSettingsSchema = z.object({
   notifyOnSessionStart: z.boolean().optional(),
   notifyOnSessionStop: z.boolean().optional(),
   notifyOnServerDown: z.boolean().optional(),
+  // Tautulli integration
+  tautulliUrl: z.string().url().nullable().optional(),
+  tautulliApiKey: z.string().nullable().optional(),
+});
+
+// Tautulli import schemas
+export const tautulliImportSchema = z.object({
+  serverId: uuidSchema, // Which Tracearr server to import into
 });
 
 // Type exports from schemas
@@ -156,3 +164,4 @@ export type UpdateRuleInput = z.infer<typeof updateRuleSchema>;
 export type ViolationQueryInput = z.infer<typeof violationQuerySchema>;
 export type StatsQueryInput = z.infer<typeof statsQuerySchema>;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+export type TautulliImportInput = z.infer<typeof tautulliImportSchema>;
