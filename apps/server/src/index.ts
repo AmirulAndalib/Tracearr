@@ -1,13 +1,34 @@
-import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { config } from 'dotenv';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import sensible from '@fastify/sensible';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
-import { API_BASE_PATH } from '@tracearr/shared';
+import fastifyStatic from '@fastify/static';
+import { existsSync } from 'node:fs';
+import { Redis } from 'ioredis';
+import { API_BASE_PATH, REDIS_KEYS, WS_EVENTS } from '@tracearr/shared';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Project root directory (apps/server/src -> project root)
+const PROJECT_ROOT = resolve(__dirname, '../../..');
+
+// Load .env from project root
+config({ path: resolve(PROJECT_ROOT, '.env') });
+
+// GeoIP database path (in project root/data)
+const GEOIP_DB_PATH = resolve(PROJECT_ROOT, 'data/GeoLite2-City.mmdb');
+import type { ActiveSession, ViolationWithDetails, DashboardStats, TautulliImportProgress } from '@tracearr/shared';
+
+import authPlugin from './plugins/auth.js';
+import redisPlugin from './plugins/redis.js';
 import { authRoutes } from './routes/auth.js';
+import { setupRoutes } from './routes/setup.js';
 import { serverRoutes } from './routes/servers.js';
 import { userRoutes } from './routes/users.js';
 import { sessionRoutes } from './routes/sessions.js';
@@ -15,6 +36,14 @@ import { ruleRoutes } from './routes/rules.js';
 import { violationRoutes } from './routes/violations.js';
 import { statsRoutes } from './routes/stats.js';
 import { settingsRoutes } from './routes/settings.js';
+import { importRoutes } from './routes/import.js';
+import { initializeEncryption, isEncryptionInitialized } from './utils/crypto.js';
+import { geoipService } from './services/geoip.js';
+import { createCacheService, createPubSubService } from './services/cache.js';
+import { initializePoller, startPoller, stopPoller } from './jobs/poller.js';
+import { initializeWebSocket, broadcastToSessions } from './websocket/index.js';
+import { db } from './db/client.js';
+import { sql } from 'drizzle-orm';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -30,8 +59,27 @@ async function buildApp() {
     },
   });
 
+  // Initialize encryption
+  try {
+    initializeEncryption();
+    app.log.info('Encryption initialized');
+  } catch (err) {
+    app.log.error({ err }, 'Failed to initialize encryption');
+    throw err;
+  }
+
+  // Initialize GeoIP service (optional - graceful degradation)
+  await geoipService.initialize(GEOIP_DB_PATH);
+  if (geoipService.hasDatabase()) {
+    app.log.info('GeoIP database loaded');
+  } else {
+    app.log.warn('GeoIP database not available - location features disabled');
+  }
+
   // Security plugins
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: process.env.NODE_ENV === 'production',
+  });
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN ?? true,
     credentials: true,
@@ -47,10 +95,59 @@ async function buildApp() {
     secret: process.env.COOKIE_SECRET,
   });
 
-  // Health check
-  app.get('/health', async () => ({ status: 'ok' }));
+  // Redis plugin
+  await app.register(redisPlugin);
+
+  // Auth plugin (depends on cookie)
+  await app.register(authPlugin);
+
+  // Create cache and pubsub services
+  const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
+  const pubSubRedis = new Redis(redisUrl);
+  const cacheService = createCacheService(app.redis);
+  const pubSubService = createPubSubService(app.redis, pubSubRedis);
+
+  // Initialize poller with cache services
+  initializePoller(cacheService, pubSubService);
+
+  // Cleanup pub/sub redis on close
+  app.addHook('onClose', async () => {
+    await pubSubRedis.quit();
+    stopPoller();
+  });
+
+  // Health check endpoint
+  app.get('/health', async () => {
+    let dbHealthy = false;
+    let redisHealthy = false;
+
+    // Check database
+    try {
+      await db.execute(sql`SELECT 1`);
+      dbHealthy = true;
+    } catch {
+      dbHealthy = false;
+    }
+
+    // Check Redis
+    try {
+      const pong = await app.redis.ping();
+      redisHealthy = pong === 'PONG';
+    } catch {
+      redisHealthy = false;
+    }
+
+    return {
+      status: dbHealthy && redisHealthy && isEncryptionInitialized() ? 'ok' : 'degraded',
+      db: dbHealthy,
+      redis: redisHealthy,
+      encryption: isEncryptionInitialized(),
+      geoip: geoipService.hasDatabase(),
+    };
+  });
 
   // API routes
+  await app.register(setupRoutes, { prefix: `${API_BASE_PATH}/setup` });
   await app.register(authRoutes, { prefix: `${API_BASE_PATH}/auth` });
   await app.register(serverRoutes, { prefix: `${API_BASE_PATH}/servers` });
   await app.register(userRoutes, { prefix: `${API_BASE_PATH}/users` });
@@ -59,6 +156,27 @@ async function buildApp() {
   await app.register(violationRoutes, { prefix: `${API_BASE_PATH}/violations` });
   await app.register(statsRoutes, { prefix: `${API_BASE_PATH}/stats` });
   await app.register(settingsRoutes, { prefix: `${API_BASE_PATH}/settings` });
+  await app.register(importRoutes, { prefix: `${API_BASE_PATH}/import` });
+
+  // Serve static frontend in production
+  const webDistPath = resolve(PROJECT_ROOT, 'apps/web/dist');
+  if (process.env.NODE_ENV === 'production' && existsSync(webDistPath)) {
+    await app.register(fastifyStatic, {
+      root: webDistPath,
+      prefix: '/',
+      decorateReply: false,
+    });
+
+    // SPA fallback - serve index.html for all non-API routes
+    app.setNotFoundHandler((request, reply) => {
+      if (request.url.startsWith('/api/') || request.url === '/health') {
+        return reply.code(404).send({ error: 'Not Found' });
+      }
+      return reply.sendFile('index.html');
+    });
+
+    app.log.info('Static file serving enabled for production');
+  }
 
   return app;
 }
@@ -66,8 +184,89 @@ async function buildApp() {
 async function start() {
   try {
     const app = await buildApp();
+
+    // Handle graceful shutdown
+    const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM'];
+    for (const signal of signals) {
+      process.on(signal, async () => {
+        app.log.info(`Received ${signal}, shutting down gracefully...`);
+        stopPoller();
+        await app.close();
+        process.exit(0);
+      });
+    }
+
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Server running at http://${HOST}:${PORT}`);
+
+    // Initialize WebSocket server using Fastify's underlying HTTP server
+    const httpServer = app.server;
+    initializeWebSocket(httpServer);
+    app.log.info('WebSocket server initialized');
+
+    // Set up Redis pub/sub to forward events to WebSocket clients
+    const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
+    const wsSubscriber = new Redis(redisUrl);
+
+    wsSubscriber.subscribe(REDIS_KEYS.PUBSUB_EVENTS, (err) => {
+      if (err) {
+        app.log.error({ err }, 'Failed to subscribe to pub/sub channel');
+      } else {
+        app.log.info('Subscribed to pub/sub channel for WebSocket events');
+      }
+    });
+
+    wsSubscriber.on('message', (_channel: string, message: string) => {
+      try {
+        const { event, data } = JSON.parse(message) as {
+          event: string;
+          data: unknown;
+          timestamp: number;
+        };
+
+        // Forward events to WebSocket clients
+        switch (event) {
+          case WS_EVENTS.SESSION_STARTED:
+            broadcastToSessions('session:started', data as ActiveSession);
+            break;
+          case WS_EVENTS.SESSION_STOPPED:
+            broadcastToSessions('session:stopped', data as string);
+            break;
+          case WS_EVENTS.SESSION_UPDATED:
+            broadcastToSessions('session:updated', data as ActiveSession);
+            break;
+          case WS_EVENTS.VIOLATION_NEW:
+            broadcastToSessions('violation:new', data as ViolationWithDetails);
+            break;
+          case WS_EVENTS.STATS_UPDATED:
+            broadcastToSessions('stats:updated', data as DashboardStats);
+            break;
+          case WS_EVENTS.IMPORT_PROGRESS:
+            broadcastToSessions('import:progress', data as TautulliImportProgress);
+            break;
+          default:
+            // Unknown event, ignore
+            break;
+        }
+      } catch (err) {
+        app.log.error({ err, message }, 'Failed to process pub/sub message');
+      }
+    });
+
+    // Handle graceful shutdown for WebSocket subscriber
+    const cleanupWsSubscriber = async () => {
+      await wsSubscriber.quit();
+    };
+    process.on('SIGINT', cleanupWsSubscriber);
+    process.on('SIGTERM', cleanupWsSubscriber);
+
+    // Start session poller after server is listening
+    const pollerEnabled = process.env.POLLER_ENABLED !== 'false';
+    const pollerInterval = parseInt(process.env.POLLER_INTERVAL ?? '15000', 10);
+
+    if (pollerEnabled) {
+      startPoller({ enabled: true, intervalMs: pollerInterval });
+    }
   } catch (err) {
     console.error('Failed to start server:', err);
     process.exit(1);
