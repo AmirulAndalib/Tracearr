@@ -181,7 +181,6 @@ async function buildApp() {
     await app.register(fastifyStatic, {
       root: webDistPath,
       prefix: '/',
-      decorateReply: false,
     });
 
     // SPA fallback - serve index.html for all non-API routes
