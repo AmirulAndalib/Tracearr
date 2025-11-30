@@ -74,17 +74,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check if prerelease
+        id: check
+        run: |
+          if [[ "${{ github.ref_name }}" == *"-"* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For prereleases (v0.1.0-alpha.5): only version tag, no latest
-            # For stable (v1.0.0): version, major.minor, major, latest
+            # Always: exact version
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !contains(github.ref, '-') }}
+            # Stable only: major.minor, major, latest
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.check.outputs.prerelease == 'false' }}
+            type=semver,pattern={{major}},enable=${{ steps.check.outputs.prerelease == 'false' }}
+            # Prerelease only: next tag
+            type=raw,value=next,enable=${{ steps.check.outputs.prerelease == 'true' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
