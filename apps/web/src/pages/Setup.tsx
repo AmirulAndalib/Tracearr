@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { LogoIcon } from '@/components/brand/Logo';
@@ -19,10 +19,10 @@ export function Setup() {
     if (!isLoading) {
       if (isAuthenticated) {
         // Already authenticated, go to dashboard
-        navigate('/', { replace: true });
+        void navigate('/', { replace: true });
       } else {
         // Not authenticated, go to login
-        navigate('/login', { replace: true });
+        void navigate('/login', { replace: true });
       }
     }
   }, [isAuthenticated, isLoading, navigate]);

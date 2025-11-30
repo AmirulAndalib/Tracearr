@@ -99,8 +99,9 @@ export function TopListChart({
           color: 'hsl(var(--popover-foreground))',
         },
         formatter: function () {
-          const item = top10.find((d) => d.name === this.x);
-          let tooltip = `<b>${this.x}</b><br/>${valueLabel}: ${this.y}`;
+          const xValue = String(this.x);
+          const item = top10.find((d) => d.name === xValue);
+          let tooltip = `<b>${xValue}</b><br/>${valueLabel}: ${this.y}`;
           if (item?.subtitle) {
             tooltip += `<br/><span style="font-size: 10px; color: hsl(var(--muted-foreground))">${item.subtitle}</span>`;
           }

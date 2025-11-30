@@ -120,7 +120,7 @@ export function ConcurrentChart({ data, isLoading, height = 250 }: ConcurrentCha
           color: 'hsl(var(--popover-foreground))',
         },
         formatter: function () {
-          const date = new Date(this.x as string);
+          const date = new Date(String(this.x));
           return `<b>${date.toLocaleDateString()} ${date.getHours()}:00</b><br/>Concurrent: ${this.y}`;
         },
       },

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Loader2, Server, ExternalLink, Monitor, ChevronRight, Wifi, Globe, User, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,7 +66,7 @@ export function Login() {
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       const redirectTo = searchParams.get('redirect') || '/';
-      navigate(redirectTo, { replace: true });
+      void navigate(redirectTo, { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate, searchParams]);
 
@@ -92,7 +92,7 @@ export function Login() {
         tokenStorage.setTokens(result.accessToken, result.refreshToken);
         void refetch();
         toast({ title: 'Success', description: 'Logged in successfully!' });
-        navigate('/');
+        void navigate('/');
       }
     } catch (error) {
       resetPlexAuth();
@@ -143,7 +143,7 @@ export function Login() {
         tokenStorage.setTokens(result.accessToken, result.refreshToken);
         void refetch();
         toast({ title: 'Success', description: `Connected to ${serverName}` });
-        navigate('/');
+        void navigate('/');
       }
     } catch (error) {
       setConnectingToServer(null);
@@ -180,7 +180,7 @@ export function Login() {
         tokenStorage.setTokens(result.accessToken, result.refreshToken);
         void refetch();
         toast({ title: 'Success', description: 'Account created successfully!' });
-        navigate('/');
+        void navigate('/');
       }
     } catch (error) {
       toast({
@@ -208,7 +208,7 @@ export function Login() {
         tokenStorage.setTokens(result.accessToken, result.refreshToken);
         void refetch();
         toast({ title: 'Success', description: 'Logged in successfully!' });
-        navigate('/');
+        void navigate('/');
       }
     } catch (error) {
       toast({

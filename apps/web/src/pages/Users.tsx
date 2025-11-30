@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { TrustScoreBadge } from '@/components/users/TrustScoreBadge';
@@ -120,7 +120,7 @@ export function Users() {
               page={page}
               onPageChange={setPage}
               isLoading={isLoading}
-              onRowClick={(user) => { navigate(`/users/${user.id}`); }}
+              onRowClick={(user) => { void navigate(`/users/${user.id}`); }}
               emptyMessage="No users found."
             />
           )}
