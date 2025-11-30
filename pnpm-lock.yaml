@@ -47,6 +47,9 @@ importers:
       '@react-navigation/native':
         specifier: 7.0.14
         version: 7.0.14(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
+      '@shopify/react-native-skia':
+        specifier: ^2.4.6
+        version: 2.4.6(react-native-reanimated@3.19.1(@babel/core@7.26.0)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0))(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
       '@tanstack/react-query':
         specifier: 5.60.6
         version: 5.60.6(react@19.1.0)
@@ -74,6 +77,9 @@ importers:
       expo-linking:
         specifier: 8.0.9
         version: 8.0.9(expo@54.0.25)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
+      expo-maps:
+        specifier: ^0.12.8
+        version: 0.12.8(expo@54.0.25)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
       expo-notifications:
         specifier: 0.32.13
         version: 0.32.13(expo@54.0.25)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
@@ -104,9 +110,6 @@ importers:
       react-native-gesture-handler:
         specifier: 2.29.1
         version: 2.29.1(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
-      react-native-maps:
-        specifier: 1.21.0
-        version: 1.21.0(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
       react-native-reanimated:
         specifier: 3.19.1
         version: 3.19.1(@babel/core@7.26.0)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
@@ -3862,6 +3865,13 @@ packages:
       react: '*'
       react-native: '*'
 
+  expo-maps@0.12.8:
+    resolution: {integrity: sha512-ZJOh7fLU6MuN2eaNV8CIhP++ymk3IFLdLomLNCRg8wmCicaPsp0O4bz0ZIVhy1RCiDDYs5COkMl3LcH0Qfq7JQ==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+
   expo-modules-autolinking@3.0.22:
     resolution: {integrity: sha512-Ej4SsZAnUUVFmbn6SoBso8K308mRKg8xgapdhP7v7IaSgfbexUoqxoiV31949HQQXuzmgvpkXCfp6Ex+mDW0EQ==}
     hasBin: true
@@ -5471,17 +5481,6 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
-
-  react-native-maps@1.21.0:
-    resolution: {integrity: sha512-PAy2nnQGlea93BYaiu7OU5YGgx3l6oOV9mUYW/Mc2G0rvqSLHuXVzGqX1SbfC1kdk6fQ/smNf86q4Q+FW+RntQ==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      react: '>= 18.3.1'
-      react-native: '>= 0.76.0'
-      react-native-web: '>= 0.11'
-    peerDependenciesMeta:
-      react-native-web:
-        optional: true
 
   react-native-reanimated@3.19.1:
     resolution: {integrity: sha512-ILL0FSNzSVIg6WuawrsMBvNxk2yJFiTUcahimXDAeNiE/09eagVUlHhYWXAAmH0umvAOafBaGjO7YfBhUrf5ZQ==}
@@ -10517,6 +10516,12 @@ snapshots:
       - expo
       - supports-color
 
+  expo-maps@0.12.8(expo@54.0.25)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      expo: 54.0.25(@babel/core@7.26.0)(@expo/metro-runtime@5.0.4(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0)))(expo-router@5.0.5)(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0)
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0)
+
   expo-modules-autolinking@3.0.22:
     dependencies:
       '@expo/spawn-async': 1.7.2
@@ -12424,12 +12429,6 @@ snapshots:
 
   react-native-is-edge-to-edge@1.2.1(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0):
     dependencies:
-      react: 19.1.0
-      react-native: 0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0)
-
-  react-native-maps@1.21.0(react-native@0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0))(react@19.1.0):
-    dependencies:
-      '@types/geojson': 7946.0.16
       react: 19.1.0
       react-native: 0.81.5(@babel/core@7.26.0)(@types/react@19.1.0)(react@19.1.0)
 
