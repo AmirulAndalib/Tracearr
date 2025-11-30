@@ -417,9 +417,9 @@ class ApiClient {
   // Mobile access
   mobile = {
     get: () => this.request<MobileConfig>('/mobile'),
-    enable: () => this.request<MobileConfig>('/mobile/enable', { method: 'POST' }),
-    disable: () => this.request<{ success: boolean }>('/mobile/disable', { method: 'POST' }),
-    rotate: () => this.request<MobileConfig>('/mobile/rotate', { method: 'POST' }),
+    enable: () => this.request<MobileConfig>('/mobile/enable', { method: 'POST', body: '{}' }),
+    disable: () => this.request<{ success: boolean }>('/mobile/disable', { method: 'POST', body: '{}' }),
+    rotate: () => this.request<MobileConfig>('/mobile/rotate', { method: 'POST', body: '{}' }),
     revokeSessions: () =>
       this.request<{ success: boolean; revokedCount: number }>('/mobile/sessions', { method: 'DELETE' }),
   };
