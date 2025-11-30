@@ -273,8 +273,14 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
           startedAt: sessions.startedAt,
           stoppedAt: sessions.stoppedAt,
           durationMs: sessions.durationMs,
+          // Pause tracking fields
+          lastPausedAt: sessions.lastPausedAt,
+          pausedDurationMs: sessions.pausedDurationMs,
+          referenceId: sessions.referenceId,
+          watched: sessions.watched,
           ipAddress: sessions.ipAddress,
           geoCity: sessions.geoCity,
+          geoRegion: sessions.geoRegion,
           geoCountry: sessions.geoCountry,
           playerName: sessions.playerName,
           platform: sessions.platform,
@@ -341,6 +347,7 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
       const locationData = await db
         .select({
           city: sessions.geoCity,
+          region: sessions.geoRegion,
           country: sessions.geoCountry,
           lat: sessions.geoLat,
           lon: sessions.geoLon,
@@ -352,6 +359,7 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
         .where(eq(sessions.userId, id))
         .groupBy(
           sessions.geoCity,
+          sessions.geoRegion,
           sessions.geoCountry,
           sessions.geoLat,
           sessions.geoLon
@@ -360,6 +368,7 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
 
       const locations: UserLocation[] = locationData.map((loc) => ({
         city: loc.city,
+        region: loc.region,
         country: loc.country,
         lat: loc.lat,
         lon: loc.lon,
@@ -403,38 +412,123 @@ export const userRoutes: FastifyPluginAsync = async (app) => {
         return reply.forbidden('You do not have access to this user');
       }
 
-      // Aggregate devices from sessions
-      // Group by deviceId primarily, but also include other identifying info
-      const deviceData = await db
+      // Aggregate devices from sessions with location data
+      // Use deviceId as primary key (fallback to playerName if deviceId is null)
+      // Aggregate locations where each device has been used
+      const sessionData = await db
         .select({
           deviceId: sessions.deviceId,
           playerName: sessions.playerName,
           product: sessions.product,
           device: sessions.device,
           platform: sessions.platform,
-          sessionCount: sql<number>`count(*)::int`,
-          lastSeenAt: sql<Date>`max(${sessions.startedAt})`,
+          startedAt: sessions.startedAt,
+          geoCity: sessions.geoCity,
+          geoRegion: sessions.geoRegion,
+          geoCountry: sessions.geoCountry,
         })
         .from(sessions)
         .where(eq(sessions.userId, id))
-        .groupBy(
-          sessions.deviceId,
-          sessions.playerName,
-          sessions.product,
-          sessions.device,
-          sessions.platform
-        )
-        .orderBy(desc(sql`max(${sessions.startedAt})`));
+        .orderBy(desc(sessions.startedAt));
 
-      const devices: UserDevice[] = deviceData.map((dev) => ({
-        deviceId: dev.deviceId,
-        playerName: dev.playerName,
-        product: dev.product,
-        device: dev.device,
-        platform: dev.platform,
-        sessionCount: dev.sessionCount,
-        lastSeenAt: dev.lastSeenAt,
-      }));
+      // Group by deviceId (or playerName as fallback)
+      const deviceMap = new Map<string, {
+        deviceId: string | null;
+        playerName: string | null;
+        product: string | null;
+        device: string | null;
+        platform: string | null;
+        sessionCount: number;
+        lastSeenAt: Date;
+        locationMap: Map<string, {
+          city: string | null;
+          region: string | null;
+          country: string | null;
+          sessionCount: number;
+          lastSeenAt: Date;
+        }>;
+      }>();
+
+      for (const session of sessionData) {
+        // Use deviceId as key, or playerName as fallback, or generate a hash from metadata
+        const key = session.deviceId
+          ?? session.playerName
+          ?? `${session.product ?? 'unknown'}-${session.device ?? 'unknown'}-${session.platform ?? 'unknown'}`;
+
+        const existing = deviceMap.get(key);
+        if (existing) {
+          existing.sessionCount++;
+          // Update lastSeenAt if this session is more recent
+          if (session.startedAt > existing.lastSeenAt) {
+            existing.lastSeenAt = session.startedAt;
+            // Use most recent values for metadata
+            existing.playerName = session.playerName ?? existing.playerName;
+            existing.product = session.product ?? existing.product;
+            existing.device = session.device ?? existing.device;
+            existing.platform = session.platform ?? existing.platform;
+          }
+
+          // Aggregate location
+          const locKey = `${session.geoCity ?? ''}-${session.geoRegion ?? ''}-${session.geoCountry ?? ''}`;
+          const existingLoc = existing.locationMap.get(locKey);
+          if (existingLoc) {
+            existingLoc.sessionCount++;
+            if (session.startedAt > existingLoc.lastSeenAt) {
+              existingLoc.lastSeenAt = session.startedAt;
+            }
+          } else {
+            existing.locationMap.set(locKey, {
+              city: session.geoCity,
+              region: session.geoRegion,
+              country: session.geoCountry,
+              sessionCount: 1,
+              lastSeenAt: session.startedAt,
+            });
+          }
+        } else {
+          const locationMap = new Map<string, {
+            city: string | null;
+            region: string | null;
+            country: string | null;
+            sessionCount: number;
+            lastSeenAt: Date;
+          }>();
+          const locKey = `${session.geoCity ?? ''}-${session.geoRegion ?? ''}-${session.geoCountry ?? ''}`;
+          locationMap.set(locKey, {
+            city: session.geoCity,
+            region: session.geoRegion,
+            country: session.geoCountry,
+            sessionCount: 1,
+            lastSeenAt: session.startedAt,
+          });
+
+          deviceMap.set(key, {
+            deviceId: session.deviceId,
+            playerName: session.playerName,
+            product: session.product,
+            device: session.device,
+            platform: session.platform,
+            sessionCount: 1,
+            lastSeenAt: session.startedAt,
+            locationMap,
+          });
+        }
+      }
+
+      // Convert to array and sort by last seen
+      const devices: UserDevice[] = Array.from(deviceMap.values())
+        .map((dev) => ({
+          deviceId: dev.deviceId,
+          playerName: dev.playerName,
+          product: dev.product,
+          device: dev.device,
+          platform: dev.platform,
+          sessionCount: dev.sessionCount,
+          lastSeenAt: dev.lastSeenAt,
+          locations: Array.from(dev.locationMap.values())
+            .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime()),
+        }))
+        .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime());
 
       return { data: devices };
     }
