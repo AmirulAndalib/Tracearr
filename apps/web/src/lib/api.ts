@@ -15,6 +15,7 @@ import type {
   UserDevice,
   Settings,
   PaginatedResponse,
+  MobileConfig,
 } from '@tracearr/shared';
 import { API_BASE_PATH } from '@tracearr/shared';
 
@@ -411,6 +412,16 @@ class ApiClient {
           { method: 'POST', body: JSON.stringify({ serverId }) }
         ),
     },
+  };
+
+  // Mobile access
+  mobile = {
+    get: () => this.request<MobileConfig>('/mobile'),
+    enable: () => this.request<MobileConfig>('/mobile/enable', { method: 'POST' }),
+    disable: () => this.request<{ success: boolean }>('/mobile/disable', { method: 'POST' }),
+    rotate: () => this.request<MobileConfig>('/mobile/rotate', { method: 'POST' }),
+    revokeSessions: () =>
+      this.request<{ success: boolean; revokedCount: number }>('/mobile/sessions', { method: 'DELETE' }),
   };
 }
 

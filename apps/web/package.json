@@ -39,6 +39,7 @@
     "highcharts-react-official": "^3.2.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.314.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.3",

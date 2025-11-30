@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Routes, Route } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,18 +33,27 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Smartphone,
+  Copy,
+  RotateCcw,
+  LogOut,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { useSocket } from '@/hooks/useSocket';
-import type { Server, Settings as SettingsType, TautulliImportProgress } from '@tracearr/shared';
+import type { Server, Settings as SettingsType, TautulliImportProgress, MobileSession, MobileQRPayload } from '@tracearr/shared';
 import {
   useSettings,
   useUpdateSettings,
   useServers,
   useDeleteServer,
   useSyncServer,
+  useMobileConfig,
+  useEnableMobile,
+  useDisableMobile,
+  useRotateMobileToken,
+  useRevokeMobileSessions,
 } from '@/hooks/queries';
 
 function SettingsNav() {
@@ -52,6 +62,7 @@ function SettingsNav() {
     { href: '/settings/servers', label: 'Servers' },
     { href: '/settings/notifications', label: 'Notifications' },
     { href: '/settings/access', label: 'Access Control' },
+    { href: '/settings/mobile', label: 'Mobile' },
     { href: '/settings/import', label: 'Import' },
   ];
 
@@ -514,6 +525,279 @@ function AccessSettings() {
   );
 }
 
+function MobileSettings() {
+  const { data: config, isLoading } = useMobileConfig();
+  const enableMobile = useEnableMobile();
+  const disableMobile = useDisableMobile();
+  const rotateMobileToken = useRotateMobileToken();
+  const revokeMobileSessions = useRevokeMobileSessions();
+
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyToken = async () => {
+    if (config?.token) {
+      await navigator.clipboard.writeText(config.token);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const getQRData = (): string => {
+    if (!config?.token) return '';
+    const payload: MobileQRPayload = {
+      url: window.location.origin,
+      token: config.token,
+      name: config.serverName,
+    };
+    const encoded = btoa(JSON.stringify(payload));
+    return `tracearr://pair?data=${encoded}`;
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-32" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-48 w-48" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5" />
+            Mobile App Access
+          </CardTitle>
+          <CardDescription>
+            Connect the Tracearr mobile app to monitor your servers on the go
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!config?.isEnabled ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8">
+              <div className="rounded-full bg-muted p-4">
+                <Smartphone className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <h3 className="font-semibold">Mobile Access Disabled</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Enable mobile access to connect the Tracearr app to your server
+                </p>
+              </div>
+              <Button onClick={() => enableMobile.mutate()} disabled={enableMobile.isPending}>
+                {enableMobile.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enabling...
+                  </>
+                ) : (
+                  'Enable Mobile Access'
+                )}
+              </Button>
+            </div>
+          ) : (
+            <>
+              {config.token && (
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="rounded-lg border bg-white p-4">
+                      <QRCodeSVG
+                        value={getQRData()}
+                        size={200}
+                        level="M"
+                        includeMargin={false}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center max-w-sm">
+                      Scan this QR code with the Tracearr mobile app, or enter the token manually
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Mobile Access Token</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={config.token}
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyToken}
+                        title="Copy token"
+                      >
+                        {copied ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Keep this token secure. Anyone with this token can access your server.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!config.token && (
+                <div className="rounded-lg bg-muted/50 p-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mobile access is enabled. Use the Rotate Token button to generate a new QR code.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => rotateMobileToken.mutate()}
+                  disabled={rotateMobileToken.isPending}
+                >
+                  {rotateMobileToken.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                  )}
+                  Rotate Token
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDisableConfirm(true)}
+                >
+                  Disable Mobile Access
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {config?.isEnabled && config.sessions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Connected Devices</CardTitle>
+                <CardDescription>
+                  {config.sessions.length} device{config.sessions.length !== 1 ? 's' : ''} connected
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowRevokeConfirm(true)}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Revoke All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {config.sessions.map((session) => (
+                <MobileSessionCard key={session.id} session={session} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Disable Confirmation Dialog */}
+      <Dialog open={showDisableConfirm} onOpenChange={setShowDisableConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disable Mobile Access</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disable mobile access? All connected devices will be
+              disconnected and will need to be re-paired when you re-enable.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDisableConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                disableMobile.mutate();
+                setShowDisableConfirm(false);
+              }}
+              disabled={disableMobile.isPending}
+            >
+              {disableMobile.isPending ? 'Disabling...' : 'Disable'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke All Sessions Confirmation */}
+      <Dialog open={showRevokeConfirm} onOpenChange={setShowRevokeConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke All Sessions</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to disconnect all mobile devices? They will need to scan the
+              QR code again to reconnect.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRevokeConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                revokeMobileSessions.mutate();
+                setShowRevokeConfirm(false);
+              }}
+              disabled={revokeMobileSessions.isPending}
+            >
+              {revokeMobileSessions.isPending ? 'Revoking...' : 'Revoke All'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function MobileSessionCard({ session }: { session: MobileSession }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4">
+      <div className="flex items-center gap-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+          <Smartphone className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">{session.deviceName}</h3>
+            <span className="rounded bg-muted px-2 py-0.5 text-xs capitalize">
+              {session.platform}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Last seen {formatDistanceToNow(new Date(session.lastSeenAt), { addSuffix: true })}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Connected {format(new Date(session.createdAt), 'MMM d, yyyy')}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ImportSettings() {
   const { data: settings, isLoading: settingsLoading } = useSettings();
   const { data: serversData, isLoading: serversLoading } = useServers();
@@ -877,6 +1161,7 @@ export function Settings() {
         <Route path="servers" element={<ServerSettings />} />
         <Route path="notifications" element={<NotificationSettings />} />
         <Route path="access" element={<AccessSettings />} />
+        <Route path="mobile" element={<MobileSettings />} />
         <Route path="import" element={<ImportSettings />} />
       </Routes>
     </div>
