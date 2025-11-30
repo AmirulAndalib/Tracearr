@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatsCardSkeleton, ListItemSkeleton } from '@/components/ui/skeleton';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { PlaysChart } from '@/components/charts/PlaysChart';
-import { StreamMap } from '@/components/map/StreamMap';
+import { StreamCard } from '@/components/map';
 import { Activity, Play, Clock, AlertTriangle, User, Tv } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -90,7 +90,7 @@ export function Dashboard() {
             <CardTitle>Stream Map</CardTitle>
           </CardHeader>
           <CardContent>
-            <StreamMap sessions={sessions} height={256} />
+            <StreamCard sessions={sessions} height={256} />
           </CardContent>
         </Card>
 
