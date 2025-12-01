@@ -27,9 +27,9 @@ export function Login() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading: authLoading, refetch } = useAuth();
 
-  // Setup status
+  // Setup status - default to true while loading to avoid flash to wrong UI
   const [setupLoading, setSetupLoading] = useState(true);
-  const [needsSetup, setNeedsSetup] = useState(false);
+  const [needsSetup, setNeedsSetup] = useState(true);
   const [hasPasswordAuth, setHasPasswordAuth] = useState(false);
 
   // Auth flow state
@@ -119,18 +119,27 @@ export function Login() {
   // Start Plex OAuth flow
   const handlePlexLogin = async () => {
     setAuthStep('plex-waiting');
+
+    // Open popup to blank page first (same origin) - helps with cross-origin close
+    const popup = window.open('about:blank', 'plex_auth', 'width=600,height=700,popup=yes');
+    setPlexPopup(popup);
+
     try {
-      const result = await api.auth.loginPlex();
+      // Pass callback URL so Plex redirects back to our domain after auth
+      const callbackUrl = `${window.location.origin}/auth/plex-callback`;
+      const result = await api.auth.loginPlex(callbackUrl);
       setPlexAuthUrl(result.authUrl);
 
-      // Open Plex auth in popup and store reference
-      const popup = window.open(result.authUrl, 'plex_auth', 'width=600,height=700,popup=yes');
-      setPlexPopup(popup);
+      // Navigate popup to Plex auth
+      if (popup && !popup.closed) {
+        popup.location.href = result.authUrl;
+      }
 
       // Start polling
       void pollPlexPin(result.pinId);
     } catch (error) {
-      resetPlexAuth();
+      closePlexPopup();
+      setAuthStep('initial');
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to start Plex login',

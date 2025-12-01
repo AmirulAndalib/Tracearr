@@ -30,6 +30,7 @@ const localLoginSchema = z.object({
 
 const plexLoginSchema = z.object({
   type: z.literal('plex'),
+  forwardUrl: z.url().optional(),
 });
 
 const loginSchema = z.discriminatedUnion('type', [localLoginSchema, plexLoginSchema]);
@@ -118,7 +119,8 @@ export const localRoutes: FastifyPluginAsync = async (app) => {
 
     // Plex OAuth - initiate flow
     try {
-      const { pinId, authUrl } = await PlexClient.initiateOAuth();
+      const forwardUrl = body.data.type === 'plex' ? body.data.forwardUrl : undefined;
+      const { pinId, authUrl } = await PlexClient.initiateOAuth(forwardUrl);
       return { pinId, authUrl };
     } catch (error) {
       app.log.error({ error }, 'Failed to initiate Plex OAuth');

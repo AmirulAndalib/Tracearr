@@ -144,8 +144,9 @@ export class PlexClient implements IMediaServerClient, IMediaServerClientWithHis
   /**
    * Initiate OAuth flow for Plex authentication
    * Returns a PIN ID and auth URL for user to authorize
+   * @param forwardUrl - URL to redirect to after auth (for popup auto-close)
    */
-  static async initiateOAuth(): Promise<{ pinId: string; authUrl: string }> {
+  static async initiateOAuth(forwardUrl?: string): Promise<{ pinId: string; authUrl: string }> {
     const headers = plexHeaders();
 
     const data = await fetchJson<{ id: number; code: string }>(
@@ -161,7 +162,17 @@ export class PlexClient implements IMediaServerClient, IMediaServerClientWithHis
       }
     );
 
-    const authUrl = `https://app.plex.tv/auth#?clientID=tracearr&code=${data.code}&context%5Bdevice%5D%5Bproduct%5D=Tracearr`;
+    const params = new URLSearchParams({
+      clientID: 'tracearr',
+      code: data.code,
+      'context[device][product]': 'Tracearr',
+    });
+
+    if (forwardUrl) {
+      params.set('forwardUrl', forwardUrl);
+    }
+
+    const authUrl = `https://app.plex.tv/auth#?${params.toString()}`;
 
     return {
       pinId: String(data.id),
