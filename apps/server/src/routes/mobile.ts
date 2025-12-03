@@ -314,7 +314,7 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
     const ownerRow = await db
       .select()
       .from(users)
-      .where(eq(users.isOwner, true))
+      .where(eq(users.role, 'owner'))
       .limit(1);
 
     if (ownerRow.length === 0) {
@@ -426,7 +426,7 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
 
     // Verify user still exists and is owner
     const userRow = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    if (userRow.length === 0 || !userRow[0]!.isOwner) {
+    if (userRow.length === 0 || userRow[0]!.role !== 'owner') {
       await app.redis.del(`${MOBILE_REFRESH_PREFIX}${refreshTokenHash}`);
       return reply.unauthorized('User no longer valid');
     }
