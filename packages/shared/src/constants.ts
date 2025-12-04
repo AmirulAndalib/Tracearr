@@ -39,6 +39,14 @@ export const SEVERITY_LEVELS = {
   high: { label: 'High', priority: 3 },
 } as const;
 
+// Type for severity priority numbers (1=low, 2=warning, 3=high)
+export type SeverityPriority = 1 | 2 | 3;
+
+// Helper to get severity priority from string
+export function getSeverityPriority(severity: keyof typeof SEVERITY_LEVELS): SeverityPriority {
+  return SEVERITY_LEVELS[severity]?.priority ?? 1;
+}
+
 // WebSocket event names
 export const WS_EVENTS = {
   SESSION_STARTED: 'session:started',
@@ -58,7 +66,13 @@ export const REDIS_KEYS = {
   USER_SESSIONS: (userId: string) => `tracearr:users:${userId}:sessions`,
   DASHBOARD_STATS: 'tracearr:stats:dashboard',
   RATE_LIMIT_LOGIN: (ip: string) => `tracearr:ratelimit:login:${ip}`,
+  RATE_LIMIT_MOBILE_PAIR: (ip: string) => `tracearr:ratelimit:mobile:pair:${ip}`,
+  RATE_LIMIT_MOBILE_REFRESH: (ip: string) => `tracearr:ratelimit:mobile:refresh:${ip}`,
+  SERVER_HEALTH: (serverId: string) => `tracearr:servers:${serverId}:health`,
   PUBSUB_EVENTS: 'tracearr:events',
+  // Notification rate limiting (sliding window counters)
+  PUSH_RATE_MINUTE: (sessionId: string) => `tracearr:push:rate:minute:${sessionId}`,
+  PUSH_RATE_HOUR: (sessionId: string) => `tracearr:push:rate:hour:${sessionId}`,
 } as const;
 
 // Cache TTLs in seconds
@@ -67,15 +81,19 @@ export const CACHE_TTL = {
   ACTIVE_SESSIONS: 300,
   USER_SESSIONS: 3600,
   RATE_LIMIT: 900,
+  SERVER_HEALTH: 600, // 10 minutes - servers marked unhealthy if no update
 } as const;
 
-// Notification event types
+// Notification event types (must match NotificationEventType in types.ts)
 export const NOTIFICATION_EVENTS = {
-  VIOLATION_NEW: 'violation.new',
-  SESSION_STARTED: 'session.started',
-  SESSION_STOPPED: 'session.stopped',
-  SERVER_DOWN: 'server.down',
-  SERVER_UP: 'server.up',
+  VIOLATION_DETECTED: 'violation_detected',
+  STREAM_STARTED: 'stream_started',
+  STREAM_STOPPED: 'stream_stopped',
+  CONCURRENT_STREAMS: 'concurrent_streams',
+  NEW_DEVICE: 'new_device',
+  TRUST_SCORE_CHANGED: 'trust_score_changed',
+  SERVER_DOWN: 'server_down',
+  SERVER_UP: 'server_up',
 } as const;
 
 // API version

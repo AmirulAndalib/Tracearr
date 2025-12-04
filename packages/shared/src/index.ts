@@ -69,6 +69,12 @@ export type {
   MobileQRPayload,
   NotificationEventType,
   NotificationPreferences,
+  RateLimitStatus,
+  NotificationPreferencesWithStatus,
+  NotificationChannel,
+  NotificationChannelRouting,
+  EncryptedPushPayload,
+  PushNotificationPayload,
 } from './types.js';
 
 // Schema exports
@@ -131,6 +137,8 @@ export {
   RULE_DEFAULTS,
   RULE_DISPLAY_NAMES,
   SEVERITY_LEVELS,
+  getSeverityPriority,
+  type SeverityPriority,
   WS_EVENTS,
   REDIS_KEYS,
   CACHE_TTL,

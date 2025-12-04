@@ -95,6 +95,7 @@ export interface AuthUser {
   role: UserRole;
   serverIds: string[];
   mobile?: boolean; // True for mobile app tokens
+  deviceId?: string; // Device identifier for mobile tokens
 }
 
 // Session types
@@ -152,7 +153,9 @@ export interface ActiveSession extends Session {
 
 // Session with user/server details (from paginated API)
 // When returned from history queries, sessions are grouped by reference_id
-export interface SessionWithDetails extends Omit<Session, 'ratingKey' | 'externalSessionId' | 'totalDurationMs'> {
+// Note: The single session endpoint (GET /sessions/:id) returns totalDurationMs,
+// while paginated list queries aggregate duration and don't include it.
+export interface SessionWithDetails extends Omit<Session, 'ratingKey' | 'externalSessionId'> {
   username: string;
   userThumb: string | null;
   serverName: string;
@@ -226,6 +229,7 @@ export interface Violation {
 export interface ViolationWithDetails extends Violation {
   rule: Pick<Rule, 'id' | 'name' | 'type'>;
   user: Pick<ServerUser, 'id' | 'username' | 'thumbUrl'>;
+  server?: Pick<Server, 'id' | 'name' | 'type'>;
 }
 
 // Stats types
@@ -525,9 +529,15 @@ export type NotificationEventType =
   | 'server_down'
   | 'server_up';
 
-// Notification preferences (for future phases)
+// Notification preferences (per-device settings)
 export interface NotificationPreferences {
+  id: string;
+  mobileSessionId: string;
+
+  // Master toggle
   pushEnabled: boolean;
+
+  // Event toggles
   onViolationDetected: boolean;
   onStreamStarted: boolean;
   onStreamStopped: boolean;
@@ -536,16 +546,71 @@ export interface NotificationPreferences {
   onTrustScoreChanged: boolean;
   onServerDown: boolean;
   onServerUp: boolean;
-  violationRuleTypes: RuleType[];
-  violationMinSeverity: 1 | 2 | 3; // 1=low, 2=warning, 3=high
-  concurrentThreshold: number;
-  quietHours: {
-    enabled: boolean;
-    start: string; // "23:00"
-    end: string; // "08:00"
-    timezone: string;
-    overrideCritical: boolean;
-  };
+
+  // Violation filtering
+  violationMinSeverity: number; // 1=low, 2=warning, 3=high
+  violationRuleTypes: string[]; // Empty = all rule types
+
+  // Rate limiting
   maxPerMinute: number;
   maxPerHour: number;
+
+  // Quiet hours
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null; // "23:00"
+  quietHoursEnd: string | null; // "08:00"
+  quietHoursTimezone: string;
+  quietHoursOverrideCritical: boolean;
+
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Rate limit status (returned with preferences for UI display)
+export interface RateLimitStatus {
+  remainingMinute: number;
+  remainingHour: number;
+  resetMinuteIn: number; // seconds until minute window resets
+  resetHourIn: number; // seconds until hour window resets
+}
+
+// Extended preferences response including live rate limit status
+export interface NotificationPreferencesWithStatus extends NotificationPreferences {
+  rateLimitStatus?: RateLimitStatus;
+}
+
+// Notification channel types
+export type NotificationChannel = 'discord' | 'webhook' | 'push';
+
+// Notification channel routing configuration (per-event type)
+export interface NotificationChannelRouting {
+  id: string;
+  eventType: NotificationEventType;
+  discordEnabled: boolean;
+  webhookEnabled: boolean;
+  pushEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Encrypted push payload (AES-256-GCM with separate authTag per security best practices)
+export interface EncryptedPushPayload {
+  v: 1; // Version for future-proofing
+  iv: string; // Base64-encoded 12-byte IV
+  salt: string; // Base64-encoded 16-byte PBKDF2 salt
+  ct: string; // Base64-encoded ciphertext (without authTag)
+  tag: string; // Base64-encoded 16-byte authentication tag
+}
+
+// Push notification payload structure (before encryption)
+export interface PushNotificationPayload {
+  type: NotificationEventType;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+  channelId?: string; // Android notification channel
+  badge?: number; // iOS badge count
+  sound?: string | boolean;
+  priority?: 'default' | 'high';
 }
