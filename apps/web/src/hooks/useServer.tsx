@@ -7,7 +7,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Server } from '@tracearr/shared';
 import { api } from '@/lib/api';
 import { useAuth } from './useAuth';
@@ -28,6 +28,7 @@ const ServerContext = createContext<ServerContextValue | null>(null);
 
 export function ServerProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedServerId, setSelectedServerId] = useState<string | null>(() => {
     // Initialize from localStorage
     return localStorage.getItem(SELECTED_SERVER_KEY);
@@ -91,7 +92,16 @@ export function ServerProvider({ children }: { children: ReactNode }) {
   const selectServer = useCallback((serverId: string) => {
     setSelectedServerId(serverId);
     localStorage.setItem(SELECTED_SERVER_KEY, serverId);
-  }, []);
+    // Invalidate server-dependent queries to force refetch with new server context
+    // We exclude 'servers' query as that's not server-dependent
+    void queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        // Keep server list, invalidate everything else that may be server-specific
+        return key !== 'servers';
+      },
+    });
+  }, [queryClient]);
 
   // Get the full server object for the selected ID
   const selectedServer = useMemo(() => {

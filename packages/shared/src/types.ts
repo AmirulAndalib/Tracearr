@@ -537,8 +537,9 @@ export interface MobilePairResponse {
   accessToken: string;
   refreshToken: string;
   server: {
+    id: string;
     name: string;
-    url: string;
+    type: 'plex' | 'jellyfin' | 'emby';
   };
   user: {
     userId: string;

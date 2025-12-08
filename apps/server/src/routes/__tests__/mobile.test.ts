@@ -738,12 +738,11 @@ describe('Mobile Routes', () => {
             txSelectCallCount++;
             // Call 1: mobileTokens lookup with .where().for().limit()
             // Call 2: users lookup with .where().limit()
-            // Call 3: servers lookup (no .where() or .limit()) - returns array directly
-            // Call 4: servers name lookup with .limit()
+            // Call 3: servers lookup (id, name, type) - awaited directly, no .where() or .limit()
             if (txSelectCallCount === 3) {
-              // tx.select({ id: servers.id }).from(servers) - awaited directly
+              // tx.select({ id, name, type }).from(servers) - awaited directly
               return {
-                from: vi.fn().mockResolvedValue([{ id: mockServerId }]),
+                from: vi.fn().mockResolvedValue([{ id: mockServerId, name: 'MyServer', type: 'plex' }]),
               };
             }
             return {
@@ -783,7 +782,9 @@ describe('Mobile Routes', () => {
       const body = response.json();
       expect(body.accessToken).toBe('mock.jwt.token');
       expect(body.refreshToken).toBeDefined();
+      expect(body.server.id).toBe(mockServerId);
       expect(body.server.name).toBe('MyServer');
+      expect(body.server.type).toBe('plex');
       expect(body.user.role).toBe('owner');
     });
 

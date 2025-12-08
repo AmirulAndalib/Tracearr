@@ -471,6 +471,8 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
       refreshToken: string;
       owner: { id: string; username: string };
       serverName: string;
+      serverId: string;
+      serverType: 'plex' | 'jellyfin' | 'emby';
       serverIds: string[];
       oldRefreshTokenHash?: string; // Track old hash for cleanup outside transaction
     };
@@ -516,12 +518,14 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
         const owner = ownerRow[0]!;
 
         // Get all server IDs for the JWT
-        const allServers = await tx.select({ id: servers.id }).from(servers);
+        const allServers = await tx.select({ id: servers.id, name: servers.name, type: servers.type }).from(servers);
         const serverIds = allServers.map((s) => s.id);
 
-        // Get server name
-        const serverRow = await tx.select({ name: servers.name }).from(servers).limit(1);
-        const serverName = serverRow[0]?.name || 'Tracearr';
+        // Get primary server info for the response (first server)
+        const primaryServer = allServers[0];
+        const serverName = primaryServer?.name || 'Tracearr';
+        const serverId = primaryServer?.id || '';
+        const serverType = primaryServer?.type || 'plex';
 
         // Generate refresh token
         const newRefreshToken = generateRefreshToken();
@@ -583,6 +587,8 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
           refreshToken: newRefreshToken,
           owner: { id: owner.id, username: owner.username },
           serverName,
+          serverId,
+          serverType,
           serverIds,
           oldRefreshTokenHash: oldHash,
         };
@@ -626,8 +632,9 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       server: {
+        id: result.serverId,
         name: result.serverName,
-        url: '',
+        type: result.serverType,
       },
       user: {
         userId: result.owner.id,
