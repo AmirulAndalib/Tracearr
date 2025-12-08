@@ -18,17 +18,19 @@ import {
   useConcurrentStats,
   type StatsPeriod,
 } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 export function StatsActivity() {
   const [period, setPeriod] = useState<StatsPeriod>('month');
+  const { selectedServerId } = useServer();
 
-  // Fetch all stats with the same period
-  const plays = usePlaysStats(period);
-  const dayOfWeek = usePlaysByDayOfWeek(period);
-  const hourOfDay = usePlaysByHourOfDay(period);
-  const platforms = usePlatformStats(period);
-  const quality = useQualityStats(period);
-  const concurrent = useConcurrentStats(period);
+  // Fetch all stats with the same period and server filter
+  const plays = usePlaysStats(period, selectedServerId);
+  const dayOfWeek = usePlaysByDayOfWeek(period, selectedServerId);
+  const hourOfDay = usePlaysByHourOfDay(period, selectedServerId);
+  const platforms = usePlatformStats(period, selectedServerId);
+  const quality = useQualityStats(period, selectedServerId);
+  const concurrent = useConcurrentStats(period, selectedServerId);
 
   // Transform data for charts
   const platformData = platforms.data?.map((p) => ({

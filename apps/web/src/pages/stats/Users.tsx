@@ -4,10 +4,12 @@ import { PeriodSelector } from '@/components/ui/period-selector';
 import { UserCard, UserRow } from '@/components/users';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTopUsers, type StatsPeriod } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 export function StatsUsers() {
   const [period, setPeriod] = useState<StatsPeriod>('month');
-  const topUsers = useTopUsers(period);
+  const { selectedServerId } = useServer();
+  const topUsers = useTopUsers(period, selectedServerId);
 
   const users = topUsers.data ?? [];
   const podiumUsers = users.slice(0, 3);

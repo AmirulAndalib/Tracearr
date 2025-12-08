@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { Play, Clock, AlertTriangle, Tv, Server, MapPin, Calendar, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -6,24 +5,23 @@ import { NowPlayingCard } from '@/components/sessions';
 import { StreamCard } from '@/components/map';
 import { ServerResourceCharts } from '@/components/charts/ServerResourceCharts';
 import { useDashboardStats, useActiveSessions } from '@/hooks/queries';
-import { useServers, useServerStatistics } from '@/hooks/queries/useServers';
+import { useServerStatistics } from '@/hooks/queries/useServers';
+import { useServer } from '@/hooks/useServer';
 
 export function Dashboard() {
-  const { data: stats, isLoading: statsLoading } = useDashboardStats();
-  const { data: sessions } = useActiveSessions();
-  const { data: servers } = useServers();
+  const { selectedServerId, selectedServer } = useServer();
+  const { data: stats, isLoading: statsLoading } = useDashboardStats(selectedServerId);
+  const { data: sessions } = useActiveSessions(selectedServerId);
 
-  // Find first Plex server for resource stats (only Plex has this endpoint)
-  const plexServer = useMemo(() => {
-    return servers?.find((s) => s.type === 'plex');
-  }, [servers]);
+  // Only show server resource stats for Plex servers
+  const isPlexServer = selectedServer?.type === 'plex';
 
-  // Poll server statistics only when viewing dashboard and we have a Plex server
+  // Poll server statistics only when viewing a Plex server
   const {
     data: serverStats,
     isLoading: statsChartLoading,
     averages,
-  } = useServerStatistics(plexServer?.id, !!plexServer);
+  } = useServerStatistics(selectedServerId ?? undefined, isPlexServer);
 
   const activeCount = sessions?.length ?? 0;
   const hasActiveStreams = activeCount > 0;
@@ -149,7 +147,7 @@ export function Dashboard() {
       )}
 
       {/* Server Resource Stats (Plex only) */}
-      {plexServer && (
+      {isPlexServer && (
         <section>
           <div className="mb-4 flex items-center gap-2">
             <Server className="h-5 w-5 text-primary" />

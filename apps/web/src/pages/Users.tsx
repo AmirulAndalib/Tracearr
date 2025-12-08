@@ -9,6 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { ServerUserWithIdentity } from '@tracearr/shared';
 import { useUsers } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 const userColumns: ColumnDef<ServerUserWithIdentity>[] = [
   {
@@ -69,8 +70,9 @@ export function Users() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const pageSize = 20;
+  const { selectedServerId } = useServer();
 
-  const { data, isLoading } = useUsers({ page, pageSize });
+  const { data, isLoading } = useUsers({ page, pageSize, serverId: selectedServerId ?? undefined });
 
   const users = data?.data ?? [];
   const total = data?.total ?? 0;

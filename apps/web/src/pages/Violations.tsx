@@ -36,6 +36,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
 import type { ViolationWithDetails, ViolationSeverity } from '@tracearr/shared';
 import { useViolations, useAcknowledgeViolation, useDismissViolation } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 const ruleIcons: Record<string, React.ReactNode> = {
   impossible_travel: <MapPin className="h-4 w-4" />,
@@ -51,6 +52,7 @@ export function Violations() {
   const [acknowledgedFilter, setAcknowledgedFilter] = useState<'all' | 'pending' | 'acknowledged'>('all');
   const [dismissId, setDismissId] = useState<string | null>(null);
   const pageSize = 10;
+  const { selectedServerId } = useServer();
 
   const { data: violationsData, isLoading } = useViolations({
     page,
@@ -58,6 +60,7 @@ export function Violations() {
     severity: severityFilter === 'all' ? undefined : severityFilter,
     acknowledged:
       acknowledgedFilter === 'all' ? undefined : acknowledgedFilter === 'acknowledged',
+    serverId: selectedServerId ?? undefined,
   });
   const acknowledgeViolation = useAcknowledgeViolation();
   const dismissViolation = useDismissViolation();

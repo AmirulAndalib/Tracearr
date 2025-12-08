@@ -29,6 +29,7 @@ import {
   useUserLocations,
   useUserDevices,
 } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 /**
  * Format duration in human readable format
@@ -160,6 +161,7 @@ export function UserDetail() {
   const [sessionsPage, setSessionsPage] = useState(1);
   const [violationsPage, setViolationsPage] = useState(1);
   const pageSize = 10;
+  const { selectedServerId } = useServer();
 
   const { data: user, isLoading: userLoading } = useUser(id!);
   const { data: sessionsData, isLoading: sessionsLoading } = useUserSessions(id!, {
@@ -170,6 +172,7 @@ export function UserDetail() {
     userId: id,
     page: violationsPage,
     pageSize,
+    serverId: selectedServerId ?? undefined,
   });
   const { data: locations, isLoading: locationsLoading } = useUserLocations(id!);
   const { data: devices, isLoading: devicesLoading } = useUserDevices(id!);

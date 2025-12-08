@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { X, Flame, CircleDot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLocationStats } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 const TIME_RANGES = [
   { value: '7', label: '7 days' },
@@ -29,21 +30,21 @@ const MEDIA_TYPES = [
 export function Map() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<MapViewMode>('heatmap');
+  const { selectedServerId } = useServer();
 
-  // Parse filters from URL
+  // Parse filters from URL, use selected server from context
   const filters = useMemo(() => {
     const days = searchParams.get('days');
     const serverUserId = searchParams.get('serverUserId');
-    const serverId = searchParams.get('serverId');
     const mediaType = searchParams.get('mediaType') as 'movie' | 'episode' | 'track' | null;
 
     return {
       days: days ? Number(days) : 30,
       serverUserId: serverUserId || undefined,
-      serverId: serverId || undefined,
+      serverId: selectedServerId || undefined,
       mediaType: mediaType || undefined,
     };
-  }, [searchParams]);
+  }, [searchParams, selectedServerId]);
 
   // Fetch data - includes available filter options based on current filters
   const { data: locationData, isLoading: locationsLoading } = useLocationStats(filters);
@@ -54,12 +55,12 @@ export function Map() {
 
   // Dynamic filter options from the response
   const users = availableFilters?.users ?? [];
-  const servers = availableFilters?.servers ?? [];
+  // const servers = availableFilters?.servers ?? []; // Server selection moved to sidebar
   const mediaTypes = availableFilters?.mediaTypes ?? [];
 
   // Get selected filter labels for display
   const selectedUser = users.find(u => u.id === filters.serverUserId);
-  const selectedServer = servers.find(s => s.id === filters.serverId);
+  // const selectedServer = servers.find(s => s.id === filters.serverId); // Server selection moved to sidebar
   const selectedMediaType = MEDIA_TYPES.find(m => m.value === filters.mediaType);
 
   // Filter MEDIA_TYPES to only show available options
@@ -81,16 +82,17 @@ export function Map() {
     setSearchParams(new URLSearchParams());
   };
 
-  const hasFilters = filters.serverUserId || filters.serverId || filters.mediaType || filters.days !== 30;
+  // Server is always set from context, so don't include it in hasFilters check
+  const hasFilters = filters.serverUserId || filters.mediaType || filters.days !== 30;
 
-  // Build summary text
+  // Build summary text (server selection is now in sidebar, not shown here)
   const summaryContext = useMemo(() => {
     const parts: string[] = [];
     if (selectedUser) parts.push(selectedUser.username);
-    if (selectedServer) parts.push(selectedServer.name);
+    // Server shown in sidebar, not in summary
     if (selectedMediaType) parts.push(selectedMediaType.label);
     return parts.join(' · ') || 'All activity';
-  }, [selectedUser, selectedServer, selectedMediaType]);
+  }, [selectedUser, selectedMediaType]);
 
   return (
     <div className="-m-6 flex h-[calc(100vh-4rem)] flex-col">
@@ -131,7 +133,7 @@ export function Map() {
           </SelectContent>
         </Select>
 
-        {/* Server filter */}
+        {/* Server filter - moved to sidebar ServerSelector
         <Select
           value={filters.serverId ?? '_all'}
           onValueChange={(v) => setFilter('serverId', v === '_all' ? null : v)}
@@ -148,6 +150,7 @@ export function Map() {
             ))}
           </SelectContent>
         </Select>
+        */}
 
         {/* Media type filter */}
         <Select

@@ -4,10 +4,12 @@ import { PeriodSelector } from '@/components/ui/period-selector';
 import { MediaCard, MediaCardSmall } from '@/components/media';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTopContent, type StatsPeriod } from '@/hooks/queries';
+import { useServer } from '@/hooks/useServer';
 
 export function StatsLibrary() {
   const [period, setPeriod] = useState<StatsPeriod>('month');
-  const topContent = useTopContent(period);
+  const { selectedServerId } = useServer();
+  const topContent = useTopContent(period, selectedServerId);
 
   // Use separate movies and shows arrays from API
   const movies = topContent.data?.movies ?? [];
