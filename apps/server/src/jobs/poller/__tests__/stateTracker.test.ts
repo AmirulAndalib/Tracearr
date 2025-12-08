@@ -14,6 +14,7 @@ import {
   calculatePauseAccumulation,
   calculateStopDuration,
   checkWatchCompletion,
+  isQualityChangeScenario,
   shouldGroupWithPreviousSession,
 } from '../stateTracker.js';
 
@@ -393,5 +394,61 @@ describe('Integration: Complete Watch Session', () => {
       60 * 60 * 1000
     );
     expect(ref2).toBe(session1Id);
+  });
+});
+
+describe('isQualityChangeScenario', () => {
+  describe('quality change detection', () => {
+    it('should return session id when active session exists for same user+content', () => {
+      const sessionId = randomUUID();
+
+      const result = isQualityChangeScenario({
+        id: sessionId,
+        referenceId: null,
+        stoppedAt: null, // Active session
+      });
+
+      expect(result).toBe(sessionId);
+    });
+
+    it('should return original referenceId when session is already part of a chain', () => {
+      const originalSessionId = randomUUID();
+      const currentSessionId = randomUUID();
+
+      const result = isQualityChangeScenario({
+        id: currentSessionId,
+        referenceId: originalSessionId, // Already linked to original
+        stoppedAt: null,
+      });
+
+      expect(result).toBe(originalSessionId);
+    });
+  });
+
+  describe('non-quality-change scenarios', () => {
+    it('should return null when no existing session', () => {
+      expect(isQualityChangeScenario(null)).toBeNull();
+      expect(isQualityChangeScenario(undefined)).toBeNull();
+    });
+
+    it('should return null when session is already stopped (resume scenario)', () => {
+      const result = isQualityChangeScenario({
+        id: randomUUID(),
+        referenceId: null,
+        stoppedAt: new Date(), // Session stopped - not a quality change
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for stopped session even with referenceId', () => {
+      const result = isQualityChangeScenario({
+        id: randomUUID(),
+        referenceId: randomUUID(),
+        stoppedAt: new Date(), // Session stopped
+      });
+
+      expect(result).toBeNull();
+    });
   });
 });
