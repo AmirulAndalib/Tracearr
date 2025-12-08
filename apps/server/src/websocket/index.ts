@@ -113,7 +113,7 @@ export function broadcastToSessions<K extends keyof ServerToClientEvents>(
   ...args: Parameters<ServerToClientEvents[K]>
 ): void {
   if (io) {
-    io.to('sessions').emit(event, ...args);
+    (io.to('sessions').emit as (event: K, ...args: Parameters<ServerToClientEvents[K]>) => void)(event, ...args);
   }
 }
 
@@ -123,6 +123,6 @@ export function broadcastToServer<K extends keyof ServerToClientEvents>(
   ...args: Parameters<ServerToClientEvents[K]>
 ): void {
   if (io) {
-    io.to(`server:${serverId}`).emit(event, ...args);
+    (io.to(`server:${serverId}`).emit as (event: K, ...args: Parameters<ServerToClientEvents[K]>) => void)(event, ...args);
   }
 }

@@ -152,7 +152,7 @@ export class NotificationService {
   }
 
   private async sendDiscord(webhookUrl: string, violation: ViolationWithDetails): Promise<void> {
-    const severityColors = {
+    const severityColors: Record<keyof typeof SEVERITY_LEVELS, number> = {
       low: 0x3498db,
       warning: 0xf39c12,
       high: 0xe74c3c,
@@ -163,7 +163,7 @@ export class NotificationService {
 
     await this.sendDiscordMessage(webhookUrl, {
       title: `Sharing Violation Detected`,
-      color: severityColors[severity],
+      color: severityColors[severity] ?? 0x3498db,
       fields: [
         { name: 'User', value: violation.user.username, inline: true },
         { name: 'Rule', value: RULE_DISPLAY_NAMES[ruleType], inline: true },

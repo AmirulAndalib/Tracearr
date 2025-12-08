@@ -51,7 +51,7 @@ export const locationsRoutes: FastifyPluginAsync = async (app) => {
       // Apply server access restriction if user has limited access
       // Note: We build the array literal explicitly because Drizzle doesn't auto-convert JS arrays for ANY()
       if (authUser.serverIds.length > 0) {
-        const serverIdArray = sql.raw(`ARRAY[${authUser.serverIds.map(id => `'${id}'::uuid`).join(',')}]`);
+        const serverIdArray = sql.raw(`ARRAY[${authUser.serverIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
         conditions.push(sql`s.server_id = ANY(${serverIdArray})`);
       }
 
@@ -75,7 +75,7 @@ export const locationsRoutes: FastifyPluginAsync = async (app) => {
         sql`s.geo_lon IS NOT NULL`,
       ];
       if (authUser.serverIds.length > 0) {
-        const baseServerIdArray = sql.raw(`ARRAY[${authUser.serverIds.map(id => `'${id}'::uuid`).join(',')}]`);
+        const baseServerIdArray = sql.raw(`ARRAY[${authUser.serverIds.map((id: string) => `'${id}'::uuid`).join(',')}]`);
         baseConditions.push(sql`s.server_id = ANY(${baseServerIdArray})`);
       }
 
