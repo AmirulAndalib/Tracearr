@@ -164,6 +164,9 @@ export const sessions = pgTable(
       .notNull()
       .references(() => serverUsers.id, { onDelete: 'cascade' }),
     sessionKey: varchar('session_key', { length: 255 }).notNull(),
+    // Plex Session.id - required for termination API (different from sessionKey)
+    // For Jellyfin/Emby, sessionKey is used directly for termination
+    plexSessionId: varchar('plex_session_id', { length: 255 }),
     state: varchar('state', { length: 20 }).notNull().$type<(typeof sessionStateEnum)[number]>(),
     mediaType: varchar('media_type', { length: 20 })
       .notNull()
@@ -404,6 +407,61 @@ export const notificationChannelRouting = pgTable(
   (table) => [index('notification_channel_routing_event_type_idx').on(table.eventType)]
 );
 
+// Termination trigger type enum
+export const terminationTriggerEnum = ['manual', 'rule'] as const;
+
+// Stream termination audit log
+export const terminationLogs = pgTable(
+  'termination_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // What was terminated
+    // Note: No FK constraint because sessions is a TimescaleDB hypertable
+    // (hypertables don't support foreign key references to their primary key)
+    // The relationship is maintained via Drizzle ORM relations
+    sessionId: uuid('session_id').notNull(),
+    serverId: uuid('server_id')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
+    // The user whose stream was terminated
+    serverUserId: uuid('server_user_id')
+      .notNull()
+      .references(() => serverUsers.id, { onDelete: 'cascade' }),
+
+    // How it was triggered
+    trigger: varchar('trigger', { length: 20 })
+      .notNull()
+      .$type<(typeof terminationTriggerEnum)[number]>(),
+
+    // Who triggered it (for manual) - nullable for rule-triggered
+    triggeredByUserId: uuid('triggered_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+
+    // What rule triggered it (for rule-triggered) - nullable for manual
+    ruleId: uuid('rule_id').references(() => rules.id, { onDelete: 'set null' }),
+    violationId: uuid('violation_id').references(() => violations.id, { onDelete: 'set null' }),
+
+    // Message shown to user (Plex only)
+    reason: text('reason'),
+
+    // Result
+    success: boolean('success').notNull(),
+    errorMessage: text('error_message'), // If success=false
+
+    // Timestamp
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('termination_logs_session_idx').on(table.sessionId),
+    index('termination_logs_server_user_idx').on(table.serverUserId),
+    index('termination_logs_triggered_by_idx').on(table.triggeredByUserId),
+    index('termination_logs_rule_idx').on(table.ruleId),
+    index('termination_logs_created_at_idx').on(table.createdAt),
+  ]
+);
+
 // Application settings (single row)
 export const settings = pgTable('settings', {
   id: integer('id').primaryKey().default(1),
@@ -515,5 +573,32 @@ export const mobileTokensRelations = relations(mobileTokens, ({ one }) => ({
   createdByUser: one(users, {
     fields: [mobileTokens.createdBy],
     references: [users.id],
+  }),
+}));
+
+export const terminationLogsRelations = relations(terminationLogs, ({ one }) => ({
+  session: one(sessions, {
+    fields: [terminationLogs.sessionId],
+    references: [sessions.id],
+  }),
+  server: one(servers, {
+    fields: [terminationLogs.serverId],
+    references: [servers.id],
+  }),
+  serverUser: one(serverUsers, {
+    fields: [terminationLogs.serverUserId],
+    references: [serverUsers.id],
+  }),
+  triggeredByUser: one(users, {
+    fields: [terminationLogs.triggeredByUserId],
+    references: [users.id],
+  }),
+  rule: one(rules, {
+    fields: [terminationLogs.ruleId],
+    references: [rules.id],
+  }),
+  violation: one(violations, {
+    fields: [terminationLogs.violationId],
+    references: [violations.id],
   }),
 }));

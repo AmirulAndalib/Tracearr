@@ -7,6 +7,7 @@ import { UserLocationsCard } from '@/components/users/UserLocationsCard';
 import { UserDevicesCard } from '@/components/users/UserDevicesCard';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { ActiveSessionBadge } from '@/components/sessions/ActiveSessionBadge';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,16 +19,17 @@ import {
   AlertTriangle,
   Tv,
   Globe,
+  XCircle,
+  Bot,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Session, ViolationWithDetails } from '@tracearr/shared';
+import type { Session, ViolationSummary, ViolationWithDetails, TerminationLogWithDetails } from '@tracearr/shared';
 import {
-  useUser,
+  useUserFull,
   useUserSessions,
   useViolations,
-  useUserLocations,
-  useUserDevices,
+  useUserTerminations,
 } from '@/hooks/queries';
 import { useServer } from '@/hooks/useServer';
 
@@ -112,7 +114,10 @@ const sessionColumns: ColumnDef<Session>[] = [
   },
 ];
 
-const violationColumns: ColumnDef<ViolationWithDetails>[] = [
+// Union type for violations - aggregate returns ViolationSummary, paginated returns ViolationWithDetails
+type ViolationRow = ViolationSummary | ViolationWithDetails;
+
+const violationColumns: ColumnDef<ViolationRow>[] = [
   {
     accessorKey: 'rule.name',
     header: 'Rule',
@@ -128,7 +133,7 @@ const violationColumns: ColumnDef<ViolationWithDetails>[] = [
   {
     accessorKey: 'severity',
     header: 'Severity',
-    cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
+    cell: ({ row }) => <SeverityBadge severity={row.original.severity as 'low' | 'warning' | 'high'} />,
   },
   {
     accessorKey: 'createdAt',
@@ -156,34 +161,153 @@ const violationColumns: ColumnDef<ViolationWithDetails>[] = [
   },
 ];
 
+const terminationColumns: ColumnDef<TerminationLogWithDetails>[] = [
+  {
+    accessorKey: 'trigger',
+    header: 'Type',
+    cell: ({ row }) => (
+      <Badge variant={row.original.trigger === 'manual' ? 'default' : 'secondary'}>
+        {row.original.trigger === 'manual' ? (
+          <>
+            <UserIcon className="mr-1 h-3 w-3" />
+            Manual
+          </>
+        ) : (
+          <>
+            <Bot className="mr-1 h-3 w-3" />
+            Rule
+          </>
+        )}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: 'mediaTitle',
+    header: 'Media',
+    cell: ({ row }) => (
+      <div className="max-w-[200px]">
+        <p className="truncate font-medium">{row.original.mediaTitle ?? '—'}</p>
+        <p className="text-xs text-muted-foreground capitalize">
+          {row.original.mediaType ?? 'unknown'}
+        </p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: 'createdAt',
+    header: 'When',
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {formatDistanceToNow(new Date(row.original.createdAt), { addSuffix: true })}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'triggeredByUsername',
+    header: 'By / Rule',
+    cell: ({ row }) => {
+      const log = row.original;
+      if (log.trigger === 'manual') {
+        return (
+          <span className="text-sm">@{log.triggeredByUsername ?? 'Unknown'}</span>
+        );
+      }
+      return (
+        <span className="text-sm text-muted-foreground">{log.ruleName ?? 'Unknown rule'}</span>
+      );
+    },
+  },
+  {
+    accessorKey: 'reason',
+    header: 'Reason',
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground truncate max-w-[150px] block">
+        {row.original.reason ?? '—'}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'success',
+    header: 'Status',
+    cell: ({ row }) => (
+      <span
+        className={row.original.success ? 'text-green-500' : 'text-red-500 font-medium'}
+      >
+        {row.original.success ? 'Success' : 'Failed'}
+      </span>
+    ),
+  },
+];
+
 export function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const [sessionsPage, setSessionsPage] = useState(1);
   const [violationsPage, setViolationsPage] = useState(1);
+  const [terminationsPage, setTerminationsPage] = useState(1);
   const pageSize = 10;
   const { selectedServerId } = useServer();
 
-  const { data: user, isLoading: userLoading } = useUser(id!);
-  const { data: sessionsData, isLoading: sessionsLoading } = useUserSessions(id!, {
-    page: sessionsPage,
-    pageSize,
-  });
-  const { data: violationsData, isLoading: violationsLoading } = useViolations({
+  // Use the aggregate endpoint for initial load (1 request instead of 6)
+  const { data: fullData, isLoading } = useUserFull(id!);
+
+  // Only fetch paginated data when user navigates beyond first page
+  const { data: paginatedSessions, isLoading: paginatedSessionsLoading } = useUserSessions(
+    id!,
+    { page: sessionsPage, pageSize },
+    // Only enable when on page > 1 (first page data comes from aggregate)
+  );
+  const needsPaginatedSessions = sessionsPage > 1;
+
+  const { data: paginatedViolations, isLoading: paginatedViolationsLoading } = useViolations({
     userId: id,
     page: violationsPage,
     pageSize,
     serverId: selectedServerId ?? undefined,
   });
-  const { data: locations, isLoading: locationsLoading } = useUserLocations(id!);
-  const { data: devices, isLoading: devicesLoading } = useUserDevices(id!);
+  const needsPaginatedViolations = violationsPage > 1;
 
-  const sessions = sessionsData?.data ?? [];
-  const sessionsTotalPages = sessionsData?.totalPages ?? 1;
-  const violations = violationsData?.data ?? [];
-  const violationsTotalPages = violationsData?.totalPages ?? 1;
-  const totalSessions = sessionsData?.total ?? 0;
+  const { data: paginatedTerminations, isLoading: paginatedTerminationsLoading } = useUserTerminations(
+    id!,
+    { page: terminationsPage, pageSize },
+  );
+  const needsPaginatedTerminations = terminationsPage > 1;
 
-  if (userLoading) {
+  // Extract data from aggregate or paginated sources
+  const user = fullData?.user;
+  const locations = fullData?.locations ?? [];
+  const devices = fullData?.devices ?? [];
+
+  // Sessions: use paginated data if on page > 1, otherwise use aggregate
+  const sessions = needsPaginatedSessions
+    ? (paginatedSessions?.data ?? [])
+    : (fullData?.sessions.data ?? []);
+  const sessionsTotal = needsPaginatedSessions
+    ? (paginatedSessions?.total ?? fullData?.sessions.total ?? 0)
+    : (fullData?.sessions.total ?? 0);
+  const sessionsTotalPages = Math.ceil(sessionsTotal / pageSize);
+  const sessionsLoading = needsPaginatedSessions ? paginatedSessionsLoading : isLoading;
+
+  // Violations: use paginated data if on page > 1, otherwise use aggregate
+  const violations: ViolationRow[] = needsPaginatedViolations
+    ? (paginatedViolations?.data ?? [])
+    : (fullData?.violations.data ?? []);
+  const violationsTotal = needsPaginatedViolations
+    ? (paginatedViolations?.total ?? fullData?.violations.total ?? 0)
+    : (fullData?.violations.total ?? 0);
+  const violationsTotalPages = Math.ceil(violationsTotal / pageSize);
+  const violationsLoading = needsPaginatedViolations ? paginatedViolationsLoading : isLoading;
+
+  // Terminations: use paginated data if on page > 1, otherwise use aggregate
+  const terminations = needsPaginatedTerminations
+    ? (paginatedTerminations?.data ?? [])
+    : (fullData?.terminations.data ?? []);
+  const terminationsTotal = needsPaginatedTerminations
+    ? (paginatedTerminations?.total ?? fullData?.terminations.total ?? 0)
+    : (fullData?.terminations.total ?? 0);
+  const terminationsTotalPages = Math.ceil(terminationsTotal / pageSize);
+  const terminationsLoading = needsPaginatedTerminations ? paginatedTerminationsLoading : isLoading;
+
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
@@ -294,14 +418,14 @@ export function UserDetail() {
                   <Play className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Sessions</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold">{sessionsData?.total ?? 0}</p>
+                <p className="mt-1 text-2xl font-bold">{user.stats.totalSessions}</p>
               </div>
               <div className="rounded-lg border p-4">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">Violations</span>
                 </div>
-                <p className="mt-1 text-2xl font-bold">{violationsData?.total ?? 0}</p>
+                <p className="mt-1 text-2xl font-bold">{violationsTotal}</p>
               </div>
               <div className="rounded-lg border p-4">
                 <div className="flex items-center gap-2">
@@ -329,14 +453,14 @@ export function UserDetail() {
       {/* Locations and Devices */}
       <div className="grid gap-6 lg:grid-cols-2">
         <UserLocationsCard
-          locations={locations ?? []}
-          isLoading={locationsLoading}
-          totalSessions={totalSessions}
+          locations={locations}
+          isLoading={isLoading}
+          totalSessions={sessionsTotal}
         />
         <UserDevicesCard
-          devices={devices ?? []}
-          isLoading={devicesLoading}
-          totalSessions={totalSessions}
+          devices={devices}
+          isLoading={isLoading}
+          totalSessions={sessionsTotal}
         />
       </div>
 
@@ -374,6 +498,28 @@ export function UserDetail() {
             onPageChange={setViolationsPage}
             isLoading={violationsLoading}
             emptyMessage="No violations for this user."
+          />
+        </CardContent>
+      </Card>
+
+      {/* Termination History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <XCircle className="h-5 w-5" />
+            Termination History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={terminationColumns}
+            data={terminations}
+            pageSize={pageSize}
+            pageCount={terminationsTotalPages}
+            page={terminationsPage}
+            onPageChange={setTerminationsPage}
+            isLoading={terminationsLoading}
+            emptyMessage="No stream terminations for this user."
           />
         </CardContent>
       </Card>

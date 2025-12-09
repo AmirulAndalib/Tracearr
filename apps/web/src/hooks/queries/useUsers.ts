@@ -18,6 +18,20 @@ export function useUser(id: string) {
   });
 }
 
+/**
+ * Aggregate endpoint that fetches all user data in one request.
+ * Use this for the UserDetail page instead of multiple separate queries.
+ * Reduces 6 API calls to 1, significantly improving load time.
+ */
+export function useUserFull(id: string) {
+  return useQuery({
+    queryKey: ['users', 'full', id],
+    queryFn: () => api.users.getFull(id),
+    enabled: !!id,
+    staleTime: 1000 * 60, // 1 minute
+  });
+}
+
 export function useUserSessions(id: string, params: { page?: number; pageSize?: number } = {}) {
   return useQuery({
     queryKey: ['users', 'sessions', id, params],
@@ -57,5 +71,14 @@ export function useUserDevices(id: string) {
     queryFn: () => api.users.devices(id),
     enabled: !!id,
     staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function useUserTerminations(id: string, params: { page?: number; pageSize?: number } = {}) {
+  return useQuery({
+    queryKey: ['users', 'terminations', id, params],
+    queryFn: () => api.users.terminations(id, params),
+    enabled: !!id,
+    staleTime: 1000 * 60, // 1 minute
   });
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "plex_session_id" varchar(255);
