@@ -256,6 +256,57 @@ describe('Debug Routes', () => {
       expect(body.counts.servers).toBe(0);
       expect(body.counts.rules).toBe(0);
     });
+
+    it('handles missing count values (undefined)', async () => {
+      app = await buildTestApp(ownerUser);
+
+      // Mock count queries returning empty arrays (undefined count)
+      vi.mocked(db.select).mockImplementation(() => {
+        return {
+          from: vi.fn().mockReturnValue(Promise.resolve([])), // Empty array, no count property
+        } as never;
+      });
+
+      mockDbExecute([
+        { rows: [{ size: '8 KB' }] },
+        { rows: [] },
+      ]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/debug/stats',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      // Should fallback to 0 for all counts
+      expect(body.counts.sessions).toBe(0);
+      expect(body.counts.violations).toBe(0);
+      expect(body.counts.users).toBe(0);
+      expect(body.counts.servers).toBe(0);
+      expect(body.counts.rules).toBe(0);
+    });
+
+    it('handles missing database size', async () => {
+      app = await buildTestApp(ownerUser);
+
+      mockDbSelectCounts([100, 25, 50, 3, 10]);
+
+      // Mock execute with empty rows for database size
+      mockDbExecute([
+        { rows: [] }, // No size row
+        { rows: [] },
+      ]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/debug/stats',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.database.size).toBe('unknown');
+    });
   });
 
   describe('DELETE /debug/sessions', () => {
@@ -464,8 +515,10 @@ describe('Debug Routes', () => {
       expect(body.success).toBe(true);
       expect(body.message).toContain('Factory reset complete');
 
-      // Verify delete was called 5 times (violations, sessions, rules, users, servers)
-      expect(db.delete).toHaveBeenCalledTimes(5);
+      // Verify delete was called 11 times (violations, terminationLogs, sessions, rules,
+      // notificationChannelRouting, notificationPreferences, mobileSessions, mobileTokens,
+      // serverUsers, users, servers)
+      expect(db.delete).toHaveBeenCalledTimes(11);
 
       // Verify settings update was called
       expect(db.update).toHaveBeenCalled();
@@ -564,6 +617,36 @@ describe('Debug Routes', () => {
       // Clean up
       delete process.env.DATABASE_URL;
       delete process.env.REDIS_URL;
+    });
+
+    it('shows [not set] for unset environment variables', async () => {
+      app = await buildTestApp(ownerUser);
+
+      // Ensure env vars are NOT set
+      const origDbUrl = process.env.DATABASE_URL;
+      const origRedisUrl = process.env.REDIS_URL;
+      const origEncKey = process.env.ENCRYPTION_KEY;
+      delete process.env.DATABASE_URL;
+      delete process.env.REDIS_URL;
+      delete process.env.ENCRYPTION_KEY;
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/debug/env',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+
+      // Should show [not set] for unset env vars
+      expect(body.env.DATABASE_URL).toBe('[not set]');
+      expect(body.env.REDIS_URL).toBe('[not set]');
+      expect(body.env.ENCRYPTION_KEY).toBe('[not set]');
+
+      // Restore original values
+      if (origDbUrl) process.env.DATABASE_URL = origDbUrl;
+      if (origRedisUrl) process.env.REDIS_URL = origRedisUrl;
+      if (origEncKey) process.env.ENCRYPTION_KEY = origEncKey;
     });
   });
 });
