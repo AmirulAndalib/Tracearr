@@ -1303,7 +1303,7 @@ function ImportSettings() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [importProgress, setImportProgress] = useState<TautulliImportProgress | null>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [_activeJobId, setActiveJobId] = useState<string | null>(null);
 
   // Handle both array and wrapped response formats
   const servers = Array.isArray(serversData)
