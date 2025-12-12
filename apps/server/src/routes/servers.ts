@@ -7,7 +7,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { createServerSchema, serverIdParamSchema, SERVER_STATS_CONFIG } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { servers } from '../db/schema.js';
-import { encrypt, decrypt } from '../utils/crypto.js';
+// Token encryption removed - tokens now stored in plain text (DB is localhost-only)
 import { PlexClient, JellyfinClient, EmbyClient } from '../services/mediaServer/index.js';
 import { syncServer } from '../services/sync.js';
 
@@ -100,16 +100,14 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         return reply.badRequest('Failed to connect to server. Please verify URL and token.');
       }
 
-      // Encrypt token and save
-      const encryptedToken = encrypt(token);
-
+      // Save server with plain text token (DB is localhost-only)
       const inserted = await db
         .insert(servers)
         .values({
           name,
           type,
           url,
-          token: encryptedToken,
+          token,
         })
         .returning({
           id: servers.id,
@@ -336,7 +334,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const baseUrl = server.url.replace(/\/$/, '');
-      const token = decrypt(server.token);
+      const token = server.token;
 
       try {
         let imageUrl: string;

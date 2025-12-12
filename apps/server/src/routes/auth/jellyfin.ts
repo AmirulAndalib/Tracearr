@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { db } from '../../db/client.js';
 import { servers } from '../../db/schema.js';
 import { JellyfinClient } from '../../services/mediaServer/index.js';
-import { encrypt } from '../../utils/crypto.js';
+// Token encryption removed - tokens now stored in plain text (DB is localhost-only)
 import { generateTokens } from './utils.js';
 import { syncServer } from '../../services/sync.js';
 
@@ -65,7 +65,7 @@ export const jellyfinRoutes: FastifyPluginAsync = async (app) => {
               name: serverName,
               type: 'jellyfin',
               url: serverUrl,
-              token: encrypt(apiKey),
+              token: apiKey,
             })
             .returning();
           server = inserted;
@@ -75,7 +75,7 @@ export const jellyfinRoutes: FastifyPluginAsync = async (app) => {
             .update(servers)
             .set({
               name: serverName,
-              token: encrypt(apiKey),
+              token: apiKey,
               updatedAt: new Date(),
             })
             .where(eq(servers.id, existingServer.id));

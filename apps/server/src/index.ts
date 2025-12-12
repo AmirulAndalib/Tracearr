@@ -46,7 +46,7 @@ import { mobileRoutes } from './routes/mobile.js';
 import { notificationPreferencesRoutes } from './routes/notificationPreferences.js';
 import { channelRoutingRoutes } from './routes/channelRouting.js';
 import { getPollerSettings, getNetworkSettings } from './routes/settings.js';
-import { initializeEncryption, isEncryptionInitialized } from './utils/crypto.js';
+import { initializeEncryption, isEncryptionInitialized, migrateToken, looksEncrypted } from './utils/crypto.js';
 import { geoipService } from './services/geoip.js';
 import { createCacheService, createPubSubService } from './services/cache.js';
 import { initializePoller, startPoller, stopPoller } from './jobs/poller/index.js';
@@ -66,7 +66,8 @@ import {
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
 import { db, runMigrations } from './db/client.js';
 import { initTimescaleDB, getTimescaleStatus } from './db/timescale.js';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import { servers } from './db/schema.js';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -116,13 +117,51 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     // Don't throw - app can still work without TimescaleDB features
   }
 
-  // Initialize encryption
+  // Initialize encryption (optional - only needed for migrating existing encrypted tokens)
+  const encryptionAvailable = initializeEncryption();
+  if (encryptionAvailable) {
+    app.log.info('Encryption key available for token migration');
+  }
+
+  // Migrate any encrypted tokens to plain text
   try {
-    initializeEncryption();
-    app.log.info('Encryption initialized');
+    const allServers = await db.select({ id: servers.id, token: servers.token }).from(servers);
+    let migrated = 0;
+    let failed = 0;
+
+    for (const server of allServers) {
+      if (looksEncrypted(server.token)) {
+        const result = migrateToken(server.token);
+        if (result.wasEncrypted) {
+          await db.update(servers).set({ token: result.plainText }).where(eq(servers.id, server.id));
+          migrated++;
+        } else {
+          // Looks encrypted but couldn't decrypt - always warn regardless of key availability
+          app.log.warn(
+            { serverId: server.id, hasEncryptionKey: encryptionAvailable },
+            'Server token appears encrypted but could not be decrypted. ' +
+              (encryptionAvailable
+                ? 'The encryption key may not match. '
+                : 'No ENCRYPTION_KEY provided. ') +
+              'You may need to re-add this server.'
+          );
+          failed++;
+        }
+      }
+    }
+
+    if (migrated > 0) {
+      app.log.info(`Migrated ${migrated} server token(s) from encrypted to plain text storage`);
+    }
+    if (failed > 0) {
+      app.log.warn(
+        `${failed} server(s) have tokens that could not be decrypted. ` +
+          'These servers will need to be re-added.'
+      );
+    }
   } catch (err) {
-    app.log.error({ err }, 'Failed to initialize encryption');
-    throw err;
+    app.log.error({ err }, 'Failed to migrate encrypted tokens');
+    // Don't throw - let the app start, individual servers will fail gracefully
   }
 
   // Initialize GeoIP service (optional - graceful degradation)
@@ -251,10 +290,9 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     }
 
     return {
-      status: dbHealthy && redisHealthy && isEncryptionInitialized() ? 'ok' : 'degraded',
+      status: dbHealthy && redisHealthy ? 'ok' : 'degraded',
       db: dbHealthy,
       redis: redisHealthy,
-      encryption: isEncryptionInitialized(),
       geoip: geoipService.hasDatabase(),
       timescale,
     };

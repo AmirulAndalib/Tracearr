@@ -14,7 +14,7 @@ import type { PlexAvailableServersResponse, PlexDiscoveredServer, PlexDiscovered
 import { db } from '../../db/client.js';
 import { servers, users, serverUsers } from '../../db/schema.js';
 import { PlexClient } from '../../services/mediaServer/index.js';
-import { encrypt, decrypt } from '../../utils/crypto.js';
+// Token encryption removed - tokens now stored in plain text (DB is localhost-only)
 import { plexHeaders } from '../../utils/http.js';
 import {
   generateTokens,
@@ -239,7 +239,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
             name: serverName,
             type: 'plex',
             url: serverUri,
-            token: encrypt(plexToken),
+            token: plexToken,
             machineIdentifier: clientIdentifier,
           })
           .returning();
@@ -249,7 +249,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
         await db
           .update(servers)
           .set({
-            token: encrypt(plexToken),
+            token: plexToken,
             updatedAt: new Date(),
             // Update machineIdentifier if not already set
             ...(clientIdentifier && !existingServer.machineIdentifier
@@ -343,7 +343,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
       }
 
       // Use the first server's token to query plex.tv
-      const plexToken = decrypt(existingPlexServers[0]!.token);
+      const plexToken = existingPlexServers[0]!.token;
 
       // Get all servers the user owns from plex.tv
       let allServers;
@@ -471,7 +471,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
         return reply.badRequest('No Plex servers connected. Please link your Plex account first.');
       }
 
-      const plexToken = decrypt(existingPlexServer[0]!.token);
+      const plexToken = existingPlexServer[0]!.token;
 
       // Check if server already exists (by machineIdentifier or URL)
       const existing = await db
@@ -511,7 +511,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
             name: serverName,
             type: 'plex',
             url: serverUri,
-            token: encrypt(plexToken),
+            token: plexToken,
             machineIdentifier: clientIdentifier,
           })
           .returning();
