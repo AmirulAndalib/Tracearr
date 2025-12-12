@@ -266,10 +266,41 @@ export interface Violation {
   acknowledgedAt: Date | null;
 }
 
+// Session info for violations (used in both session and relatedSessions)
+export interface ViolationSessionInfo {
+  id: string;
+  mediaTitle: string;
+  mediaType: MediaType;
+  grandparentTitle: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
+  year: number | null;
+  ipAddress: string;
+  geoCity: string | null;
+  geoRegion: string | null;
+  geoCountry: string | null;
+  geoLat: number | null;
+  geoLon: number | null;
+  playerName: string | null;
+  device: string | null;
+  deviceId: string | null;
+  platform: string | null;
+  product: string | null;
+  quality: string | null;
+  startedAt: Date;
+}
+
 export interface ViolationWithDetails extends Violation {
   rule: Pick<Rule, 'id' | 'name' | 'type'>;
   user: Pick<ServerUser, 'id' | 'username' | 'thumbUrl' | 'serverId'>;
   server?: Pick<Server, 'id' | 'name' | 'type'>;
+  session?: ViolationSessionInfo;
+  relatedSessions?: ViolationSessionInfo[];
+  userHistory?: {
+    previousIPs: string[];
+    previousDevices: string[];
+    previousLocations: Array<{ city: string | null; country: string | null; ip: string }>;
+  };
 }
 
 // Stats types
