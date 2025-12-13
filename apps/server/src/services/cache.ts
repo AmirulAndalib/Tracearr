@@ -8,9 +8,22 @@ import { REDIS_KEYS, CACHE_TTL } from '@tracearr/shared';
 import type { ActiveSession, DashboardStats } from '@tracearr/shared';
 
 export interface CacheService {
-  // Active sessions
+  // Active sessions (legacy - JSON array, deprecated)
   getActiveSessions(): Promise<ActiveSession[] | null>;
   setActiveSessions(sessions: ActiveSession[]): Promise<void>;
+
+  // Active sessions (atomic SET-based operations)
+  addActiveSession(session: ActiveSession): Promise<void>;
+  removeActiveSession(sessionId: string): Promise<void>;
+  getActiveSessionIds(): Promise<string[]>;
+  getAllActiveSessions(): Promise<ActiveSession[]>;
+  updateActiveSession(session: ActiveSession): Promise<void>;
+  syncActiveSessions(sessions: ActiveSession[]): Promise<void>;
+  incrementalSyncActiveSessions(
+    newSessions: ActiveSession[],
+    stoppedSessionIds: string[],
+    updatedSessions: ActiveSession[]
+  ): Promise<void>;
 
   // Dashboard stats
   getDashboardStats(): Promise<DashboardStats | null>;
@@ -39,7 +52,7 @@ export interface CacheService {
 }
 
 export function createCacheService(redis: Redis): CacheService {
-  return {
+  const service: CacheService = {
     // Active sessions
     async getActiveSessions(): Promise<ActiveSession[] | null> {
       const data = await redis.get(REDIS_KEYS.ACTIVE_SESSIONS);
@@ -59,6 +72,180 @@ export function createCacheService(redis: Redis): CacheService {
       );
       // Invalidate dashboard stats so they reflect the new session count
       await redis.del(REDIS_KEYS.DASHBOARD_STATS);
+    },
+
+    // Atomic SET-based operations for active sessions
+    async addActiveSession(session: ActiveSession): Promise<void> {
+      const pipeline = redis.multi();
+      // Add session ID to the active sessions SET
+      pipeline.sadd(REDIS_KEYS.ACTIVE_SESSION_IDS, session.id);
+      // Set TTL on the SET (refreshed on each add)
+      pipeline.expire(REDIS_KEYS.ACTIVE_SESSION_IDS, CACHE_TTL.ACTIVE_SESSIONS);
+      // Store session data
+      pipeline.setex(
+        REDIS_KEYS.SESSION_BY_ID(session.id),
+        CACHE_TTL.ACTIVE_SESSIONS,
+        JSON.stringify(session)
+      );
+      // Invalidate dashboard stats atomically with session add
+      pipeline.del(REDIS_KEYS.DASHBOARD_STATS);
+      const results = await pipeline.exec();
+      if (!results || results.some(([err]) => err !== null)) {
+        console.error('[Cache] addActiveSession pipeline failed:', results);
+      }
+    },
+
+    async removeActiveSession(sessionId: string): Promise<void> {
+      const pipeline = redis.multi();
+      // Remove from active sessions SET (atomic)
+      pipeline.srem(REDIS_KEYS.ACTIVE_SESSION_IDS, sessionId);
+      // Remove session data
+      pipeline.del(REDIS_KEYS.SESSION_BY_ID(sessionId));
+      // Invalidate dashboard stats atomically with session remove
+      pipeline.del(REDIS_KEYS.DASHBOARD_STATS);
+      const results = await pipeline.exec();
+      if (!results || results.some(([err]) => err !== null)) {
+        console.error('[Cache] removeActiveSession pipeline failed:', results);
+      }
+    },
+
+    async getActiveSessionIds(): Promise<string[]> {
+      return await redis.smembers(REDIS_KEYS.ACTIVE_SESSION_IDS);
+    },
+
+    async getAllActiveSessions(): Promise<ActiveSession[]> {
+      const ids = await redis.smembers(REDIS_KEYS.ACTIVE_SESSION_IDS);
+      if (ids.length === 0) return [];
+
+      // Chunk MGET calls to prevent Redis blocking with large sets
+      const CHUNK_SIZE = 100;
+      const sessions: ActiveSession[] = [];
+      const staleIds: string[] = [];
+
+      for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+        const chunkIds = ids.slice(i, i + CHUNK_SIZE);
+        const keys = chunkIds.map((id) => REDIS_KEYS.SESSION_BY_ID(id));
+        const data = await redis.mget(...keys);
+
+        for (let j = 0; j < data.length; j++) {
+          const sessionData = data[j];
+          const sessionId = chunkIds[j]!;
+          if (sessionData) {
+            try {
+              sessions.push(JSON.parse(sessionData) as ActiveSession);
+            } catch {
+              staleIds.push(sessionId);
+            }
+          } else {
+            // Double-check data doesn't exist now (prevents race with concurrent adds)
+            const exists = await redis.exists(REDIS_KEYS.SESSION_BY_ID(sessionId));
+            if (!exists) {
+              staleIds.push(sessionId);
+            }
+          }
+        }
+      }
+
+      // Batch cleanup stale IDs
+      if (staleIds.length > 0) {
+        await redis.srem(REDIS_KEYS.ACTIVE_SESSION_IDS, ...staleIds);
+      }
+
+      return sessions;
+    },
+
+    async updateActiveSession(session: ActiveSession): Promise<void> {
+      // Update session data and refresh SET TTL to prevent stale ID accumulation
+      const pipeline = redis.multi();
+      pipeline.setex(
+        REDIS_KEYS.SESSION_BY_ID(session.id),
+        CACHE_TTL.ACTIVE_SESSIONS,
+        JSON.stringify(session)
+      );
+      // Refresh SET TTL to match session data TTL
+      pipeline.expire(REDIS_KEYS.ACTIVE_SESSION_IDS, CACHE_TTL.ACTIVE_SESSIONS);
+      const results = await pipeline.exec();
+      if (!results || results.some(([err]) => err !== null)) {
+        console.error('[Cache] updateActiveSession pipeline failed:', results);
+      }
+    },
+
+    async syncActiveSessions(sessions: ActiveSession[]): Promise<void> {
+      // Full sync: replace all active sessions atomically
+      const pipeline = redis.multi();
+
+      // Delete old SET
+      pipeline.del(REDIS_KEYS.ACTIVE_SESSION_IDS);
+
+      if (sessions.length > 0) {
+        // Add all session IDs to SET
+        pipeline.sadd(REDIS_KEYS.ACTIVE_SESSION_IDS, ...sessions.map((s) => s.id));
+        pipeline.expire(REDIS_KEYS.ACTIVE_SESSION_IDS, CACHE_TTL.ACTIVE_SESSIONS);
+
+        // Store each session's data
+        for (const session of sessions) {
+          pipeline.setex(
+            REDIS_KEYS.SESSION_BY_ID(session.id),
+            CACHE_TTL.ACTIVE_SESSIONS,
+            JSON.stringify(session)
+          );
+        }
+      }
+
+      // Invalidate dashboard stats atomically
+      pipeline.del(REDIS_KEYS.DASHBOARD_STATS);
+      const results = await pipeline.exec();
+      if (!results || results.some(([err]) => err !== null)) {
+        console.error('[Cache] syncActiveSessions pipeline failed:', results);
+      }
+    },
+
+    async incrementalSyncActiveSessions(
+      newSessions: ActiveSession[],
+      stoppedSessionIds: string[],
+      updatedSessions: ActiveSession[]
+    ): Promise<void> {
+      const hasChanges = newSessions.length > 0 || stoppedSessionIds.length > 0 || updatedSessions.length > 0;
+      if (!hasChanges) return;
+
+      const pipeline = redis.multi();
+
+      // Add new sessions to SET and store their data
+      for (const session of newSessions) {
+        pipeline.sadd(REDIS_KEYS.ACTIVE_SESSION_IDS, session.id);
+        pipeline.setex(
+          REDIS_KEYS.SESSION_BY_ID(session.id),
+          CACHE_TTL.ACTIVE_SESSIONS,
+          JSON.stringify(session)
+        );
+      }
+
+      // Remove stopped sessions from SET and delete their data
+      for (const sessionId of stoppedSessionIds) {
+        pipeline.srem(REDIS_KEYS.ACTIVE_SESSION_IDS, sessionId);
+        pipeline.del(REDIS_KEYS.SESSION_BY_ID(sessionId));
+      }
+
+      // Update existing session data (already in SET)
+      for (const session of updatedSessions) {
+        pipeline.setex(
+          REDIS_KEYS.SESSION_BY_ID(session.id),
+          CACHE_TTL.ACTIVE_SESSIONS,
+          JSON.stringify(session)
+        );
+      }
+
+      // Refresh SET TTL if we have active sessions
+      if (newSessions.length > 0 || updatedSessions.length > 0) {
+        pipeline.expire(REDIS_KEYS.ACTIVE_SESSION_IDS, CACHE_TTL.ACTIVE_SESSIONS);
+      }
+
+      // Invalidate dashboard stats atomically
+      pipeline.del(REDIS_KEYS.DASHBOARD_STATS);
+      const results = await pipeline.exec();
+      if (!results || results.some(([err]) => err !== null)) {
+        console.error('[Cache] incrementalSyncActiveSessions pipeline failed:', results);
+      }
     },
 
     // Dashboard stats
@@ -157,6 +344,11 @@ export function createCacheService(redis: Redis): CacheService {
       }
     },
   };
+
+  // Store instance for global access
+  cacheServiceInstance = service;
+
+  return service;
 }
 
 // Pub/Sub helper functions for real-time events
@@ -166,8 +358,9 @@ export interface PubSubService {
   unsubscribe(channel: string): Promise<void>;
 }
 
-// Module-level storage for pubsub service instance
+// Module-level storage for service instances
 let pubSubServiceInstance: PubSubService | null = null;
+let cacheServiceInstance: CacheService | null = null;
 
 /**
  * Get the global PubSub service instance
@@ -175,6 +368,14 @@ let pubSubServiceInstance: PubSubService | null = null;
  */
 export function getPubSubService(): PubSubService | null {
   return pubSubServiceInstance;
+}
+
+/**
+ * Get the global Cache service instance
+ * Must be called after createCacheService has been called
+ */
+export function getCacheService(): CacheService | null {
+  return cacheServiceInstance;
 }
 
 export function createPubSubService(
