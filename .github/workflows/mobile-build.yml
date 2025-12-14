@@ -92,7 +92,7 @@ jobs:
 
           # Sync current versions from EAS remote
           echo "Syncing versions from EAS remote..."
-          eas build:version:sync --platform all --non-interactive
+          eas build:version:sync --platform all
 
           # Read current versions
           CURRENT_ANDROID_VC=$(jq -r '.expo.android.versionCode // 0' app.json)
@@ -115,7 +115,7 @@ jobs:
           # Push reserved versions back to EAS remote BEFORE building
           # This ensures no other build can use these version numbers
           echo "Reserving versions in EAS remote..."
-          eas build:version:set --platform all --non-interactive
+          eas build:version:set --platform all
 
           # Output for build jobs
           echo "android-version-code=$NEXT_ANDROID_VC" >> $GITHUB_OUTPUT
