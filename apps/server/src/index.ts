@@ -26,7 +26,7 @@ const GEOIP_DB_PATH = resolve(PROJECT_ROOT, 'data/GeoLite2-City.mmdb');
 
 // Migrations path (relative to compiled output in production, source in dev)
 const MIGRATIONS_PATH = resolve(__dirname, '../src/db/migrations');
-import type { ActiveSession, ViolationWithDetails, DashboardStats, TautulliImportProgress } from '@tracearr/shared';
+import type { ActiveSession, ViolationWithDetails, DashboardStats, TautulliImportProgress, JellystatImportProgress } from '@tracearr/shared';
 
 import authPlugin from './plugins/auth.js';
 import redisPlugin from './plugins/redis.js';
@@ -400,6 +400,9 @@ async function start() {
             break;
           case WS_EVENTS.IMPORT_PROGRESS:
             broadcastToSessions('import:progress', data as TautulliImportProgress);
+            break;
+          case WS_EVENTS.IMPORT_JELLYSTAT_PROGRESS:
+            broadcastToSessions('import:jellystat:progress', data as JellystatImportProgress);
             break;
           default:
             // Unknown event, ignore
