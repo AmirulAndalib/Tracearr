@@ -472,3 +472,45 @@ export function parseAuthResponse(data: Record<string, unknown>): JellyfinAuthRe
     isAdmin: parseBoolean(policy.IsAdministrator),
   };
 }
+
+// ============================================================================
+// Items Parsing (for media enrichment)
+// ============================================================================
+
+/**
+ * Item result for media enrichment
+ * Used when fetching items by ID for Jellystat import
+ */
+export interface JellyfinItemResult {
+  Id: string;
+  ParentIndexNumber?: number;
+  IndexNumber?: number;
+  ProductionYear?: number;
+  ImageTags?: {
+    Primary?: string;
+  };
+}
+
+/**
+ * Parse a single Jellyfin item for enrichment
+ */
+export function parseItem(item: Record<string, unknown>): JellyfinItemResult {
+  const imageTags = getNestedObject(item, 'ImageTags');
+
+  return {
+    Id: parseString(item.Id),
+    ParentIndexNumber: parseOptionalNumber(item.ParentIndexNumber),
+    IndexNumber: parseOptionalNumber(item.IndexNumber),
+    ProductionYear: parseOptionalNumber(item.ProductionYear),
+    ImageTags: imageTags?.Primary ? { Primary: parseString(imageTags.Primary) } : undefined,
+  };
+}
+
+/**
+ * Parse Jellyfin Items API response (batch item fetch)
+ */
+export function parseItemsResponse(data: unknown): JellyfinItemResult[] {
+  const items = (data as { Items?: unknown[] })?.Items;
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => parseItem(item as Record<string, unknown>));
+}

@@ -200,6 +200,16 @@ export function parseLocalUser(user: Record<string, unknown>): MediaUser {
 }
 
 /**
+ * Parse Unix timestamp from unknown value to Date
+ */
+function parseUnixTimestamp(value: unknown): Date | undefined {
+  if (value == null) return undefined;
+  const timestamp = typeof value === 'number' ? value : parseInt(String(value), 10);
+  if (isNaN(timestamp) || timestamp <= 0) return undefined;
+  return new Date(timestamp * 1000); // Convert seconds to milliseconds
+}
+
+/**
  * Parse Plex.tv user data into a MediaUser object
  * Used for users from plex.tv API endpoints
  */
@@ -216,6 +226,8 @@ export function parsePlexTvUser(
     isDisabled: false,
     isHomeUser: parseBoolean(user.home) || parseBoolean(user.isHomeUser),
     sharedLibraries: sharedLibraries ?? [],
+    // Plex.tv API returns joinedAt (Unix timestamp) for when user joined Plex
+    joinedAt: parseUnixTimestamp(user.joinedAt) ?? parseUnixTimestamp(user.createdAt),
   };
 }
 
@@ -404,6 +416,17 @@ export function extractXmlId(xml: string): string {
 }
 
 /**
+ * Parse Unix timestamp from XML attribute to Date (Plex uses seconds since epoch)
+ */
+function parseXmlTimestamp(xml: string, attr: string): Date | undefined {
+  const value = extractXmlAttribute(xml, attr);
+  if (!value) return undefined;
+  const timestamp = parseInt(value, 10);
+  if (isNaN(timestamp) || timestamp <= 0) return undefined;
+  return new Date(timestamp * 1000); // Convert seconds to milliseconds
+}
+
+/**
  * Parse a user from XML (from /api/users endpoint)
  */
 export function parseXmlUser(userXml: string): MediaUser {
@@ -415,6 +438,8 @@ export function parseXmlUser(userXml: string): MediaUser {
     isAdmin: false,
     isHomeUser: extractXmlAttribute(userXml, 'home') === '1',
     sharedLibraries: [],
+    // Plex provides createdAt (account creation) - use as joinedAt
+    joinedAt: parseXmlTimestamp(userXml, 'createdAt'),
   };
 }
 
