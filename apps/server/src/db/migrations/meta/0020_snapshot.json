@@ -1,6 +1,6 @@
 {
-  "id": "ab6bcbdd-2db7-4aba-8ffe-7e59faa3dc6d",
-  "prevId": "60ebf6cd-93a8-469f-a2a4-5219bca7a982",
+  "id": "bde1a34f-8cb2-4c5d-9211-9f920d60e621",
+  "prevId": "ab6bcbdd-2db7-4aba-8ffe-7e59faa3dc6d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1034,19 +1034,19 @@
         },
         "duration_ms": {
           "name": "duration_ms",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
         "total_duration_ms": {
           "name": "total_duration_ms",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
         "progress_ms": {
           "name": "progress_ms",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },

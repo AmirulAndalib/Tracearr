@@ -138,8 +138,15 @@
     {
       "idx": 19,
       "version": "7",
-      "when": 1765845927102,
-      "tag": "0019_bigint_duration_columns",
+      "when": 1765858200000,
+      "tag": "0019_broad_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1765858300000,
+      "tag": "0020_bigint_duration_columns",
       "breakpoints": true
     }
   ]
