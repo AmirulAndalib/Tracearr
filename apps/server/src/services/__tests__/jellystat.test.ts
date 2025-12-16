@@ -1516,7 +1516,7 @@ describe('importJellystatBackup', () => {
     url: 'http://jellyfin.local:8096',
     token: 'test-token',
   };
-  const mockEmbyServer = {
+  const _mockEmbyServer = {
     ...mockServer,
     type: 'emby' as const,
     name: 'Test Emby Server',
