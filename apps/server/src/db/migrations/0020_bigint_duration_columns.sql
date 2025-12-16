@@ -14,17 +14,25 @@
 
 DO $$
 DECLARE
-    is_hypertable BOOLEAN;
+    is_hypertable BOOLEAN := false;
+    has_timescaledb BOOLEAN := false;
     job_id_var INTEGER;
     chunk_record RECORD;
     decompressed_count INTEGER := 0;
     compress_after_interval INTERVAL;
 BEGIN
-    -- Check if sessions table is a hypertable
+    -- First check if TimescaleDB extension is installed
     SELECT EXISTS (
-        SELECT 1 FROM timescaledb_information.hypertables
-        WHERE hypertable_name = 'sessions'
-    ) INTO is_hypertable;
+        SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'
+    ) INTO has_timescaledb;
+
+    -- Only check for hypertable if TimescaleDB exists
+    IF has_timescaledb THEN
+        SELECT EXISTS (
+            SELECT 1 FROM timescaledb_information.hypertables
+            WHERE hypertable_name = 'sessions'
+        ) INTO is_hypertable;
+    END IF;
 
     IF is_hypertable THEN
         RAISE NOTICE 'sessions is a hypertable, performing full migration with compression handling';
