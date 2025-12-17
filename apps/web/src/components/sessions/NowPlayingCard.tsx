@@ -13,6 +13,7 @@ import type { ActiveSession } from '@tracearr/shared';
 
 interface NowPlayingCardProps {
   session: ActiveSession;
+  onClick?: () => void;
 }
 
 // Get device icon based on platform/device info
@@ -76,7 +77,7 @@ function getMediaDisplay(session: ActiveSession): { title: string; subtitle: str
   };
 }
 
-export function NowPlayingCard({ session }: NowPlayingCardProps) {
+export function NowPlayingCard({ session, onClick }: NowPlayingCardProps) {
   const { title, subtitle } = getMediaDisplay(session);
   const { user } = useAuth();
   const [showTerminateDialog, setShowTerminateDialog] = useState(false);
@@ -104,7 +105,13 @@ export function NowPlayingCard({ session }: NowPlayingCardProps) {
   const isPaused = session.state === 'paused';
 
   return (
-    <div className="group relative animate-fade-in overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/10">
+    <div
+      className={cn(
+        'group relative animate-fade-in overflow-hidden rounded-xl border bg-card transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/10',
+        onClick && 'cursor-pointer'
+      )}
+      onClick={onClick}
+    >
       {/* Background with poster blur */}
       {posterUrl && (
         <div
@@ -175,8 +182,10 @@ export function NowPlayingCard({ session }: NowPlayingCardProps) {
                     <Zap className="mr-1 h-3 w-3" />
                     Transcode
                   </>
+                ) : session.videoDecision === 'copy' || session.audioDecision === 'copy' ? (
+                  'Direct Stream'
                 ) : (
-                  'Direct'
+                  'Direct Play'
                 )}
               </Badge>
 

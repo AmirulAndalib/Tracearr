@@ -1,18 +1,25 @@
+import { useState } from 'react';
 import { Play, Clock, AlertTriangle, Tv, MapPin, Calendar, Users } from 'lucide-react';
 import { MediaServerIcon } from '@/components/icons/MediaServerIcon';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NowPlayingCard } from '@/components/sessions';
 import { StreamCard } from '@/components/map';
+import { SessionDetailSheet } from '@/components/history/SessionDetailSheet';
 import { ServerResourceCharts } from '@/components/charts/ServerResourceCharts';
 import { useDashboardStats, useActiveSessions } from '@/hooks/queries';
 import { useServerStatistics } from '@/hooks/queries/useServers';
 import { useServer } from '@/hooks/useServer';
+import type { ActiveSession } from '@tracearr/shared';
 
 export function Dashboard() {
   const { selectedServerId, selectedServer } = useServer();
   const { data: stats, isLoading: statsLoading } = useDashboardStats(selectedServerId);
   const { data: sessions } = useActiveSessions(selectedServerId);
+
+  // Session detail sheet state
+  const [selectedSession, setSelectedSession] = useState<ActiveSession | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // Only show server resource stats for Plex servers
   const isPlexServer = selectedServer?.type === 'plex';
@@ -128,7 +135,14 @@ export function Dashboard() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {sessions.map((session) => (
-              <NowPlayingCard key={session.id} session={session} />
+              <NowPlayingCard
+                key={session.id}
+                session={session}
+                onClick={() => {
+                  setSelectedSession(session);
+                  setSheetOpen(true);
+                }}
+              />
             ))}
           </div>
         )}
@@ -161,6 +175,13 @@ export function Dashboard() {
           />
         </section>
       )}
+
+      {/* Session Detail Sheet */}
+      <SessionDetailSheet
+        session={selectedSession}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
     </div>
   );
 }
