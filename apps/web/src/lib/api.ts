@@ -53,6 +53,16 @@ export interface PlexServerInfo {
   platform: string;
   version: string;
   clientIdentifier: string;
+  /**
+   * True if Tracearr's public IP matches the server's public IP.
+   * When false, local connections have been filtered out as they won't be reachable.
+   */
+  publicAddressMatches: boolean;
+  /**
+   * True if the server requires HTTPS connections.
+   * When true, HTTP connections have been filtered out as they'll be rejected.
+   */
+  httpsRequired: boolean;
   connections: PlexServerConnection[];
 }
 

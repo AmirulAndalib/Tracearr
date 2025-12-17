@@ -323,6 +323,18 @@ export interface PlexServerResource {
   owned: boolean;
   accessToken: string;
   publicAddress: string;
+  /**
+   * True if the requesting client's public IP matches the server's public IP.
+   * Used to determine which connections are reachable:
+   * - true: client is on same network, local connections will work
+   * - false: client is remote, only remote connections will work
+   */
+  publicAddressMatches: boolean;
+  /**
+   * True if the server requires HTTPS connections.
+   * When true, HTTP connections will be rejected by the server.
+   */
+  httpsRequired: boolean;
   connections: PlexServerConnection[];
 }
 
@@ -341,15 +353,55 @@ export function parseServerConnection(conn: Record<string, unknown>): PlexServer
 
 /**
  * Parse server resource from plex.tv resources API
+ *
+ * Filters connections based on:
+ * - httpsRequired: If true, only HTTPS connections are usable (HTTP will be rejected)
+ * - publicAddressMatches: If false (different network), only remote connections work
  */
 export function parseServerResource(
   resource: Record<string, unknown>,
   fallbackToken: string
 ): PlexServerResource {
-  const connections = parseArray(
+  const publicAddressMatches = parseBoolean(resource.publicAddressMatches);
+  const httpsRequired = parseBoolean(resource.httpsRequired);
+
+  // Parse all connections
+  const allConnections = parseArray(
     resource.connections,
     (conn) => parseServerConnection(conn as Record<string, unknown>)
   );
+
+  // Filter connections based on what's actually usable
+  const connections = allConnections.filter((conn) => {
+    // If HTTPS is required, filter out HTTP connections
+    if (httpsRequired && conn.protocol !== 'https') {
+      return false;
+    }
+
+    // Filter based on network location (like Tautulli does)
+    if (publicAddressMatches) {
+      // Same network: all connections should work
+      return true;
+    } else {
+      // Different network: only remote connections will work (local IPs unreachable)
+      return !conn.local;
+    }
+  });
+
+  // If filtering removed all connections, fall back to showing all
+  // (better to let user try than show nothing)
+  const filteredConnections = connections.length > 0 ? connections : allConnections;
+
+  // Sort connections: HTTPS first, then local preference for same-network scenarios
+  const finalConnections = [...filteredConnections].sort((a, b) => {
+    // HTTPS first
+    const aHttps = a.protocol === 'https';
+    const bHttps = b.protocol === 'https';
+    if (aHttps !== bHttps) return aHttps ? -1 : 1;
+    // Then local preference (local connections are typically faster)
+    if (a.local !== b.local) return a.local ? -1 : 1;
+    return 0;
+  });
 
   return {
     name: parseString(resource.name, 'Plex Server'),
@@ -360,7 +412,9 @@ export function parseServerResource(
     owned: parseBoolean(resource.owned),
     accessToken: parseString(resource.accessToken) || fallbackToken,
     publicAddress: parseString(resource.publicAddress),
-    connections,
+    publicAddressMatches,
+    httpsRequired,
+    connections: finalConnections,
   };
 }
 

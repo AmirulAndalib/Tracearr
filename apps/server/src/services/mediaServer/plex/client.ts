@@ -290,31 +290,64 @@ export class PlexClient implements IMediaServerClient, IMediaServerClientWithHis
   }
 
   /**
-   * Verify if token has admin access to a Plex server
+   * Error types for server admin verification
    */
-  static async verifyServerAdmin(token: string, serverUrl: string): Promise<boolean> {
+  static readonly AdminVerifyError = {
+    CONNECTION_FAILED: 'CONNECTION_FAILED',
+    NOT_ADMIN: 'NOT_ADMIN',
+  } as const;
+
+  /**
+   * Verify if token has admin access to a Plex server.
+   *
+   * @throws Error with code 'CONNECTION_FAILED' if server is unreachable
+   * @throws Error with code 'NOT_ADMIN' if user doesn't have admin access
+   */
+  static async verifyServerAdmin(
+    token: string,
+    serverUrl: string
+  ): Promise<{ success: true } | { success: false; code: string; message: string }> {
     const url = serverUrl.replace(/\/$/, '');
     const headers = plexHeaders(token);
 
+    // First verify basic server connectivity
     try {
-      // First verify basic server access
       await fetchJson<unknown>(`${url}/`, {
         headers,
         service: 'plex',
         timeout: 10000,
       });
+    } catch (error) {
+      // Connection failed - server unreachable, timeout, SSL error, etc.
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to server';
 
-      // Then verify admin access by fetching accounts
+      return {
+        success: false,
+        code: PlexClient.AdminVerifyError.CONNECTION_FAILED,
+        message: `Cannot reach Plex server at ${url}. ${message}`,
+      };
+    }
+
+    // Then verify admin access by fetching accounts (admin-only endpoint)
+    try {
       await fetchJson<unknown>(`${url}/accounts`, {
         headers,
         service: 'plex',
         timeout: 10000,
       });
-
-      return true;
     } catch {
-      return false;
+      // Server is reachable but user doesn't have admin access
+      return {
+        success: false,
+        code: PlexClient.AdminVerifyError.NOT_ADMIN,
+        message: 'You must be an admin on this Plex server',
+      };
     }
+
+    return { success: true };
   }
 
   /**

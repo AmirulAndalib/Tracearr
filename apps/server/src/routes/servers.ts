@@ -80,9 +80,13 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       // Verify the server connection
       try {
         if (type === 'plex') {
-          const isAdmin = await PlexClient.verifyServerAdmin(token, url);
-          if (!isAdmin) {
-            return reply.forbidden('Token does not have admin access to this Plex server');
+          const adminCheck = await PlexClient.verifyServerAdmin(token, url);
+          if (!adminCheck.success) {
+            // Provide specific error based on failure type
+            if (adminCheck.code === PlexClient.AdminVerifyError.CONNECTION_FAILED) {
+              return reply.serviceUnavailable(adminCheck.message);
+            }
+            return reply.forbidden(adminCheck.message);
           }
         } else if (type === 'jellyfin') {
           const isAdmin = await JellyfinClient.verifyServerAdmin(token, url);

@@ -30,6 +30,10 @@ vi.mock('../../../services/mediaServer/index.js', () => ({
   PlexClient: {
     getServers: vi.fn(),
     verifyServerAdmin: vi.fn(),
+    AdminVerifyError: {
+      CONNECTION_FAILED: 'CONNECTION_FAILED',
+      NOT_ADMIN: 'NOT_ADMIN',
+    },
   },
 }));
 
@@ -133,6 +137,8 @@ const mockPlexServer = {
   owned: true,
   accessToken: 'server-access-token',
   publicAddress: '203.0.113.1',
+  publicAddressMatches: true, // Same network, all connections reachable
+  httpsRequired: false, // HTTP connections allowed
   connections: [
     { protocol: 'http', uri: 'http://192.168.1.100:32400', local: true, address: '192.168.1.100', port: 32400 },
     { protocol: 'https', uri: 'https://plex.example.com:32400', local: false, address: 'plex.example.com', port: 32400 },
@@ -330,7 +336,7 @@ describe('Plex Auth Routes', () => {
       vi.mocked(db.select).mockReturnValue(selectMock as never);
 
       // Mock admin verification
-      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue(true);
+      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue({ success: true });
 
       // Mock insert
       mockDbInsert([newServer]);
@@ -369,7 +375,11 @@ describe('Plex Auth Routes', () => {
       vi.mocked(db.select).mockReturnValue(selectMock as never);
 
       // Mock admin verification - not admin
-      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue(false);
+      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue({
+        success: false,
+        code: 'NOT_ADMIN',
+        message: 'You must be an admin on this Plex server',
+      });
 
       const response = await app.inject({
         method: 'POST',

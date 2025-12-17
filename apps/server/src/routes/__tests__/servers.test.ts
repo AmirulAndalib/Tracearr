@@ -33,6 +33,10 @@ vi.mock('../../utils/crypto.js', () => ({
 vi.mock('../../services/mediaServer/index.js', () => ({
   PlexClient: {
     verifyServerAdmin: vi.fn(),
+    AdminVerifyError: {
+      CONNECTION_FAILED: 'CONNECTION_FAILED',
+      NOT_ADMIN: 'NOT_ADMIN',
+    },
   },
   JellyfinClient: {
     verifyServerAdmin: vi.fn(),
@@ -220,7 +224,7 @@ describe('Server Routes', () => {
 
   describe('POST /servers', () => {
     beforeEach(() => {
-      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue(true);
+      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue({ success: true });
       vi.mocked(JellyfinClient.verifyServerAdmin).mockResolvedValue(true);
       vi.mocked(EmbyClient.verifyServerAdmin).mockResolvedValue(true);
       vi.mocked(syncServer).mockResolvedValue({ usersAdded: 5, usersUpdated: 0, librariesSynced: 3, errors: [] });
@@ -363,7 +367,11 @@ describe('Server Routes', () => {
       app = await buildTestApp(ownerUser);
 
       mockDbSelectLimit([]);
-      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue(false);
+      vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue({
+        success: false,
+        code: 'NOT_ADMIN',
+        message: 'You must be an admin on this Plex server',
+      });
 
       const response = await app.inject({
         method: 'POST',
@@ -377,7 +385,7 @@ describe('Server Routes', () => {
       });
 
       expect(response.statusCode).toBe(403);
-      expect(response.json().message).toContain('admin access');
+      expect(response.json().message).toContain('admin');
     });
 
     it('handles connection error to media server', async () => {

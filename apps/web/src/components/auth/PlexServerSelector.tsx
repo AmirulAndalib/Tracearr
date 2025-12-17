@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents -- eslint can't resolve @tracearr/shared types but TS compiles fine */
 import { useState } from 'react';
-import { Monitor, Wifi, Globe, Check, X, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Monitor, Wifi, Globe, Check, X, Loader2, ChevronDown, ChevronRight, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PlexDiscoveredServer, PlexDiscoveredConnection } from '@tracearr/shared';
@@ -270,6 +270,14 @@ export function PlexServerSelector({
                           {conn.local ? 'Local' : 'Remote'}: {conn.address}:{conn.port}
                         </span>
 
+                        {/* Secure badge for HTTPS */}
+                        {conn.uri.startsWith('https://') && (
+                          <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-xs text-green-600 dark:text-green-500 font-medium">
+                            <Lock className="h-3 w-3" />
+                            Secure
+                          </span>
+                        )}
+
                         {/* Recommended badge */}
                         {isRecommended && (
                           <span className="flex-shrink-0 text-xs text-primary font-medium">
@@ -311,6 +319,12 @@ export function PlexServerSelector({
                       <span className="text-xs">
                         {conn.local ? 'Local' : 'Remote'}: {conn.address}:{conn.port}
                       </span>
+                      {conn.uri.startsWith('https://') && (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-green-600 dark:text-green-500 font-medium">
+                          <Lock className="h-3 w-3" />
+                          Secure
+                        </span>
+                      )}
                     </div>
                     <ChevronRight className="h-4 w-4" />
                   </Button>

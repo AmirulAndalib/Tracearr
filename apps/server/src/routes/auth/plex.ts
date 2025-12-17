@@ -137,6 +137,8 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
           platform: s.platform,
           version: s.productVersion,
           clientIdentifier: s.clientIdentifier, // For storing machineIdentifier
+          publicAddressMatches: s.publicAddressMatches, // Used to indicate if local connections were filtered
+          httpsRequired: s.httpsRequired, // True if server requires HTTPS (HTTP connections rejected)
           connections: s.connections.map((c) => ({
             uri: c.uri,
             local: c.local,
@@ -220,9 +222,13 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
 
     try {
       // Verify user is admin on the selected server
-      const isAdmin = await PlexClient.verifyServerAdmin(plexToken, serverUri);
-      if (!isAdmin) {
-        return reply.forbidden('You must be an admin on the selected Plex server');
+      const adminCheck = await PlexClient.verifyServerAdmin(plexToken, serverUri);
+      if (!adminCheck.success) {
+        // Provide specific error based on failure type
+        if (adminCheck.code === PlexClient.AdminVerifyError.CONNECTION_FAILED) {
+          return reply.serviceUnavailable(adminCheck.message);
+        }
+        return reply.forbidden(adminCheck.message);
       }
 
       // Create or update server
@@ -406,10 +412,14 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
             })
           );
 
-          // Sort connections: reachable first, then by local preference, then by latency
+          // Sort connections: reachable first, then HTTPS, then local preference, then by latency
           const sortedConnections = connectionResults.sort((a, b) => {
             // Reachable first
             if (a.reachable !== b.reachable) return a.reachable ? -1 : 1;
+            // Then HTTPS preference (many Plex servers require secure connections)
+            const aHttps = a.uri.startsWith('https://');
+            const bHttps = b.uri.startsWith('https://');
+            if (aHttps !== bHttps) return aHttps ? -1 : 1;
             // Then local preference (local before remote)
             if (a.local !== b.local) return a.local ? -1 : 1;
             // Then by latency (lower is better)
@@ -499,9 +509,13 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         // Verify admin access on the new server
-        const isAdmin = await PlexClient.verifyServerAdmin(plexToken, serverUri);
-        if (!isAdmin) {
-          return reply.forbidden('You must be an admin on the selected Plex server');
+        const adminCheck = await PlexClient.verifyServerAdmin(plexToken, serverUri);
+        if (!adminCheck.success) {
+          // Provide specific error based on failure type
+          if (adminCheck.code === PlexClient.AdminVerifyError.CONNECTION_FAILED) {
+            return reply.serviceUnavailable(adminCheck.message);
+          }
+          return reply.forbidden(adminCheck.message);
         }
 
         // Create server record
