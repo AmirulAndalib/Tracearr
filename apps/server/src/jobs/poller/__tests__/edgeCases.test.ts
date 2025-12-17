@@ -11,7 +11,7 @@
  * 4. Continued Session Threshold - 60s configurable
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   checkWatchCompletion,
   shouldGroupWithPreviousSession,
@@ -119,12 +119,18 @@ describe('Stale Stream Force-Stop', () => {
     });
 
     it('should return false when lastSeenAt is exactly 5 minutes ago', async () => {
+      // Use fake timers to prevent race condition between Date.now() calls
+      vi.useFakeTimers();
+      const now = Date.now();
+      vi.setSystemTime(now);
+
       const { shouldForceStopStaleSession } = await import('../stateTracker.js');
 
       // Edge case: exactly at threshold should NOT stop
-      const exactlyFiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const exactlyFiveMinutesAgo = new Date(now - 5 * 60 * 1000);
       const result = shouldForceStopStaleSession(exactlyFiveMinutesAgo);
 
+      vi.useRealTimers();
       expect(result).toBe(false);
     });
 
