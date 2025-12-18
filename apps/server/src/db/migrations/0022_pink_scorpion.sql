@@ -9,9 +9,13 @@
 DO $$
 BEGIN
   PERFORM remove_compression_policy('sessions', if_exists => true);
-EXCEPTION WHEN undefined_function THEN
-  -- TimescaleDB not installed, skip
-  NULL;
+EXCEPTION
+  WHEN undefined_function THEN
+    -- TimescaleDB not installed, skip
+    NULL;
+  WHEN SQLSTATE '42704' THEN
+    -- Table is not a hypertable (e.g., in test environment), skip
+    NULL;
 END $$;
 
 --> statement-breakpoint
@@ -29,9 +33,13 @@ BEGIN
   LOOP
     PERFORM decompress_chunk(chunk_id, if_compressed => true);
   END LOOP;
-EXCEPTION WHEN undefined_table THEN
-  -- TimescaleDB not installed or no chunks, skip
-  NULL;
+EXCEPTION
+  WHEN undefined_table THEN
+    -- TimescaleDB not installed or no chunks, skip
+    NULL;
+  WHEN SQLSTATE '42704' THEN
+    -- Table is not a hypertable (e.g., in test environment), skip
+    NULL;
 END $$;
 
 --> statement-breakpoint
