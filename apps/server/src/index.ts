@@ -76,6 +76,7 @@ import {
   shutdownVersionCheckQueue,
 } from './jobs/versionCheckQueue.js';
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
+import { processPushReceipts } from './services/pushNotification.js';
 import { db, runMigrations } from './db/client.js';
 import { initTimescaleDB, getTimescaleStatus } from './db/timescale.js';
 import { sql, eq } from 'drizzle-orm';
@@ -227,10 +228,18 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   initPushRateLimiter(app.redis);
   app.log.info('Push notification rate limiter initialized');
 
-  // Initialize notification queue (uses Redis for job storage)
+  let pushReceiptInterval: ReturnType<typeof setInterval> | null = null;
   try {
     initNotificationQueue(redisUrl);
     startNotificationWorker();
+    pushReceiptInterval = setInterval(
+      () => {
+        processPushReceipts().catch((err) => {
+          app.log.warn({ err }, 'Failed to process push receipts');
+        });
+      },
+      15 * 60 * 1000
+    );
     app.log.info('Notification queue initialized');
   } catch (err) {
     app.log.error({ err }, 'Failed to initialize notification queue');
@@ -273,6 +282,9 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
 
   // Cleanup pub/sub redis, notification queue, import queue, and version check queue on close
   app.addHook('onClose', async () => {
+    if (pushReceiptInterval) {
+      clearInterval(pushReceiptInterval);
+    }
     await pubSubRedis.quit();
     stopPoller();
     await sseManager.stop();
