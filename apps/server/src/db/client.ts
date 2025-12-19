@@ -34,14 +34,18 @@ export async function closeDatabase(): Promise<void> {
 }
 
 export async function checkDatabaseConnection(): Promise<boolean> {
+  let client: pg.PoolClient | null = null;
   try {
-    const client = await pool.connect();
+    client = await pool.connect();
     await client.query('SELECT 1');
-    client.release();
     return true;
   } catch (error) {
     console.error('Database connection check failed:', error);
     return false;
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 }
 
