@@ -191,8 +191,9 @@ class ApiClient {
       ...(options.headers as Record<string, string>),
     };
 
-    // Only set Content-Type for requests with a body
-    if (options.body) {
+    // Only set Content-Type for requests with a body, but NOT for FormData
+    // (browser sets correct Content-Type with boundary for multipart)
+    if (options.body && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
 
@@ -764,6 +765,59 @@ class ApiClient {
           createdAt?: number;
           finishedAt?: number;
         }>(`/import/tautulli/${jobId}`),
+    },
+    jellystat: {
+      /**
+       * Start Jellystat import from backup file
+       * @param serverId - Target Jellyfin/Emby server
+       * @param file - Jellystat backup JSON file
+       * @param enrichMedia - Whether to enrich with metadata (default: true)
+       */
+      start: async (serverId: string, file: File, enrichMedia: boolean = true) => {
+        const formData = new FormData();
+        // Fields must come BEFORE file - @fastify/multipart stops parsing after file
+        formData.append('serverId', serverId);
+        formData.append('enrichMedia', String(enrichMedia));
+        formData.append('file', file);
+
+        return this.request<{ status: string; jobId?: string; message: string }>(
+          '/import/jellystat',
+          {
+            method: 'POST',
+            body: formData,
+            headers: {}, // Let browser set Content-Type with boundary for multipart
+          }
+        );
+      },
+      getActive: (serverId: string) =>
+        this.request<{
+          active: boolean;
+          jobId?: string;
+          state?: string;
+          progress?: number | object;
+          createdAt?: number;
+        }>(`/import/jellystat/active/${serverId}`),
+      getStatus: (jobId: string) =>
+        this.request<{
+          jobId: string;
+          state: string;
+          progress: number | object | null;
+          result?: {
+            success: boolean;
+            imported: number;
+            skipped: number;
+            errors: number;
+            enriched: number;
+            message: string;
+          };
+          failedReason?: string;
+          createdAt?: number;
+          finishedAt?: number;
+        }>(`/import/jellystat/${jobId}`),
+      cancel: (jobId: string) =>
+        this.request<{ status: string; jobId: string }>(`/import/jellystat/${jobId}`, {
+          method: 'DELETE',
+        }),
     },
   };
 

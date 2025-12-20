@@ -312,6 +312,103 @@ export const tautulliImportSchema = z.object({
   serverId: uuidSchema, // Which Tracearr server to import into
 });
 
+// ============================================================================
+// Jellystat Import Schemas
+// ============================================================================
+
+/**
+ * PlayState object from Jellystat backup
+ * Uses loose() to allow extra fields that Jellystat may include
+ */
+export const jellystatPlayStateSchema = z.looseObject({
+  IsPaused: z.boolean().nullable().optional(),
+  PositionTicks: z.number().nullable().optional(),
+  RuntimeTicks: z.number().nullable().optional(),
+  Completed: z.boolean().nullable().optional(),
+}); // Allow extra fields like IsMuted, VolumeLevel, CanSeek, etc.
+
+/**
+ * TranscodingInfo object from Jellystat backup
+ * Uses looseObject() to allow extra fields like AudioCodec, VideoCodec, etc.
+ */
+export const jellystatTranscodingInfoSchema = z
+  .looseObject({
+    Bitrate: z.number().nullable().optional(),
+  }) // Allow extra fields like AudioCodec, VideoCodec, Container, etc.
+  .nullable()
+  .optional();
+
+/**
+ * Individual playback activity record from Jellystat export
+ * Uses looseObject() to allow extra fields like ApplicationVersion, MediaStreams, etc.
+ */
+export const jellystatPlaybackActivitySchema = z.looseObject({
+  Id: z.string(),
+  UserId: z.string(),
+  UserName: z.string().nullable().optional(),
+  NowPlayingItemId: z.string(),
+  NowPlayingItemName: z.string(),
+  SeriesName: z.string().nullable().optional(),
+  SeasonId: z.string().nullable().optional(),
+  EpisodeId: z.string().nullable().optional(),
+  PlaybackDuration: z.union([z.string(), z.number()]), // Can be string or number
+  ActivityDateInserted: z.string(), // ISO 8601 timestamp
+  PlayMethod: z
+    .string()
+    .refine(
+      (val) => val === 'DirectPlay' || val === 'DirectStream' || val.startsWith('Transcode'),
+      {
+        message:
+          'PlayMethod must be DirectPlay, DirectStream, or Transcode (with optional codec info)',
+      }
+    )
+    .nullable()
+    .optional(),
+  PlayState: jellystatPlayStateSchema.nullable().optional(),
+  TranscodingInfo: jellystatTranscodingInfoSchema,
+  RemoteEndPoint: z.string().nullable().optional(),
+  Client: z.string().nullable().optional(),
+  DeviceName: z.string().nullable().optional(),
+  DeviceId: z.string().nullable().optional(),
+  IsPaused: z.boolean().nullable().optional(), // Top-level IsPaused (separate from PlayState.IsPaused)
+}); // Allow extra fields like ApplicationVersion, MediaStreams, ServerId, etc.
+
+/**
+ * Jellystat backup file structure
+ * The backup is an array with a single object containing table data
+ */
+export const jellystatBackupSchema = z.array(
+  z.object({
+    jf_playback_activity: z.array(jellystatPlaybackActivitySchema).optional(),
+  })
+);
+
+/**
+ * Request body for Jellystat import (multipart form data is parsed separately)
+ */
+export const jellystatImportBodySchema = z.object({
+  serverId: uuidSchema, // Which Tracearr server to import into
+  enrichMedia: z.coerce.boolean().default(true), // Fetch season/episode from Jellyfin API
+});
+
+/**
+ * Import job status response
+ */
+export const importJobStatusSchema = z.object({
+  jobId: z.string(),
+  state: z.enum(['queued', 'active', 'completed', 'failed', 'delayed']),
+  progress: z.number().min(0).max(100).optional(),
+  result: z
+    .object({
+      imported: z.number(),
+      skipped: z.number(),
+      errors: z.number(),
+      enriched: z.number().optional(),
+    })
+    .optional(),
+  failedReason: z.string().optional(),
+});
+
 // Type exports from schemas
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CallbackInput = z.infer<typeof callbackSchema>;
@@ -328,3 +425,11 @@ export type StatsQueryInput = z.infer<typeof statsQuerySchema>;
 export type LocationStatsQueryInput = z.infer<typeof locationStatsQuerySchema>;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type TautulliImportInput = z.infer<typeof tautulliImportSchema>;
+
+// Jellystat types
+export type JellystatPlayState = z.infer<typeof jellystatPlayStateSchema>;
+export type JellystatTranscodingInfo = z.infer<typeof jellystatTranscodingInfoSchema>;
+export type JellystatPlaybackActivity = z.infer<typeof jellystatPlaybackActivitySchema>;
+export type JellystatBackup = z.infer<typeof jellystatBackupSchema>;
+export type JellystatImportBody = z.infer<typeof jellystatImportBodySchema>;
+export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;

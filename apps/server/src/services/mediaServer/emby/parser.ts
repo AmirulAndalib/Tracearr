@@ -466,3 +466,45 @@ export function parseAuthResponse(data: Record<string, unknown>): EmbyAuthResult
     isAdmin: parseBoolean(policy.IsAdministrator),
   };
 }
+
+// ============================================================================
+// Items Parsing (for media enrichment)
+// ============================================================================
+
+/**
+ * Item result for media enrichment
+ * Used when fetching items by ID for Jellystat import
+ */
+export interface EmbyItemResult {
+  Id: string;
+  ParentIndexNumber?: number;
+  IndexNumber?: number;
+  ProductionYear?: number;
+  ImageTags?: {
+    Primary?: string;
+  };
+}
+
+/**
+ * Parse a single Emby item for enrichment
+ */
+export function parseItem(item: Record<string, unknown>): EmbyItemResult {
+  const imageTags = getNestedObject(item, 'ImageTags');
+
+  return {
+    Id: parseString(item.Id),
+    ParentIndexNumber: parseOptionalNumber(item.ParentIndexNumber),
+    IndexNumber: parseOptionalNumber(item.IndexNumber),
+    ProductionYear: parseOptionalNumber(item.ProductionYear),
+    ImageTags: imageTags?.Primary ? { Primary: parseString(imageTags.Primary) } : undefined,
+  };
+}
+
+/**
+ * Parse Emby Items API response (batch item fetch)
+ */
+export function parseItemsResponse(data: unknown): EmbyItemResult[] {
+  const items = (data as { Items?: unknown[] })?.Items;
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => parseItem(item as Record<string, unknown>));
+}

@@ -10,7 +10,8 @@
     "baseUrl": ".",
     "paths": {
       "@tracearr/shared": ["./packages/shared/src"],
-      "@tracearr/shared/*": ["./packages/shared/src/*"]
+      "@tracearr/shared/*": ["./packages/shared/src/*"],
+      "@/*": ["./apps/web/src/*"]
     }
   },
   "include": [

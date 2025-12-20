@@ -522,6 +522,35 @@ export interface TautulliImportResult {
   }[];
 }
 
+// Jellystat import types
+export interface JellystatImportProgress {
+  status: 'idle' | 'parsing' | 'enriching' | 'processing' | 'complete' | 'error';
+  totalRecords: number;
+  processedRecords: number;
+  importedRecords: number;
+  skippedRecords: number;
+  errorRecords: number;
+  /** Number of media items enriched with metadata from Jellyfin */
+  enrichedRecords: number;
+  /** Current phase message */
+  message: string;
+}
+
+export interface JellystatImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: number;
+  enriched: number;
+  message: string;
+  /** Details about users that were skipped (not found in Tracearr) */
+  skippedUsers?: {
+    jellyfinUserId: string;
+    username: string | null;
+    recordCount: number;
+  }[];
+}
+
 // WebSocket event types
 export interface ServerToClientEvents {
   'session:started': (session: ActiveSession) => void;
@@ -530,6 +559,7 @@ export interface ServerToClientEvents {
   'violation:new': (violation: ViolationWithDetails) => void;
   'stats:updated': (stats: DashboardStats) => void;
   'import:progress': (progress: TautulliImportProgress) => void;
+  'import:jellystat:progress': (progress: JellystatImportProgress) => void;
   'version:update': (data: { current: string; latest: string; releaseUrl: string }) => void;
   'server:down': (data: { serverId: string; serverName: string }) => void;
   'server:up': (data: { serverId: string; serverName: string }) => void;

@@ -24,9 +24,11 @@ import {
   parseWatchHistoryResponse,
   parseActivityLogResponse,
   parseAuthResponse,
+  parseItemsResponse,
   parseUser,
   type EmbyActivityEntry,
   type EmbyAuthResult,
+  type EmbyItemResult,
 } from './parser.js';
 
 const CLIENT_NAME = 'Tracearr';
@@ -202,6 +204,37 @@ export class EmbyClient implements IMediaServerClient, IMediaServerClientWithHis
   // ==========================================================================
   // Emby-Specific Methods
   // ==========================================================================
+
+  /**
+   * Batch fetch media items by their IDs
+   *
+   * Used for enriching imported session data with metadata like:
+   * - ParentIndexNumber (season number)
+   * - IndexNumber (episode number)
+   * - ProductionYear
+   * - ImageTags.Primary (for thumbnail)
+   *
+   * @param ids - Array of Emby item IDs
+   * @returns Array of item data (items that don't exist are silently omitted)
+   *
+   * @example
+   * const items = await client.getItems(['id1', 'id2', 'id3']);
+   */
+  async getItems(ids: string[]): Promise<EmbyItemResult[]> {
+    if (ids.length === 0) return [];
+
+    const params = new URLSearchParams({
+      Ids: ids.join(','),
+      Fields: 'ProductionYear,ParentIndexNumber,IndexNumber',
+    });
+
+    const data = await fetchJson<{ Items?: unknown[] }>(`${this.baseUrl}/Items?${params}`, {
+      headers: this.buildHeaders(),
+      service: 'emby',
+    });
+
+    return parseItemsResponse(data);
+  }
 
   /**
    * Get watch history for all users on the server

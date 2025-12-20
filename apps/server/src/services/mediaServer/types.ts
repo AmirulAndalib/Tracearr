@@ -142,6 +142,8 @@ export interface MediaUser {
   lastLoginAt?: Date;
   /** Last activity timestamp */
   lastActivityAt?: Date;
+  /** When user joined/was added to media server (Plex only - from createdAt/joinedAt) */
+  joinedAt?: Date;
 }
 
 // ============================================================================

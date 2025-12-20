@@ -1,27 +1,44 @@
 /**
  * Import Queue - BullMQ-based async import processing
  *
- * Provides reliable, resumable Tautulli import with:
+ * Provides reliable, resumable import processing with:
  * - Restart resilience (job state persisted in Redis)
  * - Cancellation support
  * - Progress tracking via WebSocket
  * - Checkpoint/resume on failure
+ *
+ * Supports both Tautulli (for Plex) and Jellystat (for Jellyfin/Emby) imports.
  */
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
-import type { TautulliImportProgress, TautulliImportResult } from '@tracearr/shared';
+import type {
+  TautulliImportProgress,
+  TautulliImportResult,
+  JellystatImportResult,
+} from '@tracearr/shared';
 import { TautulliService } from '../services/tautulli.js';
+import { importJellystatBackup } from '../services/jellystat.js';
 import { getPubSubService } from '../services/cache.js';
 
 // Job data types
-export interface ImportJobData {
+export interface TautulliImportJobData {
   type: 'tautulli';
   serverId: string;
   userId: string; // Audit trail - who initiated the import
   checkpoint?: number; // Resume from this page (for future use)
 }
 
-export type ImportJobResult = TautulliImportResult;
+export interface JellystatImportJobData {
+  type: 'jellystat';
+  serverId: string;
+  userId: string; // Audit trail - who initiated the import
+  backupJson: string; // Jellystat backup file contents
+  enrichMedia: boolean; // Whether to enrich with metadata from Jellyfin/Emby
+}
+
+export type ImportJobData = TautulliImportJobData | JellystatImportJobData;
+
+export type ImportJobResult = TautulliImportResult | JellystatImportResult;
 
 // Queue configuration
 const QUEUE_NAME = 'imports';
@@ -159,9 +176,21 @@ export function startImportWorker(): void {
 }
 
 /**
- * Process a single import job
+ * Process a single import job (routes to appropriate handler based on type)
  */
 async function processImportJob(job: Job<ImportJobData>): Promise<ImportJobResult> {
+  if (job.data.type === 'jellystat') {
+    return processJellystatImportJob(job as Job<JellystatImportJobData>);
+  }
+  return processTautulliImportJob(job as Job<TautulliImportJobData>);
+}
+
+/**
+ * Process a Tautulli import job
+ */
+async function processTautulliImportJob(
+  job: Job<TautulliImportJobData>
+): Promise<TautulliImportResult> {
   const { serverId } = job.data;
   const pubSubService = getPubSubService();
 
@@ -217,6 +246,41 @@ async function processImportJob(job: Job<ImportJobData>): Promise<ImportJobResul
       errorRecords: result.errors,
       currentPage: 0,
       totalPages: 0,
+      message: result.message,
+      jobId: job.id,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Process a Jellystat import job
+ */
+async function processJellystatImportJob(
+  job: Job<JellystatImportJobData>
+): Promise<JellystatImportResult> {
+  const { serverId, backupJson, enrichMedia } = job.data;
+  const pubSubService = getPubSubService();
+
+  // Run the actual import
+  const result = await importJellystatBackup(
+    serverId,
+    backupJson,
+    enrichMedia,
+    pubSubService ?? undefined
+  );
+
+  // Publish final result
+  if (pubSubService) {
+    await pubSubService.publish('import:jellystat:progress', {
+      status: result.success ? 'complete' : 'error',
+      totalRecords: result.imported + result.skipped + result.errors,
+      processedRecords: result.imported + result.skipped + result.errors,
+      importedRecords: result.imported,
+      skippedRecords: result.skipped,
+      errorRecords: result.errors,
+      enrichedRecords: result.enriched,
       message: result.message,
       jobId: job.id,
     });
@@ -354,6 +418,89 @@ export async function getImportQueueStats(): Promise<{
   ]);
 
   return { waiting, active, completed, failed, delayed, dlqSize: dlqWaiting };
+}
+
+// ==========================================================================
+// Jellystat-Specific Functions
+// ==========================================================================
+
+/**
+ * Get active Jellystat import job for a server (if any)
+ */
+export async function getActiveJellystatImportForServer(serverId: string): Promise<string | null> {
+  if (!importQueue) {
+    return null;
+  }
+
+  const activeJobs = await importQueue.getJobs(['active', 'waiting', 'delayed']);
+  const existingJob = activeJobs.find(
+    (j) => j.data.type === 'jellystat' && j.data.serverId === serverId
+  );
+
+  return existingJob?.id ?? null;
+}
+
+/**
+ * Enqueue a new Jellystat import job
+ */
+export async function enqueueJellystatImport(
+  serverId: string,
+  userId: string,
+  backupJson: string,
+  enrichMedia: boolean = true
+): Promise<string> {
+  if (!importQueue) {
+    throw new Error('Import queue not initialized');
+  }
+
+  // Check for existing active import for this server
+  const existingJobId = await getActiveJellystatImportForServer(serverId);
+
+  if (existingJobId) {
+    throw new Error(`Import already in progress for server ${serverId} (job ${existingJobId})`);
+  }
+
+  const job = await importQueue.add('jellystat-import', {
+    type: 'jellystat',
+    serverId,
+    userId,
+    backupJson,
+    enrichMedia,
+  });
+
+  const jobId = job.id ?? `unknown-${Date.now()}`;
+  console.log(`[Import] Enqueued Jellystat job ${jobId} for server ${serverId}`);
+  return jobId;
+}
+
+/**
+ * Get Jellystat import job status (alias for getImportStatus with Jellystat-specific typing)
+ */
+export async function getJellystatImportStatus(jobId: string): Promise<{
+  jobId: string;
+  state: string;
+  progress: number | object | null;
+  result?: JellystatImportResult;
+  failedReason?: string;
+  createdAt?: number;
+  finishedAt?: number;
+} | null> {
+  return getImportStatus(jobId) as Promise<{
+    jobId: string;
+    state: string;
+    progress: number | object | null;
+    result?: JellystatImportResult;
+    failedReason?: string;
+    createdAt?: number;
+    finishedAt?: number;
+  } | null>;
+}
+
+/**
+ * Cancel a Jellystat import job (alias for cancelImport)
+ */
+export async function cancelJellystatImport(jobId: string): Promise<boolean> {
+  return cancelImport(jobId);
 }
 
 /**
