@@ -84,7 +84,7 @@ export interface PlexCheckPinResponse {
   user?: User;
   // If new user (needs server selection)
   needsServerSelection?: boolean;
-  servers?: PlexServerInfo[];
+  servers?: PlexDiscoveredServer[]; // Now includes reachability info
   tempToken?: string;
 }
 

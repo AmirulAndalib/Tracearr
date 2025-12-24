@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { api, tokenStorage, type PlexServerInfo } from '@/lib/api';
+import { api, tokenStorage } from '@/lib/api';
+import type { PlexDiscoveredServer } from '@tracearr/shared';
 import { LogoIcon } from '@/components/brand/Logo';
 import { PlexServerSelector } from '@/components/auth/PlexServerSelector';
 
@@ -35,7 +36,7 @@ export function Login() {
   // Auth flow state
   const [authStep, setAuthStep] = useState<AuthStep>('initial');
   const [plexAuthUrl, setPlexAuthUrl] = useState<string | null>(null);
-  const [plexServers, setPlexServers] = useState<PlexServerInfo[]>([]);
+  const [plexServers, setPlexServers] = useState<PlexDiscoveredServer[]>([]);
   const [plexTempToken, setPlexTempToken] = useState<string | null>(null);
   const [connectingToServer, setConnectingToServer] = useState<string | null>(null);
   const [plexPopup, setPlexPopup] = useState<ReturnType<typeof window.open>>(null);
@@ -185,15 +186,16 @@ export function Login() {
 
       if (result.accessToken && result.refreshToken) {
         tokenStorage.setTokens(result.accessToken, result.refreshToken);
-        void refetch();
+        await refetch();
         toast.success('Success', { description: `Connected to ${serverName}` });
         void navigate('/');
       }
     } catch (error) {
-      setConnectingToServer(null);
       toast.error('Connection failed', {
         description: error instanceof Error ? error.message : 'Failed to connect to server',
       });
+    } finally {
+      setConnectingToServer(null);
     }
   };
 

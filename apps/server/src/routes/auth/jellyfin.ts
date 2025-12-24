@@ -141,12 +141,14 @@ export const jellyfinRoutes: FastifyPluginAsync = async (app) => {
 
       try {
         // Verify the API key has admin access
-        const isAdmin = await JellyfinClient.verifyServerAdmin(apiKey, serverUrl);
+        const adminCheck = await JellyfinClient.verifyServerAdmin(apiKey, serverUrl);
 
-        if (!isAdmin) {
-          return reply.forbidden(
-            'API key does not have administrator access to this Jellyfin server'
-          );
+        if (!adminCheck.success) {
+          // Provide specific error based on failure type
+          if (adminCheck.code === JellyfinClient.AdminVerifyError.CONNECTION_FAILED) {
+            return reply.serviceUnavailable(adminCheck.message);
+          }
+          return reply.forbidden(adminCheck.message);
         }
 
         // Create or update server

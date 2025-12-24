@@ -13,6 +13,7 @@ import {
   Edit3,
   AlertTriangle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -148,6 +149,15 @@ export function PlexServerSelector({
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = `http://${url}`;
     }
+
+    if (url.includes('plex.direct')) {
+      toast.error('Invalid URL', {
+        description:
+          'plex.direct URLs are relay addresses that cannot be used here. Please use a direct IP address or hostname instead.',
+      });
+      return;
+    }
+
     onSelect(url, server.name, server.clientIdentifier);
     setCustomUrl('');
     setCustomUrlServer(null);

@@ -50,6 +50,59 @@ const plexAddServerSchema = z.object({
 // Connection testing timeout in milliseconds
 const CONNECTION_TEST_TIMEOUT = 3000;
 
+/**
+ * Test connections to a Plex server and return results with reachability info
+ */
+async function testServerConnections(
+  connections: Array<{ uri: string; local: boolean; address: string; port: number; relay: boolean }>,
+  token: string
+): Promise<PlexDiscoveredConnection[]> {
+  const results = await Promise.all(
+    connections.map(async (conn): Promise<PlexDiscoveredConnection> => {
+      const start = Date.now();
+      try {
+        const response = await fetch(`${conn.uri}/`, {
+          headers: plexHeaders(token),
+          signal: AbortSignal.timeout(CONNECTION_TEST_TIMEOUT),
+        });
+        if (response.ok) {
+          return {
+            uri: conn.uri,
+            local: conn.local,
+            address: conn.address,
+            port: conn.port,
+            reachable: true,
+            latencyMs: Date.now() - start,
+          };
+        }
+      } catch {
+        // Connection failed or timed out
+      }
+      return {
+        uri: conn.uri,
+        local: conn.local,
+        address: conn.address,
+        port: conn.port,
+        reachable: false,
+        latencyMs: null,
+      };
+    })
+  );
+
+  // Sort: reachable first, then HTTPS, then local preference, then by latency
+  return results.sort((a, b) => {
+    if (a.reachable !== b.reachable) return a.reachable ? -1 : 1;
+    const aHttps = a.uri.startsWith('https://');
+    const bHttps = b.uri.startsWith('https://');
+    if (aHttps !== bHttps) return aHttps ? -1 : 1;
+    if (a.local !== b.local) return a.local ? -1 : 1;
+    if (a.latencyMs !== null && b.latencyMs !== null) {
+      return a.latencyMs - b.latencyMs;
+    }
+    return 0;
+  });
+}
+
 export const plexRoutes: FastifyPluginAsync = async (app) => {
   /**
    * POST /plex/check-pin - Check Plex PIN status
@@ -134,27 +187,31 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
         })
       );
 
-      // If they have servers, let them select one to connect
+      // If they have servers, test connections and let them select one
       if (plexServers.length > 0) {
-        const formattedServers = plexServers.map((s) => ({
-          name: s.name,
-          platform: s.platform,
-          version: s.productVersion,
-          clientIdentifier: s.clientIdentifier, // For storing machineIdentifier
-          publicAddressMatches: s.publicAddressMatches, // Used to indicate if local connections were filtered
-          httpsRequired: s.httpsRequired, // True if server requires HTTPS (HTTP connections rejected)
-          connections: s.connections.map((c) => ({
-            uri: c.uri,
-            local: c.local,
-            address: c.address,
-            port: c.port,
-          })),
-        }));
+        // Test connections for each server in parallel
+        const testedServers: PlexDiscoveredServer[] = await Promise.all(
+          plexServers.map(async (s) => {
+            const testedConnections = await testServerConnections(s.connections, authResult.token);
+            const recommended = testedConnections.find((c) => c.reachable);
+
+            return {
+              name: s.name,
+              platform: s.platform,
+              version: s.productVersion,
+              clientIdentifier: s.clientIdentifier,
+              publicAddressMatches: s.publicAddressMatches,
+              httpsRequired: s.httpsRequired,
+              connections: testedConnections,
+              recommendedUri: recommended?.uri ?? null,
+            };
+          })
+        );
 
         return {
           authorized: true,
           needsServerSelection: true,
-          servers: formattedServers,
+          servers: testedServers,
           tempToken,
         };
       }
@@ -385,58 +442,8 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
       // Test connections for each server in parallel
       const testedServers: PlexDiscoveredServer[] = await Promise.all(
         availableServers.map(async (server) => {
-          // Test all connections in parallel
-          const connectionResults = await Promise.all(
-            server.connections.map(async (conn): Promise<PlexDiscoveredConnection> => {
-              const start = Date.now();
-              try {
-                const response = await fetch(`${conn.uri}/`, {
-                  headers: plexHeaders(plexToken),
-                  signal: AbortSignal.timeout(CONNECTION_TEST_TIMEOUT),
-                });
-                if (response.ok) {
-                  return {
-                    uri: conn.uri,
-                    local: conn.local,
-                    address: conn.address,
-                    port: conn.port,
-                    reachable: true,
-                    latencyMs: Date.now() - start,
-                  };
-                }
-              } catch {
-                // Connection failed or timed out
-              }
-              return {
-                uri: conn.uri,
-                local: conn.local,
-                address: conn.address,
-                port: conn.port,
-                reachable: false,
-                latencyMs: null,
-              };
-            })
-          );
-
-          // Sort connections: reachable first, then HTTPS, then local preference, then by latency
-          const sortedConnections = connectionResults.sort((a, b) => {
-            // Reachable first
-            if (a.reachable !== b.reachable) return a.reachable ? -1 : 1;
-            // Then HTTPS preference (many Plex servers require secure connections)
-            const aHttps = a.uri.startsWith('https://');
-            const bHttps = b.uri.startsWith('https://');
-            if (aHttps !== bHttps) return aHttps ? -1 : 1;
-            // Then local preference (local before remote)
-            if (a.local !== b.local) return a.local ? -1 : 1;
-            // Then by latency (lower is better)
-            if (a.latencyMs !== null && b.latencyMs !== null) {
-              return a.latencyMs - b.latencyMs;
-            }
-            return 0;
-          });
-
-          // Pick the best connection as recommended
-          const recommended = sortedConnections.find((c) => c.reachable);
+          const testedConnections = await testServerConnections(server.connections, plexToken);
+          const recommended = testedConnections.find((c) => c.reachable);
 
           return {
             name: server.name,
@@ -444,7 +451,7 @@ export const plexRoutes: FastifyPluginAsync = async (app) => {
             version: server.productVersion,
             clientIdentifier: server.clientIdentifier,
             recommendedUri: recommended?.uri ?? null,
-            connections: sortedConnections,
+            connections: testedConnections,
           };
         })
       );

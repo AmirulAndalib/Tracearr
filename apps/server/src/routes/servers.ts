@@ -78,9 +78,13 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
           return reply.forbidden(adminCheck.message);
         }
       } else if (type === 'jellyfin') {
-        const isAdmin = await JellyfinClient.verifyServerAdmin(token, url);
-        if (!isAdmin) {
-          return reply.forbidden('Token does not have admin access to this Jellyfin server');
+        const adminCheck = await JellyfinClient.verifyServerAdmin(token, url);
+        if (!adminCheck.success) {
+          // Provide specific error based on failure type
+          if (adminCheck.code === JellyfinClient.AdminVerifyError.CONNECTION_FAILED) {
+            return reply.serviceUnavailable(adminCheck.message);
+          }
+          return reply.forbidden(adminCheck.message);
         }
       } else if (type === 'emby') {
         const isAdmin = await EmbyClient.verifyServerAdmin(token, url);

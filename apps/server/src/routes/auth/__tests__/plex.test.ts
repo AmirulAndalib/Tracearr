@@ -146,6 +146,7 @@ const mockPlexServer = {
       local: true,
       address: '192.168.1.100',
       port: 32400,
+      relay: false,
     },
     {
       protocol: 'https',
@@ -153,6 +154,7 @@ const mockPlexServer = {
       local: false,
       address: 'plex.example.com',
       port: 32400,
+      relay: false,
     },
   ],
 };

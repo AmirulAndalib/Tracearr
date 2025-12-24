@@ -330,6 +330,12 @@ export interface PlexServerConnection {
   port: number;
   uri: string;
   local: boolean;
+  /**
+   * True if this connection goes through Plex's relay service.
+   * Relay connections are bandwidth-limited (2Mbps) and designed for client apps,
+   * not server-to-server communication.
+   */
+  relay: boolean;
 }
 
 /**
@@ -369,6 +375,7 @@ export function parseServerConnection(conn: Record<string, unknown>): PlexServer
     port: parseNumber(conn.port, 32400),
     uri: parseString(conn.uri),
     local: parseBoolean(conn.local),
+    relay: parseBoolean(conn.relay),
   };
 }
 
@@ -376,8 +383,12 @@ export function parseServerConnection(conn: Record<string, unknown>): PlexServer
  * Parse server resource from plex.tv resources API
  *
  * Filters connections based on:
+ * - relay: Relay connections are filtered out (bandwidth-limited, for client apps only)
  * - httpsRequired: If true, only HTTPS connections are usable (HTTP will be rejected)
- * - publicAddressMatches: If false (different network), only remote connections work
+ *
+ * Note: We do NOT filter based on publicAddressMatches because that field reflects
+ * the browser's network context during OAuth, not Tracearr server's network context.
+ * Tracearr may be on the same Docker network as Plex even if the browser is remote.
  */
 export function parseServerResource(
   resource: Record<string, unknown>,
@@ -391,21 +402,20 @@ export function parseServerResource(
     parseServerConnection(conn as Record<string, unknown>)
   );
 
-  // Filter connections based on what's actually usable
+  // Filter connections based on what's actually usable from server-side
   const connections = allConnections.filter((conn) => {
+    // Relay connections don't work for server-to-server communication
+    // They're bandwidth-limited (2Mbps) and designed for client apps
+    if (conn.relay) {
+      return false;
+    }
+
     // If HTTPS is required, filter out HTTP connections
     if (httpsRequired && conn.protocol !== 'https') {
       return false;
     }
 
-    // Filter based on network location (like Tautulli does)
-    if (publicAddressMatches) {
-      // Same network: all connections should work
-      return true;
-    } else {
-      // Different network: only remote connections will work (local IPs unreachable)
-      return !conn.local;
-    }
+    return true;
   });
 
   // If filtering removed all connections, fall back to showing all

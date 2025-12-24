@@ -239,7 +239,7 @@ describe('Server Routes', () => {
   describe('POST /servers', () => {
     beforeEach(() => {
       vi.mocked(PlexClient.verifyServerAdmin).mockResolvedValue({ success: true });
-      vi.mocked(JellyfinClient.verifyServerAdmin).mockResolvedValue(true);
+      vi.mocked(JellyfinClient.verifyServerAdmin).mockResolvedValue({ success: true });
       vi.mocked(EmbyClient.verifyServerAdmin).mockResolvedValue(true);
       vi.mocked(syncServer).mockResolvedValue({
         usersAdded: 5,
