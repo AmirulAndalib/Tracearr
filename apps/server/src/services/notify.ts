@@ -249,7 +249,7 @@ export class NotificationService {
     if (settings.discordWebhookUrl) {
       promises.push(
         this.sendDiscordMessage(settings.discordWebhookUrl, {
-          title: 'Stream Stopped',
+          title: 'Stream Ended',
           color: 0x95a5a6, // Gray
           fields: [
             {
@@ -667,8 +667,8 @@ export class NotificationService {
       const durationStr = session.durationMs ? ` (${formatDuration(session.durationMs)})` : '';
       return {
         topic: ntfyTopic,
-        title: 'Stream Stopped',
-        message: `${userName} stopped watching ${mediaDisplay}${durationStr}`,
+        title: 'Stream Ended',
+        message: `${userName} finished watching ${mediaDisplay}${durationStr}`,
         priority: 3,
         tags: ['stop_button'],
       };
@@ -743,8 +743,8 @@ export class NotificationService {
       // session_stopped
       const durationStr = session.durationMs ? ` (${formatDuration(session.durationMs)})` : '';
       return {
-        title: 'Stream Stopped',
-        body: `${userName} stopped watching ${mediaDisplay}${durationStr}`,
+        title: 'Stream Ended',
+        body: `${userName} finished watching ${mediaDisplay}${durationStr}`,
         type: 'info',
       };
     }
