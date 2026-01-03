@@ -326,6 +326,30 @@ async function processServerSessions(
               return null;
             }
 
+            if (processed.ratingKey && userDetail?.id) {
+              const [existingForContent] = await db
+                .select({ id: sessions.id, sessionKey: sessions.sessionKey })
+                .from(sessions)
+                .where(
+                  and(
+                    eq(sessions.serverUserId, userDetail.id),
+                    eq(sessions.ratingKey, processed.ratingKey),
+                    isNull(sessions.stoppedAt)
+                  )
+                )
+                .limit(1);
+
+              if (existingForContent) {
+                console.log(
+                  `[Poller] Session_key ${processed.sessionKey} is new, but active session ${existingForContent.id} exists for same content (key: ${existingForContent.sessionKey}). Skipping duplicate.`
+                );
+                // Add both session keys to cache
+                cachedSessionKeys.add(sessionKey);
+                cachedSessionKeys.add(`${server.id}:${existingForContent.sessionKey}`);
+                return null;
+              }
+            }
+
             const result = await createSessionWithRulesAtomic({
               processed,
               server: { id: server.id, name: server.name, type: server.type },
@@ -422,6 +446,34 @@ async function processServerSessions(
                   `[Poller] Session created by SSE for ${processed.sessionKey}, skipping`
                 );
                 return null;
+              }
+
+              // Issue #121: Check if there's already an active session for same user+content
+              // with a DIFFERENT session_key. This happens when Plex reassigns session keys
+              // during transcoder restarts or quality changes. We should NOT create a new
+              // session (which triggers quality change detection) - instead, just update cache.
+              if (processed.ratingKey && userDetail?.id) {
+                const [existingForContent] = await db
+                  .select({ id: sessions.id, sessionKey: sessions.sessionKey })
+                  .from(sessions)
+                  .where(
+                    and(
+                      eq(sessions.serverUserId, userDetail.id),
+                      eq(sessions.ratingKey, processed.ratingKey),
+                      isNull(sessions.stoppedAt)
+                    )
+                  )
+                  .limit(1);
+
+                if (existingForContent) {
+                  console.log(
+                    `[Poller] Stale session_key ${processed.sessionKey} but active session ${existingForContent.id} exists for same content (key: ${existingForContent.sessionKey}). Skipping duplicate creation.`
+                  );
+                  // Add both session keys to cache to prevent future stale detection
+                  cachedSessionKeys.add(sessionKey);
+                  cachedSessionKeys.add(`${server.id}:${existingForContent.sessionKey}`);
+                  return null;
+                }
               }
 
               return createSessionWithRulesAtomic({
