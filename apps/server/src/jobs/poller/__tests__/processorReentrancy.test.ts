@@ -28,6 +28,10 @@ vi.mock('../../../routes/settings.js', () => ({
   getGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
 }));
 
+vi.mock('../../../services/settings.js', () => ({
+  getWatchedThreshold: vi.fn().mockResolvedValue(0.85),
+}));
+
 vi.mock('../../../serverState.js', () => ({
   isMaintenance: vi.fn().mockReturnValue(false),
 }));
@@ -59,6 +63,7 @@ vi.mock('../../notificationQueue.js', () => ({
 vi.mock('../database.js', () => ({
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   widenRecentSessionsForMergedIdentities: vi.fn(),
 }));

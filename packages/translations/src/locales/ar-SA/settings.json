@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "الوصول إلى واجهة برمجة تطبيقات Tracearr لتكامل أطراف ثالثة مثل Homarr، مساعد المنزل، إلخ.",
     "apiKeyReadAccess": "مفتاح API الخاص بك يمنح الوصول الكامل للقراءة إلى بيانات Tracearr الخاصة بك.",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "المظهر",
     "appearanceDesc": "تخصيص مظهر وشعور Tracearr",
     "application": "تطبيق",
@@ -133,6 +136,8 @@
     "plexAccount": "حساب Plex",
     "plexSseNote": "يستخدم Plex أحداث الخادم المرسلة (SSE) للتحديثات شبه الفورية - لا حاجة إلى الاقتراع.",
     "primaryAuth": "طريقة المصادقة الرئيسية",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "تجديد",
     "regenerateApiKey": "إعادة إنشاء مفتاح API؟",
     "regenerateApiKeyDesc": "سيؤدي هذا إلى إبطال مفتاح API الحالي. أي تكامل باستخدام المفتاح القديم سيتوقف عن العمل.",
@@ -152,7 +157,14 @@
     "timezone": "Timezone",
     "title": "الإعدادات العامة",
     "unitSystem": "نظام الوحدة",
-    "unitSystemDesc": "اختر كيف يتم عرض المسافات والسرعات"
+    "unitSystemDesc": "اختر كيف يتم عرض المسافات والسرعات",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "تم العثور على إعدادات Tautulli → واجهة ويب → API المفتاح.",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

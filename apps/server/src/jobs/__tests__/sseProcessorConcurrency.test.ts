@@ -121,6 +121,7 @@ vi.mock('../poller/stateTracker.js', () => ({
 }));
 vi.mock('../poller/database.js', () => ({
   getActiveRulesV2: vi.fn().mockResolvedValue([]),
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   mergeRecentSessionsForIdentity: vi.fn().mockReturnValue([]),
 }));

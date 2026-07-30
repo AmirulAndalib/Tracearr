@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "Πρόσβαση στο Tracearr API για την ενσωμάτωση τρίτων, όπως Homarr, Home Assistant, κλπ.",
     "apiKeyReadAccess": "Το κλειδί API σας παρέχει πλήρη πρόσβαση ανάγνωσης στα δεδομένα του Tracearr σας.",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "Εμφάνιση",
     "appearanceDesc": "Προσαρμόστε την εμφάνιση και την αίσθηση του Tracearr",
     "application": "Εφαρμογή",
@@ -133,6 +136,8 @@
     "plexAccount": "Λογαριασμός Plex",
     "plexSseNote": "Το Plex χρησιμοποιεί Server-Sent Events (SSE) για σχεδόν άμεσες ενημερώσεις — δεν απαιτούνται δημοσκοπήσεις.",
     "primaryAuth": "Κύρια Μέθοδος Ταυτοποίησης",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "Αναδημιουργία",
     "regenerateApiKey": "Επαναδημιουργία Κλειδιού Api?",
     "regenerateApiKeyDesc": "Αυτό θα ακυρώσει το τρέχον κλειδί API. Οποιεσδήποτε ενσωματώσεις χρησιμοποιώντας το παλιό κλειδί θα σταματήσουν να λειτουργούν.",
@@ -152,7 +157,14 @@
     "timezone": "Timezone",
     "title": "Γενικές Ρυθμίσεις",
     "unitSystem": "Σύστημα Μονάδων",
-    "unitSystemDesc": "Επιλέξτε πώς θα εμφανίζονται οι αποστάσεις και οι ταχύτητες"
+    "unitSystemDesc": "Επιλέξτε πώς θα εμφανίζονται οι αποστάσεις και οι ταχύτητες",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "Βρέθηκε στο Tautulli Settings → Web Interface → API Key.",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

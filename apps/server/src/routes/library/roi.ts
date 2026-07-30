@@ -10,7 +10,7 @@
  * - Deletion suggestions for low-value, unwatched content
  *
  * Uses LEFT JOIN with sessions table to correlate watch time with storage.
- * 2-minute (120000ms) session threshold for valid "intent to watch".
+ * A play is one resume chain (COALESCE(reference_id, id)) gated at 2 minutes (120000ms).
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -224,7 +224,7 @@ export const libraryRoiRoute: FastifyPluginAsync = async (app) => {
             server_id,
             SUM(file_size) AS total_size
           FROM library_items
-          WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL
+          WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL AND removed_at IS NULL
           GROUP BY grandparent_rating_key, server_id
         ),
         child_watch_stats AS (
@@ -232,14 +232,14 @@ export const libraryRoiRoute: FastifyPluginAsync = async (app) => {
           SELECT
             child.grandparent_rating_key,
             child.server_id,
-            COUNT(sess.id) FILTER (WHERE sess.duration_ms >= 120000) AS watch_count,
+            COUNT(DISTINCT COALESCE(sess.reference_id, sess.id)) FILTER (WHERE COALESCE(sess.duration_ms, 0) >= 120000) AS watch_count,
             COALESCE(SUM(sess.duration_ms) FILTER (WHERE sess.duration_ms >= 120000), 0) AS total_watch_ms,
             MAX(sess.stopped_at) AS last_watched_at
           FROM library_items child
           LEFT JOIN sessions sess ON sess.rating_key = child.rating_key
             AND sess.server_id = child.server_id
             AND sess.started_at >= NOW() - INTERVAL '1 day' * ${periodDays}
-          WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL
+          WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL AND child.removed_at IS NULL
           GROUP BY child.grandparent_rating_key, child.server_id
         ),
         item_roi AS (
@@ -263,7 +263,7 @@ export const libraryRoiRoute: FastifyPluginAsync = async (app) => {
             -- For shows/artists: use child watch stats
             CASE
               WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cws.watch_count, 0)
-              ELSE COUNT(sess.id) FILTER (WHERE sess.duration_ms >= 120000)
+              ELSE COUNT(DISTINCT COALESCE(sess.reference_id, sess.id)) FILTER (WHERE COALESCE(sess.duration_ms, 0) >= 120000)
             END AS watch_count,
             CASE
               WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cws.total_watch_ms, 0)
@@ -294,6 +294,7 @@ export const libraryRoiRoute: FastifyPluginAsync = async (app) => {
             AND sess.server_id = li.server_id
             AND sess.started_at >= NOW() - INTERVAL '1 day' * ${periodDays}
           WHERE li.media_type NOT IN ('episode', 'track', 'season', 'album')  -- Exclude children/containers, only show content
+            AND li.removed_at IS NULL
             AND (
               CASE
                 WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cs.total_size, li.file_size)
@@ -470,7 +471,7 @@ export const libraryRoiRoute: FastifyPluginAsync = async (app) => {
             FROM library_items li
             LEFT JOIN sessions sess ON sess.rating_key = li.rating_key AND sess.server_id = li.server_id
               AND sess.started_at >= NOW() - INTERVAL '1 day' * ${periodDays}
-            WHERE li.file_size > ${minFileSize} ${serverFilter} ${libraryFilter} ${mediaTypeFilter}
+            WHERE li.file_size > ${minFileSize} AND li.removed_at IS NULL ${serverFilter} ${libraryFilter} ${mediaTypeFilter}
             GROUP BY li.id
           ),
           roi_scored AS (

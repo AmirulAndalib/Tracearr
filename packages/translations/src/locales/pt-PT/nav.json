@@ -18,5 +18,8 @@
   "devices": "Dispositivos",
   "bandwidth": "Banda",
   "jobs": "Empregos",
-  "accessControl": "Controle de Acesso"
+  "accessControl": "Controle de Acesso",
+  "media": "Media",
+  "mediaBrowse": "Navegar",
+  "mediaGenres": "Géneros"
 }

@@ -110,6 +110,7 @@ vi.mock('../database.js', () => ({
   getActiveRulesV2: vi.fn().mockResolvedValue([]),
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   widenRecentSessionsForMergedIdentities: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../pendingConfirmation.js', () => ({ updatePendingSession: vi.fn() }));

@@ -10,6 +10,7 @@
  * Supports both Tautulli (for Plex) and Jellystat (for Jellyfin/Emby) imports.
  */
 
+import { randomUUID } from 'node:crypto';
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { isMaintenance } from '../serverState.js';
 import { getRedisPrefix } from '@tracearr/shared';
@@ -27,6 +28,7 @@ import {
   acquireHeavyOpsLock,
   releaseHeavyOpsLock,
   extendHeavyOpsLock,
+  startHeavyOpsLockHeartbeat,
   type HeavyOpsLockHolder,
 } from './heavyOpsLock.js';
 
@@ -195,13 +197,19 @@ export function startImportWorker(): void {
       };
 
       // Acquire heavy operations lock (waits if another heavy op is running)
+      // One token for this whole processor invocation - see heavyOpsLock.ts
+      // for why job.id alone can't prove ownership across concurrent runs.
+      const runToken = randomUUID();
       let lockHolder: HeavyOpsLockHolder | null;
       const pubSubService = getPubSubService();
       const WAIT_INTERVAL_MS = 5000; // Check every 5 seconds
       const MAX_WAIT_MS = 4 * 60 * 60 * 1000; // Max 4 hours wait
       let waitedMs = 0;
 
-      while ((lockHolder = await acquireHeavyOpsLock('import', job.id!, jobDescription)) !== null) {
+      while (
+        (lockHolder = await acquireHeavyOpsLock('import', job.id!, jobDescription, runToken)) !==
+        null
+      ) {
         // Update cached progress with waiting status
         activeImportProgress = {
           jobId: job.id!,
@@ -264,6 +272,8 @@ export function startImportWorker(): void {
 
       console.log(`[Import] Job ${job.id} acquired heavy ops lock`);
 
+      // Backstop renewal independent of how often processImportJob itself calls extendHeavyOpsLock.
+      const stopHeartbeat = startHeavyOpsLockHeartbeat(job.id!, runToken);
       try {
         const result = await withSessionsCompressionPaused(() => processImportJob(job));
         const duration = Math.round((Date.now() - startTime) / 1000);
@@ -274,6 +284,7 @@ export function startImportWorker(): void {
         console.error(`[Import] Job ${job.id} failed after ${duration}s:`, error);
         throw error;
       } finally {
+        stopHeartbeat();
         // Always release the heavy ops lock and clear cached progress
         await releaseHeavyOpsLock(job.id!);
         activeImportProgress = null;

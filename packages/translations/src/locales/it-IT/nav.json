@@ -18,5 +18,8 @@
   "devices": "Dispositivi",
   "bandwidth": "Larghezza Di Banda",
   "jobs": "Lavori",
-  "accessControl": "Controllo Accesso"
+  "accessControl": "Controllo Accesso",
+  "media": "Media",
+  "mediaBrowse": "Esplora",
+  "mediaGenres": "Generi"
 }

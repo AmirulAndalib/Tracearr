@@ -143,9 +143,7 @@ describe('extractInactiveDaysFromConditions', () => {
     const conditions: RuleConditions = {
       groups: [
         {
-          conditions: [
-            { field: 'inactive_days', operator: 'eq', value: 'thirty' },
-          ],
+          conditions: [{ field: 'inactive_days', operator: 'eq', value: 'thirty' }],
         },
       ],
     };

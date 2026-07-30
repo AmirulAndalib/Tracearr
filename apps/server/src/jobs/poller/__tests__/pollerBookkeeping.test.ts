@@ -43,6 +43,10 @@ vi.mock('../../../routes/settings.js', () => ({
   getGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
 }));
 
+vi.mock('../../../services/settings.js', () => ({
+  getWatchedThreshold: vi.fn().mockResolvedValue(0.85),
+}));
+
 vi.mock('../../../serverState.js', () => ({
   isMaintenance: vi.fn().mockReturnValue(false),
 }));

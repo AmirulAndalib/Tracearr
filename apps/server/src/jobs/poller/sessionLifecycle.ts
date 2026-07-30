@@ -27,6 +27,7 @@ import {
 import { executeActions, type ActionResult } from '../../services/rules/executors/index.js';
 import type { EvaluationContext, EvaluationResult } from '../../services/rules/types.js';
 import { storeActionResults } from '../../services/rules/v2Integration.js';
+import { getWatchedThreshold } from '../../services/settings.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
 import { pickStreamDetailFields } from './sessionMapper.js';
 import {
@@ -34,6 +35,7 @@ import {
   checkWatchCompletion,
   shouldRecordSession,
 } from './stateTracker.js';
+import type { SessionIdentity as MediaItemIdentity } from './database.js';
 import type {
   CompositeSessionIdentity,
   MediaChangeInput,
@@ -123,6 +125,7 @@ export interface BuildActiveSessionInput {
     ratingKey: string;
     totalDurationMs: number;
     progressMs: number;
+    serverVersionKey?: string | null;
     ipAddress: string;
     playerName: string;
     deviceId: string;
@@ -143,6 +146,8 @@ export interface BuildActiveSessionInput {
     albumName: string | null;
     trackNumber: number | null;
     discNumber: number | null;
+    /** Canonical media identity resolved from library_items, stamped at session insert. */
+    identity?: MediaItemIdentity | null;
   };
 
   /** Server user info */
@@ -197,6 +202,14 @@ export function buildActiveSession(input: BuildActiveSessionInput): ActiveSessio
     year: processed.year || null,
     thumbPath: processed.thumbPath || null,
     ratingKey: processed.ratingKey || null,
+    serverVersionKey: processed.serverVersionKey ?? null,
+    parentRatingKey: processed.identity?.parentRatingKey ?? null,
+    grandparentRatingKey: processed.identity?.grandparentRatingKey ?? null,
+    mediaId: processed.identity?.mediaId ?? null,
+    showMediaId: processed.identity?.showMediaId ?? null,
+    imdbId: processed.identity?.imdbId ?? null,
+    tmdbId: processed.identity?.tmdbId ?? null,
+    tvdbId: processed.identity?.tvdbId ?? null,
 
     // External session ID (for Plex API calls)
     externalSessionId: session.externalSessionId ?? null,
@@ -300,6 +313,14 @@ export function buildPendingActiveSession(pendingData: PendingSessionData): Acti
     year: processed.year || null,
     thumbPath: processed.thumbPath || null,
     ratingKey: processed.ratingKey || null,
+    serverVersionKey: processed.serverVersionKey ?? null,
+    parentRatingKey: processed.identity?.parentRatingKey ?? null,
+    grandparentRatingKey: processed.identity?.grandparentRatingKey ?? null,
+    mediaId: processed.identity?.mediaId ?? null,
+    showMediaId: processed.identity?.showMediaId ?? null,
+    imdbId: processed.identity?.imdbId ?? null,
+    tmdbId: processed.identity?.tmdbId ?? null,
+    tvdbId: processed.identity?.tvdbId ?? null,
 
     // External session ID (for Plex API calls)
     externalSessionId: processed.plexSessionId ?? null,
@@ -760,6 +781,14 @@ export async function createSessionWithRulesAtomic(
               // null here would make each tick's dedup miss the row it wrote last
               // tick and insert a duplicate until the stale sweep.
               ratingKey: processed.ratingKey ?? '',
+              serverVersionKey: processed.serverVersionKey ?? null,
+              parentRatingKey: processed.identity?.parentRatingKey ?? null,
+              grandparentRatingKey: processed.identity?.grandparentRatingKey ?? null,
+              mediaId: processed.identity?.mediaId ?? null,
+              showMediaId: processed.identity?.showMediaId ?? null,
+              imdbId: processed.identity?.imdbId ?? null,
+              tmdbId: processed.identity?.tmdbId ?? null,
+              tvdbId: processed.identity?.tvdbId ?? null,
               state: processed.state,
               mediaType: processed.mediaType,
               mediaTitle: processed.mediaTitle,
@@ -838,6 +867,14 @@ export async function createSessionWithRulesAtomic(
             year: processed.year || null,
             thumbPath: processed.thumbPath || null,
             ratingKey: processed.ratingKey || null,
+            serverVersionKey: processed.serverVersionKey ?? null,
+            parentRatingKey: processed.identity?.parentRatingKey ?? null,
+            grandparentRatingKey: processed.identity?.grandparentRatingKey ?? null,
+            mediaId: processed.identity?.mediaId ?? null,
+            showMediaId: processed.identity?.showMediaId ?? null,
+            imdbId: processed.identity?.imdbId ?? null,
+            tmdbId: processed.identity?.tmdbId ?? null,
+            tvdbId: processed.identity?.tvdbId ?? null,
             externalSessionId: null,
             startedAt: inserted.startedAt,
             stoppedAt: null,
@@ -1198,7 +1235,12 @@ export async function stopSessionAtomic(input: SessionStopInput): Promise<Sessio
   const watched = preserveWatched
     ? session.watched
     : session.watched ||
-      checkWatchCompletion(durationMs, session.progressMs, session.totalDurationMs);
+      checkWatchCompletion(
+        durationMs,
+        session.progressMs,
+        session.totalDurationMs,
+        await getWatchedThreshold(session.mediaType)
+      );
 
   const shortSession = !shouldRecordSession(durationMs);
 
@@ -1509,6 +1551,14 @@ export async function reEvaluateRulesOnTranscodeChange(
     year: processed.year || null,
     thumbPath: processed.thumbPath || null,
     ratingKey: existingSession.ratingKey,
+    serverVersionKey: existingSession.serverVersionKey,
+    parentRatingKey: existingSession.parentRatingKey,
+    grandparentRatingKey: existingSession.grandparentRatingKey,
+    mediaId: existingSession.mediaId,
+    showMediaId: existingSession.showMediaId,
+    imdbId: existingSession.imdbId,
+    tmdbId: existingSession.tmdbId,
+    tvdbId: existingSession.tvdbId,
     startedAt: existingSession.startedAt,
     stoppedAt: null,
     durationMs: null,
@@ -1740,6 +1790,14 @@ export async function reEvaluateRulesOnPauseState(
     year: processed.year || null,
     thumbPath: processed.thumbPath || null,
     ratingKey: existingSession.ratingKey,
+    serverVersionKey: existingSession.serverVersionKey,
+    parentRatingKey: existingSession.parentRatingKey,
+    grandparentRatingKey: existingSession.grandparentRatingKey,
+    mediaId: existingSession.mediaId,
+    showMediaId: existingSession.showMediaId,
+    imdbId: existingSession.imdbId,
+    tmdbId: existingSession.tmdbId,
+    tvdbId: existingSession.tvdbId,
     startedAt: existingSession.startedAt,
     stoppedAt: null,
     durationMs: null,

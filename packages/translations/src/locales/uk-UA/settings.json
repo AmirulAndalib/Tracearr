@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "Доступ до API Tracearr для сторонніх інтеграцій, таких як Homarr, Home Assistant, тощо.",
     "apiKeyReadAccess": "Ваш ключ API надає повний доступ до даних Tracearr.",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "Зовнішній вигляд",
     "appearanceDesc": "Налаштуйте зовнішній вигляд і трейсера",
     "application": "Програма",
@@ -133,6 +136,8 @@
     "plexAccount": "Обліковий запис Plex",
     "plexSseNote": "Plex використовує події Server-Sent (SSE) для майже миттєвих оновлень — ніяких запитань не потрібно.",
     "primaryAuth": "Основний метод автентифікації",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "Згенерувати новий",
     "regenerateApiKey": "Оновити ключ API?",
     "regenerateApiKeyDesc": "Це призведе до анулювання поточного ключа API. Будь-які інтеграції, що використовують старий ключ, перестануть працювати.",
@@ -152,7 +157,14 @@
     "timezone": "Часовий пояс",
     "title": "Загальні налаштування",
     "unitSystem": "Система одиниць",
-    "unitSystemDesc": "Виберіть, як відображаються відстані і швидкості"
+    "unitSystemDesc": "Виберіть, як відображаються відстані і швидкості",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "Знайдено в настройках Tautulli → Веб-інтерфейс → API Key.",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

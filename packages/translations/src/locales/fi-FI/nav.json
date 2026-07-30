@@ -18,5 +18,8 @@
   "devices": "Laitteet",
   "bandwidth": "Kaistanleveys",
   "jobs": "Työt",
-  "accessControl": "Käyttöoikeuksien Hallinta"
+  "accessControl": "Käyttöoikeuksien Hallinta",
+  "media": "Media",
+  "mediaBrowse": "Selaa",
+  "mediaGenres": "Genret"
 }

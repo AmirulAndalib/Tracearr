@@ -26,10 +26,12 @@ import { createMediaServerClient } from '../services/mediaServer/index.js';
 import { extractLiveUuid } from '../services/mediaServer/plex/plexUtils.js';
 import { lookupGeoIP } from '../services/plexGeoip.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
+import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
 import { getIdentityServerUserIds } from '../services/userService.js';
 import { enqueueNotification } from './notificationQueue.js';
 import {
+  batchGetLibraryItemIdentity,
   batchGetRecentUserSessions,
   getActiveRulesV2,
   getServerUserIdByExternalId,
@@ -600,7 +602,8 @@ async function handleProgress(event: {
       watched = checkWatchCompletion(
         currentWatchTimeMs,
         notification.viewOffset,
-        existingSession.totalDurationMs
+        existingSession.totalDurationMs,
+        await getWatchedThreshold(existingSession.mediaType)
       );
     }
 
@@ -929,10 +932,16 @@ async function fetchFullSession(
       return null;
     }
 
-    return {
-      session: mapMediaSession(targetSession, server.type),
-      server,
-    };
+    const session = mapMediaSession(targetSession, server.type);
+    // Stamp identity like the poller does or SSE session rows insert with null media columns
+    if (session.ratingKey) {
+      const identityMap = await batchGetLibraryItemIdentity(server.id, [session.ratingKey]);
+      session.identity = identityMap.get(session.ratingKey) ?? null;
+    } else {
+      session.identity = null;
+    }
+
+    return { session, server };
   } catch (error) {
     console.error(`[SSEProcessor] Error fetching session ${sessionKey}:`, error);
     return null;
@@ -1264,7 +1273,8 @@ async function updateExistingSession(
     watched = checkWatchCompletion(
       currentWatchTimeMs,
       processed.progressMs,
-      processed.totalDurationMs
+      processed.totalDurationMs,
+      await getWatchedThreshold(processed.mediaType)
     );
   }
 

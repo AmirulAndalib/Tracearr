@@ -16,8 +16,72 @@ import {
   type ViolationSeverity,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
-import { sessions, rules, serverUsers, terminationLogs } from '../../db/schema.js';
+import {
+  sessions,
+  rules,
+  serverUsers,
+  terminationLogs,
+  libraryItems,
+  media,
+} from '../../db/schema.js';
 import { mapSessionRow } from './sessionMapper.js';
+
+/** Canonical media identity for a library item, stamped onto sessions at insert. */
+export interface SessionIdentity {
+  mediaId: string | null;
+  showMediaId: string | null;
+  imdbId: string | null;
+  tmdbId: number | null;
+  tvdbId: number | null;
+  parentRatingKey: string | null;
+  grandparentRatingKey: string | null;
+}
+
+/**
+ * Batch load canonical media identity for a set of rating keys on one server
+ * (eliminates a per-session lookup in the polling loop).
+ *
+ * @param serverId - Server the rating keys belong to
+ * @param ratingKeys - Rating keys to resolve identity for
+ * @returns Map of ratingKey -> SessionIdentity
+ */
+export async function batchGetLibraryItemIdentity(
+  serverId: string,
+  ratingKeys: string[]
+): Promise<Map<string, SessionIdentity>> {
+  const result = new Map<string, SessionIdentity>();
+  if (ratingKeys.length === 0) return result;
+
+  const rows = await db
+    .select({
+      ratingKey: libraryItems.ratingKey,
+      mediaId: libraryItems.mediaId,
+      imdbId: libraryItems.imdbId,
+      tmdbId: libraryItems.tmdbId,
+      tvdbId: libraryItems.tvdbId,
+      parentRatingKey: libraryItems.parentRatingKey,
+      grandparentRatingKey: libraryItems.grandparentRatingKey,
+      showMediaId: media.showMediaId,
+      itemMediaType: libraryItems.mediaType,
+    })
+    .from(libraryItems)
+    .leftJoin(media, eq(media.id, libraryItems.mediaId))
+    .where(and(eq(libraryItems.serverId, serverId), inArray(libraryItems.ratingKey, ratingKeys)));
+
+  for (const r of rows) {
+    result.set(r.ratingKey, {
+      mediaId: r.mediaId,
+      showMediaId: r.itemMediaType === 'episode' ? r.showMediaId : null,
+      imdbId: r.imdbId,
+      tmdbId: r.tmdbId,
+      tvdbId: r.tvdbId,
+      parentRatingKey: r.parentRatingKey,
+      grandparentRatingKey: r.grandparentRatingKey,
+    });
+  }
+
+  return result;
+}
 
 // ============================================================================
 // Session Batch Loading

@@ -18,5 +18,8 @@
   "devices": "Enheder",
   "bandwidth": "Båndbredde",
   "jobs": "Jobs",
-  "accessControl": "Adgangskontrol"
+  "accessControl": "Adgangskontrol",
+  "media": "Medier",
+  "mediaBrowse": "Gennemse",
+  "mediaGenres": "Genrer"
 }

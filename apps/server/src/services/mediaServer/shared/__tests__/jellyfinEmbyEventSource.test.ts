@@ -190,6 +190,63 @@ describe('JellyfinEmbyEventSource detection', () => {
     expect((events[0] as { sessionId: string }).sessionId).toBe('abc123');
   });
 
+  it('emits library:event for library.item.added and library.item.removed', async () => {
+    const events: unknown[] = [];
+    const src = new JellyfinEmbyEventSource({
+      serverId: 'srv-1',
+      serverName: 'My JF',
+      url: 'http://jf.local:8096',
+      serverType: 'jellyfin',
+      token: 'abc',
+    });
+
+    src.on('library:event', (e: unknown) => events.push(e));
+    await src.connect();
+    stub._triggerOpen();
+
+    stub._emit('library.item.added', JSON.stringify({ itemId: 'item-added-1' }));
+    stub._emit('library.item.removed', JSON.stringify({ itemId: 'item-removed-1' }));
+
+    expect(events).toEqual([
+      { type: 'added', itemId: 'item-added-1' },
+      { type: 'removed', itemId: 'item-removed-1' },
+    ]);
+  });
+
+  it('never emits library:event when the plugin does not send library events', async () => {
+    const events: unknown[] = [];
+    const src = new JellyfinEmbyEventSource({
+      serverId: 'srv-1',
+      serverName: 'My JF',
+      url: 'http://jf.local:8096',
+      serverType: 'jellyfin',
+      token: 'abc',
+    });
+
+    src.on('library:event', (e: unknown) => events.push(e));
+    await src.connect();
+    stub._triggerOpen();
+    // Only session events, as the plugin sends today
+    stub._emit('playing', JSON.stringify({ sessionId: 's1', state: 'playing' }));
+
+    expect(events).toHaveLength(0);
+  });
+
+  it('ignores a malformed library event payload without throwing', async () => {
+    const src = new JellyfinEmbyEventSource({
+      serverId: 'srv-1',
+      serverName: 'My JF',
+      url: 'http://jf.local:8096',
+      serverType: 'jellyfin',
+      token: 'abc',
+    });
+
+    await src.connect();
+    stub._triggerOpen();
+
+    expect(() => stub._emit('library.item.added', '{not json')).not.toThrow();
+  });
+
   describe('auth header injection', () => {
     it('injects Authorization header for jellyfin and preserves Accept', async () => {
       const { EventSource } = await import('eventsource');

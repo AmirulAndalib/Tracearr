@@ -18,5 +18,8 @@
   "devices": "デバイス",
   "bandwidth": "Bandwidth",
   "jobs": "ジョブ",
-  "accessControl": "アクセスコントロール"
+  "accessControl": "アクセスコントロール",
+  "media": "メディア",
+  "mediaBrowse": "閲覧",
+  "mediaGenres": "ジャンル"
 }

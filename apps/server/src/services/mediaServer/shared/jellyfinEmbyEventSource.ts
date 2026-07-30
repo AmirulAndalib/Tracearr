@@ -54,8 +54,20 @@ export interface PluginSessionEvent {
   positionTicks: number | null;
 }
 
+// The Media-Server-SSE plugin emits these today: one event per changed item,
+// JSON body `{ "itemId": "...", "itemType": "...", "parentId": "..." }`. The
+// scheduled sync still runs as a backstop for anything missed here.
+const LIBRARY_ADDED_EVENT = 'library.item.added';
+const LIBRARY_REMOVED_EVENT = 'library.item.removed';
+
+export interface PluginLibraryEvent {
+  type: 'added' | 'removed';
+  itemId: string | null;
+}
+
 export interface JellyfinEmbyEventSourceEvents {
   'session:event': PluginSessionEvent;
+  'library:event': PluginLibraryEvent;
   'connection:state': SSEConnectionState;
   'connection:error': Error;
 }
@@ -80,6 +92,8 @@ export class JellyfinEmbyEventSource extends EventEmitter {
 
   private openListener: ((e: Event) => void) | null = null;
   private sessionEventListener: ((e: EventSourceMessage) => void) | null = null;
+  private libraryAddedListener: ((e: EventSourceMessage) => void) | null = null;
+  private libraryRemovedListener: ((e: EventSourceMessage) => void) | null = null;
   private pingListener: ((e: EventSourceMessage) => void) | null = null;
   private helloListener: ((ev: EventSourceMessage) => void) | null = null;
   private errorListener: ((e: Event) => void) | null = null;
@@ -186,7 +200,22 @@ export class JellyfinEmbyEventSource extends EventEmitter {
         }
       };
 
+      const handleLibraryEvent = (type: 'added' | 'removed') => (ev: EventSourceMessage) => {
+        this.lastEventTime = new Date();
+        this.resetHeartbeatMonitor();
+        if (!ev.data) return;
+        try {
+          const raw = JSON.parse(ev.data) as Record<string, unknown>;
+          const itemId = typeof raw.itemId === 'string' ? raw.itemId : null;
+          this.emit('library:event', { type, itemId });
+        } catch {
+          // malformed payload - ignore, the debounced sync still covers the change
+        }
+      };
+
       this.sessionEventListener = handleSessionEvent;
+      this.libraryAddedListener = handleLibraryEvent('added');
+      this.libraryRemovedListener = handleLibraryEvent('removed');
       this.pingListener = () => {
         this.lastEventTime = new Date();
         this.resetHeartbeatMonitor();
@@ -224,6 +253,8 @@ export class JellyfinEmbyEventSource extends EventEmitter {
       ]) {
         this.eventSource.addEventListener(eventName, this.sessionEventListener);
       }
+      this.eventSource.addEventListener(LIBRARY_ADDED_EVENT, this.libraryAddedListener);
+      this.eventSource.addEventListener(LIBRARY_REMOVED_EVENT, this.libraryRemovedListener);
       this.eventSource.addEventListener('ping', this.pingListener);
       this.eventSource.addEventListener('hello', this.helloListener);
     } catch (error) {
@@ -266,6 +297,12 @@ export class JellyfinEmbyEventSource extends EventEmitter {
         this.eventSource.removeEventListener(eventName, this.sessionEventListener);
       }
     }
+    if (this.libraryAddedListener) {
+      this.eventSource.removeEventListener(LIBRARY_ADDED_EVENT, this.libraryAddedListener);
+    }
+    if (this.libraryRemovedListener) {
+      this.eventSource.removeEventListener(LIBRARY_REMOVED_EVENT, this.libraryRemovedListener);
+    }
     if (this.pingListener) {
       this.eventSource.removeEventListener('ping', this.pingListener);
     }
@@ -277,6 +314,8 @@ export class JellyfinEmbyEventSource extends EventEmitter {
     this.eventSource = null;
     this.openListener = null;
     this.sessionEventListener = null;
+    this.libraryAddedListener = null;
+    this.libraryRemovedListener = null;
     this.pingListener = null;
     this.helloListener = null;
     this.errorListener = null;

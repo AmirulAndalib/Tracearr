@@ -53,7 +53,7 @@ function validateDateOrder(data: { startDate?: string; endDate?: string }) {
 }
 
 /** Standard date validation refinements for stats queries */
-const dateValidationRefinements = {
+export const dateValidationRefinements = {
   customPeriodRequiresDates: {
     refinement: requireDatesForCustomPeriod,
     message: 'Custom period requires startDate and endDate',
@@ -78,6 +78,17 @@ export const serverIdsQuerySchema = z
 export const userIdsQuerySchema = z
   .union([uuidSchema.transform((id) => [id]), z.array(uuidSchema)])
   .optional();
+
+// `${serverId}:${libraryId}` composite key for the catalog Library filter -
+// a library id is only unique within its own server, so the filter has to
+// pin both.
+export const libraryKeySchema = z.string().refine((value) => {
+  const separator = value.indexOf(':');
+  if (separator === -1) return false;
+  const serverId = value.slice(0, separator);
+  const libraryId = value.slice(separator + 1);
+  return uuidSchema.safeParse(serverId).success && libraryId.length >= 1 && libraryId.length <= 100;
+}, 'Invalid library key');
 export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
@@ -797,6 +808,16 @@ export const updateSettingsSchema = z.object({
   backupScheduleDayOfWeek: z.number().int().min(0).max(6).optional(),
   backupScheduleDayOfMonth: z.number().int().min(1).max(31).optional(),
   backupRetentionCount: z.number().int().min(1).max(30).optional(),
+  // Watch completion thresholds (percent, per media type)
+  watchedThresholdMovie: z.number().int().min(1).max(100).optional(),
+  watchedThresholdTv: z.number().int().min(1).max(100).optional(),
+  watchedThresholdMusic: z.number().int().min(1).max(100).optional(),
+  // Public API v2
+  publicApiRateLimitPerMinute: z.number().int().min(1).optional(),
+  // Media browsing: warm poster caches for a server after its library sync completes
+  imagePrecacheEnabled: z.boolean().optional(),
+  // Media browsing: server whose poster wins when a title exists on multiple servers
+  preferredPosterServerId: z.string().uuid().nullable().optional(),
 });
 
 // ============================================================================
@@ -1009,13 +1030,19 @@ export const libraryStatusQuerySchema = z.object({
 });
 
 // Library growth query schema (time-series)
-export const libraryGrowthQuerySchema = z.object({
-  serverId: z.uuid().optional(),
-  serverIds: serverIdsQuerySchema,
-  libraryId: z.uuid().optional(),
-  period: z.enum(['7d', '30d', '90d', '1y', 'all']).default('30d'),
-  timezone: timezoneSchema,
-});
+export const libraryGrowthQuerySchema = z
+  .object({
+    serverId: z.uuid().optional(),
+    serverIds: serverIdsQuerySchema,
+    libraryId: z.uuid().optional(),
+    period: z.enum(['7d', '30d', '90d', '1y', 'all']).default('30d'),
+    startDate: z.iso.datetime().optional(),
+    endDate: z.iso.datetime().optional(),
+    timezone: timezoneSchema,
+  })
+  .refine(dateValidationRefinements.startBeforeEnd.refinement, {
+    message: dateValidationRefinements.startBeforeEnd.message,
+  });
 
 // Library quality evolution query schema
 export const libraryQualityQuerySchema = z.object({
@@ -1147,6 +1174,24 @@ export const topContentQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(50).default(20),
 });
 
+// Library shelves query schema (windowed recently-added/most-popular/dead-weight
+// command center) - same day/week/month/year/all/custom period convention as
+// statsQuerySchema, matching the frontend's TimeRangePicker/TimeRangeValue shape.
+export const shelvesQuerySchema = z
+  .object({
+    period: statPeriodSchema.default('month'),
+    startDate: z.iso.datetime().optional(),
+    endDate: z.iso.datetime().optional(),
+    serverIds: serverIdsQuerySchema,
+    includeDeadWeight: booleanStringSchema.default(true),
+  })
+  .refine(dateValidationRefinements.customPeriodRequiresDates.refinement, {
+    message: dateValidationRefinements.customPeriodRequiresDates.message,
+  })
+  .refine(dateValidationRefinements.startBeforeEnd.refinement, {
+    message: dateValidationRefinements.startBeforeEnd.message,
+  });
+
 // ============================================================================
 // Type Exports
 // ============================================================================
@@ -1163,6 +1208,7 @@ export type LibraryRoiQueryInput = z.infer<typeof libraryRoiQuerySchema>;
 export type LibraryPatternsQueryInput = z.infer<typeof libraryPatternsQuerySchema>;
 export type LibraryCompletionQueryInput = z.infer<typeof libraryCompletionQuerySchema>;
 export type TopContentQueryInput = z.infer<typeof topContentQuerySchema>;
+export type ShelvesQueryInput = z.infer<typeof shelvesQuerySchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CallbackInput = z.infer<typeof callbackSchema>;
 export type CreateServerInput = z.infer<typeof createServerSchema>;

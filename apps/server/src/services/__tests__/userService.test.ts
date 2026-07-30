@@ -140,10 +140,7 @@ describe('getServerUserByExternalId', () => {
     const mockServerUser = createMockServerUser();
     mockSelectChain([mockServerUser]);
 
-    const result = await getServerUserByExternalId(
-      mockServerUser.serverId,
-      'external-123'
-    );
+    const result = await getServerUserByExternalId(mockServerUser.serverId, 'external-123');
 
     expect(result).toEqual(mockServerUser);
   });

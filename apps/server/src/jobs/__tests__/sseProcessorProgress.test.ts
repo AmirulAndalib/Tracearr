@@ -54,6 +54,10 @@ vi.mock('../../routes/settings.js', () => ({
   getGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
 }));
 
+vi.mock('../../services/settings.js', () => ({
+  getWatchedThreshold: vi.fn().mockResolvedValue(0.85),
+}));
+
 vi.mock('../../services/geoip.js', () => ({
   geoipService: { lookup: vi.fn() },
 }));
@@ -81,6 +85,7 @@ vi.mock('../poller/stateTracker.js', () => ({
 
 vi.mock('../poller/database.js', () => ({
   getActiveRulesV2: vi.fn().mockResolvedValue([]),
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   mergeRecentSessionsForIdentity: (map: Map<string, unknown[]>, ids: string[]) =>
     ids.flatMap((id) => map.get(id) ?? []),

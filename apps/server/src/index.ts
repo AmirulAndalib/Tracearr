@@ -11,7 +11,7 @@ import fastifyStatic from '@fastify/static';
 import { existsSync, readFileSync } from 'node:fs';
 import { gzipSync, createGzip } from 'node:zlib';
 import { Redis } from 'ioredis';
-import { API_BASE_PATH, REDIS_KEYS, WS_EVENTS } from '@tracearr/shared';
+import { API_BASE_PATH, API_V2_BASE_PATH, REDIS_KEYS, WS_EVENTS } from '@tracearr/shared';
 import { createBetterAuthHandler } from './lib/betterAuthRequest.js';
 import { getBasePath } from './lib/basePath.js';
 
@@ -66,6 +66,7 @@ import { channelRoutingRoutes } from './routes/channelRouting.js';
 import { versionRoutes } from './routes/version.js';
 import { maintenanceRoutes } from './routes/maintenance.js';
 import { publicRoutes } from './routes/public.js';
+import { publicV2Routes } from './routes/publicV2/index.js';
 import { libraryRoutes } from './routes/library.js';
 import { tailscaleRoutes } from './routes/tailscale.js';
 import { tasksRoutes } from './routes/tasks.js';
@@ -76,6 +77,7 @@ import {
   getBackupScheduleSettings,
 } from './routes/settings.js';
 import { initializeEncryption, migrateToken, looksEncrypted } from './utils/crypto.js';
+import { publicApiRateLimitKey } from './utils/publicApiRateLimitKey.js';
 import { geoipService } from './services/geoip.js';
 import { tailscaleService } from './services/tailscale.js';
 import { geoasnService } from './services/geoasn.js';
@@ -109,6 +111,11 @@ import {
   shutdownLibrarySyncQueue,
 } from './jobs/librarySyncQueue.js';
 import {
+  initImagePrecacheQueue,
+  startImagePrecacheWorker,
+  shutdownImagePrecacheQueue,
+} from './jobs/imagePrecacheQueue.js';
+import {
   initVersionCheckQueue,
   startVersionCheckWorker,
   scheduleVersionChecks,
@@ -137,12 +144,16 @@ import { initPushRateLimiter } from './services/pushRateLimiter.js';
 import { initializeV2Rules } from './services/rules/v2Integration.js';
 import { processPushReceipts } from './services/pushNotification.js';
 import { cleanupMobileTokens } from './jobs/cleanupMobileTokens.js';
-import { db, checkDatabaseConnection, runMigrations } from './db/client.js';
+import { db, checkDatabaseConnection } from './db/client.js';
+import { runMigrationsGuarded } from './db/migrationRunner.js';
+import { pickRecoveryIntervalMs, type InitFailureKind } from './lib/bootRecovery.js';
 import {
   initTimescaleDB,
   getTimescaleStatus,
   updateTimescaleExtensions,
   runAggregateBackfill,
+  isCompressionPolicyDegraded,
+  retryDegradedCompressionPolicy,
 } from './db/timescale.js';
 import { eq } from 'drizzle-orm';
 import { servers } from './db/schema.js';
@@ -163,11 +174,21 @@ import {
   isRestoring,
   getRestoreProgress,
   setRestoreProgress,
+  getLastMigrationError,
+  setLastMigrationError,
+  setInitStep,
+  getInitStep,
 } from './serverState.js';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const HOST = process.env.HOST ?? '0.0.0.0';
 const RECOVERY_INTERVAL_MS = 10_000;
+// A migration failure is usually deterministic (bad SQL, missing privilege) rather
+// than a transient outage, so retry it more slowly than the plain connectivity probe.
+const MIGRATION_RETRY_INTERVAL_MS = 60_000;
+
+/** Set by buildApp()/initializeServices() failures to steer the recovery loop's cadence. */
+let lastInitFailureKind: InitFailureKind = 'connectivity';
 
 /** No-op callback for suppressing ioredis error events on disposable probe clients. */
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -197,6 +218,8 @@ let cachedTimescale: {
   compression: boolean;
   aggregates: number;
   chunks: number;
+  /** True if a previous sessions-compression-policy restore failed and hasn't self-healed yet. */
+  compressionDegraded: boolean;
 } | null = null;
 
 async function refreshTimescaleCache(): Promise<void> {
@@ -208,6 +231,9 @@ async function refreshTimescaleCache(): Promise<void> {
       compression: tsStatus.compressionEnabled,
       aggregates: tsStatus.continuousAggregates.length,
       chunks: tsStatus.chunkCount,
+      // Not folded into getTimescaleStatus()'s 5-minute cache - this needs to
+      // reflect the degraded flag promptly so it retries and surfaces quickly.
+      compressionDegraded: await isCompressionPolicyDegraded(),
     };
   } catch {
     cachedTimescale = null;
@@ -292,6 +318,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   await app.register(rateLimit, {
     max: 1000,
     timeWindow: '1 minute',
+    keyGenerator: publicApiRateLimitKey,
   });
 
   // Gzip compression for all responses (global onSend hook).
@@ -391,6 +418,13 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
       wasReady: wasEverReady(),
       db: dbHealthy,
       redis: redisHealthy,
+      // Non-null while a startup phase is applying; 'migrations' and
+      // 'timescale' mean interrupting the process risks half-applied work
+      initStep: getInitStep(),
+      // Set when db/redis are both reachable but startup init (migrations, etc.)
+      // failed - otherwise the maintenance state looks identical to a plain
+      // connectivity outage even though it needs a different fix.
+      migrationError: getLastMigrationError(),
     };
   });
 
@@ -426,6 +460,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   await app.register(tailscaleRoutes, { prefix: `${API_BASE_PATH}/tailscale` });
   await app.register(tasksRoutes, { prefix: `${API_BASE_PATH}/tasks` });
   await app.register(publicRoutes, { prefix: `${API_BASE_PATH}/public` });
+  await app.register(publicV2Routes, { prefix: `${API_V2_BASE_PATH}/public` });
   await app.register(libraryRoutes, { prefix: `${API_BASE_PATH}/library` });
   await app.register(backupRoutes, { prefix: `${API_BASE_PATH}/backup` });
 
@@ -508,6 +543,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     await shutdownImportQueue();
     await shutdownMaintenanceQueue();
     await shutdownLibrarySyncQueue();
+    await shutdownImagePrecacheQueue();
     await shutdownVersionCheckQueue();
     await shutdownInactivityCheckQueue();
     await shutdownBackupQueue();
@@ -540,15 +576,20 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   setDbHealthy(dbOk);
   setRedisHealthy(redisOk);
 
-  if (dbOk && redisOk) {
-    await initializeServices(app);
-  } else {
-    setServerMode('maintenance');
+  // Initialization (migrations, TimescaleDB, services) deliberately does NOT
+  // run here. It runs in start() after listen(), so /health is reachable and
+  // the UI can show which phase is applying with a do-not-restart warning
+  // while a long migration or aggregate rebuild holds the boot. A slow
+  // migration must never look like a dead container, or orchestrators with
+  // tight start periods kill it mid-DDL.
+  if (!dbOk || !redisOk) {
+    lastInitFailureKind = 'connectivity';
     app.log.warn(
       { db: dbOk, redis: redisOk },
       'Server starting in MAINTENANCE mode — database or Redis unavailable'
     );
   }
+  setServerMode('maintenance');
 
   return app;
 }
@@ -579,13 +620,17 @@ async function initializeServices(app: FastifyInstance) {
     }
   }
 
-  // Run database migrations
+  // Run database migrations on a dedicated session guarded by an advisory lock
+  // (a second booting instance waits instead of racing DDL) and a short
+  // lock_timeout (fails fast instead of wedging boot behind a live writer).
   try {
+    setInitStep('migrations');
     app.log.info('Running database migrations...');
-    await runMigrations(MIGRATIONS_PATH);
+    await runMigrationsGuarded(MIGRATIONS_PATH);
     app.log.info('Database migrations complete');
   } catch (err) {
     app.log.error({ err }, 'Failed to run database migrations');
+    setInitStep(null);
     throw err;
   }
 
@@ -598,6 +643,7 @@ async function initializeServices(app: FastifyInstance) {
 
   // Initialize TimescaleDB features (hypertable, compression, aggregates)
   try {
+    setInitStep('timescale');
     app.log.info('Initializing TimescaleDB...');
     const tsResult = await initTimescaleDB();
     for (const action of tsResult.actions) {
@@ -625,6 +671,8 @@ async function initializeServices(app: FastifyInstance) {
     app.log.error({ err }, 'Failed to initialize TimescaleDB - continuing without optimization');
     // Don't throw - app can still work without TimescaleDB features
   }
+
+  setInitStep('services');
 
   // Initialize encryption (optional - only needed for migrating existing encrypted tokens)
   const encryptionAvailable = initializeEncryption();
@@ -792,6 +840,16 @@ async function initializeServices(app: FastifyInstance) {
     // Don't throw - library sync is non-critical
   }
 
+  // Initialize image precache queue (uses Redis for job storage)
+  try {
+    initImagePrecacheQueue(redisUrl);
+    startImagePrecacheWorker();
+    app.log.info('Image precache queue initialized');
+  } catch (err) {
+    app.log.error({ err }, 'Failed to initialize image precache queue');
+    // Don't throw - image precache is non-critical
+  }
+
   // Initialize version check queue (uses Redis for job storage and caching)
   try {
     initVersionCheckQueue(redisUrl, app.redis, pubSubService.publish.bind(pubSubService));
@@ -902,6 +960,9 @@ async function initializeServices(app: FastifyInstance) {
 
       if (dbOk) {
         await refreshTimescaleCache();
+        retryDegradedCompressionPolicy().catch((err) => {
+          app.log.warn({ err }, 'Failed to retry degraded compression policy');
+        });
       } else {
         cachedTimescale = null;
       }
@@ -932,6 +993,8 @@ async function initializeServices(app: FastifyInstance) {
   setDbHealthy(true);
   await refreshTimescaleCache();
   setServicesInitialized(true);
+  setLastMigrationError(null);
+  setInitStep(null);
   setServerMode('ready');
 }
 
@@ -1067,13 +1130,29 @@ async function initializePostListen(app: FastifyInstance) {
 // Recovery loop — probes DB/Redis and transitions out of maintenance mode
 // ============================================================================
 
-function startRecoveryLoop(app: FastifyInstance) {
+function startRecoveryLoop(app: FastifyInstance, intervalMs: number = RECOVERY_INTERVAL_MS) {
   if (recoveryInterval) {
     clearInterval(recoveryInterval);
     recoveryInterval = null;
   }
+  let tickInFlight = false;
   recoveryInterval = setInterval(() => {
     void (async () => {
+      // A probe against a hung-but-connected Postgres can outlive the
+      // interval; without this guard two ticks could both reach
+      // initializeServices and double-start every queue worker
+      if (tickInFlight) return;
+      tickInFlight = true;
+      try {
+        await runRecoveryTick();
+      } finally {
+        tickInFlight = false;
+      }
+    })();
+  }, intervalMs);
+
+  async function runRecoveryTick(): Promise<void> {
+    {
       if (isRestoring()) {
         app.log.info('Recovery check skipped — restore in progress');
         return;
@@ -1117,15 +1196,20 @@ function startRecoveryLoop(app: FastifyInstance) {
           setRestoreProgress(null);
           app.log.info('Server transitioned to READY mode');
         } catch (err) {
+          // Connectivity just succeeded above, so this is a migration/init failure -
+          // back off to the slower cadence rather than hammering it every 10s.
           app.log.error({ err }, 'Failed to initialize after recovery — restarting recovery loop');
+          lastInitFailureKind = 'migration';
+          setLastMigrationError('migration or startup initialization failed - see server logs');
+          setInitStep(null);
           setServerMode('maintenance');
-          startRecoveryLoop(app);
+          startRecoveryLoop(app, MIGRATION_RETRY_INTERVAL_MS);
         }
       } else {
         app.log.info(`Recovery check: services still unavailable (db:${dbOk}, redis:${redisOk})`);
       }
-    })();
-  }, RECOVERY_INTERVAL_MS);
+    }
+  }
 }
 
 // ============================================================================
@@ -1150,6 +1234,7 @@ async function start() {
         void shutdownKillQueue();
         void shutdownImportQueue();
         void shutdownLibrarySyncQueue();
+        void shutdownImagePrecacheQueue();
         void shutdownVersionCheckQueue();
         void shutdownInactivityCheckQueue();
         void shutdownBackupQueue();
@@ -1187,6 +1272,7 @@ async function start() {
           shutdownImportQueue(),
           shutdownMaintenanceQueue(),
           shutdownLibrarySyncQueue(),
+          shutdownImagePrecacheQueue(),
           shutdownVersionCheckQueue(),
           shutdownInactivityCheckQueue(),
           shutdownBackupQueue(),
@@ -1228,11 +1314,37 @@ async function start() {
       app.log.info(`Base path: ${BASE_PATH}`);
     }
 
-    if (isMaintenance()) {
-      app.log.warn('Waiting for database and Redis to become available...');
-      startRecoveryLoop(app);
+    if (isDbHealthy() && isRedisHealthy()) {
+      try {
+        await initializeServices(app);
+        await initializePostListen(app);
+        app.log.info('Server transitioned to READY mode');
+      } catch (err) {
+        // Connectivity was fine - a migration or other init failure, which is
+        // usually deterministic. Stay in maintenance (API 503s, /health and
+        // the SPA maintenance page stay reachable) and retry on an interval
+        // instead of exiting: exiting would restart the container into the
+        // exact same failure, forever.
+        lastInitFailureKind = 'migration';
+        setLastMigrationError('migration or startup initialization failed - see server logs');
+        setInitStep(null);
+        setServerMode('maintenance');
+        app.log.error(
+          { err },
+          'Failed to initialize services after listen - staying in MAINTENANCE mode; will retry automatically'
+        );
+        startRecoveryLoop(app, MIGRATION_RETRY_INTERVAL_MS);
+      }
     } else {
-      await initializePostListen(app);
+      app.log.warn('Waiting for database and Redis to become available...');
+      startRecoveryLoop(
+        app,
+        pickRecoveryIntervalMs(
+          lastInitFailureKind,
+          RECOVERY_INTERVAL_MS,
+          MIGRATION_RETRY_INTERVAL_MS
+        )
+      );
     }
   } catch (err) {
     console.error('Failed to start server:', err);

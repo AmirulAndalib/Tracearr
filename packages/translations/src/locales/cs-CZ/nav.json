@@ -18,5 +18,8 @@
   "devices": "Zařízení",
   "bandwidth": "Šířka pásma",
   "jobs": "Pracovní místa",
-  "accessControl": "Kontrola přístupu"
+  "accessControl": "Kontrola přístupu",
+  "media": "Média",
+  "mediaBrowse": "Procházet",
+  "mediaGenres": "Žánry"
 }

@@ -18,5 +18,8 @@
   "devices": "Συσκευές",
   "bandwidth": "Εύρος Ζώνης",
   "jobs": "Εργασίες",
-  "accessControl": "Έλεγχος Πρόσβασης"
+  "accessControl": "Έλεγχος Πρόσβασης",
+  "media": "Πολυμέσα",
+  "mediaBrowse": "Περιήγηση",
+  "mediaGenres": "Είδη"
 }

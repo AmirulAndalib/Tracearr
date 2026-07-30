@@ -52,13 +52,16 @@ export function useLibraryStats(serverIds: string[], libraryId?: string | null) 
 export function useLibraryGrowth(
   serverIds: string[],
   libraryId?: string | null,
-  period: string = '30d'
+  period: string = '30d',
+  startDate?: string,
+  endDate?: string
 ) {
   const timezone = getBrowserTimezone();
   const sortedIds = [...serverIds].sort().join(',');
   return useQuery<LibraryGrowthResponse>({
-    queryKey: ['library', 'growth', sortedIds, libraryId, period, timezone],
-    queryFn: () => api.library.growth(serverIds, libraryId ?? undefined, period),
+    queryKey: ['library', 'growth', sortedIds, libraryId, period, startDate, endDate, timezone],
+    queryFn: () =>
+      api.library.growth(serverIds, libraryId ?? undefined, period, startDate, endDate),
     staleTime: LIBRARY_STALE_TIME,
     enabled: serverIds.length > 0,
   });

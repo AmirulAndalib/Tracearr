@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "Homarr、Home Assistantなどのサードパーティの統合については、Tracearr APIにアクセスしてください。",
     "apiKeyReadAccess": "API キーを使用すると、Tracearr データへの読み取りアクセスが可能になります。",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "外観",
     "appearanceDesc": "Tracearrのルック＆フィールをカスタマイズします",
     "application": "アプリケーション",
@@ -133,6 +136,8 @@
     "plexAccount": "プレックスアカウント",
     "plexSseNote": "プレックスは、サーバー送信済みイベント (SSE) を即時の更新に使用します。ポーリングは必要ありません。",
     "primaryAuth": "プライマリ認証方法",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "再生成",
     "regenerateApiKey": "APIキーを再生成しますか？",
     "regenerateApiKeyDesc": "これは現在のAPIキーを無効にします。古いキーを使用しているすべての統合は機能しなくなります。",
@@ -152,7 +157,14 @@
     "timezone": "Timezone",
     "title": "全般設定",
     "unitSystem": "単位システム",
-    "unitSystemDesc": "距離と速度の表示方法を選択します"
+    "unitSystemDesc": "距離と速度の表示方法を選択します",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "Tautulliの設定 → Web インターフェイス → API キー で見つかります。",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

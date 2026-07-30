@@ -9,7 +9,7 @@
     "build": "tsc && tsc -p tsconfig.scripts.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json --noEmit",
-    "lint": "eslint src/",
+    "lint": "eslint src/ --cache --cache-location .eslintcache --cache-strategy content",
     "lint:fix": "eslint src/ --fix",
     "test": "vitest run",
     "test:all": "vitest run",

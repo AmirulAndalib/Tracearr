@@ -18,5 +18,8 @@
   "devices": "Apparaten",
   "bandwidth": "Bandbreedte",
   "jobs": "Taken",
-  "accessControl": "Toegangsbeheer"
+  "accessControl": "Toegangsbeheer",
+  "media": "Media",
+  "mediaBrowse": "Bladeren",
+  "mediaGenres": "Genres"
 }

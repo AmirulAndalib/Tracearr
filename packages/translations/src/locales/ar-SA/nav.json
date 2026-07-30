@@ -18,5 +18,8 @@
   "devices": "الأجهزة",
   "bandwidth": "عرض التردد",
   "jobs": "الوظائف",
-  "accessControl": "التحكم بالدخول"
+  "accessControl": "التحكم بالدخول",
+  "media": "وسائط",
+  "mediaBrowse": "تصفح",
+  "mediaGenres": "الأنواع"
 }

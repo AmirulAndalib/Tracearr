@@ -15,6 +15,7 @@ import type {
   StreamDetailFields,
 } from '@tracearr/shared';
 import type { sessions } from '../../db/schema.js';
+import type { SessionIdentity as MediaItemIdentity } from './database.js';
 import type { CacheService, PubSubService } from '../../services/cache.js';
 import type { GeoLocation } from '../../services/geoip.js';
 import type { ViolationInsertResult } from './violations.js';
@@ -95,6 +96,8 @@ export interface ProcessedSession extends StreamDetailFields {
   plexSessionId?: string;
   /** Media item identifier (ratingKey for Plex, itemId for Jellyfin) */
   ratingKey: string;
+  /** Identifier of the file/version being played, when the server reports one */
+  serverVersionKey?: string | null;
 
   // User identification from media server
   /** External user ID from Plex/Jellyfin for lookup */
@@ -182,6 +185,9 @@ export interface ProcessedSession extends StreamDetailFields {
    * More accurate than tracking pause transitions via polling.
    */
   lastPausedDate?: Date;
+
+  /** Canonical media identity resolved from library_items, stamped at session insert. */
+  identity?: MediaItemIdentity | null;
 }
 
 // ============================================================================

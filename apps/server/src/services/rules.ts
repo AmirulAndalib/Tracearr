@@ -17,7 +17,6 @@ import type {
 } from '@tracearr/shared';
 import { GEOIP_CONFIG, TIME_MS } from '@tracearr/shared';
 import { geoipService } from './geoip.js';
-import { toNetworkKey } from '../utils/ip.js';
 import countries from 'i18n-iso-countries';
 import countriesEn from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import { EXCLUDED_MEDIA_TYPES_SET } from '../constants/index.js';
@@ -331,11 +330,7 @@ export class RuleEngine {
     }
 
     let uniqueSources: Set<string>;
-    const ipsByNetwork = new Map<string, string>();
-    const addIp = (ip: string) => {
-      const key = toNetworkKey(ip);
-      if (!ipsByNetwork.has(key)) ipsByNetwork.set(key, ip);
-    };
+    const uniqueIps = new Set<string>();
 
     if (params.groupByDevice) {
       // Group by deviceId - each device counts as 1 source regardless of IP changes
@@ -346,19 +341,18 @@ export class RuleEngine {
           continue;
         }
 
-        const networkKey = toNetworkKey(s.ipAddress);
-        const sourceKey = s.deviceId ?? `ip:${networkKey}`;
+        const sourceKey = s.deviceId ?? `ip:${s.ipAddress}`;
         uniqueSources.add(sourceKey);
-        addIp(s.ipAddress);
+        uniqueIps.add(s.ipAddress);
       }
     } else {
       const allIps = allSessions.map((s) => s.ipAddress);
       const filteredIps = this.filterPrivateIps(allIps, params.excludePrivateIps);
 
       for (const ip of filteredIps) {
-        addIp(ip);
+        uniqueIps.add(ip);
       }
-      uniqueSources = new Set(ipsByNetwork.keys());
+      uniqueSources = uniqueIps;
     }
 
     if (uniqueSources.size > params.maxIps) {
@@ -369,7 +363,7 @@ export class RuleEngine {
           uniqueIpCount: uniqueSources.size,
           maxAllowedIps: params.maxIps,
           windowHours: params.windowHours,
-          ips: Array.from(ipsByNetwork.values()),
+          ips: Array.from(uniqueIps),
           ...(params.groupByDevice && { groupedByDevice: true }),
         },
       };

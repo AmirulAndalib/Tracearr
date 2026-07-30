@@ -371,7 +371,7 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
         'termination_logs', 'plex_accounts', 'settings',
         'notification_preferences', 'notification_channel_routing',
         'mobile_sessions', 'mobile_tokens',
-        'library_items', 'library_snapshots'
+        'library_items', 'library_item_versions', 'library_snapshots'
       )
       ORDER BY pg_total_relation_size(relid) DESC
     `);

@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "Access the Tracearr API for third-party integrations like Homarr, Home Assistant, etc.",
     "apiKeyReadAccess": "Your API key grants full read access to your Tracearr data.",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "Appearance",
     "appearanceDesc": "Customize the look and feel of Tracearr",
     "application": "Application",
@@ -133,6 +136,8 @@
     "plexAccount": "Plex Account",
     "plexSseNote": "Plex uses Server-Sent Events (SSE) for near-instant updates — no polling needed.",
     "primaryAuth": "Primary Authentication Method",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "Regenerate",
     "regenerateApiKey": "Regenerate API Key?",
     "regenerateApiKeyDesc": "This will invalidate your current API key. Any integrations using the old key will stop working.",
@@ -152,7 +157,14 @@
     "timezone": "Timezone",
     "title": "General Settings",
     "unitSystem": "Unit System",
-    "unitSystemDesc": "Choose how distances and speeds are displayed"
+    "unitSystemDesc": "Choose how distances and speeds are displayed",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "Found in Tautulli Settings → Web Interface → API Key.",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

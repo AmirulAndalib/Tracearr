@@ -39,6 +39,7 @@ import {
   Radio,
   Copy,
   ArrowUpCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { MediaServerIcon } from '@/components/icons/MediaServerIcon';
 import { format } from 'date-fns';
@@ -47,6 +48,8 @@ import { api, tokenStorage } from '@/lib/api';
 import type { PlexDiscoveredServer } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
+import { useDebouncedSave } from '@/hooks/useDebouncedSave';
+import { AutosaveSelectField } from '@/components/ui/autosave-field';
 import { toast } from 'sonner';
 import { PlexServerSelector } from '@/components/auth/PlexServerSelector';
 import { PlexAccountsManager } from '@/components/settings/PlexAccountsManager';
@@ -59,6 +62,7 @@ import {
   useUpdateServer,
   usePlexServerConnections,
   useReorderServers,
+  useSettings,
 } from '@/hooks/queries';
 import {
   DndContext,
@@ -412,6 +416,9 @@ export function ServerSettings() {
         </CardContent>
       </Card>
 
+      {/* Poster source preference - Only for owners */}
+      <PosterSourceCard servers={servers} isOwner={user?.role === 'owner'} />
+
       {/* Plex Accounts Management - Only for owners */}
       {user?.role === 'owner' && (
         <Card>
@@ -745,6 +752,68 @@ export function ServerSettings() {
         isUpdating={updateServer.isPending}
       />
     </>
+  );
+}
+
+const AUTOMATIC_POSTER_SOURCE = 'auto';
+
+/**
+ * Poster source preference: which server's poster wins when the same title
+ * exists on more than one server. "Automatic" (null server id) keeps
+ * today's behavior of using the most recently added copy.
+ */
+export function PosterSourceCard({ servers, isOwner }: { servers: Server[]; isOwner: boolean }) {
+  const { t } = useTranslation(['settings']);
+  const { data: settings, isLoading: isLoadingSettings } = useSettings();
+  const preferredPosterField = useDebouncedSave(
+    'preferredPosterServerId',
+    settings?.preferredPosterServerId
+  );
+
+  if (!isOwner) return null;
+
+  const hasServers = servers.length > 0;
+  const selectValue = preferredPosterField.value || AUTOMATIC_POSTER_SOURCE;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ImageIcon className="h-5 w-5" />
+          {t('servers.posterSource.title')}
+        </CardTitle>
+        <CardDescription>{t('servers.posterSource.titleDesc')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoadingSettings ? (
+          <Skeleton className="h-10 w-full max-w-xs" />
+        ) : (
+          <AutosaveSelectField
+            id="preferredPosterServerId"
+            label={t('servers.posterSource.label')}
+            description={
+              hasServers
+                ? t('servers.posterSource.description')
+                : t('servers.posterSource.emptyHint')
+            }
+            value={selectValue}
+            onChange={(v) => {
+              preferredPosterField.setValue(v === AUTOMATIC_POSTER_SOURCE ? null : v);
+            }}
+            options={[
+              { value: AUTOMATIC_POSTER_SOURCE, label: t('servers.posterSource.automatic') },
+              ...servers.map((server) => ({ value: server.id, label: server.name })),
+            ]}
+            disabled={!hasServers}
+            status={preferredPosterField.status}
+            errorMessage={preferredPosterField.errorMessage}
+            onRetry={preferredPosterField.retry}
+            onReset={preferredPosterField.reset}
+            className="max-w-xs"
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

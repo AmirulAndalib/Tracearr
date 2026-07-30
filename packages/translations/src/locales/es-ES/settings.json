@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "Acceda a la API de Tracearr para integraciones de terceros como Homarr, Home Assistant, etc.",
     "apiKeyReadAccess": "Su clave API otorga acceso completo de lectura a sus datos de Tracearr.",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "Apariencia",
     "appearanceDesc": "Personalizar la apariencia de Tracearr",
     "application": "Aplicación",
@@ -133,6 +136,8 @@
     "plexAccount": "Cuenta de Plex",
     "plexSseNote": "Plex utiliza Eventos Server-Sent (SSE) para actualizaciones casi instantáneas — no se necesitan encuestas.",
     "primaryAuth": "Método de autenticación principal",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "Regenerar",
     "regenerateApiKey": "¿Regenerar clave API?",
     "regenerateApiKeyDesc": "Esto invalidará tu clave API actual. Cualquier integración usando la clave antigua dejará de funcionar.",
@@ -152,7 +157,14 @@
     "timezone": "Zona horaria",
     "title": "Ajustes Generales",
     "unitSystem": "Sistema de unidades",
-    "unitSystemDesc": "Elegir cómo se muestran las distancias y velocidades"
+    "unitSystemDesc": "Elegir cómo se muestran las distancias y velocidades",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "Encontrado en Configuración Tautulli → Interfaz Web → Clave API.",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

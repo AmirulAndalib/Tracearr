@@ -2,13 +2,15 @@
  * Quality-Change Fallout & Grace-Period Stop Timing Tests (Task 14)
  *
  * createSessionWithRulesAtomic's quality-change detection stops a
- * same-content twin and returns `qualityChange`. Three consumer paths must
- * all react the same way (clear DB-write throttle tracking, remove the twin
- * from cache, publish its stop):
+ * same-content twin and returns `qualityChange`. The consumer paths that
+ * still call it immediately must react the same way (clear DB-write throttle
+ * tracking, remove the twin from cache, publish its stop):
  *  - resolvePendingSession's confirmed-create (covered in
  *    pendingSessionReconciliation.test.ts)
- *  - the direct-create path (brand new session, nothing pending)
  *  - the stale-recovery path (cached key with no matching active DB row)
+ * A brand-new session (nothing pending, nothing cached) now defers creation
+ * to a pending entry instead, so quality-change detection for it only runs
+ * once that entry confirms - the same confirmed-create path above.
  *
  * Also covers sweepGracePeriod stamping the DB stop with the session's last
  * confirmed-alive timestamp instead of the sweep-tick's `now`.
@@ -59,6 +61,10 @@ vi.mock('../../../routes/settings.js', () => ({
   getGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
 }));
 
+vi.mock('../../../services/settings.js', () => ({
+  getWatchedThreshold: vi.fn().mockResolvedValue(0.85),
+}));
+
 vi.mock('../../../serverState.js', () => ({
   isMaintenance: vi.fn().mockReturnValue(false),
 }));
@@ -92,6 +98,7 @@ vi.mock('../database.js', () => ({
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   widenRecentSessionsForMergedIdentities: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -247,6 +254,7 @@ function createCacheService() {
     withSessionCreateLock: vi
       .fn()
       .mockImplementation(async (_s: unknown, _k: unknown, op: () => unknown) => op()),
+    addActiveSession: vi.fn().mockResolvedValue(undefined),
     removeActiveSession: vi.fn().mockResolvedValue(undefined),
     removeUserSession: vi.fn().mockResolvedValue(undefined),
     hasTerminationCooldown: vi.fn().mockResolvedValue(false),
@@ -303,27 +311,17 @@ afterEach(() => {
   stopPoller();
 });
 
-describe('quality-change fallout: direct-create path', () => {
-  it('runs full fallout (throttle, cache, publish) for the stopped twin on a brand-new session', async () => {
+describe('quality-change fallout: brand-new session defers instead of running fallout immediately', () => {
+  it('creates a pending entry with no DB row and no quality-change check on first sight', async () => {
     mockCreateMediaServerClient.mockReturnValue({
       getSessions: vi.fn().mockResolvedValue([createMockProcessedSession()]),
     });
-    mockCreateSessionWithRulesAtomic.mockResolvedValue({
-      insertedSession: { id: 'new-session-id', sessionKey: 'sk-1' },
-      violationResults: [],
-      qualityChange: qualityChangeResult,
-      referenceId: 'twin-session-id',
-      wasTerminatedByRule: false,
-    });
-    mockBuildActiveSession.mockReturnValue({ id: 'new-session-id', serverId: 'server-1' });
 
     await triggerServerPoll('server-1');
 
-    expect(mockHandleQualityChangeFallout).toHaveBeenCalledWith(
-      qualityChangeResult,
-      cacheService,
-      pubSubService
-    );
+    expect(mockCreateSessionWithRulesAtomic).not.toHaveBeenCalled();
+    expect(mockHandleQualityChangeFallout).not.toHaveBeenCalled();
+    expect(cacheService.setPendingSession).toHaveBeenCalledTimes(1);
   });
 });
 

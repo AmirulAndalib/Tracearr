@@ -30,10 +30,16 @@ import { PlexEventSource } from './mediaServer/plex/eventSource.js';
 import {
   JellyfinEmbyEventSource,
   type PluginSessionEvent,
+  type PluginLibraryEvent,
 } from './mediaServer/shared/jellyfinEmbyEventSource.js';
 import { broadcastToAll } from '../websocket/index.js';
 import { triggerServerPoll } from '../jobs/poller/index.js';
 import { compareVersions } from '../utils/pluginVersion.js';
+import {
+  clearPendingLibraryEventSync,
+  recordLibraryEvent,
+  clearPendingLibraryEventSyncs,
+} from './libraryEventSync.js';
 import type { CacheService, PubSubService } from './cache.js';
 
 // Events emitted by SSEManager for consumers
@@ -158,6 +164,7 @@ export class SSEManager extends EventEmitter {
       clearTimeout(timer);
     }
     pendingServerPolls.clear();
+    clearPendingLibraryEventSyncs();
 
     for (const connection of this.connections.values()) {
       if (connection.eventSource) {
@@ -274,6 +281,7 @@ export class SSEManager extends EventEmitter {
       clearTimeout(pending);
       pendingServerPolls.delete(serverId);
     }
+    clearPendingLibraryEventSync(serverId);
 
     if (connection.eventSource) {
       connection.eventSource.removeAllListeners();
@@ -398,6 +406,14 @@ export class SSEManager extends EventEmitter {
       this.emit('plex:session:progress', { serverId, notification });
     });
 
+    eventSource.on('library:added', ({ ratingKey }: { ratingKey: string }) => {
+      recordLibraryEvent({ serverId, serverName, type: 'added', itemId: ratingKey });
+    });
+
+    eventSource.on('library:removed', ({ ratingKey }: { ratingKey: string }) => {
+      recordLibraryEvent({ serverId, serverName, type: 'removed', itemId: ratingKey });
+    });
+
     eventSource.on('connection:state', (state: SSEConnectionState) => {
       this.handleConnectionStateChange(serverId, serverName, state, eventSource.getStatus());
     });
@@ -492,6 +508,11 @@ export class SSEManager extends EventEmitter {
       if (connection) connection.lastEventAt = new Date();
       // Trigger-poll approach: event arrived -> run existing poller pipeline for this server
       scheduleServerPoll(serverId, serverName);
+    });
+
+    // The plugin emits these today - see jellyfinEmbyEventSource.ts
+    eventSource.on('library:event', ({ type, itemId }: PluginLibraryEvent) => {
+      recordLibraryEvent({ serverId, serverName, type, itemId });
     });
 
     eventSource.on('connection:state', (state: SSEConnectionState) => {

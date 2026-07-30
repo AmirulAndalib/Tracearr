@@ -121,6 +121,7 @@ vi.mock('../poller/stateTracker.js', async () => {
 vi.mock('../poller/database.js', () => ({
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetRecentUserSessions: mockBatchGetRecentUserSessions,
+  batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   getServerUserIdByExternalId: mockGetServerUserIdByExternalId,
   mergeRecentSessionsForIdentity: (map: Map<string, unknown[]>, ids: string[]) =>
     ids.flatMap((id) => map.get(id) ?? []),

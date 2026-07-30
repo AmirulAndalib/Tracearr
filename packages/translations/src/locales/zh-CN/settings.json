@@ -103,6 +103,9 @@
     "apiDocs": "API Docs",
     "apiKeyDesc": "访问 Tracearr API以进行第三方集成，如Homarr、Home Assistant等。",
     "apiKeyReadAccess": "您的 API 密钥授予您的 Tracearr 数据的全部读取权限。",
+    "apiRateLimit": "API Rate Limit",
+    "apiRateLimitDesc": "Maximum public API requests per minute per key. Restart required to apply.",
+    "apiRateLimitSuffix": "/min",
     "appearance": "外观",
     "appearanceDesc": "自定义Tracearr的外观和感觉。",
     "application": "适用范围",
@@ -133,6 +136,8 @@
     "plexAccount": "Plex账户",
     "plexSseNote": "Plex使用服务器发送事件（SSE）进行近期更新——不需要轮询。",
     "primaryAuth": "主要认证方法",
+    "publicApiSettings": "Public API",
+    "publicApiSettingsDesc": "Configure watch-completion thresholds and request limits for the public API",
     "regenerate": "重新生成",
     "regenerateApiKey": "重新生成 API 密钥？",
     "regenerateApiKeyDesc": "这将使您当前的 API 密钥无效。任何使用旧密钥的集成都将停止工作。",
@@ -152,7 +157,14 @@
     "timezone": "时区",
     "title": "通用设置",
     "unitSystem": "单位系统",
-    "unitSystemDesc": "选择距离和速度的显示方式"
+    "unitSystemDesc": "选择距离和速度的显示方式",
+    "watchedThresholdMovie": "Movie Watched Threshold",
+    "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
+    "watchedThresholdMusic": "Track Watched Threshold",
+    "watchedThresholdMusicDesc": "Percentage of a track that must be played before it's marked complete",
+    "watchedThresholdSuffix": "%",
+    "watchedThresholdTv": "TV Episode Watched Threshold",
+    "watchedThresholdTvDesc": "Percentage of an episode that must be watched before it's marked complete"
   },
   "import": {
     "apiKeyHelp": "在 Tautulli 设置 -> Web 界面 → API 密钥。",
@@ -355,6 +367,14 @@
     "pluginUpdateAvailable": "Plugin update available",
     "pluginVersion": "plugin v{{version}}",
     "pollingMode": "Polling",
+    "posterSource": {
+      "automatic": "Automatic (most recent)",
+      "description": "When a title is on more than one server, use this server's poster. If it doesn't have one, we'll fall back to the most recently added copy.",
+      "emptyHint": "Add a server to choose a preferred poster source.",
+      "label": "Preferred Poster Source",
+      "title": "Poster Preferences",
+      "titleDesc": "Choose which server's poster is shown when a title exists on more than one server"
+    },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
       "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",

@@ -21,6 +21,7 @@ import {
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { resolveServerIds, buildMultiServerFragment } from '../../utils/serverFiltering.js';
+import { resolutionRankSql } from '../../utils/resolutionBuckets.js';
 import { buildLibraryCacheKey } from './utils.js';
 
 /** Category for stale content */
@@ -174,15 +175,10 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             grandparent_rating_key,
             server_id,
             SUM(file_size) AS total_size,
-            MAX(CASE video_resolution
-              WHEN '4k' THEN 4
-              WHEN '1080p' THEN 3
-              WHEN '720p' THEN 2
-              WHEN '480p' THEN 1
-              ELSE 0
-            END) AS best_resolution_tier
+            (ARRAY_AGG(video_resolution ORDER BY ${resolutionRankSql('video_resolution')} DESC))[1]
+              AS best_resolution
           FROM library_items
-          WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL
+          WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL AND removed_at IS NULL
           GROUP BY grandparent_rating_key, server_id
         ),
         child_watch_stats AS (
@@ -191,12 +187,12 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             child.grandparent_rating_key,
             child.server_id,
             MAX(sess.stopped_at) AS last_watched,
-            COUNT(sess.id)::int AS watch_count
+            COUNT(DISTINCT COALESCE(sess.reference_id, sess.id))::int AS watch_count
           FROM library_items child
           LEFT JOIN sessions sess ON sess.rating_key = child.rating_key
             AND sess.server_id = child.server_id
             AND sess.duration_ms >= 120000
-          WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL
+          WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL AND child.removed_at IS NULL
           GROUP BY child.grandparent_rating_key, child.server_id
         ),
         item_watch_stats AS (
@@ -214,18 +210,9 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
               WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cs.total_size, li.file_size)
               ELSE li.file_size
             END AS file_size,
-            -- For shows/artists: use best child resolution (mapped from numeric tier)
+            -- For shows/artists: use best child resolution
             CASE
-              WHEN li.media_type IN ('show', 'artist') THEN COALESCE(
-                CASE cs.best_resolution_tier
-                  WHEN 4 THEN '4k'
-                  WHEN 3 THEN '1080p'
-                  WHEN 2 THEN '720p'
-                  WHEN 1 THEN '480p'
-                  WHEN 0 THEN 'sd'
-                END,
-                li.video_resolution
-              )
+              WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cs.best_resolution, li.video_resolution)
               ELSE li.video_resolution
             END AS video_resolution,
             li.created_at AS added_at,
@@ -236,7 +223,7 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             END AS last_watched,
             CASE
               WHEN li.media_type IN ('show', 'artist') THEN COALESCE(cws.watch_count, 0)
-              ELSE COUNT(sess.id)::int
+              ELSE COUNT(DISTINCT COALESCE(sess.reference_id, sess.id))::int
             END AS watch_count
           FROM library_items li
           JOIN servers s ON li.server_id = s.id
@@ -251,12 +238,13 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             AND sess.server_id = li.server_id
             AND sess.duration_ms >= 120000
           WHERE li.media_type NOT IN ('episode', 'track', 'season', 'album')  -- Exclude children/containers, only show content
+            AND li.removed_at IS NULL
             ${serverFilter}
             ${libraryFilter}
             ${mediaTypeFilter}
           GROUP BY li.id, li.server_id, s.name, li.library_id, li.title,
                    li.media_type, li.year, li.file_size, li.video_resolution, li.created_at,
-                   cs.total_size, cs.best_resolution_tier, cws.last_watched, cws.watch_count
+                   cs.total_size, cs.best_resolution, cws.last_watched, cws.watch_count
         ),
         stale_items AS (
           SELECT
@@ -393,7 +381,7 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
           WITH child_stats AS (
             SELECT grandparent_rating_key, server_id, SUM(file_size) AS total_size
             FROM library_items
-            WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL
+            WHERE media_type IN ('episode', 'track') AND grandparent_rating_key IS NOT NULL AND removed_at IS NULL
             GROUP BY grandparent_rating_key, server_id
           ),
           child_watch_stats AS (
@@ -401,7 +389,7 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             FROM library_items child
             LEFT JOIN sessions sess ON sess.rating_key = child.rating_key
               AND sess.server_id = child.server_id AND sess.duration_ms >= 120000
-            WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL
+            WHERE child.media_type IN ('episode', 'track') AND child.grandparent_rating_key IS NOT NULL AND child.removed_at IS NULL
             GROUP BY child.grandparent_rating_key, child.server_id
           ),
           item_watch_stats AS (
@@ -412,7 +400,7 @@ export const libraryStaleRoute: FastifyPluginAsync = async (app) => {
             LEFT JOIN child_stats cs ON li.media_type IN ('show', 'artist') AND cs.grandparent_rating_key = li.rating_key AND cs.server_id = li.server_id
             LEFT JOIN child_watch_stats cws ON li.media_type IN ('show', 'artist') AND cws.grandparent_rating_key = li.rating_key AND cws.server_id = li.server_id
             LEFT JOIN sessions sess ON li.media_type NOT IN ('show', 'artist') AND sess.rating_key = li.rating_key AND sess.server_id = li.server_id AND sess.duration_ms >= 120000
-            WHERE li.media_type NOT IN ('episode', 'track', 'season', 'album') ${serverFilter} ${libraryFilter} ${mediaTypeFilter}
+            WHERE li.media_type NOT IN ('episode', 'track', 'season', 'album') AND li.removed_at IS NULL ${serverFilter} ${libraryFilter} ${mediaTypeFilter}
             GROUP BY li.id, li.server_id, li.media_type, li.file_size, cs.total_size, cws.last_watched
           ),
           stale_items AS (
