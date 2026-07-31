@@ -11,6 +11,7 @@ import {
   fixtureId,
   matchKeyLocal,
   normalizeTitleLocal,
+  sortTitleLocal,
   type FillerMovie,
   type FillerShow,
 } from './fixtures';
@@ -86,11 +87,19 @@ async function insertMedia(
 ) {
   const normalizedTitle = normalizeTitleLocal(title);
   const matchKey = matchKeyLocal(mediaType, title, year);
+  // DO UPDATE for the same reason as insertLibraryItem below: sort_title
+  // arrived after early seed runs, and a persistent database must converge.
   await client.query(
-    `INSERT INTO media (id, media_type, match_key, title, normalized_title, year)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     ON CONFLICT (id) DO NOTHING`,
-    [id, mediaType, matchKey, title, normalizedTitle, year]
+    `INSERT INTO media (id, media_type, match_key, title, normalized_title, year, sort_title)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (id) DO UPDATE SET
+       media_type = excluded.media_type,
+       match_key = excluded.match_key,
+       title = excluded.title,
+       normalized_title = excluded.normalized_title,
+       year = excluded.year,
+       sort_title = excluded.sort_title`,
+    [id, mediaType, matchKey, title, normalizedTitle, year, sortTitleLocal(title)]
   );
 }
 
@@ -256,6 +265,33 @@ async function seedFillerShows(client: Client, shows: FillerShow[]) {
  * the signed-in admin" scenario needs beyond the admin's own identity - that
  * link happens in media-browse.setup.ts, after the real owner account exists.
  */
+/**
+ * One snapshot per server+library, dated at the shared item created_at:
+ * deriveLibraryStatus flags needsBackfill whenever a server's earliest item
+ * predates its earliest snapshot (or it has none), and the Media overview
+ * hides stats and shelves behind that flag. Aggregated from library_items so
+ * fixture growth can't drift the counts.
+ */
+async function seedLibrarySnapshots(client: Client) {
+  await client.query(
+    `INSERT INTO library_snapshots
+       (server_id, library_id, snapshot_time, item_count, total_size, movie_count, show_count)
+     SELECT server_id, library_id, $1,
+            count(*), coalesce(sum(file_size), 0),
+            count(*) FILTER (WHERE media_type = 'movie'),
+            count(*) FILTER (WHERE media_type = 'show')
+     FROM library_items
+     WHERE removed_at IS NULL AND server_id IN ($2, $3)
+     GROUP BY server_id, library_id
+     ON CONFLICT (server_id, library_id, snapshot_time) DO UPDATE SET
+       item_count = excluded.item_count,
+       total_size = excluded.total_size,
+       movie_count = excluded.movie_count,
+       show_count = excluded.show_count`,
+    [PAST, SERVER_1_ID, SERVER_2_ID]
+  );
+}
+
 export async function seedCore(client: Client): Promise<void> {
   await assertSafeDatabase(client);
 
@@ -347,6 +383,7 @@ export async function seedCore(client: Client): Promise<void> {
 
     await seedFillerMovies(client, fillerMovies());
     await seedFillerShows(client, fillerShows());
+    await seedLibrarySnapshots(client);
 
     await client.query('COMMIT');
   } catch (error) {

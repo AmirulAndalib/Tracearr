@@ -34,6 +34,17 @@ export function matchKeyLocal(
   return `${mediaType}:title:${normalizeTitleLocal(title)}:${year ?? 0}`;
 }
 
+/** Mirrors mediaMatchKey.ts's buildSortTitle, same boundary rule as above.
+ * Title A-Z ordering and the letter rail both sort on this column; rows
+ * seeded without it collapse to insert-order and every jump test fails. */
+export function sortTitleLocal(title: string): string {
+  return title
+    .normalize('NFKC')
+    .replace(/^\s*(the|an|a)\s+/i, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+    .toLowerCase();
+}
+
 export const SERVER_1_ID = fixtureId('media-browse:server:1');
 export const SERVER_2_ID = fixtureId('media-browse:server:2');
 
