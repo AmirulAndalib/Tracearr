@@ -31,7 +31,7 @@ const { mockGetServerUserDisplayNames, mockRecalculateAggregateTrustScore } = vi
 }));
 vi.mock('../../services/userService.js', () => ({
   getServerUserDisplayNames: mockGetServerUserDisplayNames,
-  recalculateAggregateTrustScore: mockRecalculateAggregateTrustScore,
+  recomputeIdentityAggregates: mockRecalculateAggregateTrustScore,
 }));
 
 // Import the mocked db and the routes

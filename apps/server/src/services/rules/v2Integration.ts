@@ -12,7 +12,7 @@ import { db } from '../../db/client.js';
 import { rules, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { rulesLogger } from '../../utils/logger.js';
-import { recalculateAggregateTrustScore } from '../userService.js';
+import { recomputeIdentityAggregates } from '../userService.js';
 import {
   setActionExecutorDeps,
   type ActionExecutorDeps,
@@ -152,7 +152,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
           .returning({ userId: serverUsers.userId });
 
         if (updated) {
-          await recalculateAggregateTrustScore(updated.userId, tx);
+          await recomputeIdentityAggregates(updated.userId, tx);
         }
       });
 
@@ -177,7 +177,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
           .returning({ userId: serverUsers.userId });
 
         if (updated) {
-          await recalculateAggregateTrustScore(updated.userId, tx);
+          await recomputeIdentityAggregates(updated.userId, tx);
         }
       });
 
@@ -199,7 +199,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
           .returning({ userId: serverUsers.userId });
 
         if (updated) {
-          await recalculateAggregateTrustScore(updated.userId, tx);
+          await recomputeIdentityAggregates(updated.userId, tx);
         }
       });
 

@@ -80,7 +80,7 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
           thumbUrl: serverUsers.thumbUrl,
           isServerAdmin: serverUsers.isServerAdmin,
           trustScore: serverUsers.trustScore,
-          sessionCount: serverUsers.sessionCount,
+          sessionCount: sql<number>`(select count(*)::int from ${sessions} where ${sessions.serverUserId} = ${serverUsers.id})`,
           joinedAt: serverUsers.joinedAt,
           lastActivityAt: serverUsers.lastActivityAt,
           removedAt: serverUsers.removedAt,
@@ -129,7 +129,7 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
           username: serverUsers.username,
           thumbUrl: serverUsers.thumbUrl,
           trustScore: serverUsers.trustScore,
-          sessionCount: serverUsers.sessionCount,
+          sessionCount: sql<number>`(select count(*)::int from ${sessions} where ${sessions.serverUserId} = ${serverUsers.id})`,
           removedAt: serverUsers.removedAt,
         })
         .from(serverUsers)

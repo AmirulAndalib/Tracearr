@@ -105,7 +105,6 @@ function makeSessionRow(overrides: Record<string, unknown> = {}) {
       thumbUrl: null,
       isServerAdmin: false,
       trustScore: 100,
-      sessionCount: 1,
       joinedAt: null,
       lastActivityAt: new Date(),
       removedAt: null,

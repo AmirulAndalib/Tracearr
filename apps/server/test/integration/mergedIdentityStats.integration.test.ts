@@ -68,13 +68,13 @@ describe('merged identity stats', () => {
         userId: target.id,
         serverId: serverA.id,
         trustScore: 90,
-        sessionCount: 10,
+        lastActivityAt: new Date('2026-06-01T00:00:00Z'),
       });
       const sourceSu = await createTestServerUser({
         userId: source.id,
         serverId: serverB.id,
         trustScore: 50,
-        sessionCount: 30,
+        lastActivityAt: new Date('2026-06-02T00:00:00Z'),
       });
 
       await createTestSession({
@@ -125,9 +125,9 @@ describe('merged identity stats', () => {
       expect(mergedRow.playCount).toBe(2);
       // Representative account chosen by session count tiebreak (source has 30 > target's 10)
       expect(mergedRow.serverUserId).toBe(sourceSu.id);
-      // Identity aggregate trust (weighted by session count: (90*10 + 50*30) / 40 = 60),
-      // not either account's own score
-      expect(mergedRow.trustScore).toBe(60);
+      // Identity aggregate trust is the worst account: min(90, 50) = 50,
+      // not the representative account's own score
+      expect(mergedRow.trustScore).toBe(50);
       expect(mergedRow.identityServers?.map((s) => s.id).sort()).toEqual(
         [serverA.id, serverB.id].sort()
       );

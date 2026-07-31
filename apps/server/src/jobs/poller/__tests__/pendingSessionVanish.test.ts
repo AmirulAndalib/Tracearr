@@ -206,7 +206,6 @@ function createPendingSessionData(
       thumbUrl: null,
       identityName: 'Test User',
       trustScore: 100,
-      sessionCount: 1,
       lastActivityAt: null,
       createdAt: new Date(),
       identityServerUserIds: ['su-a'],

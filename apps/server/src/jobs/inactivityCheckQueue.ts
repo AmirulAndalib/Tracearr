@@ -21,6 +21,7 @@ import { WS_EVENTS, TIME_MS } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { rules, serverUsers, violations, users, servers } from '../db/schema.js';
 import { ruleEngine } from '../services/rules.js';
+import { recomputeIdentityAggregatesForServerUser } from '../services/userService.js';
 import { enqueueNotification } from './notificationQueue.js';
 
 // Queue name
@@ -361,7 +362,11 @@ async function createInactivityViolation(
       .onConflictDoNothing()
       .returning();
 
-    return insertedRows[0];
+    const inserted = insertedRows[0];
+    if (inserted) {
+      await recomputeIdentityAggregatesForServerUser(user.id, tx);
+    }
+    return inserted;
   });
 
   if (!created) {

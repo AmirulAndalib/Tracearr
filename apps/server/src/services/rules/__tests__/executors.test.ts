@@ -125,7 +125,6 @@ function createMockServerUser(overrides: Partial<ServerUser> = {}): ServerUser {
     thumbUrl: null,
     isServerAdmin: false,
     trustScore: 100,
-    sessionCount: 10,
     joinedAt: new Date(),
     lastActivityAt: new Date(),
     removedAt: null,

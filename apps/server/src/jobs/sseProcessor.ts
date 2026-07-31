@@ -988,7 +988,6 @@ async function createNewSession(
       thumbUrl: serverUsers.thumbUrl,
       identityName: users.name,
       trustScore: serverUsers.trustScore,
-      sessionCount: serverUsers.sessionCount,
       lastActivityAt: serverUsers.lastActivityAt,
       createdAt: serverUsers.createdAt,
     })
@@ -1014,7 +1013,6 @@ async function createNewSession(
     thumbUrl: serverUserFromDb.thumbUrl,
     identityName: serverUserFromDb.identityName,
     trustScore: serverUserFromDb.trustScore,
-    sessionCount: serverUserFromDb.sessionCount,
     lastActivityAt: serverUserFromDb.lastActivityAt,
     createdAt: serverUserFromDb.createdAt,
     identityServerUserIds,
@@ -1137,7 +1135,6 @@ async function handleMediaChange(
       thumbUrl: serverUsers.thumbUrl,
       identityName: users.name,
       trustScore: serverUsers.trustScore,
-      sessionCount: serverUsers.sessionCount,
       lastActivityAt: serverUsers.lastActivityAt,
       createdAt: serverUsers.createdAt,
     })
@@ -1334,7 +1331,6 @@ async function updateExistingSession(
             thumbUrl: serverUsers.thumbUrl,
             identityName: users.name,
             trustScore: serverUsers.trustScore,
-            sessionCount: serverUsers.sessionCount,
             lastActivityAt: serverUsers.lastActivityAt,
             createdAt: serverUsers.createdAt,
           })
@@ -1405,7 +1401,6 @@ async function updateExistingSession(
             thumbUrl: serverUsers.thumbUrl,
             identityName: users.name,
             trustScore: serverUsers.trustScore,
-            sessionCount: serverUsers.sessionCount,
             lastActivityAt: serverUsers.lastActivityAt,
             createdAt: serverUsers.createdAt,
           })

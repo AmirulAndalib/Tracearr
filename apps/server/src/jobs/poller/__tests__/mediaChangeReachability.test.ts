@@ -183,7 +183,6 @@ const serverUserRow = {
   thumbUrl: null,
   isServerAdmin: false,
   trustScore: 100,
-  sessionCount: 1,
   lastActivityAt: null,
   createdAt: new Date(),
   updatedAt: new Date(),

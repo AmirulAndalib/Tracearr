@@ -766,7 +766,6 @@ async function processServerSessions(
         thumbUrl: serverUsers.thumbUrl,
         isServerAdmin: serverUsers.isServerAdmin,
         trustScore: serverUsers.trustScore,
-        sessionCount: serverUsers.sessionCount,
         lastActivityAt: serverUsers.lastActivityAt,
         createdAt: serverUsers.createdAt,
         updatedAt: serverUsers.updatedAt,
@@ -1008,7 +1007,6 @@ async function processServerSessions(
               thumbUrl: serverUserFromCache.thumbUrl,
               identityName: serverUserFromCache.identityName,
               trustScore: serverUserFromCache.trustScore,
-              sessionCount: serverUserFromCache.sessionCount,
               lastActivityAt: serverUserFromCache.lastActivityAt,
               createdAt: serverUserFromCache.createdAt,
               identityServerUserIds: identityServerUserIdsMap.get(serverUserFromCache.userId) ?? [
@@ -1025,7 +1023,6 @@ async function processServerSessions(
               thumbUrl: null,
               identityName: null,
               trustScore: 100,
-              sessionCount: 0,
               lastActivityAt: null,
               createdAt: new Date(), // Brand new users genuinely have 0-day account age
               identityServerUserIds: [serverUserId],

@@ -561,6 +561,13 @@
       "when": 1785426155707,
       "tag": "0079_brief_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1785508901909,
+      "tag": "0080_noisy_morgan_stark",
+      "breakpoints": true
     }
   ]
 }

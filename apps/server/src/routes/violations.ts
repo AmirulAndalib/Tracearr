@@ -27,10 +27,7 @@ import {
   resolveServerIds,
   buildMultiServerCondition,
 } from '../utils/serverFiltering.js';
-import {
-  getServerUserDisplayNames,
-  recalculateAggregateTrustScore,
-} from '../services/userService.js';
+import { getServerUserDisplayNames, recomputeIdentityAggregates } from '../services/userService.js';
 import { resolveAccessibleServerUserIdsForIdentities } from './users/queries.js';
 import { uuidArraySql } from '../utils/sqlArrays.js';
 
@@ -1087,7 +1084,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
 
         // Keep the person's overall trust rollup current in the same
         // transaction as the reversal.
-        await recalculateAggregateTrustScore(violation.userId, tx);
+        await recomputeIdentityAggregates(violation.userId, tx);
       }
     });
 
@@ -1372,7 +1369,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       // same transaction as the reversals (once per identity, since a merged
       // person can have more than one affected account here).
       for (const identityId of affectedIdentityIds) {
-        await recalculateAggregateTrustScore(identityId, tx);
+        await recomputeIdentityAggregates(identityId, tx);
       }
     });
 

@@ -73,7 +73,6 @@ export interface ServerUser {
   thumbUrl: string | null;
   isServerAdmin: boolean;
   trustScore: number;
-  sessionCount: number;
   joinedAt: Date | null;
   lastActivityAt: Date | null;
   removedAt: Date | null;

@@ -28,6 +28,7 @@ import { executeActions, type ActionResult } from '../../services/rules/executor
 import type { EvaluationContext, EvaluationResult } from '../../services/rules/types.js';
 import { storeActionResults } from '../../services/rules/v2Integration.js';
 import { getWatchedThreshold } from '../../services/settings.js';
+import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
 import { pickStreamDetailFields } from './sessionMapper.js';
 import {
@@ -938,7 +939,6 @@ export async function createSessionWithRulesAtomic(
             thumbUrl: serverUser.thumbUrl,
             isServerAdmin: false,
             trustScore: serverUser.trustScore,
-            sessionCount: serverUser.sessionCount,
             joinedAt: null,
             lastActivityAt: serverUser.lastActivityAt,
             createdAt: serverUser.createdAt,
@@ -1021,6 +1021,8 @@ export async function createSessionWithRulesAtomic(
               const violation = insertedViolations[0];
 
               if (violation) {
+                await recomputeIdentityAggregatesForServerUser(serverUser.id, tx);
+
                 // Create rule info for ViolationInsertResult (V2 rules don't have type)
                 const ruleInfo = {
                   id: rule.id,
@@ -1618,7 +1620,6 @@ export async function reEvaluateRulesOnTranscodeChange(
     thumbUrl: serverUser.thumbUrl,
     isServerAdmin: false,
     trustScore: serverUser.trustScore,
-    sessionCount: serverUser.sessionCount,
     joinedAt: null,
     lastActivityAt: serverUser.lastActivityAt,
     createdAt: serverUser.createdAt,
@@ -1716,6 +1717,7 @@ export async function reEvaluateRulesOnTranscodeChange(
       const violation = insertedViolations[0];
       if (!violation) return null;
 
+      await recomputeIdentityAggregatesForServerUser(serverUser.id, tx);
       return violation;
     });
 
@@ -1856,7 +1858,6 @@ export async function reEvaluateRulesOnPauseState(
     thumbUrl: serverUser.thumbUrl,
     isServerAdmin: false,
     trustScore: serverUser.trustScore,
-    sessionCount: serverUser.sessionCount,
     joinedAt: null,
     lastActivityAt: serverUser.lastActivityAt,
     createdAt: serverUser.createdAt,
@@ -1947,6 +1948,7 @@ export async function reEvaluateRulesOnPauseState(
       const violation = insertedViolations[0];
       if (!violation) return null;
 
+      await recomputeIdentityAggregatesForServerUser(serverUser.id, tx);
       return violation;
     });
 

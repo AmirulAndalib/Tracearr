@@ -293,7 +293,6 @@ export interface PendingSessionData {
     thumbUrl: string | null;
     identityName: string | null;
     trustScore: number;
-    sessionCount: number;
     lastActivityAt: Date | null;
     createdAt: Date;
     /** All server_user ids belonging to the same identity, for cross-server rule aggregation */
@@ -360,7 +359,6 @@ export interface SessionCreationInput {
     thumbUrl: string | null;
     identityName: string | null;
     trustScore: number;
-    sessionCount: number;
     lastActivityAt: Date | null;
     createdAt: Date;
     /** All server_user ids belonging to the same identity, for cross-server rule aggregation */
@@ -507,7 +505,6 @@ export interface MediaChangeInput {
     thumbUrl: string | null;
     identityName: string | null;
     trustScore: number;
-    sessionCount: number;
     lastActivityAt: Date | null;
     createdAt: Date;
     /** All server_user ids belonging to the same identity, for cross-server rule aggregation */
@@ -566,7 +563,6 @@ export interface TranscodeReEvalInput {
     thumbUrl: string | null;
     identityName: string | null;
     trustScore: number;
-    sessionCount: number;
     lastActivityAt: Date | null;
     createdAt: Date;
     /** All server_user ids belonging to the same identity, for cross-server rule aggregation */
@@ -598,7 +594,6 @@ export interface PauseReEvalInput {
     thumbUrl: string | null;
     identityName: string | null;
     trustScore: number;
-    sessionCount: number;
     lastActivityAt: Date | null;
     createdAt: Date;
     /** All server_user ids belonging to the same identity, for cross-server rule aggregation */

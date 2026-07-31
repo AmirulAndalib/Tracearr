@@ -137,8 +137,9 @@ export const users = pgTable(
     banReason: text('ban_reason'),
     banExpires: timestamp('ban_expires', { withTimezone: true }),
 
-    // Aggregated metrics (cached, recomputed in-app by recalculateAggregateTrustScore
-    // after every serverUsers.trustScore write - no database trigger exists)
+    // Aggregated metrics (cached, recomputed in-app by recomputeIdentityAggregates
+    // after every serverUsers.trustScore write and violation insert - no
+    // database trigger exists)
     aggregateTrustScore: integer('aggregate_trust_score').notNull().default(100),
     totalViolations: integer('total_violations').notNull().default(0),
 
@@ -232,7 +233,6 @@ export const serverUsers = pgTable(
 
     // Per-server trust
     trustScore: integer('trust_score').notNull().default(100),
-    sessionCount: integer('session_count').notNull().default(0), // For aggregate weighting
 
     // Removal tracking - set when user no longer exists on media server
     removedAt: timestamp('removed_at', { withTimezone: true }),

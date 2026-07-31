@@ -50,7 +50,6 @@ const {
     thumbUrl: null,
     isServerAdmin: false,
     trustScore: 100,
-    sessionCount: 5,
     lastActivityAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),

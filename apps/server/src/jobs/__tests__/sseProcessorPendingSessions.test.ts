@@ -281,7 +281,6 @@ function createMockPendingSession(overrides: Partial<PendingSessionData> = {}): 
       thumbUrl: null,
       identityName: 'Test User',
       trustScore: 100,
-      sessionCount: 10,
       lastActivityAt: new Date(),
       createdAt: new Date(),
       identityServerUserIds: ['server-user-123'],
@@ -339,7 +338,6 @@ describe('SSE Processor - Pending Session Flow', () => {
         thumbUrl: null,
         identityName: 'Test User',
         trustScore: 100,
-        sessionCount: 10,
         lastActivityAt: new Date(),
         createdAt: new Date(),
       };
@@ -405,7 +403,6 @@ describe('SSE Processor - Pending Session Flow', () => {
         thumbUrl: null,
         identityName: 'Test User',
         trustScore: 100,
-        sessionCount: 10,
         lastActivityAt: new Date(),
         createdAt: new Date(),
       };
@@ -1022,7 +1019,6 @@ describe('SSE Processor - Pending Session Flow', () => {
         thumbUrl: null,
         identityName: 'Test User',
         trustScore: 100,
-        sessionCount: 10,
         lastActivityAt: new Date(),
         createdAt: new Date(),
       };
@@ -1178,7 +1174,6 @@ describe('SSE Processor - Pending Session Flow', () => {
         thumbUrl: null,
         identityName: 'Test User',
         trustScore: 100,
-        sessionCount: 10,
         lastActivityAt: new Date(),
         createdAt: new Date(),
       };

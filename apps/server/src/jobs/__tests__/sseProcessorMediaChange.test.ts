@@ -230,7 +230,6 @@ const mockServerUser = {
   thumbUrl: null,
   identityName: 'Test User',
   trustScore: 100,
-  sessionCount: 5,
   lastActivityAt: new Date('2026-01-01'),
 };
 

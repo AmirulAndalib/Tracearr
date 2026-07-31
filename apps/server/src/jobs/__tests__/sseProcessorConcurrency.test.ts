@@ -76,7 +76,6 @@ const {
                   thumbUrl: null,
                   identityName: 'Alice',
                   trustScore: 100,
-                  sessionCount: 5,
                   lastActivityAt: new Date(),
                   createdAt: new Date(),
                 },
