@@ -29,7 +29,7 @@ if (actualName !== REQUIRED_DB_NAME) {
   fail(`Refusing to prepare a database that isn't "${REQUIRED_DB_NAME}" (got "${actualName}")`);
 }
 
-const maintenanceUrl = databaseUrl.replace(/\/[^/]+$/, '/tracearr_test');
+const maintenanceUrl = databaseUrl.replace(/\/[^/]+$/, '/postgres');
 const client = new pg.Client({ connectionString: maintenanceUrl });
 await client.connect();
 try {

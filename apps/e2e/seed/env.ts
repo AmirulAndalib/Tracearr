@@ -20,9 +20,13 @@ export function e2eRedisPrefix(): string {
   return process.env.E2E_REDIS_PREFIX ?? 'trr_e2e_';
 }
 
-/** Same host/credentials as the target URL, pointed at the container's always-present maintenance database. */
+/**
+ * Same host/credentials as the target URL, pointed at the "postgres" system
+ * database - the only one guaranteed to exist regardless of the container's
+ * POSTGRES_DB (tracearr_test locally, tracearr_e2e in CI).
+ */
 export function maintenanceDatabaseUrl(): string {
-  return e2eDatabaseUrl().replace(/\/[^/]+$/, '/tracearr_test');
+  return e2eDatabaseUrl().replace(/\/[^/]+$/, '/postgres');
 }
 
 export function databaseNameFromUrl(url: string): string {
