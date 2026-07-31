@@ -21,5 +21,8 @@
   "accessControl": "Kontrola přístupu",
   "media": "Média",
   "mediaBrowse": "Procházet",
-  "mediaGenres": "Žánry"
+  "mediaGenres": "Žánry",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

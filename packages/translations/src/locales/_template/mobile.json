@@ -56,5 +56,8 @@
     "failedToSendTest": "Failed to send test notification",
     "loadingPreferences": "Loading preferences...",
     "unableToLoadPreferences": "Unable to Load Preferences"
+  },
+  "serverScope": {
+    "single": "Showing {{name}} only"
   }
 }

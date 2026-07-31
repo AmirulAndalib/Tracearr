@@ -21,5 +21,8 @@
   "accessControl": "Контроль доступу",
   "media": "Медіа",
   "mediaBrowse": "Огляд",
-  "mediaGenres": "Жанри"
+  "mediaGenres": "Жанри",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

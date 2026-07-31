@@ -21,5 +21,8 @@
   "accessControl": "Åtkomstkontroll",
   "media": "Media",
   "mediaBrowse": "Bläddra",
-  "mediaGenres": "Genrer"
+  "mediaGenres": "Genrer",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

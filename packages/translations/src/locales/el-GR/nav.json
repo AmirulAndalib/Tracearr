@@ -21,5 +21,8 @@
   "accessControl": "Έλεγχος Πρόσβασης",
   "media": "Πολυμέσα",
   "mediaBrowse": "Περιήγηση",
-  "mediaGenres": "Είδη"
+  "mediaGenres": "Είδη",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

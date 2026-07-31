@@ -21,5 +21,8 @@
   "accessControl": "Toegangsbeheer",
   "media": "Media",
   "mediaBrowse": "Bladeren",
-  "mediaGenres": "Genres"
+  "mediaGenres": "Genres",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

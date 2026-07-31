@@ -21,5 +21,8 @@
   "accessControl": "Control Acces",
   "media": "Media",
   "mediaBrowse": "Răsfoiește",
-  "mediaGenres": "Genuri"
+  "mediaGenres": "Genuri",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

@@ -21,5 +21,8 @@
   "accessControl": "アクセスコントロール",
   "media": "メディア",
   "mediaBrowse": "閲覧",
-  "mediaGenres": "ジャンル"
+  "mediaGenres": "ジャンル",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

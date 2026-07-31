@@ -21,5 +21,8 @@
   "accessControl": "التحكم بالدخول",
   "media": "وسائط",
   "mediaBrowse": "تصفح",
-  "mediaGenres": "الأنواع"
+  "mediaGenres": "الأنواع",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

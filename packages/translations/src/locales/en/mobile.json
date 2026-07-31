@@ -159,5 +159,8 @@
     "serversSelected": "{{selected}} of {{total}} servers selected"
   },
   "reconnected": "Reconnected",
-  "actionsExecuted": "Actions Executed"
+  "actionsExecuted": "Actions Executed",
+  "serverScope": {
+    "single": "Showing {{name}} only"
+  }
 }

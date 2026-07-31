@@ -21,5 +21,8 @@
   "accessControl": "访问控制",
   "media": "媒体",
   "mediaBrowse": "浏览",
-  "mediaGenres": "类型"
+  "mediaGenres": "类型",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }

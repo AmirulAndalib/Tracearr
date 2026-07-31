@@ -159,5 +159,8 @@
     "ips": "IPs",
     "streamComparison": "Stream Comparison",
     "violationNotFoundDesc": "This violation may have been dismissed or is no longer available."
+  },
+  "serverScope": {
+    "single": "Showing {{name}} only"
   }
 }

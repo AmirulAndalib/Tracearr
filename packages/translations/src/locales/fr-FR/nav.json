@@ -21,5 +21,8 @@
   "accessControl": "Contrôle d'accès",
   "media": "Médias",
   "mediaBrowse": "Parcourir",
-  "mediaGenres": "Genres"
+  "mediaGenres": "Genres",
+  "session": "Session",
+  "user": "User",
+  "violation": "Violation"
 }
