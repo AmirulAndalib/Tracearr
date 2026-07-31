@@ -55,6 +55,33 @@ async function dropDatabase(client: pg.Client, dbName: string): Promise<void> {
 }
 
 /**
+ * TimescaleDB background workers connect to every database with the extension
+ * installed - including the template - at times we don't control, and a
+ * just-closed pool's backend can still be draining server-side. Either one
+ * makes CREATE DATABASE ... TEMPLATE fail with 55006 (object_in_use).
+ */
+async function terminateTemplateSessions(client: pg.Client): Promise<void> {
+  await client.query(
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+     WHERE datname = $1 AND pid <> pg_backend_pid()`,
+    [TEMPLATE_DB]
+  );
+}
+
+async function createFromTemplate(client: pg.Client, name: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await client.query(`CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE_DB}"`);
+      return;
+    } catch (error) {
+      if ((error as { code?: string }).code !== '55006' || attempt >= 5) throw error;
+      await terminateTemplateSessions(client);
+      await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
+    }
+  }
+}
+
+/**
  * Sweeps databases left behind by runs that crashed before their teardown ran.
  * A live run still holds its advisory lock, so pg_try_advisory_lock only
  * succeeds (and only then do we drop) for tokens with no active owner.
@@ -118,6 +145,7 @@ async function rebuildTemplate(
   const { runMigrations, closeDatabase, recreatePool } = await import('../db/client.js');
   const { initTimescaleDB } = await import('../db/timescale.js');
 
+  await terminateTemplateSessions(client);
   await client.query(`DROP DATABASE IF EXISTS "${TEMPLATE_DB}"`);
   await client.query(`CREATE DATABASE "${TEMPLATE_DB}"`);
 
@@ -191,9 +219,14 @@ export default async function globalSetup(project: TestProject) {
   await sweepOrphanDatabases(client);
   await ensureTemplate(client, migrationsFolder, baseUrl);
 
+  // Same trick template0 uses: a no-connections database stays copyable as a
+  // template while nothing (Timescale bgws included) can attach to it. Runs
+  // every time so templates built before this line gained it converge too.
+  await client.query(`ALTER DATABASE "${TEMPLATE_DB}" WITH ALLOW_CONNECTIONS false`);
+
   for (let workerId = 1; workerId <= WORKER_COUNT; workerId++) {
     const name = workerDbName(runToken, workerId);
-    await client.query(`CREATE DATABASE "${name}" TEMPLATE "${TEMPLATE_DB}"`);
+    await createFromTemplate(client, name);
   }
 
   // Inherited by forked pool workers; provide() is a belt-and-suspenders backup.
