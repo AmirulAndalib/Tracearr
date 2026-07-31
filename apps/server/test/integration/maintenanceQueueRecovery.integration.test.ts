@@ -148,12 +148,16 @@ describe('BullMQ native stalled detection: recovery latency', () => {
     const becameActiveB = new Promise<void>((resolve) => {
       markActiveB = resolve;
     });
+    // autorun: false so B can't race A for the initial pickup - B's instant
+    // processor would otherwise complete the job before A ever goes active,
+    // leaving becameActiveA pending forever. B may only ever reclaim.
     const workerB = new Worker(queueName, async () => 'done-by-b', {
       connection,
       prefix: BULL_PREFIX,
       lockDuration: LOCK_DURATION_MS,
       stalledInterval: STALLED_INTERVAL_MS,
       maxStalledCount: 2,
+      autorun: false,
     });
     workerB.on('active', ({ id }) => {
       if (id === job.id) markActiveB?.();
@@ -161,6 +165,7 @@ describe('BullMQ native stalled detection: recovery latency', () => {
 
     const job = await queue.add('never-resolves', {});
     await becameActiveA;
+    void workerB.run();
 
     // Simulate a crash: destroy worker A's Redis connection directly,
     // without ever calling worker.close(). The lock key it holds is left
@@ -329,12 +334,16 @@ describe('extendJobLock: fail-closed abort on lost lock', () => {
       completedBy.push('from-a');
     });
 
+    // autorun: false so B can't win the initial pickup - the premise here is
+    // that B RECLAIMS a stalled job from A, so it must not start until A
+    // holds the lock (and B winning would also hang becameActiveA forever).
     const workerB = new Worker(queueName, async () => 'from-b', {
       connection,
       prefix: BULL_PREFIX,
       lockDuration: LOCK_DURATION_MS,
       stalledInterval: STALLED_INTERVAL_MS,
       maxStalledCount: 2,
+      autorun: false,
     });
     workerB.on('completed', (job) => {
       completions++;
@@ -343,6 +352,7 @@ describe('extendJobLock: fail-closed abort on lost lock', () => {
 
     const job = await queue.add('lock-loss', {});
     await becameActiveA;
+    void workerB.run();
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(
