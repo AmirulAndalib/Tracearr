@@ -94,24 +94,37 @@ interface GroupFile {
 /**
  * Mirror-deduped storage math over every physical file in a group.
  * Equal byte size means the same physical file (the codebase-wide
- * heuristic); the best-quality file is the keeper.
+ * heuristic, matching dedupedStorageBytesSql's totals); it applies wherever
+ * the repeat appears - another item, another library, or a second listing
+ * under the same item. The best-quality distinct file is the keeper.
+ * mirrorFlags is parallel to the input: true where a file repeats one
+ * already counted.
  */
 function computeGroupStorage(files: GroupFile[]): {
   totalStorageBytes: number;
   potentialSavingsBytes: number;
+  uniqueFileCount: number;
+  mirrorFlags: boolean[];
 } {
-  // Equal size marks a mirror only ACROSS items - two same-size files under
-  // one item are two real files on that server and both count
-  const sizeOwner = new Map<number, string>();
+  const seenSizes = new Set<number>();
   const distinct: GroupFile[] = [];
+  const mirrorFlags: boolean[] = [];
   for (const file of files) {
-    if (file.fileSize === null) continue;
-    const owner = sizeOwner.get(file.fileSize);
-    if (owner !== undefined && owner !== file.itemId) continue;
-    if (owner === undefined) sizeOwner.set(file.fileSize, file.itemId);
+    if (file.fileSize === null) {
+      mirrorFlags.push(false);
+      continue;
+    }
+    if (seenSizes.has(file.fileSize)) {
+      mirrorFlags.push(true);
+      continue;
+    }
+    seenSizes.add(file.fileSize);
+    mirrorFlags.push(false);
     distinct.push(file);
   }
-  if (distinct.length === 0) return { totalStorageBytes: 0, potentialSavingsBytes: 0 };
+  if (distinct.length === 0) {
+    return { totalStorageBytes: 0, potentialSavingsBytes: 0, uniqueFileCount: 0, mirrorFlags };
+  }
 
   let total = 0;
   let best: GroupFile | null = null;
@@ -129,6 +142,8 @@ function computeGroupStorage(files: GroupFile[]): {
   return {
     totalStorageBytes: total,
     potentialSavingsBytes: Math.max(0, total - (best?.fileSize ?? 0)),
+    uniqueFileCount: distinct.length,
+    mirrorFlags,
   };
 }
 
@@ -435,6 +450,28 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
         confidence: number,
         items: DuplicateItem[]
       ): DuplicateGroup => {
+        const files = groupFiles(items);
+        const { totalStorageBytes, potentialSavingsBytes, uniqueFileCount, mirrorFlags } =
+          computeGroupStorage(files);
+
+        // Copy version lists while attaching mirror flags: versionsByItem
+        // arrays are shared across groups, so flags must never mutate them.
+        // groupFiles flattened in item order, one entry per version (or one
+        // fallback entry for version-less items), so the flags line up.
+        let fileIndex = 0;
+        const flaggedItems = items.map((item) => {
+          if (item.versions.length === 0) {
+            fileIndex += 1;
+            return item;
+          }
+          const versions = item.versions.map((version) => {
+            const isMirror = mirrorFlags[fileIndex] === true;
+            fileIndex += 1;
+            return isMirror ? { ...version, isMirror: true } : { ...version };
+          });
+          return { ...item, versions };
+        });
+
         const servers = new Set(items.map((item) => item.serverId));
         return {
           matchKey,
@@ -442,8 +479,10 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
           confidence,
           serverCount: servers.size,
           sameServer: servers.size === 1,
-          items,
-          ...computeGroupStorage(groupFiles(items)),
+          items: flaggedItems,
+          uniqueFileCount,
+          totalStorageBytes,
+          potentialSavingsBytes,
         };
       };
 
@@ -508,7 +547,11 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
         if (!details) continue;
         const item = toDuplicateItem(details);
         if (item.versions.length < 2) continue;
-        duplicateGroups.push(buildGroup(`version:${row.id}`, 'version', 100, [item]));
+        const group = buildGroup(`version:${row.id}`, 'version', 100, [item]);
+        // Byte-identical listings under one item are the same physical file
+        // (a renamed folder, a stale directory entry); nothing reclaimable
+        if ((group.uniqueFileCount ?? 0) < 2) continue;
+        duplicateGroups.push(group);
       }
 
       // Sort by confidence descending

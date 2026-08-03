@@ -114,10 +114,12 @@ export function DuplicatesTable({ data, isLoading, page, onPageChange }: Duplica
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          {group.items.reduce(
-                            (count, item) => count + Math.max(item.versions.length, 1),
-                            0
-                          )}
+                          {/* Fallback covers responses cached before uniqueFileCount existed */}
+                          {group.uniqueFileCount ??
+                            group.items.reduce(
+                              (count, item) => count + Math.max(item.versions.length, 1),
+                              0
+                            )}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatBytes(group.potentialSavingsBytes)}
@@ -151,7 +153,7 @@ export function DuplicatesTable({ data, isLoading, page, onPageChange }: Duplica
                                         key={`${item.id}-v${index}`}
                                         className="text-muted-foreground flex items-center justify-between gap-4 pl-6 text-xs"
                                       >
-                                        <span>
+                                        <span className="flex items-center gap-2">
                                           {[
                                             version.resolution
                                               ? formatMediaTech(version.resolution)
@@ -160,6 +162,11 @@ export function DuplicatesTable({ data, isLoading, page, onPageChange }: Duplica
                                           ]
                                             .filter(Boolean)
                                             .join(' · ') || '—'}
+                                          {version.isMirror && (
+                                            <Badge variant="outline" className="text-[10px]">
+                                              Mirror
+                                            </Badge>
+                                          )}
                                         </span>
                                         <span>{formatBytes(version.fileSize)}</span>
                                       </div>

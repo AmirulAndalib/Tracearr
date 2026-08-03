@@ -2319,6 +2319,13 @@ export interface DuplicateItemVersion {
   videoCodec: string | null;
   fileSize: number | null;
   filePath: string | null;
+  /**
+   * The same physical file already listed elsewhere in the group (equal byte
+   * size, the codebase-wide mirror heuristic). Jellyfin merged-version
+   * libraries list every file under every library entry; mirrors keep the
+   * listing honest without counting the file twice.
+   */
+  isMirror?: boolean;
 }
 
 export interface DuplicateItem {
@@ -2343,6 +2350,12 @@ export interface DuplicateGroup {
   /** All copies live on one server (cross-library copies or one item's versions) */
   sameServer: boolean;
   items: DuplicateItem[];
+  /**
+   * Distinct physical files in the group after mirror dedup. Optional only
+   * because responses cached before the field existed can still be served
+   * for up to an hour; the server always sets it.
+   */
+  uniqueFileCount?: number;
   /** Mirror-deduped bytes: the same physical file (equal size) counts once */
   totalStorageBytes: number;
   /** Bytes freed by keeping only the best-quality file */
