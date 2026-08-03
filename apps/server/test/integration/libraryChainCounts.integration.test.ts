@@ -228,8 +228,13 @@ describe('library analytics count resume chains once', () => {
     const server = await createTestServer({ type: 'plex' });
     const user = await createTestUser();
     const account = await createTestServerUser({ serverId: server.id, userId: user.id });
-    const item = await createTestLibraryItem({ serverId: server.id, ratingKey: 'rk-roi' });
-    await db.execute(sql`UPDATE library_items SET file_size = 5368709120 WHERE id = ${item.id}`);
+    // Size flows through the version row: the roi sizing reads versions
+    // (identity-deduped), not the flat column
+    const item = await createTestLibraryItem({
+      serverId: server.id,
+      ratingKey: 'rk-roi',
+      fileSize: 5368709120,
+    });
 
     await seedChain({ serverId: server.id, serverUserId: account.id, ratingKey: 'rk-roi' });
 
