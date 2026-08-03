@@ -681,6 +681,7 @@
     "maxIps": "最多IP地址",
     "maxIpsDefault": "时间窗口内允许的最大唯一IP地址。默认值：24小时内5 个 IP",
     "maxSpeed": "最大速度 ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "最大现实旅行速度。默认值：{{value}} {{unit}}（飞机速度）",
     "maxStreams": "最大流",
     "maxStreamsDefault": "每个用户的最大同步流。默认值：3",

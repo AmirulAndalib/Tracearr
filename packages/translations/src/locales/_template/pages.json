@@ -347,6 +347,7 @@
     "accountInactivity": "Account Inactivity",
     "accountInactivityDesc": "Get notified when users have not watched anything for a specified period",
     "maxSpeed": "Max Speed ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximum realistic travel speed. Default: {{value}} {{unit}} (airplane speed)",
     "minDistance": "Min Distance ({{unit}})",
     "minDistanceDefault": "Minimum distance between locations to trigger. Default: {{value}} {{unit}}",

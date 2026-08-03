@@ -681,6 +681,7 @@
     "maxIps": "Max. IP's",
     "maxIpsDefault": "Maximaal aantal unieke IP's toegestaan in periode. Standaard: 5 IP's in 24 uur",
     "maxSpeed": "Max. snelheid ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximale realistische reissnelheid. Standaard: {{value}} (vliegsnelheid)",
     "maxStreams": "Max. streams",
     "maxStreamsDefault": "Maximaal aantal gelijktijdige streams per gebruiker. Standaard: 3",

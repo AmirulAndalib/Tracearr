@@ -681,6 +681,7 @@
     "maxIps": "IP Massimi",
     "maxIpsDefault": "Numero massimo di IP univoci ammessi nella finestra temporale. Predefinito: 5 IP in 24 ore",
     "maxSpeed": "Velocità Massima ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Velocità di viaggio massima realistica. Predefinita: {{value}} {{unit}} (velocità aerea)",
     "maxStreams": "Max Stream",
     "maxStreamsDefault": "Flussi simultanei massimi per utente. Predefinito: 3",

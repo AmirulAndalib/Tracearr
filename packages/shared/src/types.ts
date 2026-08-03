@@ -590,7 +590,7 @@ export type DeviceClientField = 'device_type' | 'client_name' | 'platform';
 
 export type NetworkLocationField = 'is_local_network' | 'country' | 'ip_in_range';
 
-export type ScopeField = 'server_id' | 'library_id' | 'media_type';
+export type ScopeField = 'server_id' | 'media_type';
 
 export type ConditionField =
   | SessionBehaviorField

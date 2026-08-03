@@ -60,6 +60,8 @@ export interface SessionIdentity {
   sessionKey: string;
   /** When provided, validates the session has this ratingKey */
   ratingKey?: string | null;
+  /** When provided, only matches a row owned by this server user */
+  serverUserId?: string | null;
 }
 
 /** JF/Emby session identity: user+device+content (stable across session.Id changes). */

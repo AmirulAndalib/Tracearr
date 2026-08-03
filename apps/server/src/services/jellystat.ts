@@ -184,7 +184,8 @@ export function extractJellystatStreamDetails(
 
       // Build source video details JSONB
       const videoDetails: SourceVideoDetails = {};
-      if (videoStream.BitRate) videoDetails.bitrate = videoStream.BitRate;
+      // Jellystat reports bps; sessions store kbps like the live parsers
+      if (videoStream.BitRate) videoDetails.bitrate = Math.floor(videoStream.BitRate / 1000);
       if (videoStream.RealFrameRate || videoStream.AverageFrameRate) {
         videoDetails.framerate = String(videoStream.RealFrameRate ?? videoStream.AverageFrameRate);
       }
@@ -206,7 +207,7 @@ export function extractJellystatStreamDetails(
 
       // Build source audio details JSONB
       const audioDetails: SourceAudioDetails = {};
-      if (audioStream.BitRate) audioDetails.bitrate = audioStream.BitRate;
+      if (audioStream.BitRate) audioDetails.bitrate = Math.floor(audioStream.BitRate / 1000);
       if (audioStream.ChannelLayout) audioDetails.channelLayout = audioStream.ChannelLayout;
       if (audioStream.Language) audioDetails.language = audioStream.Language;
       if (audioStream.SampleRate) audioDetails.sampleRate = audioStream.SampleRate;
@@ -398,13 +399,11 @@ export function transformActivityToSession(
     JellystatTranscodingInfoFull | null | undefined;
   const streamDetails = extractJellystatStreamDetails(mediaStreams, transcodingInfoFull);
 
-  // Bitrate: prefer TranscodingInfo bitrate (in bps), convert to kbps
-  // Fall back to source video bitrate if no transcode bitrate
+  // Bitrate: prefer TranscodingInfo bitrate (in bps), convert to kbps.
+  // Fall back to source video bitrate, which extract already stores as kbps.
   const bitrate = transcodingInfoFull?.Bitrate
     ? Math.floor(transcodingInfoFull.Bitrate / 1000)
-    : streamDetails.sourceVideoDetails?.bitrate
-      ? Math.floor(streamDetails.sourceVideoDetails.bitrate / 1000)
-      : null;
+    : (streamDetails.sourceVideoDetails?.bitrate ?? null);
 
   return {
     serverId,

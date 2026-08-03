@@ -681,6 +681,7 @@
     "maxIps": "Μέγιστες IP",
     "maxIpsDefault": "Μέγιστος αριθμός IP που επιτρέπονται μέσα στο παράθυρο χρόνου. Προεπιλογή: 5 IP σε 24 ώρες",
     "maxSpeed": "Max Speed ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Μέγιστη ρεαλιστική ταχύτητα ταξιδιού. Προεπιλογή: {{value}} {{unit}} (ταχύτητα αεροπλάνου)",
     "maxStreams": "Μέγιστες Ροές",
     "maxStreamsDefault": "Μέγιστες ταυτόχρονες ροές ανά χρήστη. Προεπιλογή: 3",

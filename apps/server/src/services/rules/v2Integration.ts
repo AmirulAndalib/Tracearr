@@ -97,11 +97,18 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       // Violations are auto-created on rule match. For standalone notify actions,
       // we create a minimal violation-like payload. The notification worker will
       // handle routing based on global settings.
+      // serverUserId and rule.id feed the queue's dedupe key; user feeds the
+      // channel formatters. All three must carry real values or every rule
+      // notification collapses into one dedupe bucket attributed to "System".
+      const serverUserId = (params.data?.serverUserId as string) ?? '';
+      const username = (params.data?.username as string) ?? 'System';
+      const displayName = (params.data?.displayName as string) ?? username;
+
       await enqueueNotification({
         type: 'violation',
         payload: {
           id: `rule-notify-${Date.now()}`,
-          serverUserId: (params.data?.serverUserId as string) ?? '',
+          serverUserId,
           sessionId: (params.data?.sessionId as string) ?? null,
           severity: 'info',
           createdAt: new Date().toISOString(),
@@ -116,13 +123,15 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
           rule: {
             id: (params.data?.ruleId as string) ?? '',
             name: params.title,
-            type: 'custom',
+            type: null,
           },
           session: null,
-          serverUser: {
-            id: (params.data?.serverUserId as string) ?? '',
-            username: (params.data?.username as string) ?? 'System',
-            displayName: (params.data?.displayName as string) ?? 'System',
+          user: {
+            id: serverUserId,
+            username,
+            identityName: displayName,
+            thumbUrl: (params.data?.userThumbUrl as string | null) ?? null,
+            serverId: (params.data?.serverId as string) ?? '',
           },
         } as any,
       });

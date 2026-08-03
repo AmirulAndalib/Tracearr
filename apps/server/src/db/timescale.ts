@@ -748,6 +748,22 @@ async function createPartialIndexes(): Promise<void> {
     WHERE state = 'playing'
   `);
 
+  // Partial index for the stale-session sweep: open rows only, so the
+  // sweep's lastSeenAt filter never seq-scans the current 30-day chunk
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_sessions_open_last_seen
+    ON sessions (last_seen_at)
+    WHERE stopped_at IS NULL
+  `);
+
+  // Partial index for the daily violation retention purge: dismissed rows
+  // only, so the steady-state run never seq-scans the whole table
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS idx_violations_dismissed_partial
+    ON violations (dismissed_at)
+    WHERE dismissed_at IS NOT NULL
+  `);
+
   // Partial index for transcoded sessions (quality analysis)
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS idx_sessions_transcode_partial

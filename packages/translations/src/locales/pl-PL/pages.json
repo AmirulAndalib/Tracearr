@@ -681,6 +681,7 @@
     "maxIps": "Maksymalna ilość IP",
     "maxIpsDefault": "Maksymalna ilość unikalnych adresów IP dozwolona w oknie czasu. Domyślnie: 5 adresów IP w ciągu 24 godzin",
     "maxSpeed": "Maksymalna prędkość ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maksymalna realistyczna prędkość podróży. Domyślnie: {{value}} {{unit}} (prędkość samolotu)",
     "maxStreams": "Maksymalna ilość transmisji",
     "maxStreamsDefault": "Maksymalna ilość jednoczesnych transmisji na użytkownika. Domyślnie: 3",

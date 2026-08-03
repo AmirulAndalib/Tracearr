@@ -7,10 +7,11 @@
  * Plex exposes SSE at: /:/eventsource/notifications
  *
  * Event types we care about:
- * - playing: Session started or resumed
+ * - playing: Session started, resumed, or a periodic position tick - Plex
+ *   re-sends state 'playing' with an advancing viewOffset during playback
+ *   and has no distinct progress state, so this IS the progress stream
  * - paused: Session paused
  * - stopped: Session ended
- * - progress: Playback position updated
  */
 
 import { EventEmitter } from 'events';

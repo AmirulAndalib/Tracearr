@@ -57,7 +57,9 @@ describe('findActiveSession with SessionIdentity', () => {
         select: () => ({
           from: () => ({
             where: () => ({
-              limit: () => Promise.resolve([{ id: 'session-1', ratingKey: 'episode-100' }]),
+              orderBy: () => ({
+                limit: () => Promise.resolve([{ id: 'session-1', ratingKey: 'episode-100' }]),
+              }),
             }),
           }),
         }),

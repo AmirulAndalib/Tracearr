@@ -87,7 +87,11 @@ const {
       select: vi.fn((columns?: unknown) => ({
         from: vi.fn(() => {
           if (columns === undefined) return chainResolving([mockServerRow]);
-          const obj: Record<string, unknown> = { where: () => obj, limit: () => obj };
+          const obj: Record<string, unknown> = {
+            where: () => obj,
+            orderBy: () => obj,
+            limit: () => obj,
+          };
           obj.innerJoin = () => chainResolving([mockServerUserRow]);
           obj.then = (resolve: (v: unknown[]) => void, reject?: (e: unknown) => void) =>
             Promise.resolve([]).then(resolve, reject);
@@ -100,6 +104,10 @@ const {
     },
   };
 });
+
+vi.mock('../../../services/leaderLease.js', () => ({
+  isLeader: () => true,
+}));
 
 vi.mock('../../../db/client.js', () => ({ db: mockDb }));
 // Real rule engine used directly (not through the mocked sessionLifecycle.js) to prove the

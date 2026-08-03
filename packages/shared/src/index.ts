@@ -358,8 +358,12 @@ export {
   // Rule V2
   createRuleV2Schema,
   updateRuleV2Schema,
+  ruleConditionsSchema,
   hasAtMostOneScope,
   RULE_SCOPE_ERROR_MESSAGE,
+  scopeAllowsCrossServerEnforcement,
+  RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
+  INACTIVITY_COMPATIBLE_FIELDS,
   // Bulk operations
   bulkUpdateRulesSchema,
   bulkDeleteRulesSchema,

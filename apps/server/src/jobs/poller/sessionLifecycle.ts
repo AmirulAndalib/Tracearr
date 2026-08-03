@@ -15,7 +15,7 @@ import {
   type Session,
   type StreamDetailFields,
 } from '@tracearr/shared';
-import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { serverUsers, sessions, violations } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
@@ -410,7 +410,7 @@ export function buildPendingActiveSession(pendingData: PendingSessionData): Acti
 export async function findActiveSession(
   identity: SessionIdentity
 ): Promise<typeof sessions.$inferSelect | null> {
-  const { serverId, sessionKey, ratingKey } = identity;
+  const { serverId, sessionKey, ratingKey, serverUserId } = identity;
   // Time bound reduces TimescaleDB chunk scanning (only recent chunks can have active sessions)
   const chunkBound = new Date(Date.now() - ACTIVE_SESSION_CHUNK_BOUND_MS);
 
@@ -427,10 +427,18 @@ export async function findActiveSession(
     conditions.push(eq(sessions.ratingKey, ratingKey));
   }
 
+  if (serverUserId != null) {
+    conditions.push(eq(sessions.serverUserId, serverUserId));
+  }
+
+  // Newest first: after a PMS restart a stale open row can share this
+  // sessionKey with a fresh one, and an unordered limit(1) could latch the
+  // stale row forever
   const rows = await db
     .select()
     .from(sessions)
     .where(and(...conditions))
+    .orderBy(desc(sessions.startedAt))
     .limit(1);
 
   return rows[0] || null;
@@ -1667,7 +1675,10 @@ export async function reEvaluateRulesOnTranscodeChange(
         sql`SELECT pg_advisory_xact_lock(hashtext(${existingSession.id} || '::' || ${rule.id}))`
       );
 
-      // Dedup check (now race-free under advisory lock)
+      // Dedup check (now race-free under advisory lock). A dismissed row
+      // blocks re-creation regardless of whether it was acknowledged first:
+      // dismiss means "false positive", and re-detecting the same
+      // session+rule would re-run its actions.
       const existing = await tx
         .select({ id: violations.id })
         .from(violations)
@@ -1675,7 +1686,7 @@ export async function reEvaluateRulesOnTranscodeChange(
           and(
             eq(violations.ruleId, rule.id),
             eq(violations.sessionId, existingSession.id),
-            isNull(violations.acknowledgedAt)
+            or(isNull(violations.acknowledgedAt), isNotNull(violations.dismissedAt))
           )
         )
         .limit(1);
@@ -1898,7 +1909,9 @@ export async function reEvaluateRulesOnPauseState(
         sql`SELECT pg_advisory_xact_lock(hashtext(${existingSession.id} || '::' || ${rule.id}))`
       );
 
-      // Dedup check, prevents duplicate violation for same session+rule
+      // Dedup check, prevents duplicate violation for same session+rule.
+      // Dismissed rows block regardless of acknowledgement, same as the
+      // advisory-lock path above.
       const existing = await tx
         .select({ id: violations.id })
         .from(violations)
@@ -1906,7 +1919,7 @@ export async function reEvaluateRulesOnPauseState(
           and(
             eq(violations.ruleId, rule.id),
             eq(violations.sessionId, existingSession.id),
-            isNull(violations.acknowledgedAt)
+            or(isNull(violations.acknowledgedAt), isNotNull(violations.dismissedAt))
           )
         )
         .limit(1);

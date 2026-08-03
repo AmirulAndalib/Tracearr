@@ -681,6 +681,7 @@
     "maxIps": "IP-osoitteiden Maksimi",
     "maxIpsDefault": "Suurin sallittu yksilöllinen IP-osoite aikaikkunassa. Oletus: 5 IP-osoitetta 24 tunnin kuluttua",
     "maxSpeed": "Maksimi Nopeus ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximum realistic travel speed. Default: {{value}} {{unit}} (airplane speed)",
     "maxStreams": "Max Streamit",
     "maxStreamsDefault": "Suurin samanaikainen streamaus per käyttäjä. Oletus: 3",

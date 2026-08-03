@@ -426,7 +426,7 @@ export const deviceClientFieldSchema = z.enum(['device_type', 'client_name', 'pl
 
 export const networkLocationFieldSchema = z.enum(['is_local_network', 'country', 'ip_in_range']);
 
-export const scopeFieldSchema = z.enum(['server_id', 'library_id', 'media_type']);
+export const scopeFieldSchema = z.enum(['server_id', 'media_type']);
 
 export const conditionFieldSchema = z.union([
   sessionBehaviorFieldSchema,
@@ -478,7 +478,15 @@ export const conditionSchema = z.object({
   value: conditionValueSchema,
   params: z
     .object({
-      window_hours: z.number().int().positive().optional(),
+      // The history fetch sizes itself from the largest active window; 168h
+      // (7 days) bounds that fetch and matches the sessions hypertable's
+      // compression boundary.
+      window_hours: z
+        .number()
+        .int()
+        .positive()
+        .max(168, 'Window cannot exceed 168 hours (7 days)')
+        .optional(),
       exclude_same_device: z.boolean().optional(),
       exclude_same_ip: z.boolean().optional(),
       count_device_types: z.array(deviceTypeSchema).optional(),
@@ -491,10 +499,36 @@ export const conditionGroupSchema = z.object({
   conditions: z.array(conditionSchema).min(1),
 });
 
+/**
+ * Condition fields evaluable for a dormant account outside a playback
+ * session. Rules containing inactive_days run in the hourly inactivity
+ * worker, where no session exists, so they may only use these fields.
+ */
+export const INACTIVITY_COMPATIBLE_FIELDS = [
+  'inactive_days',
+  'server_id',
+  'user_id',
+  'trust_score',
+  'account_age_days',
+] as const;
+
+function inactivityFieldsCompatible(conditions: {
+  groups: { conditions: { field: string }[] }[];
+}): boolean {
+  const all = conditions.groups.flatMap((g) => g.conditions);
+  if (!all.some((c) => c.field === 'inactive_days')) return true;
+  return all.every((c) => (INACTIVITY_COMPATIBLE_FIELDS as readonly string[]).includes(c.field));
+}
+
 // Rule conditions (AND logic between groups)
-export const ruleConditionsSchema = z.object({
-  groups: z.array(conditionGroupSchema).min(1),
-});
+export const ruleConditionsSchema = z
+  .object({
+    groups: z.array(conditionGroupSchema).min(1),
+  })
+  .refine(inactivityFieldsCompatible, {
+    message:
+      'inactive_days rules run outside a playback session, so they can only be combined with server, user, trust score, or account age conditions',
+  });
 
 // Action types
 export const actionTypeSchema = z.enum([
@@ -596,6 +630,22 @@ const scopeRefinement = {
   message: RULE_SCOPE_ERROR_MESSAGE,
 } as const;
 
+// A server-scoped rule detects on that server's sessions only; enforcing its
+// actions across every server would kill sessions the rule cannot see.
+export function scopeAllowsCrossServerEnforcement(data: {
+  serverId?: string | null;
+  enforceAcrossServers?: boolean;
+}) {
+  return !(data.serverId != null && data.enforceAcrossServers === true);
+}
+
+export const RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE =
+  'A server-scoped rule cannot enforce actions across all servers';
+
+const crossServerEnforcementRefinement = {
+  message: RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
+} as const;
+
 // Create rule V2 schema
 export const createRuleV2Schema = z
   .object({
@@ -610,7 +660,8 @@ export const createRuleV2Schema = z
     conditions: ruleConditionsSchema,
     actions: ruleActionsSchema,
   })
-  .refine(hasAtMostOneScope, scopeRefinement);
+  .refine(hasAtMostOneScope, scopeRefinement)
+  .refine(scopeAllowsCrossServerEnforcement, crossServerEnforcementRefinement);
 
 // Update rule V2 schema
 export const updateRuleV2Schema = z
@@ -626,7 +677,8 @@ export const updateRuleV2Schema = z
     conditions: ruleConditionsSchema.optional(),
     actions: ruleActionsSchema.optional(),
   })
-  .refine(hasAtMostOneScope, scopeRefinement);
+  .refine(hasAtMostOneScope, scopeRefinement)
+  .refine(scopeAllowsCrossServerEnforcement, crossServerEnforcementRefinement);
 
 // Bulk operations schemas
 export const bulkUpdateRulesSchema = z.object({

@@ -681,6 +681,7 @@
     "maxIps": "Max. IPs",
     "maxIpsDefault": "Maximal erlaubte eindeutige IPs im Zeitfenster. Standard: 5 IPs in 24 Stunden",
     "maxSpeed": "Max. Geschwindigkeit ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximale realistische Reisegeschwindigkeit. Standard: {{value}} {{unit}} (Flugzeuggeschwindigkeit)",
     "maxStreams": "Max. Streams",
     "maxStreamsDefault": "Maximale gleichzeitige Streams pro Benutzer. Standard: 3",

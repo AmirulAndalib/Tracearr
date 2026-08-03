@@ -148,6 +148,9 @@ vi.mock('../poller/stateTracker.js', () => ({
 }));
 
 vi.mock('../poller/database.js', () => ({
+  getServerUserIdByExternalId: vi.fn(() => {
+    throw new Error('getServerUserIdByExternalId not configured in this test');
+  }),
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetRecentUserSessions: mockBatchGetRecentUserSessions,
   batchGetLibraryItemIdentity: mockBatchGetLibraryItemIdentity,

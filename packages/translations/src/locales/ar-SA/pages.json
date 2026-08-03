@@ -681,6 +681,7 @@
     "maxIps": "الحد الأقصى للIP",
     "maxIpsDefault": "الحد الأقصى لعناوين IP الفريدة المسموح بها ضمن النافذة الزمنية. الافتراضي: 5 عناوين IP في 24 ساعة",
     "maxSpeed": "الحد الأقصى للسرعة ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "أقصى سرعة واقعية للسفر. الافتراضي: {{value}} {{unit}} (سرعة الطائرة)",
     "maxStreams": "الحد الاقصى للبث",
     "maxStreamsDefault": "أقصى تدفق متزامن لكل مستخدم. الافتراضي: 3",

@@ -681,6 +681,7 @@
     "maxIps": "最大IP",
     "maxIpsDefault": "時間枠内で許可される最大一意のIPアドレス。デフォルト：24時間以内に5つのIPアドレス。",
     "maxSpeed": "最大速度 ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "最大の現実的な移動速度。デフォルト: {{value}} {{unit}} (飛行機の速度)",
     "maxStreams": "最大ストリーム",
     "maxStreamsDefault": "ユーザーあたりの最大同時ストリーム数。デフォルト: 3",

@@ -48,6 +48,10 @@ const {
   mockProcessPollResults: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../../services/leaderLease.js', () => ({
+  isLeader: () => true,
+}));
+
 vi.mock('../../../db/client.js', () => ({
   db: { select: (...args: unknown[]) => mockDbSelect(...args) },
 }));
@@ -95,6 +99,7 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
+  getCachedServers: () => mockDbSelect().from(servers),
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
@@ -290,7 +295,11 @@ beforeEach(() => {
       }
       if (table === sessionsTable) {
         // Plex duplicate-content check: no existing session for this content.
-        const obj: Record<string, unknown> = { where: () => obj, limit: () => obj };
+        const obj: Record<string, unknown> = {
+          where: () => obj,
+          orderBy: () => obj,
+          limit: () => obj,
+        };
         obj.then = (resolve: (v: unknown[]) => void) => Promise.resolve([]).then(resolve);
         return obj;
       }

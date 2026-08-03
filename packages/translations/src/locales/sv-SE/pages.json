@@ -681,6 +681,7 @@
     "maxIps": "Max antal IP-adresser",
     "maxIpsDefault": "Maximalt antal unika IP-adresser som tillåts i tidsfönstret. Standard: 5 IP-adresser på 24 timmar",
     "maxSpeed": "Max hastighet ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximal realistisk reshastighet. Standard: {{value}} {{unit}} (flygplanshastighet)",
     "maxStreams": "Max antal strömmar",
     "maxStreamsDefault": "Maximalt antal samtidiga strömmar per användare. Standard: 3",

@@ -21,6 +21,7 @@ import { db } from '../../db/client.js';
 import { servers, serverUsers, sessions, users } from '../../db/schema.js';
 import { getGeoIPSettings } from '../../routes/settings.js';
 import { isMaintenance } from '../../serverState.js';
+import { isLeader } from '../../services/leaderLease.js';
 import type { CacheService, PubSubService } from '../../services/cache.js';
 import { type GeoLocation } from '../../services/geoip.js';
 import { createMediaServerClient } from '../../services/mediaServer/index.js';
@@ -35,6 +36,7 @@ import {
   batchGetLibraryItemIdentity,
   batchGetRecentUserSessions,
   getActiveRulesV2,
+  getCachedServers,
   mergeRecentSessionsForIdentity,
   widenRecentSessionsForMergedIdentities,
 } from './database.js';
@@ -130,6 +132,34 @@ function acquireServerLock(serverId: string): boolean {
   if (serverPollLocks.has(serverId)) return false;
   serverPollLocks.set(serverId, true);
   return true;
+}
+
+// Servers poll concurrently so tick wall time tracks the slowest server, not
+// the sum of every server's round trip. Per-server locks keep each iteration
+// independent; the result accumulators are only pushed to between awaits.
+const SERVER_POLL_CONCURRENCY = 5;
+
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item === undefined) return;
+      try {
+        await fn(item);
+      } catch (error) {
+        // One item's failure degrades to that item only; a rejection here
+        // would detach the sibling workers mid-tick and skip result handling
+        // for servers that succeeded
+        console.error('[Poller] Server poll worker failed:', error);
+      }
+    }
+  });
+  await Promise.all(workers);
 }
 
 function releaseServerLock(serverId: string): void {
@@ -450,7 +480,13 @@ async function sweepGracePeriod(
                   deviceId: snapshot.deviceId || null,
                   ratingKey: snapshot.ratingKey ?? '',
                 })
-              : await findActiveSession({ serverId, sessionKey: snapshot.sessionKey });
+              : await findActiveSession({
+                  serverId,
+                  sessionKey: snapshot.sessionKey,
+                  // Close only the tracked user's row: after a PMS restart the
+                  // same sessionKey can sit on another user's live row
+                  serverUserId: snapshot.serverUserId,
+                });
           if (session) {
             // session.lastSeenAt is the last poll that confirmed this session
             // alive - it vanished 1-2 polls before this sweep, so `new Date()`
@@ -1836,7 +1872,7 @@ async function pollServers(): Promise<void> {
 
   try {
     // Get all connected servers
-    const allServers = await db.select().from(servers);
+    const allServers = await getCachedServers();
 
     // Filter to only servers that need polling.
     // SSE-connected servers (Plex or JF/Emby with plugin) are handled by SSE events.
@@ -1890,14 +1926,15 @@ async function pollServers(): Promise<void> {
     let anyWatchedTransition = false;
 
     // Process each server with health tracking
-    for (const server of serversNeedingPoll) {
+    const pollStartedAt = Date.now();
+    await runWithConcurrency(serversNeedingPoll, SERVER_POLL_CONCURRENCY, async (server) => {
       const serverWithToken = server as ServerWithToken;
 
       if (!acquireServerLock(server.id)) {
         console.log(
           `[Poller] Skipping ${server.name}, already being polled by another entry point`
         );
-        continue;
+        return;
       }
 
       try {
@@ -1959,6 +1996,14 @@ async function pollServers(): Promise<void> {
       } finally {
         releaseServerLock(server.id);
       }
+    });
+
+    const pollElapsedMs = Date.now() - pollStartedAt;
+    if (pollElapsedMs > currentPollIntervalMs) {
+      console.warn(
+        `[Poller] Tick took ${pollElapsedMs}ms against a ${currentPollIntervalMs}ms interval; ` +
+          `overlapping ticks are being dropped`
+      );
     }
 
     await processPollResults({
@@ -2007,10 +2052,8 @@ async function pollServers(): Promise<void> {
       }
     }
     previousPollHadSessions = hasActiveSessions;
-
-    // Sweep for stale sessions that haven't been seen in a while
-    // This catches sessions where server went down or SSE missed the stop event
-    await sweepStaleSessions();
+    // Stale sessions are swept on their own 60s interval (startPoller), not
+    // per tick: the stale timeout is 300s, so tick-rate sweeping buys nothing.
   } catch (error) {
     // Suppress DB errors during maintenance - the in-flight poll was already
     // running when the DB went down and stopPoller() can't abort an active await.
@@ -2272,6 +2315,9 @@ export async function triggerPoll(): Promise<void> {
  */
 export async function triggerServerPoll(serverId: string): Promise<void> {
   if (isMaintenance()) return;
+  // Plugin SSE events must only drive polls on the leaseholder; a follower
+  // that somehow holds a connection must not write sessions or run rules
+  if (!isLeader()) return;
   if (!acquireServerLock(serverId)) {
     console.log(`[Poller] Skipping server poll for ${serverId}, already being processed`);
     return;
@@ -2353,7 +2399,7 @@ export async function triggerReconciliationPoll(): Promise<void> {
   try {
     // Get all servers with an active SSE connection (Plex or JF/Emby plugin).
     // Servers in fallback are already covered by the main poller.
-    const allServers = await db.select().from(servers);
+    const allServers = await getCachedServers();
     const sseServers = allServers.filter((server) => !sseManager.isInFallback(server.id));
 
     if (sseServers.length === 0) {
@@ -2396,14 +2442,14 @@ export async function triggerReconciliationPoll(): Promise<void> {
     let anyWatchedTransition = false;
 
     // Process each SSE server and collect results
-    for (const server of sseServers) {
+    await runWithConcurrency(sseServers, SERVER_POLL_CONCURRENCY, async (server) => {
       const serverWithToken = server as ServerWithToken;
 
       if (!acquireServerLock(server.id)) {
         console.log(
           `[Poller] Skipping reconciliation for ${server.name}, already being polled by another entry point`
         );
-        continue;
+        return;
       }
 
       try {
@@ -2427,7 +2473,7 @@ export async function triggerReconciliationPoll(): Promise<void> {
       } finally {
         releaseServerLock(server.id);
       }
-    }
+    });
 
     if (allNewSessions.length > 0 || allStoppedKeys.length > 0 || allUpdatedSessions.length > 0) {
       await processPollResults({

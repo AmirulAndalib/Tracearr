@@ -681,6 +681,7 @@
     "maxIps": "Maximální počet IP",
     "maxIpsDefault": "Maximální počet jedinečných IP adres povolených v časovém okně. Výchozí: 5 IP adres za 24 hodin",
     "maxSpeed": "Maximální rychlost ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximální reálná cestovní rychlost. Výchozí: {{value}} {{unit}} (rychlost letadla)",
     "maxStreams": "Max. streamů",
     "maxStreamsDefault": "Maximální počet současných proudů na uživatele. Výchozí: 3",

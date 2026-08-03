@@ -11,7 +11,7 @@
  * - Sync operations handle auto-linking by email
  */
 
-import { eq, and, sql, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray, isNull } from 'drizzle-orm';
 import type { MediaUser } from './mediaServer/index.js';
 import type { UserRole } from '@tracearr/shared';
 import { db } from '../db/client.js';
@@ -835,7 +835,7 @@ export async function recomputeIdentityAggregates(
     .select({ count: sql<number>`count(*)::int` })
     .from(violations)
     .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-    .where(eq(serverUsers.userId, userId));
+    .where(and(eq(serverUsers.userId, userId), isNull(violations.dismissedAt)));
 
   await executor
     .update(users)

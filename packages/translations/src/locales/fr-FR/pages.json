@@ -681,6 +681,7 @@
     "maxIps": "IP maximum",
     "maxIpsDefault": "Nombre maximum d'adresses IP uniques autorisées dans la fenêtre de temps. Par défaut : 5 adresses IP en 24 heures",
     "maxSpeed": "Vitesse maximum ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Vitesse de déplacement maximum réaliste. Par défaut : {{value}} {{unit}} (vitesse d'un avion)",
     "maxStreams": "Lectures maximum",
     "maxStreamsDefault": "Nombre maximum de lectures simultanées par utilisateur. Par défaut : 3",

@@ -33,6 +33,7 @@ import {
   type PluginLibraryEvent,
 } from './mediaServer/shared/jellyfinEmbyEventSource.js';
 import { broadcastToAll } from '../websocket/index.js';
+import { isLeader } from './leaderLease.js';
 import { triggerServerPoll } from '../jobs/poller/index.js';
 import { compareVersions } from '../utils/pluginVersion.js';
 import {
@@ -66,18 +67,42 @@ interface ServerConnection {
 
 // Per-server debounce timers to coalesce rapid plugin events before polling
 const pendingServerPolls = new Map<string, NodeJS.Timeout>();
+// First-event timestamps backing the debounce max-wait: a trailing debounce
+// alone never fires while events arrive faster than the delay, which is
+// exactly the busy-server case, so the poll must fire unconditionally once
+// the max wait elapses.
+const pendingServerPollSince = new Map<string, number>();
 
 const NUDGE_MIN_INTERVAL_MS = 60 * 1000;
+const SERVER_POLL_DEBOUNCE_MS = 1000;
+const SERVER_POLL_MAX_WAIT_MS = 2000;
 
 function scheduleServerPoll(serverId: string, serverName: string): void {
+  if (!isLeader()) return;
+  const now = Date.now();
+  const firstEventAt = pendingServerPollSince.get(serverId);
+  if (firstEventAt !== undefined && now - firstEventAt >= SERVER_POLL_MAX_WAIT_MS) {
+    const existing = pendingServerPolls.get(serverId);
+    if (existing) clearTimeout(existing);
+    pendingServerPolls.delete(serverId);
+    pendingServerPollSince.delete(serverId);
+    console.log(`[PluginSSE] ${serverName}: live event burst, refreshing`);
+    void triggerServerPoll(serverId);
+    return;
+  }
+  if (firstEventAt === undefined) {
+    pendingServerPollSince.set(serverId, now);
+  }
+
   const existing = pendingServerPolls.get(serverId);
   if (existing) clearTimeout(existing);
 
   const timer = setTimeout(() => {
     pendingServerPolls.delete(serverId);
+    pendingServerPollSince.delete(serverId);
     console.log(`[PluginSSE] ${serverName}: live event, refreshing`);
     void triggerServerPoll(serverId);
-  }, 1000);
+  }, SERVER_POLL_DEBOUNCE_MS);
 
   pendingServerPolls.set(serverId, timer);
 }
@@ -164,6 +189,7 @@ export class SSEManager extends EventEmitter {
       clearTimeout(timer);
     }
     pendingServerPolls.clear();
+    pendingServerPollSince.clear();
     clearPendingLibraryEventSyncs();
 
     for (const connection of this.connections.values()) {
@@ -281,6 +307,7 @@ export class SSEManager extends EventEmitter {
       clearTimeout(pending);
       pendingServerPolls.delete(serverId);
     }
+    pendingServerPollSince.delete(serverId);
     clearPendingLibraryEventSync(serverId);
 
     if (connection.eventSource) {
@@ -601,6 +628,11 @@ export class SSEManager extends EventEmitter {
     );
 
     this.reconciliationTimer = setInterval(() => {
+      // Server CRUD served by another instance never calls this instance's
+      // refresh; converge on the DB server list here instead.
+      void this.refresh().catch((error: unknown) => {
+        console.error('[SSEManager] Reconciliation refresh failed:', error);
+      });
       this.refreshConnectionStatuses();
       this.emit('reconciliation:needed');
     }, POLLING_INTERVALS.SSE_RECONCILIATION);
@@ -636,6 +668,13 @@ export class SSEManager extends EventEmitter {
    * Refresh server list (call when servers are added/removed)
    */
   async refresh(): Promise<void> {
+    // Only the leaseholder runs SSE connections. A follower serving a server
+    // CRUD request must not build its own connection set; the leader
+    // converges on the change via the reconciliation tick below.
+    if (!isLeader()) {
+      console.log('[SSEManager] Not the leader, skipping SSE refresh');
+      return;
+    }
     const refreshLockId = '__refresh__';
     if (this.pendingOperations.has(refreshLockId)) {
       console.log('[SSEManager] Refresh already in progress, skipping');

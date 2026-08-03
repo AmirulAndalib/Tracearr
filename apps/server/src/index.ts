@@ -83,6 +83,7 @@ import { tailscaleService } from './services/tailscale.js';
 import { geoasnService } from './services/geoasn.js';
 import { createCacheService, createPubSubService } from './services/cache.js';
 import { initializePoller, startPoller, stopPoller } from './jobs/poller/index.js';
+import { invalidateServersCache } from './jobs/poller/database.js';
 import { sseManager } from './services/sseManager.js';
 import {
   initializeSSEProcessor,
@@ -91,6 +92,7 @@ import {
   cleanupOrphanedPendingSessions,
 } from './jobs/sseProcessor.js';
 import { startPluginUpdateChecker, stopPluginUpdateChecker } from './jobs/pluginUpdateChecker.js';
+import { startLeaderLease, stopLeaderLease } from './services/leaderLease.js';
 import { initializeWebSocket, broadcastToSessions } from './websocket/index.js';
 import {
   initNotificationQueue,
@@ -139,6 +141,12 @@ import {
   schedulePlexTokenRefresh,
   shutdownPlexTokenRefreshQueue,
 } from './jobs/plexTokenRefresh.js';
+import {
+  initViolationRetentionQueue,
+  startViolationRetentionWorker,
+  scheduleViolationRetention,
+  shutdownViolationRetentionQueue,
+} from './jobs/violationRetentionQueue.js';
 import { initHeavyOpsLock } from './jobs/heavyOpsLock.js';
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
 import { initializeV2Rules } from './services/rules/v2Integration.js';
@@ -533,11 +541,14 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     await closeAuth();
     if (pubSubRedis) await pubSubRedis.quit();
     if (wsSubscriber) await wsSubscriber.quit();
+    // Producers stop before the lease releases so the next leader never
+    // overlaps an in-flight poll from this instance
     stopPoller();
-    await sseManager.stop();
-    await tailscaleService.shutdown();
     stopSSEProcessor();
     stopPluginUpdateChecker();
+    await sseManager.stop();
+    await stopLeaderLease();
+    await tailscaleService.shutdown();
     await shutdownNotificationQueue();
     await shutdownKillQueue();
     await shutdownImportQueue();
@@ -548,6 +559,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     await shutdownInactivityCheckQueue();
     await shutdownBackupQueue();
     await shutdownPlexTokenRefreshQueue();
+    await shutdownViolationRetentionQueue();
   });
 
   // Probe DB and Redis to decide if we can initialize services now
@@ -711,6 +723,7 @@ async function initializeServices(app: FastifyInstance) {
     }
 
     if (migrated > 0) {
+      invalidateServersCache();
       app.log.info(`Migrated ${migrated} server token(s) from encrypted to plain text storage`);
     }
     if (failed > 0) {
@@ -885,6 +898,16 @@ async function initializeServices(app: FastifyInstance) {
   } catch (err) {
     app.log.error({ err }, 'Failed to initialize backup queue');
     // Don't throw - scheduled backups are non-critical
+  }
+
+  // Initialize violation retention queue (daily purge of old dismissed rows)
+  try {
+    initViolationRetentionQueue(redisUrl);
+    startViolationRetentionWorker();
+    void scheduleViolationRetention();
+    app.log.info('Violation retention queue initialized');
+  } catch (err) {
+    app.log.error({ err }, 'Failed to initialize violation retention queue');
   }
 
   // Initialize plex token refresh queue (renews strong-PIN JWT tokens before they expire)
@@ -1075,25 +1098,41 @@ async function initializePostListen(app: FastifyInstance) {
     }
   });
 
-  // Start session poller after server is listening (uses DB settings)
-  const pollerSettings = await getPollerSettings();
-  if (pollerSettings.enabled) {
-    startPoller({ enabled: true, intervalMs: pollerSettings.intervalMs });
-  } else {
-    app.log.info('Session poller disabled in settings');
-  }
+  // The session producers (poller loop + SSE connections) run on exactly one
+  // instance: N instances would otherwise open N connections per media server
+  // and poll N times. The leader lease gates them; HTTP, Socket.io, pub/sub,
+  // and the BullMQ workers above run on every instance.
+  const startProducers = async (): Promise<void> => {
+    const pollerSettings = await getPollerSettings();
+    if (pollerSettings.enabled) {
+      startPoller({ enabled: true, intervalMs: pollerSettings.intervalMs });
+    } else {
+      app.log.info('Session poller disabled in settings');
+    }
 
-  // Start SSE connections for all media servers (real-time updates)
-  try {
-    // Clean up any orphaned pending sessions from previous server instance
-    await cleanupOrphanedPendingSessions();
-    startSSEProcessor(); // Subscribe to SSE events
-    startPluginUpdateChecker();
-    await sseManager.start(); // Start SSE connections
-    app.log.info('Real-time SSE connections started');
-  } catch (err) {
-    app.log.error({ err }, 'Failed to start SSE connections - falling back to polling');
-  }
+    try {
+      // Clean up any orphaned pending sessions from the previous leader
+      await cleanupOrphanedPendingSessions();
+      startSSEProcessor(); // Subscribe to SSE events
+      startPluginUpdateChecker();
+      await sseManager.start(); // Start SSE connections
+      app.log.info('Real-time SSE connections started');
+    } catch (err) {
+      app.log.error({ err }, 'Failed to start SSE connections - falling back to polling');
+    }
+  };
+
+  const stopProducers = async (): Promise<void> => {
+    stopPoller();
+    stopSSEProcessor();
+    stopPluginUpdateChecker();
+    await sseManager.stop();
+  };
+
+  await startLeaderLease(process.env.REDIS_URL ?? 'redis://localhost:6379', {
+    onAcquired: startProducers,
+    onLost: stopProducers,
+  });
 
   // Log network settings status
   const networkSettings = await getNetworkSettings();
@@ -1239,6 +1278,7 @@ async function start() {
         void shutdownInactivityCheckQueue();
         void shutdownBackupQueue();
         void shutdownPlexTokenRefreshQueue();
+        void shutdownViolationRetentionQueue();
         void app.close().then(() => process.exit(0));
       });
     }
@@ -1252,7 +1292,10 @@ async function start() {
         stopPoller();
         stopSSEProcessor();
         stopPluginUpdateChecker();
-        void sseManager.stop();
+        void sseManager
+          .stop()
+          .then(() => stopLeaderLease())
+          .catch(() => stopLeaderLease());
         void tailscaleService.shutdown();
 
         // Disconnect extra Redis clients to stop reconnection attempts
@@ -1277,6 +1320,7 @@ async function start() {
           shutdownInactivityCheckQueue(),
           shutdownBackupQueue(),
           shutdownPlexTokenRefreshQueue(),
+          shutdownViolationRetentionQueue(),
         ]).catch((err) => {
           app.log.error({ err }, 'Error shutting down queues during maintenance');
         });

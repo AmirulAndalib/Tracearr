@@ -465,6 +465,12 @@ export const violations = pgTable(
     data: jsonb('data').notNull().$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     acknowledgedAt: timestamp('acknowledged_at', { withTimezone: true }),
+    // Soft delete. Dismiss keeps the row so dedup still sees it and the same
+    // violation can never re-arm (the inactivity worker recreated dismissed
+    // violations hourly when dismiss was a hard delete). Read paths filter on
+    // dismissedAt IS NULL; the partial unique index below still blocks
+    // re-inserts because dismissed rows keep acknowledgedAt null.
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
   },
   (table) => [
     index('violations_server_user_id_idx').on(table.serverUserId),

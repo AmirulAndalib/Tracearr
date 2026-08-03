@@ -28,7 +28,9 @@ vi.mock('../../../db/client.js', () => ({
       from: () => ({
         where: () => {
           const promise = Promise.resolve(supplementalRows);
-          return Object.assign(promise, { orderBy: () => promise });
+          return Object.assign(promise, {
+            orderBy: () => Object.assign(promise, { limit: () => promise }),
+          });
         },
       }),
     }),

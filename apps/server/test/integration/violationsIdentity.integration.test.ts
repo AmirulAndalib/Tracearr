@@ -220,12 +220,14 @@ describe('DELETE /violations/bulk - person filter', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ success: true, dismissed: 2 });
 
-    const remaining = await db.select().from(violations);
-    const remainingIds = remaining.map((v) => v.id);
-    expect(remainingIds).not.toContain(violationA1.id);
-    expect(remainingIds).not.toContain(violationA2.id);
+    // Dismiss is a soft delete: rows survive with dismissedAt stamped so
+    // dedup keeps blocking re-creation.
+    const rows = await db.select().from(violations);
+    const dismissedById = new Map(rows.map((v) => [v.id, v.dismissedAt]));
+    expect(dismissedById.get(violationA1.id)).toBeInstanceOf(Date);
+    expect(dismissedById.get(violationA2.id)).toBeInstanceOf(Date);
     // Person B's violation must survive person A's select-all dismiss.
-    expect(remainingIds).toContain(violationB.id);
+    expect(dismissedById.get(violationB.id)).toBeNull();
   });
 
   it('recomputes the merged person aggregate trust once after dismissing reversible violations on both of their accounts', async () => {
@@ -430,11 +432,11 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ success: true, dismissed: 2 });
 
-    const remaining = await db.select().from(violations);
-    const remainingIds = remaining.map((v) => v.id);
-    expect(remainingIds).not.toContain(violationA.id);
-    expect(remainingIds).not.toContain(violationB.id);
-    expect(remainingIds).toContain(violationC.id);
+    const rows = await db.select().from(violations);
+    const dismissedById = new Map(rows.map((v) => [v.id, v.dismissedAt]));
+    expect(dismissedById.get(violationA.id)).toBeInstanceOf(Date);
+    expect(dismissedById.get(violationB.id)).toBeInstanceOf(Date);
+    expect(dismissedById.get(violationC.id)).toBeNull();
   });
 
   it('GET /violations with userIds returns exactly the union of the selected people, singular userId still works', async () => {

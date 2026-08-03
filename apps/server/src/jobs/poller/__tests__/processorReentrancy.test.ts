@@ -19,6 +19,10 @@ vi.mock('../../../db/client.js', () => ({
   db: { select: (...args: unknown[]) => mockDbSelect(...args) },
 }));
 
+vi.mock('../../../services/leaderLease.js', () => ({
+  isLeader: () => true,
+}));
+
 vi.mock('../../../db/schema.js', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual };
@@ -61,6 +65,7 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
+  getCachedServers: () => mockDbSelect().from(),
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),

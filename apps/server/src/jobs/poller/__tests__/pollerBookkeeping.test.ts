@@ -77,6 +77,7 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
+  getCachedServers: () => mockDbSelect().from(servers),
   getActiveRulesV2: mockGetActiveRulesV2,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),

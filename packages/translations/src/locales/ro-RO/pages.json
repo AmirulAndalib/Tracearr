@@ -681,6 +681,7 @@
     "maxIps": "IP-uri maxime",
     "maxIpsDefault": "IP-urile unice maxime permise în fereastra de timp. Implicit: 5 IP-uri în 24 de ore",
     "maxSpeed": "Viteză maximă ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maximum realistic travel speed. Default: {{value}} {{unit}} (airplane speed)",
     "maxStreams": "Stream-uri maxime",
     "maxStreamsDefault": "Numărul maxim de fluxuri simultane per utilizator. Implicit: 3",

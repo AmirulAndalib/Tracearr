@@ -681,6 +681,7 @@
     "maxIps": "Maks IPer",
     "maxIpsDefault": "Maksimalt antall unike IP-adresser tillatt innenfor tidsvinduet. Standard: 5 IP-adresser i 24 timer",
     "maxSpeed": "Maks hastighet ({{unit}})",
+    "recordsOnly": "Records violations only",
     "maxSpeedDefault": "Maksimal realistisk reisehastighet. Standard: {{value}} {{unit}} (flyhastighet)",
     "maxStreams": "Maks stream",
     "maxStreamsDefault": "Maksimalt samtidige sendinger per bruker. Standard: 3",
