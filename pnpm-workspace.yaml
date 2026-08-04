@@ -48,4 +48,13 @@ minimumReleaseAgeExclude:
   - '@turbo/windows-64@2.10.5'
   - '@turbo/windows-arm64@2.10.5'
   - turbo@2.10.5
-
+  - '@expo/cli@57.0.12'
+  - '@expo/router-server@57.0.5'
+  - expo-constants@57.0.9
+  - expo-modules-core@57.0.9
+  - expo@57.0.10
+  - '@expo/ui@57.0.9'
+  - expo-image@57.0.2
+  - expo-linking@57.0.5
+  - expo-router@57.0.10
+  - expo-updates@57.0.12

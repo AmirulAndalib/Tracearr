@@ -587,3 +587,12 @@ export {
   normalizeDynamicRange,
   type DynamicRangeToken,
 } from './dynamicRange.js';
+
+// Server-scope selection (cache-key and query-param builders)
+export {
+  ALL_SERVERS,
+  serverScopeFromIds,
+  serverScopeKey,
+  serverScopeParamEntries,
+  type ServerScope,
+} from './serverScope.js';
