@@ -46,7 +46,7 @@
     "@fastify/sensible": "^6.0.4",
     "@fastify/static": "^10.0.0",
     "@fastify/swagger": "^9.8.1",
-    "@fastify/swagger-ui": "^6.0.0",
+    "@fastify/swagger-ui": "^6.1.1",
     "@fastify/websocket": "^11.3.0",
     "@tracearr/shared": "workspace:*",
     "archiver": "^8.0.0",
@@ -68,7 +68,7 @@
     "sharp": "^0.35.0",
     "socket.io": "^4.8.3",
     "stream-json": "^3.0.0",
-    "undici": "^8.2.0",
+    "undici": "^8.9.0",
     "unzipper": "^0.12.3",
     "zod": "^4.4.3"
   },
