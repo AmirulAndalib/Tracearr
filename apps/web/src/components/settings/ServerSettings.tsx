@@ -1007,15 +1007,26 @@ function RealtimeSetupDialog({
   open,
   onClose,
   mode = 'setup',
+  connectionStatus,
 }: {
   server: Server;
   open: boolean;
   onClose: () => void;
   mode?: 'setup' | 'update';
+  connectionStatus?: ServerConnectionStatus;
 }) {
   const { t } = useTranslation(['settings']);
   const [copied, setCopied] = useState(false);
   const repoUrl = t('servers.realtimeDialog.jellyfinRepoUrl');
+
+  const issueMessage =
+    connectionStatus?.pluginIssue === 'blocked'
+      ? t('servers.realtimeDialog.issueBlocked')
+      : connectionStatus?.pluginIssue === 'restart_required'
+        ? t('servers.realtimeDialog.issueRestartRequired')
+        : connectionStatus?.pluginIssue === 'malfunctioned'
+          ? t('servers.realtimeDialog.issueMalfunctioned')
+          : null;
 
   const handleCopy = (text: string) => {
     void navigator.clipboard.writeText(text).then(() => {
@@ -1045,6 +1056,22 @@ function RealtimeSetupDialog({
         </DialogHeader>
 
         <div className="text-muted-foreground space-y-3 text-sm">
+          {issueMessage && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+              <p className="text-foreground flex items-start gap-2">
+                <AlertTriangle
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500"
+                  aria-hidden="true"
+                />
+                {issueMessage}
+              </p>
+              {connectionStatus?.error && (
+                <code className="text-muted-foreground mt-2 block truncate pl-5">
+                  {connectionStatus.error}
+                </code>
+              )}
+            </div>
+          )}
           {server.type === 'jellyfin' ? (
             <>
               <ol className="list-decimal space-y-2 pl-4">
@@ -1205,6 +1232,20 @@ function SortableServerCard({
                     <Zap className="h-3 w-3 text-green-500" aria-hidden="true" />
                     {t('servers.realtimeActive')}
                   </span>
+                ) : connectionStatus.pluginIssue === 'blocked' ||
+                  connectionStatus.pluginIssue === 'restart_required' ||
+                  connectionStatus.pluginIssue === 'malfunctioned' ? (
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-amber-500 hover:underline"
+                    onClick={() => {
+                      setRealtimeDialogMode('setup');
+                      setShowRealtimeDialog(true);
+                    }}
+                  >
+                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                    {t('servers.realtimeError')}
+                  </button>
                 ) : (
                   <span className="flex items-center gap-1 text-xs">
                     <Radio className="text-muted-foreground h-3 w-3" aria-hidden="true" />
@@ -1259,6 +1300,7 @@ function SortableServerCard({
           open={showRealtimeDialog}
           onClose={() => setShowRealtimeDialog(false)}
           mode={realtimeDialogMode}
+          connectionStatus={connectionStatus}
         />
       )}
     </div>

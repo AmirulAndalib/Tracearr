@@ -132,6 +132,7 @@
     "realtimeActive": "Real-time updates active",
     "pollingMode": "Polling",
     "setupRealtime": "Set up real-time updates",
+    "realtimeError": "Real-time error",
     "checkingConnection": "Checking connection…",
     "pluginVersion": "plugin v{{version}}",
     "pluginUpdateAvailable": "Plugin update available",
@@ -147,8 +148,11 @@
       "jellyfinRepoUrl": "https://raw.githubusercontent.com/Tracearr/Media-Server-SSE/main/manifest.json",
       "embyReleasesUrl": "https://github.com/Tracearr/Media-Server-SSE/releases",
       "openReleases": "Open releases page",
-      "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",
-      "close": "Close"
+      "autoDetectNote": "Restart Jellyfin or Emby after installing the plugin; the restart is required. Tracearr itself needs no restart and picks the plugin up automatically.",
+      "close": "Close",
+      "issueBlocked": "The server reports the plugin as installed and active, but Tracearr gets a 404 from its endpoint. A reverse proxy blocking the path is the usual cause.",
+      "issueRestartRequired": "The plugin is installed, but the media server needs a restart before it activates.",
+      "issueMalfunctioned": "The server reports the plugin failed to load. Updating the plugin or the media server usually clears this."
     },
     "posterSource": {
       "title": "Poster Preferences",

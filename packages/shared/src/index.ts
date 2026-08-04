@@ -170,6 +170,7 @@ export type {
   PlexTimelineEntry,
   SSEConnectionStatus,
   ServerConnectionStatus,
+  PluginIssue,
   // Termination logs
   TerminationTrigger,
   TerminationLogWithDetails,

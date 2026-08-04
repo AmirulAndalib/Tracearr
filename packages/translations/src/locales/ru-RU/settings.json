@@ -377,7 +377,7 @@
     },
     "realtimeActive": "Real-time updates active",
     "realtimeDialog": {
-      "autoDetectNote": "Once the plugin is running, Tracearr detects it automatically — no restart needed here.",
+      "autoDetectNote": "Restart Jellyfin or Emby after installing the plugin; the restart is required. Tracearr itself needs no restart and picks the plugin up automatically.",
       "close": "Close",
       "copyUrl": "Copy URL",
       "embyDescription": "Install the Tracearr SSE plugin to get instant session updates without waiting for the next poll.",
@@ -389,7 +389,10 @@
       "openReleases": "Open releases page",
       "repositoryUrl": "Repository URL",
       "title": "Enable real-time updates",
-      "updateTitle": "Update the Tracearr SSE plugin"
+      "updateTitle": "Update the Tracearr SSE plugin",
+      "issueBlocked": "The server reports the plugin as installed and active, but Tracearr gets a 404 from its endpoint. A reverse proxy blocking the path is the usual cause.",
+      "issueRestartRequired": "The plugin is installed, but the media server needs a restart before it activates.",
+      "issueMalfunctioned": "The server reports the plugin failed to load. Updating the plugin or the media server usually clears this."
     },
     "removeServer": "Удалить сервер",
     "removeServerConfirm": "Вы уверены, что хотите удалить этот сервер? Все соответствующие данные сессии будут сохранены, но вы не сможете контролировать новые сеансы с этого сервера.",
@@ -406,6 +409,7 @@
     "serverUrlHelpJellyfin": "URL-адрес, на котором доступен ваш сервер Jellyfin",
     "serverUrlPlaceholder": "http://192.168.1.100:8096",
     "setupRealtime": "Set up real-time updates",
+    "realtimeError": "Real-time error",
     "syncInterval": "Интервал синхронизации",
     "testConnection": "Проверить соединение",
     "title": "Подключенные серверы",

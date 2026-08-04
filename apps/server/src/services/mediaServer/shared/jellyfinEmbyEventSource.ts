@@ -20,6 +20,12 @@ const UNSUPPORTED_REPROBE_MS = 3 * 60 * 1000;
 // Re-probe cadence once the reconnect budget is spent; polling covers data meanwhile
 const FALLBACK_RETRY_MS = 3 * 60 * 1000;
 
+// A 404 can come from a reverse proxy whose backend is restarting (Traefik 404s
+// while a container is down), not just from a missing plugin. Require this many
+// consecutive 404s before concluding the plugin is absent; anything less rides
+// the normal reconnect backoff.
+const UNSUPPORTED_404_THRESHOLD = 3;
+
 interface EventSourceMessage {
   data: string;
   lastEventId?: string;
@@ -82,6 +88,7 @@ export class JellyfinEmbyEventSource extends EventEmitter {
   private eventSource: EventSource | null = null;
   private state: SSEConnectionState = 'disconnected';
   private reconnectAttempts = 0;
+  private consecutive404s = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private connectionTimer: NodeJS.Timeout | null = null;
@@ -177,6 +184,7 @@ export class JellyfinEmbyEventSource extends EventEmitter {
         this.connectedAt = new Date();
         this.setState('connected');
         this.reconnectAttempts = 0;
+        this.consecutive404s = 0;
         this.lastError = null;
         this.startHeartbeatMonitor();
       };
@@ -271,8 +279,10 @@ export class JellyfinEmbyEventSource extends EventEmitter {
   }
 
   retryFromFallback(): void {
-    if (this.state !== 'fallback') return;
-    console.log(`[PluginSSE] Poll reached ${this.serverName}, retrying SSE from fallback`);
+    // 'unsupported' too: a wrong 404 verdict (proxy hiccup, plugin installed
+    // later) should heal as soon as a poll proves the server reachable.
+    if (this.state !== 'fallback' && this.state !== 'unsupported') return;
+    console.log(`[PluginSSE] Poll reached ${this.serverName}, retrying SSE from ${this.state}`);
     this.clearTimers();
     this.reconnectAttempts = 0;
     void this.connect();
@@ -319,7 +329,7 @@ export class JellyfinEmbyEventSource extends EventEmitter {
     this.pingListener = null;
     this.helloListener = null;
     this.errorListener = null;
-    this.pluginVersion = null;
+    // pluginVersion survives cleanup as "last seen"; the next hello overwrites it
   }
 
   private handleError(error: unknown): void {
@@ -351,10 +361,19 @@ export class JellyfinEmbyEventSource extends EventEmitter {
     this.lastError = error instanceof Error ? error : new Error(errorMessage);
     this.emit('connection:error', this.lastError);
 
-    // 404 means the Tracearr SSE plugin is not installed — don't hammer reconnects
+    // 404 suggests the plugin is not installed, but a proxy can 404 while its
+    // backend restarts, so only conclude unsupported after several in a row
     if (statusCode === 404) {
+      this.consecutive404s++;
+      if (this.consecutive404s < UNSUPPORTED_404_THRESHOLD) {
+        console.log(
+          `[PluginSSE] 404 from ${this.serverName} (${this.consecutive404s}/${UNSUPPORTED_404_THRESHOLD} before assuming plugin absent), retrying`
+        );
+        this.scheduleReconnect();
+        return;
+      }
       console.log(
-        `[PluginSSE] Plugin not found on ${this.serverName} (404), will re-probe in ${UNSUPPORTED_REPROBE_MS / 1000}s`
+        `[PluginSSE] Plugin endpoint 404 on ${this.serverName} (${this.consecutive404s} consecutive), will re-probe in ${UNSUPPORTED_REPROBE_MS / 1000}s`
       );
       this.setState('unsupported');
       this.reconnectTimer = setTimeout(() => {
@@ -365,6 +384,8 @@ export class JellyfinEmbyEventSource extends EventEmitter {
       }, UNSUPPORTED_REPROBE_MS);
       return;
     }
+
+    this.consecutive404s = 0;
 
     // 401/403 — auth issue, use standard reconnect but don't claim unsupported
     if (statusCode === 401 || statusCode === 403) {

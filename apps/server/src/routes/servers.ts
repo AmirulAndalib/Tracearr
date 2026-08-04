@@ -776,6 +776,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         error: null,
         pluginVersion: null,
         pluginUpdateAvailable: false,
+        pluginIssue: null,
       });
     }
 
