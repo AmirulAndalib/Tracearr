@@ -1147,6 +1147,8 @@ export function generateOpenAPIDocumentV2(): unknown {
       description: `
 External API for third-party integrations (version 2).
 
+Available in Tracearr 2.0.0 and later. Earlier versions serve API v1 only.
+
 ## Authentication
 
 All endpoints require Bearer token authentication:
