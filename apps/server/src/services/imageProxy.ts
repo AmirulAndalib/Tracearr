@@ -358,27 +358,62 @@ async function computeDominantColorHex(imageBuffer: Buffer): Promise<string> {
  * one yet. This pipeline is the sole writer of dominant_color (library sync
  * never touches it) - write-once by design, and a failed UPDATE here must
  * never fail the image response itself.
+ *
+ * The miss coalescing map is keyed per size, so the same art requested at
+ * 160/240/360 reaches here concurrently, and several rows can share one
+ * thumb_path (merged copies, shared season art). Identical multi-row
+ * updates locking rows in different orders deadlock under that load, so
+ * same-image persists share one in-flight attempt and a deadlock loser
+ * retries once - the NULL guard makes the retry a no-op when another
+ * writer already committed.
  */
-async function persistDominantColorIfNeeded(
+const inFlightColorPersists = new Map<string, Promise<void>>();
+
+function isDeadlockError(err: unknown): boolean {
+  const code =
+    (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code;
+  return code === '40P01';
+}
+
+export async function persistDominantColorIfNeeded(
   serverId: string,
   imagePath: string,
   imageBuffer: Buffer
 ): Promise<void> {
-  try {
-    const hex = await computeDominantColorHex(imageBuffer);
-    await db
-      .update(libraryItems)
-      .set({ dominantColor: hex })
-      .where(
-        and(
-          eq(libraryItems.serverId, serverId),
-          eq(libraryItems.thumbPath, imagePath),
-          isNull(libraryItems.dominantColor)
-        )
-      );
-  } catch (err) {
-    console.error('[ImageProxy] Failed to persist dominant color', err);
-  }
+  const key = `${serverId}:${imagePath}`;
+  const inFlight = inFlightColorPersists.get(key);
+  if (inFlight) return inFlight;
+
+  const attempt = (async () => {
+    try {
+      const hex = await computeDominantColorHex(imageBuffer);
+      const write = () =>
+        db
+          .update(libraryItems)
+          .set({ dominantColor: hex })
+          .where(
+            and(
+              eq(libraryItems.serverId, serverId),
+              eq(libraryItems.thumbPath, imagePath),
+              isNull(libraryItems.dominantColor)
+            )
+          );
+      try {
+        await write();
+      } catch (err) {
+        if (!isDeadlockError(err)) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
+        await write();
+      }
+    } catch (err) {
+      console.error('[ImageProxy] Failed to persist dominant color', err);
+    } finally {
+      inFlightColorPersists.delete(key);
+    }
+  })();
+
+  inFlightColorPersists.set(key, attempt);
+  return attempt;
 }
 
 async function getKnownDominantColor(serverId: string, imagePath: string): Promise<string | null> {
