@@ -20,7 +20,7 @@ import { getSetting, setSetting } from '../services/settings.js';
 import { servers } from '../db/schema.js';
 import { librarySyncService, initLibrarySyncRedis } from '../services/librarySync.js';
 import { getPubSubService } from '../services/cache.js';
-import { enqueueMaintenanceJob } from './maintenanceQueue.js';
+import { enqueueMaintenanceJob, maybeEnqueueMaintenanceJob } from './maintenanceQueue.js';
 import { enqueueImagePrecache } from './imagePrecacheQueue.js';
 import { resolvePrecachePass } from './precachePassPolicy.js';
 import { VALID_LIBRARY_ITEM_CONDITION } from '../utils/snapshotValidation.js';
@@ -358,10 +358,20 @@ export function startLibrarySyncWorker(): void {
  * sentinel clears. The stamp marks where storage numbers change meaning
  * (multi-version rollups); the storage regression clamp and the release-note
  * plot line both read it. Write-once: never cleared or moved.
+ *
+ * Once stamped, chase the one-time snapshot normalization (regenerate
+ * pre-changeover history in current semantics) until its marker lands. The
+ * enqueue no-ops while any maintenance job is queued, and the confirmed flag
+ * stops the settings lookups once the marker is seen.
  */
+let normalizationConfirmed = false;
+
 async function stampVersionsBackfillComplete(): Promise<void> {
   try {
-    if ((await getSetting('mediaVersionsBackfilledAt')) !== null) return;
+    if ((await getSetting('mediaVersionsBackfilledAt')) !== null) {
+      await maybeTriggerSnapshotNormalization();
+      return;
+    }
     const result = await db.execute(sql`
       SELECT 1 FROM library_item_versions
       WHERE server_version_key = ${LEGACY_VERSION_SENTINEL} AND removed_at IS NULL
@@ -370,9 +380,22 @@ async function stampVersionsBackfillComplete(): Promise<void> {
     if (result.rows.length === 0) {
       await setSetting('mediaVersionsBackfilledAt', new Date().toISOString());
       console.log('[LibrarySync] Version backfill complete; stamped mediaVersionsBackfilledAt');
+      await maybeTriggerSnapshotNormalization();
     }
   } catch (error) {
     console.warn('[LibrarySync] Version backfill stamp check failed:', error);
+  }
+}
+
+async function maybeTriggerSnapshotNormalization(): Promise<void> {
+  if (normalizationConfirmed) return;
+  if ((await getSetting('snapshotsNormalizedAt')) !== null) {
+    normalizationConfirmed = true;
+    return;
+  }
+  const enqueued = await maybeEnqueueMaintenanceJob('normalize_library_snapshots', 'system');
+  if (enqueued) {
+    console.log('[LibrarySync] Snapshot normalization job queued');
   }
 }
 
@@ -426,6 +449,20 @@ async function checkAndTriggerSnapshotBackfill(): Promise<void> {
       isStale;
 
     if (needsBackfill) {
+      // A pending normalization includes a full backfill; running the plain
+      // backfill first would fill the gap with rows normalization is about
+      // to drop and regenerate anyway
+      if (
+        (await getSetting('mediaVersionsBackfilledAt')) !== null &&
+        (await getSetting('snapshotsNormalizedAt')) === null
+      ) {
+        console.log(
+          '[LibrarySync] Snapshot backfill needed but normalization is pending; deferring to it'
+        );
+        await maybeTriggerSnapshotNormalization();
+        return;
+      }
+
       const reason = isStale
         ? `stale aggregate (last: ${row.latest_aggregate})`
         : `items from ${row.earliest_item}, aggregate from ${row.earliest_aggregate || 'none'}`;

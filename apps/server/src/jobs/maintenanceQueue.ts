@@ -34,6 +34,7 @@ import { sessions, serverUsers } from '../db/schema.js';
 import { normalizeClient, normalizePlatformName } from '../utils/platformNormalizer.js';
 import { resolutionBucketPredicate, resolutionRankSql } from '../utils/resolutionBuckets.js';
 import { getCacheService, getPubSubService } from '../services/cache.js';
+import { getSetting, setSetting } from '../services/settings.js';
 import {
   rebuildTimescaleViews,
   safeFullRefreshAllAggregates,
@@ -74,6 +75,7 @@ function getMaintenanceJobDescription(type: MaintenanceJobType): string {
     normalize_resolutions: 'Resolution normalization',
     backfill_user_dates: 'User dates backfill',
     backfill_library_snapshots: 'Library snapshots backfill',
+    normalize_library_snapshots: 'Snapshot history normalization',
     cleanup_old_chunks: 'Old chunks cleanup',
     full_aggregate_rebuild: 'Full aggregate rebuild',
     repair_corrupted_chunks: 'Corrupted chunks repair',
@@ -341,6 +343,8 @@ async function processMaintenanceJob(job: Job<MaintenanceJobData>): Promise<Main
       return processBackfillUserDatesJob(job);
     case 'backfill_library_snapshots':
       return processBackfillLibrarySnapshotsJob(job);
+    case 'normalize_library_snapshots':
+      return processNormalizeLibrarySnapshotsJob(job);
     case 'cleanup_old_chunks':
       return processCleanupOldChunksJob(job);
     case 'full_aggregate_rebuild':
@@ -2741,6 +2745,84 @@ export async function getAllActiveMaintenanceJobs(): Promise<
  * deliberately single-flight. Returns null when busy (or when the queue isn't
  * up), for automated callers that treat "already covered" as success.
  */
+/**
+ * One-time snapshot-history normalization after the multi-version changeover.
+ *
+ * Storage totals changed meaning at mediaVersionsBackfilledAt: the 2.0
+ * upgrade also DROP CASCADEs library_stats_daily (aggregate schema bump), so
+ * everything older than raw retention is already version-aware
+ * reconstruction, while the surviving <=90-day raw band still holds
+ * pre-changeover live rows. Regenerating that band the same way leaves the
+ * whole curve in one semantics, which is what lets the storage growth
+ * regression fit full history instead of clamping to post-stamp days.
+ *
+ * Whole 1-day chunks drop without decompression; the chunk containing the
+ * stamp survives, so at most one day keeps pre-changeover rows. Write-once
+ * marker: snapshotsNormalizedAt, set only on success so a failed run retries
+ * on the next trigger. Safe to re-run: the drop is a no-op on an empty
+ * range and the backfill inserts with ON CONFLICT DO NOTHING.
+ */
+export async function processNormalizeLibrarySnapshotsJob(
+  job: Job<MaintenanceJobData>
+): Promise<MaintenanceJobResult> {
+  const startTime = Date.now();
+  const skipped = (message: string): MaintenanceJobResult => ({
+    success: true,
+    type: 'normalize_library_snapshots',
+    processed: 0,
+    updated: 0,
+    skipped: 0,
+    errors: 0,
+    durationMs: Date.now() - startTime,
+    message,
+  });
+
+  const stamp = await getSetting('mediaVersionsBackfilledAt');
+  if (!stamp) {
+    return skipped('Version backfill has not completed; nothing to normalize yet');
+  }
+  if ((await getSetting('snapshotsNormalizedAt')) !== null) {
+    return skipped('Snapshot history already normalized');
+  }
+
+  const timescale = await getTimescaleStatus();
+  if (timescale.extensionInstalled) {
+    await db.execute(
+      sql`SELECT drop_chunks('library_snapshots', older_than => ${stamp}::timestamptz)`
+    );
+  } else {
+    await db.execute(
+      sql`DELETE FROM library_snapshots WHERE snapshot_time < ${stamp}::timestamptz`
+    );
+  }
+  console.log('[Maintenance] Dropped pre-changeover snapshot history, regenerating');
+
+  const backfill = await processBackfillLibrarySnapshotsJob(job);
+  if (!backfill.success) {
+    return { ...backfill, type: 'normalize_library_snapshots' };
+  }
+
+  // The backfill's tail refreshes library_stats_daily only; without this,
+  // content_quality_daily keeps stale materializations for the dropped range
+  if (timescale.extensionInstalled) {
+    try {
+      await db.execute(sql`CALL refresh_continuous_aggregate('content_quality_daily', NULL, NULL)`);
+    } catch (err) {
+      console.warn('[Maintenance] content_quality_daily refresh after normalization failed:', err);
+    }
+  }
+
+  await setSetting('snapshotsNormalizedAt', new Date().toISOString());
+  console.log('[Maintenance] Snapshot history normalized to post-changeover semantics');
+
+  return {
+    ...backfill,
+    type: 'normalize_library_snapshots',
+    durationMs: Date.now() - startTime,
+    message: `Normalized snapshot history: ${backfill.message}`,
+  };
+}
+
 export async function maybeEnqueueMaintenanceJob(
   type: MaintenanceJobType,
   userId: string,
