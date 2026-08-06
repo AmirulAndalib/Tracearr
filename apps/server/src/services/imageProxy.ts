@@ -359,13 +359,11 @@ async function computeDominantColorHex(imageBuffer: Buffer): Promise<string> {
  * never touches it) - write-once by design, and a failed UPDATE here must
  * never fail the image response itself.
  *
- * The miss coalescing map is keyed per size, so the same art requested at
- * 160/240/360 reaches here concurrently, and several rows can share one
- * thumb_path (merged copies, shared season art). Identical multi-row
- * updates locking rows in different orders deadlock under that load, so
- * same-image persists share one in-flight attempt and a deadlock loser
- * retries once - the NULL guard makes the retry a no-op when another
- * writer already committed.
+ * The miss coalescing map is keyed per size, so one poster requested at
+ * 160/240/360 reaches here concurrently, and several rows can share a
+ * thumb_path - identical multi-row updates then deadlock on row order.
+ * Same-image persists share one in-flight attempt; a deadlock loser retries
+ * once, which the NULL guard turns into a no-op if another writer committed.
  */
 const inFlightColorPersists = new Map<string, Promise<void>>();
 

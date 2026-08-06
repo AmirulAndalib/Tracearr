@@ -1,34 +1,19 @@
 /**
  * Library Duplicates Route
  *
- * GET /duplicates - Duplicate detection across servers, across libraries on
- * one server, and across the versions of a single item.
+ * GET /duplicates - a duplicate is a title with two or more DISTINCT
+ * physical files (distinct byte size, the same mirror heuristic the storage
+ * totals use). Mirror-only groups never ship, which keeps mirrored
+ * multi-server deployments from drowning real duplicates in zero-savings
+ * noise; the single-server case matches Plex's own Duplicates filter.
  *
- * A duplicate is a title with two or more DISTINCT physical files. Listings
- * don't matter, files do: the same file indexed by several libraries or
- * servers (equal byte size, the same heuristic the storage totals use) is a
- * mirror, not a duplicate, and a title whose every listing points at one
- * physical file never forms a group. This keeps mirrored multi-server
- * deployments from drowning real duplicates under thousands of zero-savings
- * groups, and matches Plex's own Duplicates filter for the single-server
- * case (an item with more than one Media element).
+ * Matching hierarchy: imdb 100 > tmdb 95 > tvdb 90 > fuzzy 60-100;
+ * single-item groups present as 'version' at 100. Reclaimable = deduped
+ * total minus the best-quality file.
  *
- * Matching hierarchy (confidence scores):
- * 1. IMDB ID match: 100%
- * 2. TMDB ID match: 95% (items without IMDB)
- * 3. TVDB ID match: 90% (items without IMDB/TMDB)
- * 4. Fuzzy title match: 60-100% (items without any external IDs)
- * 5. Version groups: 100% (one item, several physical files)
- *
- * Grouping, the distinct-file gate, and the summary all run in SQL and the
- * route hydrates details for one page only. The previous implementation
- * built every group in Node and fetched details with joined IN lists, which
- * exceeded postgres's 65535 bind-parameter cap on large mirrored installs
- * (~88k items per server) and returned an error the UI rendered as
- * "0 groups".
- *
- * Reclaimable = deduped total minus the best-quality file, i.e. what
- * deleting everything except the copy worth keeping frees.
+ * Grouping, the gate, and the summary run in one SQL statement and the route
+ * hydrates one page only - building every group in Node exceeded postgres's
+ * 65535 bind-parameter cap on large mirrored installs.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -187,15 +172,9 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
 
       /**
        * One statement: membership -> per-group distinct-file math -> gate ->
-       * summary via window aggregates -> one ordered page.
-       *
-       * Group identity folds media_type into the external-id key so a show
-       * and an episode sharing a TVDB id can no longer collapse into one
-       * group. Items keyed by an external id that only ever match themselves
-       * become single-item groups and present as 'version' matches, which
-       * subsumes the old version_count discovery pass. Fuzzy pairing keeps
-       * its bounded LIMIT and only feeds items with no external IDs, so it
-       * can never conflict with an id key.
+       * summary via window aggregates -> one ordered page. media_type is
+       * folded into the id key so a show and an episode sharing a TVDB id
+       * cannot collapse; fuzzy only feeds items with no external IDs.
        */
       const runGroupQuery = async (offset: number) => {
         const result = await db.execute(sql`
@@ -262,45 +241,40 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
             LEFT JOIN fuzzy_keys fk ON fk.item_id = s.id
           ),
           files AS (
-            -- One row per physical listing. Items with no version rows fall
-            -- back to their flat rollup columns; items whose versions carry
-            -- NULL sizes keep the NULL (no substitution from the rollup).
-            SELECT m.group_key,
+            -- One row per (item, physical listing). Items with no version
+            -- rows fall back to their flat rollup columns; versions carrying
+            -- NULL sizes keep the NULL. Single-referenced so the planner
+            -- inlines it - no CTE fence, no stats cliff.
+            SELECT m.group_key, m.key_type, m.fuzzy_confidence, m.id, m.server_id,
               CASE WHEN v.id IS NULL THEN m.file_size ELSE v.file_size END AS size,
-              CASE WHEN v.id IS NULL THEN m.video_resolution ELSE v.video_resolution END
-                AS resolution
+              ${resolutionRankSql(
+                'CASE WHEN v.id IS NULL THEN m.video_resolution ELSE v.video_resolution END'
+              )} AS res_rank
             FROM membership m
             LEFT JOIN library_item_versions v
               ON v.library_item_id = m.id AND v.removed_at IS NULL
           ),
-          distinct_files AS (
-            -- Equal byte size within a group = the same physical file
-            -- (mirror); keep the best-ranked listing of each size
-            SELECT DISTINCT ON (group_key, size)
-              group_key, size,
-              ${resolutionRankSql('resolution')} AS res_rank
-            FROM files
-            WHERE size IS NOT NULL
-            ORDER BY group_key, size, ${resolutionRankSql('resolution')} DESC
-          ),
-          group_math AS (
-            SELECT group_key,
-              COUNT(*)::int AS unique_file_count,
-              SUM(size)::bigint AS total_bytes,
-              (array_agg(size ORDER BY res_rank DESC, size DESC))[1]::bigint AS best_size
-            FROM distinct_files
-            GROUP BY group_key
-          ),
           groups AS (
-            SELECT m.group_key,
-              MIN(m.key_type) AS key_type,
-              COUNT(*)::int AS item_count,
-              array_agg(m.id ORDER BY m.server_id, m.id) AS item_ids,
-              COUNT(DISTINCT m.server_id)::int AS server_count,
-              array_agg(DISTINCT m.server_id) AS server_ids,
-              MAX(m.fuzzy_confidence) AS fuzzy_confidence
-            FROM membership m
-            GROUP BY m.group_key
+            -- One aggregation pass computes membership AND the mirror-deduped
+            -- storage math (SUM/COUNT DISTINCT size implement "equal byte
+            -- size = the same physical file"; repeats of a size never change
+            -- the best-file winner). Folding the math in here rather than
+            -- joining two aggregated CTEs matters: aggregate output sizes are
+            -- planner guesses, and the misestimated join nested-loops into
+            -- minutes at ~45k groups.
+            SELECT f.group_key,
+              MIN(f.key_type) AS key_type,
+              COUNT(DISTINCT f.id)::int AS item_count,
+              array_agg(DISTINCT f.id ORDER BY f.id) AS item_ids,
+              COUNT(DISTINCT f.server_id)::int AS server_count,
+              array_agg(DISTINCT f.server_id) AS server_ids,
+              MAX(f.fuzzy_confidence) AS fuzzy_confidence,
+              COUNT(DISTINCT f.size)::int AS unique_file_count,
+              SUM(DISTINCT f.size)::bigint AS total_bytes,
+              (array_agg(f.size ORDER BY f.res_rank DESC, f.size DESC)
+                FILTER (WHERE f.size IS NOT NULL))[1]::bigint AS best_size
+            FROM files f
+            GROUP BY f.group_key
           ),
           gated AS (
             SELECT g.group_key,
@@ -313,11 +287,10 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
                 ELSE COALESCE(g.fuzzy_confidence, 70)
               END AS confidence,
               g.item_ids, g.item_count, g.server_count,
-              gm.unique_file_count, gm.total_bytes,
-              GREATEST(gm.total_bytes - gm.best_size, 0)::bigint AS savings_bytes
+              g.unique_file_count, g.total_bytes,
+              GREATEST(g.total_bytes - g.best_size, 0)::bigint AS savings_bytes
             FROM groups g
-            JOIN group_math gm ON gm.group_key = g.group_key
-            WHERE gm.unique_file_count >= 2
+            WHERE g.unique_file_count >= 2
               ${serverId ? sql`AND ${serverId} = ANY(g.server_ids)` : sql``}
           ),
           filtered AS (

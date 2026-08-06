@@ -460,7 +460,7 @@ describe('persistDominantColorIfNeeded', () => {
     vi.clearAllMocks();
 
     // The miss pipeline runs per size, so one poster at 160/240/360 lands
-    // here three times at once - the deadlock shape from the 2.0 field logs
+    // here three times at once - the shape that deadlocks multi-row updates
     const chain = mockUpdateChain();
     const serverId = randomUUID();
     const buffer = await red1x1();

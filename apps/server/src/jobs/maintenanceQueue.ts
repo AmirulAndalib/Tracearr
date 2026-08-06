@@ -105,6 +105,8 @@ let maintenanceWorker: Worker<MaintenanceJobData> | null = null;
 // Track active job state
 let activeJobProgress: MaintenanceJobProgress | null = null;
 
+const LOCK_EXTENSION_INTERVAL = 60 * 1000;
+
 /**
  * Initialize the maintenance queue with Redis connection
  */
@@ -1078,7 +1080,6 @@ export async function processRebuildTimescaleViewsJob(
 
     // Track last lock extension to avoid excessive Redis calls
     let lastLockExtension = Date.now();
-    const LOCK_EXTENSION_INTERVAL = 60 * 1000; // Extend lock every 60 seconds
 
     // progressCallback is synchronous, so a lock-loss rejection from
     // extendJobLock can't be awaited in place - capture its message here and
@@ -1182,7 +1183,6 @@ async function processBackfillSessionIdentityJob(
   const startTime = Date.now();
   const pubSubService = getPubSubService();
   const BATCH = 5000;
-  const LOCK_EXTENSION_INTERVAL = 60 * 1000;
 
   activeJobProgress = {
     type: 'backfill_session_identity',
@@ -2258,9 +2258,33 @@ export async function processBackfillLibrarySnapshotsJob(
     const earliestDate = (earliestResult.rows[0] as { earliest: string | null })?.earliest;
 
     if (earliestDate) {
-      await db.execute(sql`
-        CALL refresh_continuous_aggregate('library_stats_daily', ${earliestDate}::date, NOW()::date + INTERVAL '1 day')
-      `);
+      // Batched, never one CALL over the whole span: a backfill reaching
+      // years back makes a single-call refresh materialize the entire range
+      // in one transaction, which can OOM postgres on memory-limited
+      // containers - and the crash loop re-triggers this very job through
+      // the gap check. Per-batch failures (including the materialization-
+      // range-overlaps race against the policy refresh) are logged, not
+      // fatal; the policy catches whatever a failed batch leaves behind.
+      let refreshLockExtension = Date.now();
+      const refreshFailures = await safeFullRefreshAggregate(
+        'library_stats_daily',
+        new Date(earliestDate),
+        new Date(),
+        {
+          onProgress: () => {
+            if (Date.now() - refreshLockExtension > LOCK_EXTENSION_INTERVAL) {
+              refreshLockExtension = Date.now();
+              void extendJobLock(job).catch(() => undefined);
+              void extendHeavyOpsLock(job.id!);
+            }
+          },
+        }
+      );
+      if (refreshFailures.length > 0) {
+        console.warn(
+          `[Maintenance] ${refreshFailures.length} aggregate refresh batch(es) failed; the refresh policy will fill the gaps`
+        );
+      }
 
       // Verify the refresh succeeded by checking aggregate has data
       const verifyResult = await db.execute(sql`
@@ -2746,21 +2770,13 @@ export async function getAllActiveMaintenanceJobs(): Promise<
  * up), for automated callers that treat "already covered" as success.
  */
 /**
- * One-time snapshot-history normalization after the multi-version changeover.
- *
- * Storage totals changed meaning at mediaVersionsBackfilledAt: the 2.0
- * upgrade also DROP CASCADEs library_stats_daily (aggregate schema bump), so
- * everything older than raw retention is already version-aware
- * reconstruction, while the surviving <=90-day raw band still holds
- * pre-changeover live rows. Regenerating that band the same way leaves the
- * whole curve in one semantics, which is what lets the storage growth
- * regression fit full history instead of clamping to post-stamp days.
- *
- * Whole 1-day chunks drop without decompression; the chunk containing the
- * stamp survives, so at most one day keeps pre-changeover rows. Write-once
- * marker: snapshotsNormalizedAt, set only on success so a failed run retries
- * on the next trigger. Safe to re-run: the drop is a no-op on an empty
- * range and the backfill inserts with ON CONFLICT DO NOTHING.
+ * One-time snapshot normalization: everything older than raw retention is
+ * already version-aware reconstruction (the 2.0 aggregate rebuild), so
+ * regenerating the surviving pre-stamp band the same way leaves the whole
+ * curve in one semantics and lets the growth fit use full history. 1-day
+ * chunks drop without decompression; the stamp-day chunk survives, so at
+ * most one day keeps old rows. snapshotsNormalizedAt is set only on success
+ * so a failed run retries on the next trigger; re-runs are no-ops.
  */
 export async function processNormalizeLibrarySnapshotsJob(
   job: Job<MaintenanceJobData>
@@ -2803,10 +2819,27 @@ export async function processNormalizeLibrarySnapshotsJob(
   }
 
   // The backfill's tail refreshes library_stats_daily only; without this,
-  // content_quality_daily keeps stale materializations for the dropped range
+  // content_quality_daily keeps stale materializations for the dropped range.
+  // Batched for the same reason as the tail: one full-span CALL can OOM
+  // postgres on a memory-limited container.
   if (timescale.extensionInstalled) {
     try {
-      await db.execute(sql`CALL refresh_continuous_aggregate('content_quality_daily', NULL, NULL)`);
+      const earliest = await db.execute(sql`
+        SELECT MIN(snapshot_time)::date AS earliest FROM library_snapshots
+      `);
+      const earliestDate = (earliest.rows[0] as { earliest: string | null })?.earliest;
+      if (earliestDate) {
+        const failures = await safeFullRefreshAggregate(
+          'content_quality_daily',
+          new Date(earliestDate),
+          new Date()
+        );
+        if (failures.length > 0) {
+          console.warn(
+            `[Maintenance] ${failures.length} content_quality_daily refresh batch(es) failed; the refresh policy will fill the gaps`
+          );
+        }
+      }
     } catch (err) {
       console.warn('[Maintenance] content_quality_daily refresh after normalization failed:', err);
     }
