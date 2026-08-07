@@ -478,6 +478,48 @@ jobs:
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
 
+  # Publish @tracearr/shared and @tracearr/translations, version-locked to the
+  # release tag so the mobile repo can pin the exact release it targets.
+  # Auth is npm trusted publishing (OIDC) configured against this workflow file.
+  # setup-node deliberately has no registry-url: the .npmrc auth line it writes
+  # breaks the OIDC exchange when NODE_AUTH_TOKEN is unset.
+  publish-packages:
+    name: Publish npm Packages
+    runs-on: ubuntu-latest
+    needs: [check-release-type, merge-docker, merge-supervised]
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter @tracearr/shared --filter @tracearr/translations
+
+      - name: Publish to npm
+        run: |
+          npm --version
+          VERSION="${GITHUB_REF_NAME#v}"
+          TAG="${{ needs.check-release-type.outputs.prerelease == 'true' && 'next' || 'latest' }}"
+          for pkg in shared translations; do
+            if [ -n "$(npm view "@tracearr/${pkg}@${VERSION}" version 2>/dev/null)" ]; then
+              echo "@tracearr/${pkg}@${VERSION} already published, skipping"
+              continue
+            fi
+            (cd "packages/${pkg}" && npm pkg set version="$VERSION" && npm publish --tag "$TAG")
+          done
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
