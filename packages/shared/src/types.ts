@@ -304,6 +304,10 @@ export interface TranscodeInfo {
   hwEncoding?: string;
   speed?: number;
   throttled?: boolean;
+  /** Percent of the file transcoded so far (0-100) */
+  progress?: number;
+  /** Seconds of media the transcoder has ready past the start */
+  maxOffsetAvailable?: number;
   reasons?: string[];
 }
 
@@ -1016,6 +1020,50 @@ export interface ServerBandwidthStats {
   serverId: string;
   /** Data points (newest first based on 'at' timestamp) */
   data: ServerBandwidthDataPoint[];
+  /** When this data was fetched */
+  fetchedAt: Date;
+}
+
+/** Plex account referenced by bandwidth samples */
+export interface BandwidthAccount {
+  id: number;
+  name: string;
+  thumb: string | null;
+}
+
+/** Plex device referenced by bandwidth samples */
+export interface BandwidthDevice {
+  id: number;
+  name: string;
+  platform: string | null;
+}
+
+/**
+ * Per-account/device bandwidth sample. Entries are 1-second buckets
+ * regardless of the timespan echoed by the Plex API.
+ */
+export interface BandwidthSample {
+  at: number;
+  accountId: number;
+  deviceId: number;
+  lan: boolean;
+  bytes: number;
+}
+
+// Combined live stats for the dashboard: one request carries both series
+export interface ServerLiveStats {
+  /** Server ID these stats belong to */
+  serverId: string;
+  /** Resource data points (newest first based on 'at' timestamp) */
+  statistics: ServerResourceDataPoint[];
+  /** Aggregated bandwidth points (newest first based on 'at' timestamp) */
+  bandwidth: ServerBandwidthDataPoint[];
+  /** Raw per-account/device bandwidth samples (newest first) */
+  bandwidthSamples: BandwidthSample[];
+  /** Accounts referenced by bandwidthSamples */
+  bandwidthAccounts: BandwidthAccount[];
+  /** Devices referenced by bandwidthSamples */
+  bandwidthDevices: BandwidthDevice[];
   /** When this data was fetched */
   fetchedAt: Date;
 }

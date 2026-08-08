@@ -97,7 +97,7 @@ export {
   useDeleteServer,
   useSyncServer,
   useUpdateServer,
-  useServerStatistics,
+  useServerLiveStats,
   usePlexServerConnections,
   useReorderServers,
 } from './useServers';

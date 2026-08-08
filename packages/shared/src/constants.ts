@@ -149,6 +149,10 @@ export const REDIS_KEYS = {
   SERVER_HEALTH_FAIL_COUNT: (serverId: string) =>
     `${_redisPrefix}tracearr:servers:${serverId}:health:fails`,
   SERVER_CONNECTION: (serverId: string) => `${_redisPrefix}tracearr:servers:${serverId}:connection`,
+  SERVER_STATS_RESOURCES: (serverId: string) =>
+    `${_redisPrefix}tracearr:servers:${serverId}:stats:resources`,
+  SERVER_STATS_BANDWIDTH: (serverId: string) =>
+    `${_redisPrefix}tracearr:servers:${serverId}:stats:bandwidth`,
   get PUBSUB_EVENTS() {
     return `${_redisPrefix}tracearr:events`;
   },
@@ -315,6 +319,11 @@ export const CACHE_TTL = {
   RATE_LIMIT: 900,
   SERVER_HEALTH: 600, // 10 minutes - servers marked unhealthy if no update
   SERVER_CONNECTION: 600, // 10 minutes - live runtime state, not persisted to DB
+  // Live stats micro-cache: collapses concurrent dashboard viewers into one
+  // Plex call per tick. Bandwidth TTL must stay under the fastest poll
+  // option (1s) or that chart setting stops meaning anything.
+  SERVER_STATS_RESOURCES: 5,
+  SERVER_STATS_BANDWIDTH: 1,
   LOCATION_FILTERS: 300, // 5 minutes - filter options change infrequently
   VERSION_CHECK: 21600, // 6 hours - version check interval
   // Library statistics

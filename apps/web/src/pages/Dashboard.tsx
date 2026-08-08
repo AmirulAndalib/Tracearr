@@ -11,14 +11,16 @@ import { ServerBandwidthChart } from '@/components/charts/BandwidthChart';
 import { ErrorState } from '@/components/library/ErrorState';
 import { NowPlayingCardSkeleton } from '@/components/ui/skeleton';
 import { useDashboardStats, useActiveSessions } from '@/hooks/queries';
-import { useServerStatistics, useServerBandwidth } from '@/hooks/queries/useServers';
+import { useServerLiveStats } from '@/hooks/queries/useServers';
 import { useServer } from '@/hooks/useServer';
 import { useServerColorMap } from '@/hooks/useServerColorMap';
+import { useSocket } from '@/hooks/useSocket';
 import type { ActiveSession } from '@tracearr/shared';
 
 export function Dashboard() {
   const { t } = useTranslation(['pages', 'common']);
   const { selectedServerIds, selectedServers, isMultiServer, selectedServerId } = useServer();
+  const { isConnected } = useSocket();
   const {
     data: stats,
     isLoading: statsLoading,
@@ -31,7 +33,7 @@ export function Dashboard() {
     isError: sessionsError,
     error: sessionsErrorObj,
     refetch: refetchSessions,
-  } = useActiveSessions(selectedServerIds);
+  } = useActiveSessions(selectedServerIds, isConnected);
 
   // Session detail sheet state
   const [selectedSession, setSelectedSession] = useState<ActiveSession | null>(null);
@@ -51,19 +53,16 @@ export function Dashboard() {
   // Only show server resource stats for a single Plex server
   const showServerResources = !isMultiServer && selectedServers[0]?.type === 'plex';
 
-  // Poll server statistics only when viewing a single Plex server
+  // Poll live server stats only when viewing a single Plex server; the
+  // interval selector on the bandwidth chart governs the shared cadence
+  const [statsPollInterval, setStatsPollInterval] = useState(6);
   const {
-    data: serverStats,
-    isLoading: statsChartLoading,
-    averages,
-  } = useServerStatistics(selectedServerId ?? undefined, showServerResources);
-
-  const [bandwidthPollInterval, setBandwidthPollInterval] = useState(6);
-  const {
-    data: bandwidthStats,
-    isLoading: bandwidthChartLoading,
-    averages: bandwidthAverages,
-  } = useServerBandwidth(selectedServerId ?? undefined, showServerResources, bandwidthPollInterval);
+    statistics: serverStats,
+    statisticsAverages: averages,
+    bandwidth: bandwidthStats,
+    bandwidthAverages,
+    isLoading: liveStatsLoading,
+  } = useServerLiveStats(selectedServerId ?? undefined, showServerResources, statsPollInterval);
 
   const activeCount = sessions?.length ?? 0;
   const hasActiveStreams = activeCount > 0;
@@ -201,16 +200,16 @@ export function Dashboard() {
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <ServerResourceCharts
-              data={serverStats?.data}
-              isLoading={statsChartLoading}
+              data={serverStats}
+              isLoading={liveStatsLoading}
               averages={averages}
             />
             <ServerBandwidthChart
-              data={bandwidthStats?.data}
-              isLoading={bandwidthChartLoading}
+              data={bandwidthStats}
+              isLoading={liveStatsLoading}
               averages={bandwidthAverages}
-              pollInterval={bandwidthPollInterval}
-              onPollIntervalChange={setBandwidthPollInterval}
+              pollInterval={statsPollInterval}
+              onPollIntervalChange={setStatsPollInterval}
             />
           </div>
         </section>

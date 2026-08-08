@@ -102,6 +102,10 @@ export type {
   // Server bandwidth stats
   ServerBandwidthDataPoint,
   ServerBandwidthStats,
+  BandwidthAccount,
+  BandwidthDevice,
+  BandwidthSample,
+  ServerLiveStats,
   // Settings
   Settings,
   WebhookFormat,

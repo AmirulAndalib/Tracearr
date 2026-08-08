@@ -10,14 +10,13 @@ import {
   reorderServersSchema,
   updateServerSchema,
   pickServerColor,
-  SERVER_STATS_CONFIG,
-  BANDWIDTH_STATS_CONFIG,
   type ServerConnectionStatus,
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { servers, plexAccounts } from '../db/schema.js';
 // Token encryption removed - tokens now stored in plain text (DB is localhost-only)
 import { PlexClient, JellyfinClient, EmbyClient } from '../services/mediaServer/index.js';
+import { getServerLiveStats, getServerResourceStats } from '../services/serverLiveStats.js';
 import { syncServer } from '../services/sync.js';
 import { sseManager } from '../services/sseManager.js';
 import { getCacheService } from '../services/cache.js';
@@ -556,12 +555,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('Server statistics are only available for Plex servers');
     }
 
-    const client = new PlexClient({
-      url: server.url,
-      token: server.token,
-    });
-
-    const data = await client.getServerStatistics(SERVER_STATS_CONFIG.TIMESPAN_SECONDS);
+    const data = await getServerResourceStats(app.redis, server);
 
     return {
       serverId: id,
@@ -571,11 +565,12 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * GET /servers/:id/bandwidth - Get server bandwidth statistics (Local/Remote)
-   * On-demand endpoint for dashboard - data is not stored
-   * Currently only supported for Plex servers (undocumented /statistics/bandwidth endpoint)
+   * GET /servers/:id/live-stats - Combined resource and bandwidth statistics
+   * One request per dashboard tick; both halves ride a short Redis cache so
+   * concurrent viewers collapse to one Plex call per tick.
+   * Currently only supported for Plex servers (undocumented statistics endpoints)
    */
-  app.get('/:id/bandwidth', { preHandler: [app.authenticate] }, async (request, reply) => {
+  app.get('/:id/live-stats', { preHandler: [app.authenticate] }, async (request, reply) => {
     const params = serverIdParamSchema.safeParse(request.params);
     if (!params.success) {
       return reply.badRequest('Invalid server ID');
@@ -591,19 +586,14 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
     }
 
     if (server.type !== 'plex') {
-      return reply.badRequest('Bandwidth statistics are only available for Plex servers');
+      return reply.badRequest('Server statistics are only available for Plex servers');
     }
 
-    const client = new PlexClient({
-      url: server.url,
-      token: server.token,
-    });
-
-    const data = await client.getServerBandwidth(BANDWIDTH_STATS_CONFIG.TIMESPAN_SECONDS);
+    const stats = await getServerLiveStats(app.redis, server);
 
     return {
       serverId: id,
-      data,
+      ...stats,
       fetchedAt: new Date().toISOString(),
     };
   });

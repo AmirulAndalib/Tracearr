@@ -29,6 +29,7 @@ import { lookupGeoIP } from '../../services/plexGeoip.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { sseManager } from '../../services/sseManager.js';
+import { createLogger } from '../../utils/logger.js';
 
 import { enqueueNotification } from '../notificationQueue.js';
 import {
@@ -89,6 +90,8 @@ import { broadcastViolations } from './violations.js';
 // ============================================================================
 // Module State
 // ============================================================================
+
+const pollerLogger = createLogger('Poller');
 
 let pollingInterval: NodeJS.Timeout | null = null;
 let staleSweepInterval: NodeJS.Timeout | null = null;
@@ -2406,8 +2409,8 @@ export async function triggerReconciliationPoll(): Promise<void> {
       return;
     }
 
-    console.log(
-      `[Poller] Running reconciliation poll for ${sseServers.length} SSE-connected server(s)`
+    pollerLogger.debug(
+      `Running reconciliation poll for ${sseServers.length} SSE-connected server(s)`
     );
 
     // Get cached session keys from atomic SET-based cache. Build keys with the

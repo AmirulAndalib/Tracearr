@@ -94,6 +94,11 @@ import type {
   MediaWatchersResponse,
   MediaPlatformBreakdownResponse,
   MediaSeasonHeatResponse,
+  ServerResourceDataPoint,
+  ServerBandwidthDataPoint,
+  BandwidthSample,
+  BandwidthAccount,
+  BandwidthDevice,
 } from '@tracearr/shared';
 
 // Re-export shared types needed by frontend components
@@ -546,30 +551,16 @@ class ApiClient {
         method: 'PATCH',
         body: JSON.stringify({ servers }),
       }),
-    statistics: (id: string) =>
+    liveStats: (id: string) =>
       this.request<{
         serverId: string;
-        data: {
-          at: number;
-          timespan: number;
-          hostCpuUtilization: number;
-          processCpuUtilization: number;
-          hostMemoryUtilization: number;
-          processMemoryUtilization: number;
-        }[];
+        statistics: ServerResourceDataPoint[];
+        bandwidth: ServerBandwidthDataPoint[];
+        bandwidthSamples: BandwidthSample[];
+        bandwidthAccounts: BandwidthAccount[];
+        bandwidthDevices: BandwidthDevice[];
         fetchedAt: string;
-      }>(`/servers/${id}/statistics`),
-    bandwidth: (id: string) =>
-      this.request<{
-        serverId: string;
-        data: {
-          at: number;
-          timespan: number;
-          lanBytes: number;
-          wanBytes: number;
-        }[];
-        fetchedAt: string;
-      }>(`/servers/${id}/bandwidth`),
+      }>(`/servers/${id}/live-stats`),
     health: async () => {
       const response = await this.request<{
         data: { serverId: string; serverName: string }[];
