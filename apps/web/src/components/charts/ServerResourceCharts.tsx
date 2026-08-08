@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 import Highcharts from 'highcharts';
 import { HighchartsReact } from 'highcharts-react-official';
 import type { ServerResourceDataPoint } from '@tracearr/shared';
+import {
+  LIVE_STATS_TICK_INTERVAL,
+  LIVE_STATS_TICK_INTERVAL_NARROW,
+  LIVE_STATS_X_LABELS,
+} from './liveStatsAxis';
 import { ChartSkeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Cpu, MemoryStick } from 'lucide-react';
@@ -51,17 +56,6 @@ interface ResourceChartProps {
   processLabel?: string;
 }
 
-// Static x-axis labels (7 ticks at 20s intervals over 2 minutes)
-const X_LABELS: Record<number, string> = {
-  [-120]: '2m',
-  [-100]: '1m 40s',
-  [-80]: '1m 20s',
-  [-60]: '1m',
-  [-40]: '40s',
-  [-20]: '20s',
-  [0]: 'NOW',
-};
-
 /**
  * Single resource chart (CPU or RAM)
  */
@@ -100,7 +94,11 @@ function ResourceChart({
             type: 'line' as const,
             name: s.serverName,
             color: s.color,
-            data: s.data.map((p) => [-(newestAt - p.at), p[hostKey]] as [number, number | null]),
+            // Samples arrive every 6s; snapping x to that grid puts every
+            // server's points on shared positions so the tooltip groups them
+            data: s.data.map(
+              (p) => [-Math.round((newestAt - p.at) / 6) * 6, p[hostKey]] as [number, number | null]
+            ),
           };
         });
       allValues = multiSeries.flatMap((s) =>
@@ -196,14 +194,14 @@ function ResourceChart({
         type: 'linear',
         min: -120,
         max: 0,
-        tickInterval: 20,
+        tickInterval: LIVE_STATS_TICK_INTERVAL,
         labels: {
           style: {
             color: 'hsl(var(--muted-foreground))',
             fontSize: '10px',
           },
           formatter: function () {
-            return X_LABELS[this.value as number] || '';
+            return LIVE_STATS_X_LABELS[this.value as number] || '';
           },
         },
         lineColor: 'hsl(var(--border))',
@@ -284,7 +282,7 @@ function ResourceChart({
                 },
               },
               xAxis: {
-                tickInterval: 40,
+                tickInterval: LIVE_STATS_TICK_INTERVAL_NARROW,
                 labels: {
                   style: {
                     fontSize: '9px',

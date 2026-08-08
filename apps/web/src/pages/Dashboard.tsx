@@ -58,7 +58,7 @@ export function Dashboard() {
   // Multi-server view fans out to every selected server and overlays one
   // line per server that reports data. Servers without a stats source yet
   // (Jellyfin/Emby until the SSE plugin samples them) return empty series
-  // and simply contribute no line.
+  // and contribute no line.
   const statsServerIds = useMemo(
     () => (isMultiServer ? selectedServers.map((s) => s.id) : []),
     [isMultiServer, selectedServers]

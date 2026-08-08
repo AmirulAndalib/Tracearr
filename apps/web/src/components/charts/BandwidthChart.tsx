@@ -2,6 +2,11 @@ import { useMemo } from 'react';
 import Highcharts from 'highcharts';
 import { HighchartsReact } from 'highcharts-react-official';
 import type { ServerBandwidthDataPoint } from '@tracearr/shared';
+import {
+  LIVE_STATS_TICK_INTERVAL,
+  LIVE_STATS_TICK_INTERVAL_NARROW,
+  LIVE_STATS_X_LABELS,
+} from './liveStatsAxis';
 import { ChartSkeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -21,22 +26,6 @@ const COLORS = {
   localGradientEnd: 'rgba(204, 123, 159, 0.05)',
   remoteGradientStart: 'rgba(0, 180, 228, 0.3)',
   remoteGradientEnd: 'rgba(0, 180, 228, 0.05)',
-};
-
-const X_LABELS: Record<number, string> = {
-  [-120]: '2m',
-  [-110]: '1m 50s',
-  [-100]: '1m 40s',
-  [-90]: '1m 30s',
-  [-80]: '1m 20s',
-  [-70]: '1m 10s',
-  [-60]: '1m',
-  [-50]: '50s',
-  [-40]: '40s',
-  [-30]: '30s',
-  [-20]: '20s',
-  [-10]: '10s',
-  [0]: 'NOW',
 };
 
 const POLL_OPTIONS = [
@@ -205,11 +194,11 @@ export function ServerBandwidthChart({
         type: 'linear',
         min: -120,
         max: 0,
-        tickInterval: 10,
+        tickInterval: LIVE_STATS_TICK_INTERVAL,
         labels: {
           style: { color: 'hsl(var(--muted-foreground))', fontSize: '10px' },
           formatter: function () {
-            return X_LABELS[this.value as number] || '';
+            return LIVE_STATS_X_LABELS[this.value as number] || '';
           },
         },
         lineColor: 'hsl(var(--border))',
@@ -277,7 +266,10 @@ export function ServerBandwidthChart({
             condition: { maxWidth: 400 },
             chartOptions: {
               legend: { align: 'center', layout: 'horizontal', itemStyle: { fontSize: '10px' } },
-              xAxis: { tickInterval: 20, labels: { style: { fontSize: '9px' } } },
+              xAxis: {
+                tickInterval: LIVE_STATS_TICK_INTERVAL_NARROW,
+                labels: { style: { fontSize: '9px' } },
+              },
             },
           },
         ],
