@@ -589,9 +589,16 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
 
     const stats = await getServerLiveStats(app.redis, server);
 
+    // Per-account/device attribution names other users' accounts; the charts
+    // only need the aggregated series, so the detail is owner-only
+    const includeDetail = request.user?.role === 'owner';
+
     return {
       serverId: id,
       ...stats,
+      ...(includeDetail
+        ? {}
+        : { bandwidthSamples: [], bandwidthAccounts: [], bandwidthDevices: [] }),
       fetchedAt: new Date().toISOString(),
     };
   });

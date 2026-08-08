@@ -27,9 +27,9 @@ interface ServerResourceChartsProps {
   data: ServerResourceDataPoint[] | undefined;
   isLoading?: boolean;
   averages?: {
-    hostCpu: number;
+    hostCpu: number | null;
     processCpu: number;
-    hostMemory: number;
+    hostMemory: number | null;
     processMemory: number;
   } | null;
   /** One host-metric line per server; replaces the process/system split */
@@ -45,7 +45,7 @@ interface ResourceChartProps {
   processKey: 'processCpuUtilization' | 'processMemoryUtilization';
   hostKey: 'hostCpuUtilization' | 'hostMemoryUtilization';
   processAvg?: number;
-  hostAvg?: number;
+  hostAvg?: number | null;
   isLoading?: boolean;
   multiSeries?: ResourceMultiSeries[];
   processLabel?: string;
@@ -89,22 +89,30 @@ function ResourceChart({
     let allValues: number[];
 
     if (isMulti) {
-      // Timestamp-based x so servers with differently filled windows align
-      const newestAt = Math.max(...multiSeries.flatMap((s) => s.data.map((p) => p.at)));
-      series = multiSeries.map((s) => ({
-        type: 'line' as const,
-        name: s.serverName,
-        color: s.color,
-        data: s.data.map((p) => [-(newestAt - p.at), p[hostKey]] as [number, number]),
-      }));
-      allValues = multiSeries.flatMap((s) => s.data.map((p) => p[hostKey]));
+      // Anchor each server to its own newest sample: media server clocks
+      // disagree, and a shared anchor lets one skewed clock push every other
+      // line off the fixed -120..0 axis
+      series = multiSeries
+        .filter((s) => s.data.some((p) => p[hostKey] != null))
+        .map((s) => {
+          const newestAt = s.data[s.data.length - 1]?.at ?? 0;
+          return {
+            type: 'line' as const,
+            name: s.serverName,
+            color: s.color,
+            data: s.data.map((p) => [-(newestAt - p.at), p[hostKey]] as [number, number | null]),
+          };
+        });
+      allValues = multiSeries.flatMap((s) =>
+        s.data.map((p) => p[hostKey]).filter((v): v is number => v != null)
+      );
     } else {
       if (!data || data.length === 0) return {};
 
       // Map data points to x positions in -120 to 0 range
       // Data is sorted oldest first, spread across the 2-minute window
       const processData: [number, number][] = [];
-      const hostData: [number, number][] = [];
+      const hostData: [number, number | null][] = [];
 
       const n = data.length;
       for (let i = 0; i < n; i++) {
@@ -144,7 +152,9 @@ function ResourceChart({
           },
         },
       ];
-      allValues = [...processData, ...hostData].map(([, y]) => y);
+      allValues = [...processData, ...hostData]
+        .map(([, y]) => y)
+        .filter((v): v is number => v != null);
     }
 
     // Calculate dynamic Y-axis max (round up to nearest 10, min 20)
@@ -344,26 +354,28 @@ function ResourceChart({
         {/* Averages row */}
         <div className="text-muted-foreground mt-1 flex flex-wrap justify-end gap-4 pr-2 text-xs">
           {isMulti ? (
-            multiSeries.map((s) => (
-              <span key={s.serverId}>
-                <span style={{ color: s.color }}>●</span> Avg:{' '}
-                <span className="text-foreground font-medium">
-                  {s.data.length > 0
-                    ? Math.round(s.data.reduce((sum, p) => sum + p[hostKey], 0) / s.data.length)
-                    : '—'}
-                  %
+            multiSeries.map((s) => {
+              const values = s.data.map((p) => p[hostKey]).filter((v): v is number => v != null);
+              const avg =
+                values.length > 0
+                  ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length)
+                  : null;
+              return (
+                <span key={s.serverId}>
+                  <span style={{ color: s.color }}>●</span> Avg:{' '}
+                  <span className="text-foreground font-medium">{avg ?? '\u2014'}%</span>
                 </span>
-              </span>
-            ))
+              );
+            })
           ) : (
             <>
               <span>
                 <span style={{ color: COLORS.process }}>●</span> Avg:{' '}
-                <span className="text-foreground font-medium">{processAvg ?? '—'}%</span>
+                <span className="text-foreground font-medium">{processAvg ?? '\u2014'}%</span>
               </span>
               <span>
                 <span style={{ color: COLORS.system }}>●</span> Avg:{' '}
-                <span className="text-foreground font-medium">{hostAvg ?? '—'}%</span>
+                <span className="text-foreground font-medium">{hostAvg ?? '\u2014'}%</span>
               </span>
             </>
           )}

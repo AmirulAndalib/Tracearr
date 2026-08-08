@@ -1087,6 +1087,30 @@ describe('Server Routes', () => {
       expect(response.statusCode).toBe(400);
     });
 
+    it('strips per-account bandwidth detail for non-owner callers', async () => {
+      app = await buildTestApp(viewerUser);
+      mockDbSelectLimit([mockServer]);
+      vi.mocked(getServerLiveStats).mockResolvedValue({
+        statistics: [],
+        bandwidth: [{ at: 101, timespan: 1, lanBytes: 28, wanBytes: 729 }],
+        bandwidthSamples: [{ at: 101, accountId: 1, deviceId: 1, lan: true, bytes: 28 }],
+        bandwidthAccounts: [{ id: 1, name: 'Gallapagos', thumb: null }],
+        bandwidthDevices: [{ id: 1, name: 'Chromecast', platform: 'Chromecast' }],
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/servers/${mockServer.id}/live-stats`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.bandwidth).toEqual([{ at: 101, timespan: 1, lanBytes: 28, wanBytes: 729 }]);
+      expect(body.bandwidthSamples).toEqual([]);
+      expect(body.bandwidthAccounts).toEqual([]);
+      expect(body.bandwidthDevices).toEqual([]);
+    });
+
     it('returns combined statistics and bandwidth with attribution', async () => {
       const liveStats = {
         statistics: [

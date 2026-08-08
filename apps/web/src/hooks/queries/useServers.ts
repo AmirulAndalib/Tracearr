@@ -283,6 +283,30 @@ function mergeWindow<T extends { at: number }>(
  * @param enabled - Whether polling is enabled (typically tied to component mount)
  * @param pollIntervalSeconds - Override poll interval (defaults to BANDWIDTH_STATS_CONFIG)
  */
+function averageOf(values: (number | null)[]): number | null {
+  const present = values.filter((v): v is number => v != null);
+  return present.length > 0
+    ? Math.round(present.reduce((sum, v) => sum + v, 0) / present.length)
+    : null;
+}
+
+// Servers with no live-stats source (no plugin, or offline) back off to this
+// cadence instead of hammering at chart speed; data appearing restores it
+const EMPTY_STATS_BACKOFF_MS = 30_000;
+
+interface LiveStatsData {
+  statistics: unknown[];
+  bandwidth: unknown[];
+}
+
+function liveStatsInterval(pollMs: number) {
+  return (query: { state: { data?: LiveStatsData } }) => {
+    const data = query.state.data;
+    const empty = !data || (data.statistics.length === 0 && data.bandwidth.length === 0);
+    return empty ? EMPTY_STATS_BACKOFF_MS : pollMs;
+  };
+}
+
 export function useServerLiveStats(
   serverId: string | undefined,
   enabled: boolean = true,
@@ -290,6 +314,14 @@ export function useServerLiveStats(
 ) {
   const statsMapRef = useRef<Map<number, ServerResourceDataPoint>>(new Map());
   const bandwidthMapRef = useRef<Map<number, ServerBandwidthDataPoint>>(new Map());
+
+  // A server switch must not blend the previous server's window into the next
+  const lastServerIdRef = useRef(serverId);
+  if (lastServerIdRef.current !== serverId) {
+    lastServerIdRef.current = serverId;
+    statsMapRef.current = new Map();
+    bandwidthMapRef.current = new Map();
+  }
 
   const query = useQuery({
     queryKey: ['servers', 'live-stats', serverId],
@@ -307,7 +339,7 @@ export function useServerLiveStats(
       };
     },
     enabled: enabled && !!serverId,
-    refetchInterval: pollIntervalSeconds * 1000,
+    refetchInterval: liveStatsInterval(pollIntervalSeconds * 1000),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
@@ -318,15 +350,11 @@ export function useServerLiveStats(
   const statisticsAverages =
     statistics && statistics.length > 0
       ? {
-          hostCpu: Math.round(
-            statistics.reduce((sum, p) => sum + p.hostCpuUtilization, 0) / statistics.length
-          ),
+          hostCpu: averageOf(statistics.map((p) => p.hostCpuUtilization)),
           processCpu: Math.round(
             statistics.reduce((sum, p) => sum + p.processCpuUtilization, 0) / statistics.length
           ),
-          hostMemory: Math.round(
-            statistics.reduce((sum, p) => sum + p.hostMemoryUtilization, 0) / statistics.length
-          ),
+          hostMemory: averageOf(statistics.map((p) => p.hostMemoryUtilization)),
           processMemory: Math.round(
             statistics.reduce((sum, p) => sum + p.processMemoryUtilization, 0) / statistics.length
           ),
@@ -385,6 +413,19 @@ export function useMultiServerLiveStats(
     new Map<string, { current: Map<number, ServerBandwidthDataPoint> }>()
   );
 
+  // Prune windows for deselected servers so re-adding one later starts clean
+  const idsKey = serverIds.join(',');
+  const lastIdsKeyRef = useRef(idsKey);
+  if (lastIdsKeyRef.current !== idsKey) {
+    lastIdsKeyRef.current = idsKey;
+    const keep = new Set(serverIds);
+    for (const store of [statsWindowsRef.current, bandwidthWindowsRef.current]) {
+      for (const key of Array.from(store.keys())) {
+        if (!keep.has(key)) store.delete(key);
+      }
+    }
+  }
+
   const windowFor = useCallback(function <T>(
     store: Map<string, { current: Map<number, T> }>,
     serverId: string
@@ -417,7 +458,7 @@ export function useMultiServerLiveStats(
         ),
       };
     },
-    refetchInterval: pollIntervalSeconds * 1000,
+    refetchInterval: liveStatsInterval(pollIntervalSeconds * 1000),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,

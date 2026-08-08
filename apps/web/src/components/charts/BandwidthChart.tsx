@@ -118,16 +118,20 @@ export function ServerBandwidthChart({
     let series: Highcharts.SeriesOptionsType[];
 
     if (isMulti) {
-      const newestAt = Math.max(...multiSeries.flatMap((s) => s.data.map((p) => p.at)));
-      series = multiSeries.map((s) => ({
-        type: 'line' as const,
-        name: s.serverName,
-        color: s.color,
-        data: s.data.map(
-          (p) =>
-            [-(newestAt - p.at), ((p.lanBytes + p.wanBytes) * 8) / p.timespan] as [number, number]
-        ),
-      }));
+      // Anchor each server to its own newest sample so clock skew between
+      // media servers cannot push another server's line off the axis
+      series = multiSeries.map((s) => {
+        const newestAt = s.data[s.data.length - 1]?.at ?? 0;
+        return {
+          type: 'line' as const,
+          name: s.serverName,
+          color: s.color,
+          data: s.data.map(
+            (p) =>
+              [-(newestAt - p.at), ((p.lanBytes + p.wanBytes) * 8) / p.timespan] as [number, number]
+          ),
+        };
+      });
     } else {
       if (!data || data.length === 0) return {};
 

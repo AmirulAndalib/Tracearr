@@ -983,13 +983,13 @@ export interface ServerResourceDataPoint {
   at: number;
   /** Timespan interval in seconds */
   timespan: number;
-  /** System-wide CPU utilization percentage */
-  hostCpuUtilization: number;
-  /** Plex process CPU utilization percentage */
+  /** System-wide CPU utilization percentage; null when the source cannot see the host (non-Linux plugin hosts) */
+  hostCpuUtilization: number | null;
+  /** Media server process CPU utilization percentage */
   processCpuUtilization: number;
-  /** System-wide memory utilization percentage */
-  hostMemoryUtilization: number;
-  /** Plex process memory utilization percentage */
+  /** System-wide memory utilization percentage; null when the source cannot see the host */
+  hostMemoryUtilization: number | null;
+  /** Media server process memory utilization percentage */
   processMemoryUtilization: number;
 }
 

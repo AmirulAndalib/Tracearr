@@ -57,9 +57,10 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 // throttle so a busy tick doesn't trigger a refetch per session.
 const SESSION_UPDATED_THROTTLE_MS = 2000;
 const SESSION_STOPPED_HISTORY_THROTTLE_MS = 5000;
-// Job progress events arrive per batch during syncs/imports; throttle the
-// running-tasks refetch they trigger.
-const TASKS_REFRESH_THROTTLE_MS = 2000;
+// Job progress events arrive per batch during syncs/imports; a long import
+// would otherwise drive /tasks/running refetches for hours, so this stays
+// near the old fixed poll cadence.
+const TASKS_REFRESH_THROTTLE_MS = 5000;
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation(['notifications', 'common']);

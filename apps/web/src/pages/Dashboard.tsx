@@ -77,7 +77,8 @@ export function Dashboard() {
   const showServerResources = !!singleServer && (singleIsPlex || (serverStats?.length ?? 0) > 0);
 
   // Plex measures bandwidth; Jellyfin/Emby have no source for it
-  const showBandwidthChart = singleIsPlex || isMultiServer;
+  const showBandwidthChart =
+    singleIsPlex || (isMultiServer && selectedServers.some((s) => s.type === 'plex'));
   const singleProcessLabel = singleServer
     ? { plex: 'Plex Media Server', jellyfin: 'Jellyfin', emby: 'Emby' }[singleServer.type]
     : undefined;
@@ -268,7 +269,9 @@ export function Dashboard() {
           <div className={`grid gap-4 ${showBandwidthChart ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
             <ServerResourceCharts
               data={showServerResources ? serverStats : undefined}
-              isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
+              isLoading={
+                showServerResources ? liveStatsLoading : multiStatsLoading && !hasAnyMultiData
+              }
               averages={showServerResources ? averages : undefined}
               multiSeries={showMultiServerResources ? resourceMultiSeries : undefined}
               processLabel={singleProcessLabel}
@@ -276,7 +279,9 @@ export function Dashboard() {
             {showBandwidthChart && (
               <ServerBandwidthChart
                 data={showServerResources ? bandwidthStats : undefined}
-                isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
+                isLoading={
+                  showServerResources ? liveStatsLoading : multiStatsLoading && !hasAnyMultiData
+                }
                 averages={showServerResources ? bandwidthAverages : undefined}
                 pollInterval={statsPollInterval}
                 onPollIntervalChange={setStatsPollInterval}

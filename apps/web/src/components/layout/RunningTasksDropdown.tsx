@@ -79,11 +79,12 @@ export function RunningTasksDropdown() {
   const { isConnected } = useSocket();
 
   // With the socket connected, job progress events invalidate this cache in
-  // SocketProvider, so polling only backstops queues without progress events.
+  // SocketProvider; polling backstops queued jobs that have not emitted a
+  // progress event yet, so the connected interval stays reasonably tight.
   const { data, isLoading } = useQuery({
     queryKey: ['tasks', 'running'],
     queryFn: () => api.tasks.getRunning(),
-    refetchInterval: isConnected ? 30_000 : 10_000,
+    refetchInterval: isConnected ? 15_000 : 10_000,
     refetchIntervalInBackground: false,
     placeholderData: (prev) => prev,
   });

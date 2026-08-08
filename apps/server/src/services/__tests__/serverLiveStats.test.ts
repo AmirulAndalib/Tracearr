@@ -57,10 +57,28 @@ describe('recordServerStatsSample', () => {
     expect(ctx.multiChain.exec).toHaveBeenCalledTimes(1);
   });
 
-  it('drops samples missing host metrics', async () => {
+  it('keeps samples with null host metrics so non-Linux hosts still chart', async () => {
     await recordServerStatsSample(ctx.redis, serverId, {
       ...completeSample,
       hostCpuUtilization: null,
+      hostMemoryUtilization: null,
+    });
+
+    const [, payload] = ctx.multiChain.lpush.mock.calls[0] as [string, string];
+    expect(JSON.parse(payload)).toEqual({
+      at: 1786151199,
+      timespan: 6,
+      hostCpuUtilization: null,
+      processCpuUtilization: 0.622,
+      hostMemoryUtilization: null,
+      processMemoryUtilization: 0.548,
+    });
+  });
+
+  it('drops samples missing process metrics', async () => {
+    await recordServerStatsSample(ctx.redis, serverId, {
+      ...completeSample,
+      processCpuUtilization: null,
     });
 
     expect(ctx.raw.multi).not.toHaveBeenCalled();
