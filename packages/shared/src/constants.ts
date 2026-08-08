@@ -153,6 +153,8 @@ export const REDIS_KEYS = {
     `${_redisPrefix}tracearr:servers:${serverId}:stats:resources`,
   SERVER_STATS_BANDWIDTH: (serverId: string) =>
     `${_redisPrefix}tracearr:servers:${serverId}:stats:bandwidth`,
+  SERVER_STATS_SAMPLES: (serverId: string) =>
+    `${_redisPrefix}tracearr:servers:${serverId}:stats:samples`,
   get PUBSUB_EVENTS() {
     return `${_redisPrefix}tracearr:events`;
   },

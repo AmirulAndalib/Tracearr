@@ -566,12 +566,11 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
 
   /**
    * GET /servers/:id/live-stats - Combined resource and bandwidth statistics
-   * One request per dashboard tick; both halves ride a short Redis cache so
-   * concurrent viewers collapse to one Plex call per tick.
-   * Answers for any server type with whatever stats it has: Plex serves its
-   * statistics endpoints, Jellyfin/Emby return empty series until a data
-   * source exists (SSE plugin sampling), so multi-server dashboards can fan
-   * out without special-casing type.
+   * One request per dashboard tick, for any server type: Plex serves its
+   * statistics endpoints behind a short Redis cache, Jellyfin/Emby serve the
+   * rolling buffer the SSE plugin's server.stats events fill (empty until
+   * the plugin reports), so multi-server dashboards fan out without
+   * special-casing type.
    */
   app.get('/:id/live-stats', { preHandler: [app.authenticate] }, async (request, reply) => {
     const params = serverIdParamSchema.safeParse(request.params);
@@ -588,16 +587,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       return reply.notFound('Server not found');
     }
 
-    const stats =
-      server.type === 'plex'
-        ? await getServerLiveStats(app.redis, server)
-        : {
-            statistics: [],
-            bandwidth: [],
-            bandwidthSamples: [],
-            bandwidthAccounts: [],
-            bandwidthDevices: [],
-          };
+    const stats = await getServerLiveStats(app.redis, server);
 
     return {
       serverId: id,

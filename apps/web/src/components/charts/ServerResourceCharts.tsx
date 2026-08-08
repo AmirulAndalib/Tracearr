@@ -34,6 +34,8 @@ interface ServerResourceChartsProps {
   } | null;
   /** One host-metric line per server; replaces the process/system split */
   multiSeries?: ResourceMultiSeries[];
+  /** Single-view name for the process series (defaults to Plex's) */
+  processLabel?: string;
 }
 
 interface ResourceChartProps {
@@ -46,6 +48,7 @@ interface ResourceChartProps {
   hostAvg?: number;
   isLoading?: boolean;
   multiSeries?: ResourceMultiSeries[];
+  processLabel?: string;
 }
 
 // Static x-axis labels (7 ticks at 20s intervals over 2 minutes)
@@ -72,6 +75,7 @@ function ResourceChart({
   hostAvg,
   isLoading,
   multiSeries,
+  processLabel,
 }: ResourceChartProps) {
   const isMulti = !!multiSeries && multiSeries.length > 0;
   const hasData = isMulti ? multiSeries.some((s) => s.data.length > 0) : !!data && data.length > 0;
@@ -115,7 +119,7 @@ function ResourceChart({
       series = [
         {
           type: 'area',
-          name: 'Plex Media Server',
+          name: processLabel ?? 'Plex Media Server',
           data: processData,
           color: COLORS.process,
           fillColor: {
@@ -282,7 +286,7 @@ function ResourceChart({
         ],
       },
     };
-  }, [data, processKey, hostKey, multiSeries, isMulti, hasData]);
+  }, [data, processKey, hostKey, multiSeries, isMulti, hasData, processLabel]);
 
   if (isLoading) {
     return (
@@ -378,6 +382,7 @@ export function ServerResourceCharts({
   isLoading,
   averages,
   multiSeries,
+  processLabel,
 }: ServerResourceChartsProps) {
   return (
     <>
@@ -391,6 +396,7 @@ export function ServerResourceCharts({
         hostAvg={averages?.hostCpu}
         isLoading={isLoading}
         multiSeries={multiSeries}
+        processLabel={processLabel}
       />
       <ResourceChart
         title="RAM"
@@ -402,6 +408,7 @@ export function ServerResourceCharts({
         hostAvg={averages?.hostMemory}
         isLoading={isLoading}
         multiSeries={multiSeries}
+        processLabel={processLabel}
       />
     </>
   );

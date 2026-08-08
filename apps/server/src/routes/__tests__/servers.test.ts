@@ -1035,15 +1035,30 @@ describe('Server Routes', () => {
       expect(response.statusCode).toBe(404);
     });
 
-    it('returns empty series for non-Plex server without calling the stats service', async () => {
+    it('serves non-Plex servers through the stats service (plugin buffer path)', async () => {
       const jellyfinServer = {
         ...mockServer,
         type: 'jellyfin' as const,
+      };
+      const point = {
+        at: 100,
+        timespan: 6,
+        hostCpuUtilization: 1,
+        processCpuUtilization: 2,
+        hostMemoryUtilization: 3,
+        processMemoryUtilization: 4,
       };
 
       app = await buildTestApp(ownerUser);
       mockDbSelectLimit([jellyfinServer]);
       vi.mocked(getServerLiveStats).mockClear();
+      vi.mocked(getServerLiveStats).mockResolvedValue({
+        statistics: [point],
+        bandwidth: [],
+        bandwidthSamples: [],
+        bandwidthAccounts: [],
+        bandwidthDevices: [],
+      });
 
       const response = await app.inject({
         method: 'GET',
@@ -1053,10 +1068,12 @@ describe('Server Routes', () => {
       expect(response.statusCode).toBe(200);
       const body = response.json();
       expect(body.serverId).toBe(jellyfinServer.id);
-      expect(body.statistics).toEqual([]);
+      expect(body.statistics).toEqual([point]);
       expect(body.bandwidth).toEqual([]);
-      expect(body.bandwidthSamples).toEqual([]);
-      expect(getServerLiveStats).not.toHaveBeenCalled();
+      expect(getServerLiveStats).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({ id: jellyfinServer.id, type: 'jellyfin' })
+      );
     });
 
     it('returns 400 for invalid server ID', async () => {

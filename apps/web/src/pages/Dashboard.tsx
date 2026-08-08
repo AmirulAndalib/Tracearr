@@ -50,8 +50,10 @@ export function Dashboard() {
     );
   }, [sessions, selectedServers]);
 
-  // Single Plex server keeps the full process/system + local/remote split
-  const showServerResources = !isMultiServer && selectedServers[0]?.type === 'plex';
+  // Single-server view: Plex always shows the section; Jellyfin/Emby show it
+  // once the SSE plugin's server.stats samples start arriving
+  const singleServer = !isMultiServer ? selectedServers[0] : undefined;
+  const singleIsPlex = singleServer?.type === 'plex';
 
   // Multi-server view fans out to every selected server and overlays one
   // line per server that reports data. Servers without a stats source yet
@@ -70,13 +72,19 @@ export function Dashboard() {
     bandwidth: bandwidthStats,
     bandwidthAverages,
     isLoading: liveStatsLoading,
-  } = useServerLiveStats(selectedServerId ?? undefined, showServerResources, statsPollInterval);
+  } = useServerLiveStats(selectedServerId ?? undefined, !!singleServer, statsPollInterval);
 
-  // Poll only when a data source exists among the selection; today that means
-  // at least one Plex server. Widen alongside the SSE plugin stats ingestion.
+  const showServerResources = !!singleServer && (singleIsPlex || (serverStats?.length ?? 0) > 0);
+
+  // Plex measures bandwidth; Jellyfin/Emby have no source for it
+  const showBandwidthChart = singleIsPlex || isMultiServer;
+  const singleProcessLabel = singleServer
+    ? { plex: 'Plex Media Server', jellyfin: 'Jellyfin', emby: 'Emby' }[singleServer.type]
+    : undefined;
+
   const { series: multiLiveStats, isLoading: multiStatsLoading } = useMultiServerLiveStats(
     statsServerIds,
-    selectedServers.some((s) => s.type === 'plex'),
+    statsServerIds.length > 0,
     statsPollInterval
   );
 
@@ -257,21 +265,24 @@ export function Dashboard() {
             <Activity className="text-primary h-5 w-5" />
             <h2 className="text-lg font-semibold">{t('dashboard.serverResources')}</h2>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className={`grid gap-4 ${showBandwidthChart ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
             <ServerResourceCharts
               data={showServerResources ? serverStats : undefined}
               isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
               averages={showServerResources ? averages : undefined}
               multiSeries={showMultiServerResources ? resourceMultiSeries : undefined}
+              processLabel={singleProcessLabel}
             />
-            <ServerBandwidthChart
-              data={showServerResources ? bandwidthStats : undefined}
-              isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
-              averages={showServerResources ? bandwidthAverages : undefined}
-              pollInterval={statsPollInterval}
-              onPollIntervalChange={setStatsPollInterval}
-              multiSeries={showMultiServerResources ? bandwidthMultiSeries : undefined}
-            />
+            {showBandwidthChart && (
+              <ServerBandwidthChart
+                data={showServerResources ? bandwidthStats : undefined}
+                isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
+                averages={showServerResources ? bandwidthAverages : undefined}
+                pollInterval={statsPollInterval}
+                onPollIntervalChange={setStatsPollInterval}
+                multiSeries={showMultiServerResources ? bandwidthMultiSeries : undefined}
+              />
+            )}
           </div>
         </section>
       )}
