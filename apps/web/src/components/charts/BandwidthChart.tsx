@@ -58,6 +58,13 @@ function formatBitsPerSecond(bps: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
 }
 
+export interface BandwidthMultiSeries {
+  serverId: string;
+  serverName: string;
+  color: string;
+  data: ServerBandwidthDataPoint[];
+}
+
 interface ServerBandwidthChartProps {
   data: ServerBandwidthDataPoint[] | undefined;
   isLoading?: boolean;
@@ -67,6 +74,8 @@ interface ServerBandwidthChartProps {
   } | null;
   pollInterval: number;
   onPollIntervalChange: (interval: number) => void;
+  /** One total-throughput line per server; replaces the local/remote split */
+  multiSeries?: BandwidthMultiSeries[];
 }
 
 function PollIntervalSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -92,27 +101,77 @@ export function ServerBandwidthChart({
   averages,
   pollInterval,
   onPollIntervalChange,
+  multiSeries,
 }: ServerBandwidthChartProps) {
   const { t } = useTranslation(['pages']);
 
+  const isMulti = !!multiSeries && multiSeries.length > 0;
+  const hasData = isMulti ? multiSeries.some((s) => s.data.length > 0) : !!data && data.length > 0;
+
   const chartOptions = useMemo<Highcharts.Options>(() => {
-    if (!data || data.length === 0) {
+    if (!hasData) {
       return {};
     }
 
-    const localData: [number, number][] = [];
-    const remoteData: [number, number][] = [];
-
     // Use timestamp-based x positions so points stay fixed as new data arrives.
     // The newest point is at x=0 (NOW), older points at negative seconds.
-    const lastPoint = data[data.length - 1];
-    if (!lastPoint) return {};
-    const newestAt = lastPoint.at;
-    for (const point of data) {
-      const x = -(newestAt - point.at);
-      // Convert bytes to bits per second (bytes * 8 / timespan)
-      localData.push([x, (point.lanBytes * 8) / point.timespan]);
-      remoteData.push([x, (point.wanBytes * 8) / point.timespan]);
+    let series: Highcharts.SeriesOptionsType[];
+
+    if (isMulti) {
+      const newestAt = Math.max(...multiSeries.flatMap((s) => s.data.map((p) => p.at)));
+      series = multiSeries.map((s) => ({
+        type: 'line' as const,
+        name: s.serverName,
+        color: s.color,
+        data: s.data.map(
+          (p) =>
+            [-(newestAt - p.at), ((p.lanBytes + p.wanBytes) * 8) / p.timespan] as [number, number]
+        ),
+      }));
+    } else {
+      if (!data || data.length === 0) return {};
+
+      const localData: [number, number][] = [];
+      const remoteData: [number, number][] = [];
+
+      const lastPoint = data[data.length - 1];
+      if (!lastPoint) return {};
+      const newestAt = lastPoint.at;
+      for (const point of data) {
+        const x = -(newestAt - point.at);
+        // Convert bytes to bits per second (bytes * 8 / timespan)
+        localData.push([x, (point.lanBytes * 8) / point.timespan]);
+        remoteData.push([x, (point.wanBytes * 8) / point.timespan]);
+      }
+
+      series = [
+        {
+          type: 'area',
+          name: 'Local',
+          data: localData,
+          color: COLORS.local,
+          fillColor: {
+            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+            stops: [
+              [0, COLORS.localGradientStart],
+              [1, COLORS.localGradientEnd],
+            ],
+          },
+        },
+        {
+          type: 'area',
+          name: 'Remote',
+          data: remoteData,
+          color: COLORS.remote,
+          fillColor: {
+            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+            stops: [
+              [0, COLORS.remoteGradientStart],
+              [1, COLORS.remoteGradientEnd],
+            ],
+          },
+        },
+      ];
     }
 
     return {
@@ -165,15 +224,17 @@ export function ServerBandwidthChart({
         softMax: 1000, // 1 Kbps floor so the axis has labels when traffic is zero
       },
       plotOptions: {
-        area: {
+        series: {
           marker: {
             enabled: false,
             states: { hover: { enabled: true, radius: 3 } },
           },
           lineWidth: 1.5,
           states: { hover: { lineWidth: 2 } },
-          threshold: null,
           connectNulls: false,
+        },
+        area: {
+          threshold: null,
         },
       },
       tooltip: {
@@ -205,34 +266,7 @@ export function ServerBandwidthChart({
           return html;
         },
       },
-      series: [
-        {
-          type: 'area',
-          name: 'Local',
-          data: localData,
-          color: COLORS.local,
-          fillColor: {
-            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-            stops: [
-              [0, COLORS.localGradientStart],
-              [1, COLORS.localGradientEnd],
-            ],
-          },
-        },
-        {
-          type: 'area',
-          name: 'Remote',
-          data: remoteData,
-          color: COLORS.remote,
-          fillColor: {
-            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-            stops: [
-              [0, COLORS.remoteGradientStart],
-              [1, COLORS.remoteGradientEnd],
-            ],
-          },
-        },
-      ],
+      series,
       responsive: {
         rules: [
           {
@@ -245,7 +279,7 @@ export function ServerBandwidthChart({
         ],
       },
     };
-  }, [data]);
+  }, [data, multiSeries, isMulti, hasData]);
 
   // Convert byte averages to bits per second for display
   const avgLocalBps = averages ? averages.local * 8 : null;
@@ -272,7 +306,7 @@ export function ServerBandwidthChart({
     );
   }
 
-  if (!data || data.length === 0) {
+  if (!hasData) {
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -314,19 +348,39 @@ export function ServerBandwidthChart({
           updateArgs={[true, true, false]}
           containerProps={{ style: { width: '100%', height: '100%' } }}
         />
-        <div className="text-muted-foreground mt-1 flex justify-end gap-4 pr-2 text-xs">
-          <span>
-            <span style={{ color: COLORS.remote }}>{'\u25CF'}</span> Avg:{' '}
-            <span className="text-foreground font-medium">
-              {avgRemoteBps !== null ? formatBitsPerSecond(avgRemoteBps) : '\u2014'}
-            </span>
-          </span>
-          <span>
-            <span style={{ color: COLORS.local }}>{'\u25CF'}</span> Avg:{' '}
-            <span className="text-foreground font-medium">
-              {avgLocalBps !== null ? formatBitsPerSecond(avgLocalBps) : '\u2014'}
-            </span>
-          </span>
+        <div className="text-muted-foreground mt-1 flex flex-wrap justify-end gap-4 pr-2 text-xs">
+          {isMulti ? (
+            multiSeries.map((s) => (
+              <span key={s.serverId}>
+                <span style={{ color: s.color }}>{'\u25CF'}</span> Avg:{' '}
+                <span className="text-foreground font-medium">
+                  {s.data.length > 0
+                    ? formatBitsPerSecond(
+                        s.data.reduce(
+                          (sum, p) => sum + ((p.lanBytes + p.wanBytes) * 8) / p.timespan,
+                          0
+                        ) / s.data.length
+                      )
+                    : '\u2014'}
+                </span>
+              </span>
+            ))
+          ) : (
+            <>
+              <span>
+                <span style={{ color: COLORS.remote }}>{'\u25CF'}</span> Avg:{' '}
+                <span className="text-foreground font-medium">
+                  {avgRemoteBps !== null ? formatBitsPerSecond(avgRemoteBps) : '\u2014'}
+                </span>
+              </span>
+              <span>
+                <span style={{ color: COLORS.local }}>{'\u25CF'}</span> Avg:{' '}
+                <span className="text-foreground font-medium">
+                  {avgLocalBps !== null ? formatBitsPerSecond(avgLocalBps) : '\u2014'}
+                </span>
+              </span>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

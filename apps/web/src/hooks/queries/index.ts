@@ -98,6 +98,7 @@ export {
   useSyncServer,
   useUpdateServer,
   useServerLiveStats,
+  useMultiServerLiveStats,
   usePlexServerConnections,
   useReorderServers,
 } from './useServers';

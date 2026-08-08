@@ -29,6 +29,7 @@ vi.mock('@/hooks/queries/useServers', () => ({
     bandwidthAverages: null,
     isLoading: false,
   }),
+  useMultiServerLiveStats: () => ({ series: [], isLoading: false }),
 }));
 
 vi.mock('@/components/charts/ServerResourceCharts', () => ({

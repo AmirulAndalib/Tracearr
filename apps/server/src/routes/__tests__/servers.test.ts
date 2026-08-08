@@ -1035,7 +1035,7 @@ describe('Server Routes', () => {
       expect(response.statusCode).toBe(404);
     });
 
-    it('returns 400 for non-Plex server', async () => {
+    it('returns empty series for non-Plex server without calling the stats service', async () => {
       const jellyfinServer = {
         ...mockServer,
         type: 'jellyfin' as const,
@@ -1043,14 +1043,20 @@ describe('Server Routes', () => {
 
       app = await buildTestApp(ownerUser);
       mockDbSelectLimit([jellyfinServer]);
+      vi.mocked(getServerLiveStats).mockClear();
 
       const response = await app.inject({
         method: 'GET',
         url: `/servers/${jellyfinServer.id}/live-stats`,
       });
 
-      expect(response.statusCode).toBe(400);
-      expect(response.json().message).toContain('only available for Plex');
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.serverId).toBe(jellyfinServer.id);
+      expect(body.statistics).toEqual([]);
+      expect(body.bandwidth).toEqual([]);
+      expect(body.bandwidthSamples).toEqual([]);
+      expect(getServerLiveStats).not.toHaveBeenCalled();
     });
 
     it('returns 400 for invalid server ID', async () => {

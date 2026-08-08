@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play, Clock, AlertTriangle, Tv, MapPin, Calendar, Users, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,11 +11,11 @@ import { ServerBandwidthChart } from '@/components/charts/BandwidthChart';
 import { ErrorState } from '@/components/library/ErrorState';
 import { NowPlayingCardSkeleton } from '@/components/ui/skeleton';
 import { useDashboardStats, useActiveSessions } from '@/hooks/queries';
-import { useServerLiveStats } from '@/hooks/queries/useServers';
+import { useServerLiveStats, useMultiServerLiveStats } from '@/hooks/queries/useServers';
 import { useServer } from '@/hooks/useServer';
 import { useServerColorMap } from '@/hooks/useServerColorMap';
 import { useSocket } from '@/hooks/useSocket';
-import type { ActiveSession } from '@tracearr/shared';
+import { pickServerColor, type ActiveSession } from '@tracearr/shared';
 
 export function Dashboard() {
   const { t } = useTranslation(['pages', 'common']);
@@ -50,11 +50,19 @@ export function Dashboard() {
     );
   }, [sessions, selectedServers]);
 
-  // Only show server resource stats for a single Plex server
+  // Single Plex server keeps the full process/system + local/remote split
   const showServerResources = !isMultiServer && selectedServers[0]?.type === 'plex';
 
-  // Poll live server stats only when viewing a single Plex server; the
-  // interval selector on the bandwidth chart governs the shared cadence
+  // Multi-server view fans out to every selected server and overlays one
+  // line per server that reports data. Servers without a stats source yet
+  // (Jellyfin/Emby until the SSE plugin samples them) return empty series
+  // and simply contribute no line.
+  const statsServerIds = useMemo(
+    () => (isMultiServer ? selectedServers.map((s) => s.id) : []),
+    [isMultiServer, selectedServers]
+  );
+
+  // The interval selector on the bandwidth chart governs the shared cadence
   const [statsPollInterval, setStatsPollInterval] = useState(6);
   const {
     statistics: serverStats,
@@ -63,6 +71,57 @@ export function Dashboard() {
     bandwidthAverages,
     isLoading: liveStatsLoading,
   } = useServerLiveStats(selectedServerId ?? undefined, showServerResources, statsPollInterval);
+
+  // Poll only when a data source exists among the selection; today that means
+  // at least one Plex server. Widen alongside the SSE plugin stats ingestion.
+  const { series: multiLiveStats, isLoading: multiStatsLoading } = useMultiServerLiveStats(
+    statsServerIds,
+    selectedServers.some((s) => s.type === 'plex'),
+    statsPollInterval
+  );
+
+  const hasAnyMultiData = multiLiveStats.some(
+    (s) => s.statistics.length > 0 || s.bandwidth.length > 0
+  );
+  const showMultiServerResources =
+    isMultiServer && (hasAnyMultiData || selectedServers.some((s) => s.type === 'plex'));
+
+  const seriesMeta = useCallback(
+    (serverId: string) => {
+      const server = selectedServers.find((p) => p.id === serverId);
+      return {
+        serverId,
+        serverName: server?.name ?? serverId,
+        color:
+          serverColorMap.get(serverId) ??
+          pickServerColor(
+            server?.type ?? 'plex',
+            selectedServers.map((p) => p.color)
+          ),
+      };
+    },
+    [selectedServers, serverColorMap]
+  );
+
+  const resourceMultiSeries = useMemo(
+    () =>
+      showMultiServerResources
+        ? multiLiveStats
+            .filter((s) => s.statistics.length > 0)
+            .map((s) => ({ ...seriesMeta(s.serverId), data: s.statistics }))
+        : undefined,
+    [showMultiServerResources, multiLiveStats, seriesMeta]
+  );
+
+  const bandwidthMultiSeries = useMemo(
+    () =>
+      showMultiServerResources
+        ? multiLiveStats
+            .filter((s) => s.bandwidth.length > 0)
+            .map((s) => ({ ...seriesMeta(s.serverId), data: s.bandwidth }))
+        : undefined,
+    [showMultiServerResources, multiLiveStats, seriesMeta]
+  );
 
   const activeCount = sessions?.length ?? 0;
   const hasActiveStreams = activeCount > 0;
@@ -191,8 +250,8 @@ export function Dashboard() {
         </section>
       )}
 
-      {/* Server Resource Stats (single Plex server only) */}
-      {showServerResources && (
+      {/* Server Resource Stats (single server, or per-server overlay lines) */}
+      {(showServerResources || showMultiServerResources) && (
         <section>
           <div className="mb-4 flex items-center gap-2">
             <Activity className="text-primary h-5 w-5" />
@@ -200,16 +259,18 @@ export function Dashboard() {
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <ServerResourceCharts
-              data={serverStats}
-              isLoading={liveStatsLoading}
-              averages={averages}
+              data={showServerResources ? serverStats : undefined}
+              isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
+              averages={showServerResources ? averages : undefined}
+              multiSeries={showMultiServerResources ? resourceMultiSeries : undefined}
             />
             <ServerBandwidthChart
-              data={bandwidthStats}
-              isLoading={liveStatsLoading}
-              averages={bandwidthAverages}
+              data={showServerResources ? bandwidthStats : undefined}
+              isLoading={showServerResources ? liveStatsLoading : multiStatsLoading}
+              averages={showServerResources ? bandwidthAverages : undefined}
               pollInterval={statsPollInterval}
               onPollIntervalChange={setStatsPollInterval}
+              multiSeries={showMultiServerResources ? bandwidthMultiSeries : undefined}
             />
           </div>
         </section>

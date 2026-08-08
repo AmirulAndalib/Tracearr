@@ -9,6 +9,7 @@ import {
 } from '@tracearr/shared';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { useMultiServerQuery } from '@/hooks/useMultiServerQuery';
 import { useRef, useCallback, useEffect } from 'react';
 
 export function useServers() {
@@ -355,4 +356,82 @@ export function useServerLiveStats(
     bandwidthAccounts: query.data?.bandwidthAccounts,
     bandwidthDevices: query.data?.bandwidthDevices,
   };
+}
+
+export interface ServerLiveStatsSeries {
+  serverId: string;
+  statistics: ServerResourceDataPoint[];
+  bandwidth: ServerBandwidthDataPoint[];
+}
+
+/**
+ * Live stats for several servers at once, one query per server sharing the
+ * single-server cache keys. Each server accumulates its own rolling window.
+ *
+ * @param serverIds - Servers to poll (Plex only; others return 400 and are
+ *   surfaced as empty series)
+ * @param enabled - Whether polling is enabled
+ * @param pollIntervalSeconds - Shared poll cadence for all servers
+ */
+export function useMultiServerLiveStats(
+  serverIds: string[],
+  enabled: boolean = true,
+  pollIntervalSeconds: number = BANDWIDTH_STATS_CONFIG.POLL_INTERVAL_SECONDS
+) {
+  const statsWindowsRef = useRef(
+    new Map<string, { current: Map<number, ServerResourceDataPoint> }>()
+  );
+  const bandwidthWindowsRef = useRef(
+    new Map<string, { current: Map<number, ServerBandwidthDataPoint> }>()
+  );
+
+  const windowFor = useCallback(function <T>(
+    store: Map<string, { current: Map<number, T> }>,
+    serverId: string
+  ): { current: Map<number, T> } {
+    let ref = store.get(serverId);
+    if (!ref) {
+      ref = { current: new Map<number, T>() };
+      store.set(serverId, ref);
+    }
+    return ref;
+  }, []);
+
+  const { byServer, isLoading } = useMultiServerQuery<
+    Awaited<ReturnType<typeof api.servers.liveStats>>
+  >(enabled ? serverIds : [], (serverId) => ({
+    queryKey: ['servers', 'live-stats', serverId],
+    queryFn: async () => {
+      const response = await api.servers.liveStats(serverId);
+      return {
+        ...response,
+        statistics: mergeWindow(
+          windowFor(statsWindowsRef.current, serverId),
+          response.statistics,
+          SERVER_STATS_CONFIG.DATA_POINTS
+        ),
+        bandwidth: mergeWindow(
+          windowFor(bandwidthWindowsRef.current, serverId),
+          response.bandwidth,
+          BANDWIDTH_STATS_CONFIG.DATA_POINTS
+        ),
+      };
+    },
+    refetchInterval: pollIntervalSeconds * 1000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+    staleTime: pollIntervalSeconds * 1000 - 500,
+  }));
+
+  const series: ServerLiveStatsSeries[] = serverIds.map((serverId) => {
+    const result = byServer.get(serverId);
+    return {
+      serverId,
+      statistics: result?.data?.statistics ?? [],
+      bandwidth: result?.data?.bandwidth ?? [],
+    };
+  });
+
+  return { series, isLoading };
 }
