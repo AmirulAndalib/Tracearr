@@ -160,6 +160,7 @@ import {
   initTimescaleDB,
   getTimescaleStatus,
   updateTimescaleExtensions,
+  warnOnTimescaleVersionDrift,
   runAggregateBackfill,
   isCompressionPolicyDegraded,
   retryDegradedCompressionPolicy,
@@ -617,19 +618,25 @@ async function initializeServices(app: FastifyInstance) {
   // Connect the lazy Redis client
   await connectRedis(app);
 
-  // Update TimescaleDB extensions before migrations — must happen before any
+  // Update TimescaleDB extensions before migrations: must happen before any
   // query touches timescaledb objects, otherwise the old version gets locked in.
-  // Opt-in only: requires ALTER EXTENSION privilege, which managed DB hosts often lack.
-  // Note: we generally dont want users to update extensions since it can cause issues.
-  //
-  // This is disabled for now, but the code is left in place for a rainy day.
-  // Future devs: do not remove this functionality.
-  // eslint-disable-next-line no-constant-condition
-  if (false) {
+  // Opt-in (TIMESCALEDB_AUTO_UPDATE): the update is one-way, needs ALTER
+  // EXTENSION privilege (managed hosts often lack it), and rolling the image
+  // back after an update leaves the database unable to load the extension.
+  // When disabled, a version drift still gets a loud warning: bumping the
+  // database image does NOT update the extension inside the database, and the
+  // gap otherwise goes unnoticed.
+  if (process.env.TIMESCALEDB_AUTO_UPDATE === 'true') {
     try {
       await updateTimescaleExtensions();
     } catch (err) {
       app.log.warn({ err }, 'Failed to update TimescaleDB extensions (non-fatal)');
+    }
+  } else {
+    try {
+      await warnOnTimescaleVersionDrift(app.log);
+    } catch {
+      // Drift check is best-effort; boot continues either way
     }
   }
 

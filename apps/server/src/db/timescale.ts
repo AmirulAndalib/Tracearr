@@ -1806,6 +1806,36 @@ export async function getTimescaleStatus(): Promise<TimescaleStatus> {
 }
 
 /**
+ * Warn when the database image ships a newer extension than the one the
+ * database is running. Swapping the image alone never updates the extension,
+ * so without this the drift is invisible until something breaks.
+ */
+export async function warnOnTimescaleVersionDrift(log: {
+  warn: (msg: string) => void;
+}): Promise<void> {
+  const result = await db.execute(sql`
+    SELECT name, installed_version, default_version
+    FROM pg_available_extensions
+    WHERE name IN ('timescaledb', 'timescaledb_toolkit')
+      AND installed_version IS NOT NULL
+      AND installed_version != default_version
+  `);
+
+  for (const row of result.rows as {
+    name: string;
+    installed_version: string;
+    default_version: string;
+  }[]) {
+    log.warn(
+      `TimescaleDB extension "${row.name}" is at ${row.installed_version} but the database ` +
+        `image ships ${row.default_version}. Set TIMESCALEDB_AUTO_UPDATE=true to let Tracearr ` +
+        `update it at boot, or run as the extension owner: ` +
+        `psql -X -d <database> -c 'ALTER EXTENSION ${row.name} UPDATE'`
+    );
+  }
+}
+
+/**
  * Update TimescaleDB extensions to the latest version available on the system.
  *
  * MUST run before migrations or any queries that touch timescaledb objects
