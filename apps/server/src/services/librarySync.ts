@@ -1992,6 +1992,27 @@ export class LibrarySyncService {
   }
 
   /**
+   * Whether an active (non-tombstoned) item with this rating key exists for
+   * the server. Point lookup on the (server_id, rating_key) unique index -
+   * used by the event path to tell a genuine add from a metadata refresh of
+   * an item Tracearr already tracks.
+   */
+  async hasActiveItemByRatingKey(serverId: string, ratingKey: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: libraryItems.id })
+      .from(libraryItems)
+      .where(
+        and(
+          eq(libraryItems.serverId, serverId),
+          eq(libraryItems.ratingKey, ratingKey),
+          isNull(libraryItems.removedAt)
+        )
+      )
+      .limit(1);
+    return row !== undefined;
+  }
+
+  /**
    * Tombstone items by server + rating key alone (no libraryId needed - real-time
    * removal events arrive with only an item id). Self-healing: if the guess is
    * wrong, the next sync's upsert clears removed_at for any item the server

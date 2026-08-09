@@ -1957,6 +1957,7 @@ export type RunningTaskType =
   | 'tautulli_import'
   | 'jellystat_import'
   | 'playback_reporting_import'
+  | 'image_precache'
   | 'maintenance';
 
 export interface RunningTask {

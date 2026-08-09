@@ -242,8 +242,8 @@ async function refreshTimescaleCache(): Promise<void> {
       compression: tsStatus.compressionEnabled,
       aggregates: tsStatus.continuousAggregates.length,
       chunks: tsStatus.chunkCount,
-      // Not folded into getTimescaleStatus()'s 5-minute cache - this needs to
-      // reflect the degraded flag promptly so it retries and surfaces quickly.
+      // Locally-marked degradation surfaces instantly (in-process hint);
+      // another instance's flag surfaces within the check's own short TTL.
       compressionDegraded: await isCompressionPolicyDegraded(),
     };
   } catch {

@@ -911,7 +911,25 @@ async function enableCompression(): Promise<void> {
 
 const COMPRESSION_POLICY_DEGRADED_KEY = 'sessions_compression_policy_degraded';
 
+// The persisted flag in timescale_metadata stays the source of truth (it
+// survives restarts and spans instances), but the health interval reads it
+// every 10s and the healthy answer never changes on its own. Cache the
+// healthy answer briefly; a local mark bypasses the cache entirely so the
+// instance that broke the policy retries every tick until healed. The only
+// cost is cross-instance heal latency moving from 10s to the TTL, against a
+// compression job that fires every 12 hours.
+const DEGRADED_CHECK_TTL_MS = 10 * 60 * 1000;
+let degradedLocalHint = false;
+let degradedCache: { value: boolean; checkedAt: number } | null = null;
+
+export function _resetDegradedCacheForTests(): void {
+  degradedLocalHint = false;
+  degradedCache = null;
+}
+
 async function markCompressionPolicyDegraded(reason: string): Promise<void> {
+  degradedLocalHint = true;
+  degradedCache = null;
   try {
     await ensureMetadataTable();
     await db.execute(sql`
@@ -925,6 +943,8 @@ async function markCompressionPolicyDegraded(reason: string): Promise<void> {
 }
 
 async function clearCompressionPolicyDegraded(): Promise<void> {
+  degradedLocalHint = false;
+  degradedCache = { value: false, checkedAt: Date.now() };
   try {
     await db.execute(
       sql`DELETE FROM timescale_metadata WHERE key = ${COMPRESSION_POLICY_DEGRADED_KEY}`
@@ -937,15 +957,23 @@ async function clearCompressionPolicyDegraded(): Promise<void> {
 /**
  * Whether a previous restore of the sessions compression policy failed and
  * hasn't self-healed yet. Persisted (not in-memory) so it survives a restart
- * and stays visible to every instance in a multi-instance deployment.
+ * and stays visible to every instance in a multi-instance deployment; the
+ * healthy answer is cached in-process for DEGRADED_CHECK_TTL_MS so the
+ * 10-second health interval doesn't re-ask the database.
  */
 export async function isCompressionPolicyDegraded(): Promise<boolean> {
+  if (degradedLocalHint) return true;
+  if (degradedCache && Date.now() - degradedCache.checkedAt < DEGRADED_CHECK_TTL_MS) {
+    return degradedCache.value;
+  }
   try {
     await ensureMetadataTable();
     const result = await db.execute(
       sql`SELECT 1 FROM timescale_metadata WHERE key = ${COMPRESSION_POLICY_DEGRADED_KEY}`
     );
-    return result.rows.length > 0;
+    const value = result.rows.length > 0;
+    degradedCache = { value, checkedAt: Date.now() };
+    return value;
   } catch {
     return false;
   }

@@ -8,6 +8,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { RunningTask } from '@tracearr/shared';
 import { getAllActiveImports, getActiveImportProgress } from '../jobs/importQueue.js';
+import { getAllActiveImagePrecacheJobs } from '../jobs/imagePrecacheQueue.js';
 import { getAllActiveLibrarySyncs } from '../jobs/librarySyncQueue.js';
 import { getMaintenanceProgress, getAllActiveMaintenanceJobs } from '../jobs/maintenanceQueue.js';
 import { db } from '../db/client.js';
@@ -139,6 +140,30 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
           : new Date(imp.createdAt).toISOString(),
         context: serverName,
         waitingFor,
+      });
+    }
+
+    // Image precache passes - one chained job per server carries cumulative
+    // pass progress in its data
+    const precacheJobs = await getAllActiveImagePrecacheJobs();
+    for (const precache of precacheJobs) {
+      const serverName = await getServerName(precache.serverId);
+      const progress =
+        precache.totalItems && precache.totalItems > 0
+          ? Math.min(100, Math.round((precache.processedItems / precache.totalItems) * 100))
+          : null;
+      tasks.push({
+        id: precache.jobId,
+        type: 'image_precache',
+        name: 'Image Precache',
+        status: precache.state === 'active' ? 'running' : 'pending',
+        progress,
+        message:
+          precache.totalItems && precache.totalItems > 0
+            ? `Caching posters ${precache.processedItems}/${precache.totalItems}...`
+            : 'Preparing poster cache...',
+        startedAt: precache.passStartedAt ?? new Date(precache.createdAt).toISOString(),
+        context: serverName,
       });
     }
 
