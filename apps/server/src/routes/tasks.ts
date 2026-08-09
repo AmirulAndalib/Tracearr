@@ -69,7 +69,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
 
     for (const imp of imports) {
       const serverName = await getServerName(imp.serverId);
-      const importType = imp.type === 'tautulli' ? 'Tautulli' : 'Jellystat';
+      const importType =
+        imp.type === 'tautulli'
+          ? 'Tautulli'
+          : imp.type === 'jellystat'
+            ? 'Jellystat'
+            : 'Playback Reporting';
 
       // Use cached progress if available for this job (has more detail than BullMQ progress)
       const isCachedJob = cachedImportProgress?.jobId === imp.jobId;
@@ -119,7 +124,12 @@ export const tasksRoutes: FastifyPluginAsync = async (app) => {
 
       tasks.push({
         id: imp.jobId,
-        type: imp.type === 'tautulli' ? 'tautulli_import' : 'jellystat_import',
+        type:
+          imp.type === 'tautulli'
+            ? 'tautulli_import'
+            : imp.type === 'jellystat'
+              ? 'jellystat_import'
+              : 'playback_reporting_import',
         name: `${importType} Import`,
         status: importStatus,
         progress: progressPct,

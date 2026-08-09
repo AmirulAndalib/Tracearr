@@ -120,6 +120,9 @@ export type {
   // Jellystat import
   JellystatImportProgress,
   JellystatImportResult,
+  // Playback Reporting import
+  PlaybackReportingImportProgress,
+  PlaybackReportingImportResult,
   // Library sync
   LibrarySyncProgress,
   // Heavy ops coordination
@@ -399,6 +402,9 @@ export {
   jellystatBackupSchema,
   jellystatImportBodySchema,
   importJobStatusSchema,
+  // Playback Reporting import
+  playbackReportingImportSchema,
+  playbackReportingTestSchema,
   // Engagement tracking
   engagementTierSchema,
   userBehaviorTypeSchema,

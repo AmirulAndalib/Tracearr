@@ -1240,6 +1240,54 @@ export interface JellystatImportResult {
   }[];
 }
 
+// Playback Reporting plugin import types
+export interface PlaybackReportingImportProgress {
+  status:
+    | 'idle'
+    | 'waiting'
+    | 'detecting'
+    | 'fetching'
+    | 'enriching'
+    | 'processing'
+    | 'complete'
+    | 'error';
+  totalRecords: number;
+  fetchedRecords: number;
+  processedRecords: number;
+  importedRecords: number;
+  skippedRecords: number;
+  /** Skipped: row already imported (pr- namespace) or already present via a Jellystat import (raw rowid namespace) */
+  duplicateRecords: number;
+  /** Skipped: user not found in Tracearr (sync server first) */
+  unknownUserRecords: number;
+  /** Skipped: row falls inside the span Tracearr already tracks for this server */
+  overlapRecords: number;
+  /** Skipped: theme songs, trailers, etc. */
+  filteredRecords: number;
+  errorRecords: number;
+  enrichedRecords: number;
+  message: string;
+  /** Present when status='waiting' - what this job is waiting for */
+  waitingFor?: HeavyOpsWaitingFor;
+}
+
+export interface PlaybackReportingImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  duplicates: number;
+  overlap: number;
+  filtered: number;
+  errors: number;
+  enriched: number;
+  message: string;
+  skippedUsers?: {
+    userId: string;
+    username: string | null;
+    recordCount: number;
+  }[];
+}
+
 // Library sync progress types
 export interface LibrarySyncProgress {
   serverId: string;
@@ -1266,6 +1314,7 @@ export interface ServerToClientEvents {
   'stats:updated': (stats: DashboardStats) => void;
   'import:progress': (progress: TautulliImportProgress) => void;
   'import:jellystat:progress': (progress: JellystatImportProgress) => void;
+  'import:playbackreporting:progress': (progress: PlaybackReportingImportProgress) => void;
   'maintenance:progress': (progress: MaintenanceJobProgress) => void;
   'library:sync:progress': (progress: LibrarySyncProgress) => void;
   'tasks:updated': (tasks: RunningTask[]) => void;
@@ -1904,7 +1953,11 @@ export interface MaintenanceJobResult {
 // =============================================================================
 
 export type RunningTaskType =
-  'library_sync' | 'tautulli_import' | 'jellystat_import' | 'maintenance';
+  | 'library_sync'
+  | 'tautulli_import'
+  | 'jellystat_import'
+  | 'playback_reporting_import'
+  | 'maintenance';
 
 export interface RunningTask {
   /** Unique task identifier */

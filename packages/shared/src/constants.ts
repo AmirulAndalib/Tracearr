@@ -85,6 +85,7 @@ export const WS_EVENTS = {
   STATS_UPDATED: 'stats:updated',
   IMPORT_PROGRESS: 'import:progress',
   IMPORT_JELLYSTAT_PROGRESS: 'import:jellystat:progress',
+  IMPORT_PLAYBACK_REPORTING_PROGRESS: 'import:playbackreporting:progress',
   MAINTENANCE_PROGRESS: 'maintenance:progress',
   /** Library sync progress updates */
   LIBRARY_SYNC_PROGRESS: 'library:sync:progress',

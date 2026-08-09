@@ -39,6 +39,7 @@ import type {
   DashboardStats,
   TautulliImportProgress,
   JellystatImportProgress,
+  PlaybackReportingImportProgress,
   MaintenanceJobProgress,
   LibrarySyncProgress,
 } from '@tracearr/shared';
@@ -1092,6 +1093,12 @@ async function initializePostListen(app: FastifyInstance) {
           break;
         case WS_EVENTS.IMPORT_JELLYSTAT_PROGRESS:
           broadcastToSessions('import:jellystat:progress', data as JellystatImportProgress);
+          break;
+        case WS_EVENTS.IMPORT_PLAYBACK_REPORTING_PROGRESS:
+          broadcastToSessions(
+            'import:playbackreporting:progress',
+            data as PlaybackReportingImportProgress
+          );
           break;
         case WS_EVENTS.MAINTENANCE_PROGRESS:
           broadcastToSessions('maintenance:progress', data as MaintenanceJobProgress);
