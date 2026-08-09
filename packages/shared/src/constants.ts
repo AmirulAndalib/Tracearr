@@ -257,8 +257,10 @@ export const REDIS_KEYS = {
     `${_redisPrefix}tracearr:library:sync:last:${serverId}:${libraryId}`,
   LIBRARY_SYNC_COUNT: (serverId: string, libraryId: string) =>
     `${_redisPrefix}tracearr:library:sync:count:${serverId}:${libraryId}`,
-  LIBRARY_SYNC_CYCLE: (serverId: string, libraryId: string) =>
-    `${_redisPrefix}tracearr:library:sync:cycle:${serverId}:${libraryId}`,
+  // Timestamp of the last completed full scan - the periodic full-scan safety
+  // net is time-based so event-sync bursts can't drag it forward
+  LIBRARY_SYNC_FULL_SCAN_AT: (serverId: string, libraryId: string) =>
+    `${_redisPrefix}tracearr:library:sync:fullscan:${serverId}:${libraryId}`,
   // Accepted structural shortfall from the last full scan - see COUNT_MISMATCH_* in librarySync.ts
   LIBRARY_SYNC_SHORTFALL: (serverId: string, libraryId: string) =>
     `${_redisPrefix}tracearr:library:sync:shortfall:${serverId}:${libraryId}`,

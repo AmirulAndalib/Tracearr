@@ -741,12 +741,9 @@ async function createPartialIndexes(): Promise<void> {
     WHERE acknowledged_at IS NULL
   `);
 
-  // Partial index for active/playing sessions
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_sessions_active_partial
-    ON sessions (server_id, server_user_id, started_at DESC)
-    WHERE state = 'playing'
-  `);
+  // idx_sessions_active_partial removed - live "now playing" reads come from the
+  // Redis cache, and the one matching query (violations detail) plans onto the
+  // server_user time index instead
 
   // Partial index for the stale-session sweep: open rows only, so the
   // sweep's lastSeenAt filter never seq-scans the current 30-day chunk
@@ -791,11 +788,9 @@ async function createPartialIndexes(): Promise<void> {
  * Time-prefixed indexes enable efficient time-filtered aggregations
  */
 async function createContentIndexes(): Promise<void> {
-  // Time-prefixed index for media title queries
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_sessions_media_time
-    ON sessions (started_at DESC, media_type, media_title)
-  `);
+  // idx_sessions_media_time removed - idx_sessions_top_content_covering leads with
+  // the same started_at DESC and carries media_title/media_type, so it serves the
+  // same time-range shapes
 
   // Time-prefixed index for show/episode queries (excludes NULLs)
   await db.execute(sql`
@@ -2164,7 +2159,7 @@ export async function initTimescaleDB(): Promise<{
   // Create partial indexes for optimized filtered queries
   try {
     await createPartialIndexes();
-    actions.push('Created partial indexes (geo, violations, active, transcode)');
+    actions.push('Created partial indexes (geo, violations, open-session, transcode)');
   } catch (err) {
     console.warn('Failed to create some partial indexes:', err);
     actions.push('Partial indexes: some may already exist');
