@@ -64,15 +64,14 @@ export function Dashboard() {
     [isMultiServer, selectedServers]
   );
 
-  // The interval selector on the bandwidth chart governs the shared cadence
-  const [statsPollInterval, setStatsPollInterval] = useState(6);
   const {
     statistics: serverStats,
     statisticsAverages: averages,
     bandwidth: bandwidthStats,
     bandwidthAverages,
+    clockSkewMs: singleClockSkewMs,
     isLoading: liveStatsLoading,
-  } = useServerLiveStats(selectedServerId ?? undefined, !!singleServer, statsPollInterval);
+  } = useServerLiveStats(selectedServerId ?? undefined, !!singleServer);
 
   const showServerResources = !!singleServer && (singleIsPlex || (serverStats?.length ?? 0) > 0);
 
@@ -83,11 +82,13 @@ export function Dashboard() {
     ? { plex: 'Plex Media Server', jellyfin: 'Jellyfin', emby: 'Emby' }[singleServer.type]
     : undefined;
 
-  const { series: multiLiveStats, isLoading: multiStatsLoading } = useMultiServerLiveStats(
-    statsServerIds,
-    statsServerIds.length > 0,
-    statsPollInterval
-  );
+  const {
+    series: multiLiveStats,
+    clockSkewMs: multiClockSkewMs,
+    isLoading: multiStatsLoading,
+  } = useMultiServerLiveStats(statsServerIds, statsServerIds.length > 0);
+
+  const clockSkewMs = showServerResources ? singleClockSkewMs : multiClockSkewMs;
 
   const hasAnyMultiData = multiLiveStats.some(
     (s) => s.statistics.length > 0 || s.bandwidth.length > 0
@@ -275,6 +276,7 @@ export function Dashboard() {
               averages={showServerResources ? averages : undefined}
               multiSeries={showMultiServerResources ? resourceMultiSeries : undefined}
               processLabel={singleProcessLabel}
+              clockSkewMs={clockSkewMs}
             />
             {showBandwidthChart && (
               <ServerBandwidthChart
@@ -283,9 +285,8 @@ export function Dashboard() {
                   showServerResources ? liveStatsLoading : multiStatsLoading && !hasAnyMultiData
                 }
                 averages={showServerResources ? bandwidthAverages : undefined}
-                pollInterval={statsPollInterval}
-                onPollIntervalChange={setStatsPollInterval}
                 multiSeries={showMultiServerResources ? bandwidthMultiSeries : undefined}
+                clockSkewMs={clockSkewMs}
               />
             )}
           </div>

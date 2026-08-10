@@ -325,9 +325,9 @@ export const CACHE_TTL = {
   SERVER_HEALTH: 600, // 10 minutes - servers marked unhealthy if no update
   SERVER_CONNECTION: 600, // 10 minutes - live runtime state, not persisted to DB
   // Live stats micro-cache: collapses concurrent dashboard viewers into one
-  // Plex call per tick. Bandwidth TTL must stay under the fastest poll
-  // option (1s) or that chart setting stops meaning anything.
-  SERVER_STATS_RESOURCES: 5,
+  // Plex call per tick. Each stays under its endpoint's sample spacing so a
+  // tick can't serve an entry that already missed a sample.
+  SERVER_STATS_RESOURCES: 4,
   SERVER_STATS_BANDWIDTH: 1,
   LOCATION_FILTERS: 300, // 5 minutes - filter options change infrequently
   VERSION_CHECK: 21600, // 6 hours - version check interval
@@ -847,30 +847,41 @@ export const TIME_MS = {
 } as const;
 
 // Server resource statistics configuration (CPU, RAM)
-// Used with Plex's undocumented /statistics/resources endpoint
+// Used with Plex's undocumented /statistics/resources endpoint.
+//
+// Plex samples every 5s, not the 6 its per-point `timespan` field implies.
+// The timer free-runs and drifts, so timestamps land on no fixed grid.
 export const SERVER_STATS_CONFIG = {
-  // Poll interval in seconds (how often we fetch new data)
-  POLL_INTERVAL_SECONDS: 6,
-  // Timespan parameter for Plex API (MUST be 6 - other values return empty!)
-  TIMESPAN_SECONDS: 6,
-  // Fixed 2-minute window (20 data points at 6s intervals)
+  // Granularity enum, not seconds (days=3, hours=4, seconds=6).
+  // Resources answers only 6; bandwidth also answers 0-4 for rollups.
+  TIMESPAN_PARAM: 6,
+  POLL_INTERVAL_SECONDS: 5,
   WINDOW_SECONDS: 120,
-  // Data points to display (2 min / 6s = 20 points)
-  DATA_POINTS: 20,
+  // Charts hold their right edge this far behind real time so the newest
+  // region is always populated. Sized to the slowest source, the 6s plugin.
+  NOW_DELAY_SECONDS: 6,
+  // Memory cap, not a window - charts bound themselves by time
+  MAX_POINTS: 32,
+  // Break the line rather than bridge dead air: 3 Plex samples, 2 plugin ones
+  GAP_BREAK_SECONDS: 15,
 } as const;
 
-// Server bandwidth statistics configuration (Local/Remote)
-// Used with Plex's undocumented /statistics/bandwidth endpoint
-// Data arrives per-second from Plex, displayed at 1-second granularity
+/**
+ * How far back live-stats points are kept: the visible window, plus the delay
+ * the chart holds its right edge by, plus slack. Retaining only the window
+ * drops points while they are still inside the left wall.
+ */
+export function liveStatsRetentionSeconds(windowSeconds: number): number {
+  return windowSeconds + SERVER_STATS_CONFIG.NOW_DELAY_SECONDS + 10;
+}
+
+// Plex-only; Jellyfin and Emby expose no server-wide byte counter.
+// Rows are per-second and sparse - an absent second moved no bytes, so a
+// point count is not a time window.
 export const BANDWIDTH_STATS_CONFIG = {
-  // Poll interval in seconds (how often we fetch new data)
-  POLL_INTERVAL_SECONDS: 6,
-  // Timespan parameter for Plex API
-  TIMESPAN_SECONDS: 6,
-  // Fixed 2-minute window (120 data points at 1s intervals)
+  TIMESPAN_PARAM: 6,
   WINDOW_SECONDS: 120,
-  // Data points to display (2 min * 1/s = 120 points)
-  DATA_POINTS: 120,
+  MAX_POINTS: 150,
 } as const;
 
 // Sentinel returned by the merge API when combining server users on the same
