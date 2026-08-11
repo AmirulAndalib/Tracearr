@@ -22,6 +22,7 @@ import { sseManager } from '../services/sseManager.js';
 import { getCacheService } from '../services/cache.js';
 import { enqueueLibrarySync } from '../jobs/librarySyncQueue.js';
 import { invalidateServersCache } from '../jobs/poller/database.js';
+import { buildServerAccessCondition } from '../utils/serverFiltering.js';
 
 export const serverRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -45,13 +46,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         updatedAt: servers.updatedAt,
       })
       .from(servers)
-      .where(
-        authUser.role === 'owner'
-          ? undefined // Owners see all servers
-          : authUser.serverIds.length > 0
-            ? inArray(servers.id, authUser.serverIds)
-            : undefined // No serverIds = no access (will return empty)
-      )
+      .where(buildServerAccessCondition(authUser, servers.id))
       .orderBy(asc(servers.displayOrder));
 
     // Backfill colors for any servers missing them
@@ -698,13 +693,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         name: servers.name,
       })
       .from(servers)
-      .where(
-        authUser.role === 'owner'
-          ? undefined
-          : authUser.serverIds.length > 0
-            ? inArray(servers.id, authUser.serverIds)
-            : undefined
-      );
+      .where(buildServerAccessCondition(authUser, servers.id));
 
     const cacheService = getCacheService();
     const unhealthyServers: { serverId: string; serverName: string }[] = [];
@@ -740,13 +729,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         type: servers.type,
       })
       .from(servers)
-      .where(
-        authUser.role === 'owner'
-          ? undefined
-          : authUser.serverIds.length > 0
-            ? inArray(servers.id, authUser.serverIds)
-            : undefined
-      );
+      .where(buildServerAccessCondition(authUser, servers.id));
 
     const cacheService = getCacheService();
     const result: ServerConnectionStatus[] = [];
