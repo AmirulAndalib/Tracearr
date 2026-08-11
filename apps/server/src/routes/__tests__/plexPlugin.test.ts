@@ -92,7 +92,16 @@ vi.stubGlobal('fetch', mockFetch);
 // resolves to the configured rows. Covers select/insert/update terminals.
 function makeChain(result: unknown = []) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['from', 'where', 'limit', 'set', 'values', 'returning', 'onConflictDoUpdate']) {
+  for (const m of [
+    'from',
+    'innerJoin',
+    'where',
+    'limit',
+    'set',
+    'values',
+    'returning',
+    'onConflictDoUpdate',
+  ]) {
     chain[m] = vi.fn(() => chain);
   }
   chain.then = (resolve: (v: unknown) => unknown) => resolve(result);
@@ -248,6 +257,42 @@ describe('plex better auth plugin', () => {
       statusCode: 403,
     });
     expect(mockSetSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it('ignores a server_users row synced from a non-plex server (Priority 3)', async () => {
+    // A hostile Jellyfin/Emby server can report any UserId it likes, and the
+    // poller stores it as server_users.external_id. A plex.tv account id must
+    // never be honoured from a non-plex row.
+    vi.mocked(PlexClient.checkOAuthPin).mockResolvedValue(authResult);
+    vi.mocked(db.select)
+      .mockReturnValueOnce(makeChain([]) as never)
+      .mockReturnValueOnce(makeChain([{ userId: 'owner-1', serverType: 'jellyfin' }]) as never);
+    vi.mocked(getUserByPlexAccountId).mockResolvedValue(null);
+    vi.mocked(getUserById).mockResolvedValue({ id: 'owner-1', role: 'owner' } as never);
+    vi.mocked(getOwnerUser).mockResolvedValue({ id: 'owner-1', role: 'owner' } as never);
+
+    await expect(callEndpoint('plexCheckPin', { pinId: 'pin-hostile' })).rejects.toMatchObject({
+      statusCode: 403,
+    });
+    expect(mockSetSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it('honours a server_users row synced from a plex server (Priority 3)', async () => {
+    vi.mocked(PlexClient.checkOAuthPin).mockResolvedValue(authResult);
+    vi.mocked(db.select)
+      .mockReturnValueOnce(makeChain([]) as never)
+      .mockReturnValueOnce(makeChain([{ userId: 'owner-1', serverType: 'plex' }]) as never)
+      .mockReturnValueOnce(makeChain([]) as never);
+    vi.mocked(getUserByPlexAccountId).mockResolvedValue(null);
+    vi.mocked(getUserById).mockResolvedValue({
+      id: 'owner-1',
+      role: 'owner',
+      username: 'owner',
+    } as never);
+
+    await callEndpoint('plexCheckPin', { pinId: 'pin-legit' });
+
+    expect(mockSetSessionCookie).toHaveBeenCalled();
   });
 
   it('rejects a non-owner user matched via the legacy plexAccountId tier (Priority 2)', async () => {
