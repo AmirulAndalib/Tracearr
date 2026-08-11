@@ -79,6 +79,7 @@ import {
 } from './routes/settings.js';
 import { initializeEncryption, migrateToken, looksEncrypted } from './utils/crypto.js';
 import { publicApiRateLimitKey } from './utils/publicApiRateLimitKey.js';
+import { registerErrorHandler } from './utils/errors.js';
 import { geoipService } from './services/geoip.js';
 import { tailscaleService } from './services/tailscale.js';
 import { geoasnService } from './services/geoasn.js';
@@ -380,6 +381,13 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
 
   // Utility plugins
   await app.register(sensible);
+
+  // The SPA fallback below claims the not-found slot in production, and Fastify
+  // throws on a second handler for the same scope - so hand off the 404 half
+  // only when that branch is inactive.
+  const webDistPath = resolve(PROJECT_ROOT, 'apps/web/dist');
+  const serveSpa = process.env.NODE_ENV === 'production' && existsSync(webDistPath);
+  registerErrorHandler(app, { notFound: !serveSpa });
   await app.register(cookie, {
     secret: process.env.COOKIE_SECRET,
   });
@@ -477,9 +485,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   await app.register(backupRoutes, { prefix: `${API_BASE_PATH}/backup` });
 
   // Serve static frontend in production
-  const webDistPath = resolve(PROJECT_ROOT, 'apps/web/dist');
-
-  if (process.env.NODE_ENV === 'production' && existsSync(webDistPath)) {
+  if (serveSpa) {
     // Read index.html once at startup for <base> tag injection
     const indexHtmlPath = resolve(webDistPath, 'index.html');
     const cachedIndexHtml = readFileSync(indexHtmlPath, 'utf-8');
