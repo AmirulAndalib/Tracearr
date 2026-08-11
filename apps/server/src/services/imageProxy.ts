@@ -23,6 +23,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { TIME_MS } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { servers, libraryItems } from '../db/schema.js';
+import { assertSafeProbeUrl, SsrfBlockedError } from '../utils/ssrf.js';
 import { registerService, unregisterService } from './serviceTracker.js';
 
 // libvips defaults its thread pool to the core count, so one background
@@ -472,6 +473,27 @@ function acquireFetchSlot(): Promise<() => void> {
   });
 }
 
+/**
+ * imagePath reaches here from the unauthenticated /images routes and is
+ * concatenated onto the server URL, so a suffix like ".attacker.example/x"
+ * moves the request to another host and takes the media-server token with it.
+ * Resolve it and require the origin to survive.
+ */
+function assertSameOrigin(baseUrl: string, imagePath: string): void {
+  let resolved: URL;
+  try {
+    resolved = new URL(`${baseUrl}${imagePath}`);
+  } catch {
+    throw new SsrfBlockedError(`Image path produced an unparseable URL: ${imagePath}`);
+  }
+  if (resolved.origin !== new URL(baseUrl).origin) {
+    throw new SsrfBlockedError(`Image path escapes the server origin: ${resolved.origin}`);
+  }
+  if (resolved.username || resolved.password) {
+    throw new SsrfBlockedError('Image path injected URL credentials');
+  }
+}
+
 export function buildUpstreamRequest(
   server: typeof servers.$inferSelect,
   imagePath: string,
@@ -479,6 +501,11 @@ export function buildUpstreamRequest(
 ): { imageUrl: string; headers: Record<string, string> } {
   const headers: Record<string, string> = { Accept: 'image/*' };
   const baseUrl = server.url.replace(/\/$/, '');
+
+  // Origin pinning makes the configured server the only reachable host, so one
+  // check on the base URL covers every request shape built below.
+  assertSameOrigin(baseUrl, imagePath);
+  assertSafeProbeUrl(baseUrl);
 
   if (server.type === 'plex') {
     // Plex image URLs are relative paths like /library/metadata/123/thumb/456
@@ -573,13 +600,14 @@ async function runMissPipeline(args: MissPipelineArgs): Promise<ProxyResult> {
   // resize and cache server-side; a 240px poster is ~20-40KB against a
   // multi-MB original). Fall back to the original path so a transcoder
   // hiccup degrades to the old behavior instead of a broken image.
-  const candidates = [
-    buildUpstreamRequest(server, imagePath, { width, height }),
-    buildUpstreamRequest(server, imagePath),
-  ];
-
   const release = await acquireFetchSlot();
   try {
+    // Inside the try so a blocked path degrades to the fallback image like any
+    // other upstream failure, instead of escaping as a 500.
+    const candidates = [
+      buildUpstreamRequest(server, imagePath, { width, height }),
+      buildUpstreamRequest(server, imagePath),
+    ];
     let imageBuffer: Buffer | null = null;
     let lastError: unknown = null;
     for (const { imageUrl, headers } of candidates) {
