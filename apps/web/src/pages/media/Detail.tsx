@@ -301,7 +301,13 @@ export function MediaDetail() {
       new Map(
         servers.map((server) => [
           server.id,
-          { name: server.name, type: server.type, color: server.color, url: server.url },
+          {
+            name: server.name,
+            type: server.type,
+            color: server.color,
+            url: server.url,
+            machineIdentifier: server.machineIdentifier,
+          },
         ])
       ),
     [servers]

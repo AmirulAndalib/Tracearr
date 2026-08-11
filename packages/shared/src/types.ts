@@ -42,6 +42,8 @@ export interface Server {
   name: string;
   type: ServerType;
   url: string;
+  /** The media server's own id, used to build item deep links. */
+  machineIdentifier?: string | null;
   displayOrder?: number;
   color?: string | null;
   createdAt: Date;
