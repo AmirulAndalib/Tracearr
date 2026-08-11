@@ -80,6 +80,7 @@ import {
 import { initializeEncryption, migrateToken, looksEncrypted } from './utils/crypto.js';
 import { publicApiRateLimitKey } from './utils/publicApiRateLimitKey.js';
 import { registerErrorHandler } from './utils/errors.js';
+import { resolveWebAsset } from './utils/webRoot.js';
 import { geoipService } from './services/geoip.js';
 import { tailscaleService } from './services/tailscale.js';
 import { geoasnService } from './services/geoasn.js';
@@ -515,11 +516,13 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
       // request.url is already stripped by rewriteUrl
       const urlPath = request.url.split('?')[0]!;
 
-      // Serve static files (paths with a file extension)
+      // Serve static files (paths with a file extension). resolveWebAsset
+      // returns null for anything escaping the web root, so a crafted path
+      // falls through to the SPA response instead of stat-ing the filesystem.
       if (urlPath !== '/' && /\.\w+$/.test(urlPath)) {
-        const fullPath = resolve(webDistPath, urlPath.slice(1));
-        if (existsSync(fullPath)) {
-          return reply.sendFile(urlPath.slice(1));
+        const assetPath = resolveWebAsset(webDistPath, urlPath);
+        if (assetPath && existsSync(resolve(webDistPath, assetPath))) {
+          return reply.sendFile(assetPath);
         }
       }
 
