@@ -296,7 +296,7 @@ const HistoryQuery = z.object({
 const HistoryUser = z
   .object({
     id: z.uuid().openapi({ description: 'Tracearr identity id' }),
-    server_user_id: z.uuid().openapi({ description: 'Account id on the media server' }),
+    server_user_id: z.uuid().openapi({ description: "Tracearr's id for this per-server account" }),
     username: z.string().nullable(),
     thumb_url: z.string().nullable(),
     avatar_url: z.string().nullable(),
