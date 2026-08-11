@@ -27,10 +27,24 @@ reviews:
   path_filters:
     - '!pnpm-lock.yaml'
     - '!RELEASE_NOTES_*.md'
+    # Crowdin PRs touch every locale at once. CI checks key parity already.
+    - '!packages/translations/src/locales/**'
 
   # Supplements the built-in review; doesn't replace it. Only rules that get
   # missed or that CI can't see.
   path_instructions:
+    - path: '**/*'
+      instructions: |
+        Some things here are deliberate. Don't raise them unless the diff shows
+        an actual bug:
+        - Rules eslint.config.js turns off on purpose: no-unnecessary-condition,
+          prefer-nullish-coalescing, restrict-template-expressions, array-type,
+          dot-notation, no-confusing-void-expression, no-base-to-string,
+          prefer-regexp-exec, no-inferrable-types, no-empty-object-type. They
+          were judged too noisy for this codebase.
+        - Calls into @deprecated APIs. That rule is a warn on purpose until the
+          multi-server migration finishes.
+
     - path: '**/*.{ts,tsx}'
       instructions: |
         eslint sets no-non-null-assertion, no-explicit-any and the no-unsafe-*
@@ -101,6 +115,22 @@ reviews:
         raw i18n keys or invalid-hook-call crashes. Worklets bundle mode stays
         off. Changes here break at runtime, not typecheck, so ask for evidence
         the app was run.
+
+  # Contributors can tick these checkboxes on their own PRs and have the bot
+  # write the code. That defeats "you own what you submit".
+  finishing_touches:
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
 
   slop_detection:
     enabled: true
@@ -245,3 +275,18 @@ reviews:
 
 chat:
   art: false
+
+knowledge_base:
+  linked_repositories:
+    - repository: 'connorgallopo/tracearr-unraid-template'
+      instructions: >-
+        Unraid Community Applications template. It hardcodes env var names,
+        ports and volume paths. Flag when a PR adds, renames or removes an env
+        var in .env.example, changes an exposed port, or moves a data path,
+        because the template breaks silently for Unraid users and nothing in
+        CI catches it.
+    - repository: 'connorgallopo/tracearr-docs'
+      instructions: >-
+        Documentation site. Flag when a PR changes API routes under
+        apps/server/src/routes/, env vars in .env.example, or the setup steps
+        under docker/, and the matching page here would go stale.
