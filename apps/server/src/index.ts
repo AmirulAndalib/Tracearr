@@ -663,6 +663,10 @@ async function initializeServices(app: FastifyInstance) {
   // Load JWT revoke settings — ensures tokens issued before a prior restore are rejected
   await loadJwtRevokeSettings();
 
+  // Generate this install's Plex client identifier on first boot
+  const { initializePlexClientIdentifier } = await import('./lib/plexIdentity.js');
+  await initializePlexClientIdentifier();
+
   // Initialize TimescaleDB features (hypertable, compression, aggregates)
   try {
     setInitStep('timescale');

@@ -1884,6 +1884,12 @@ export interface PlexAccount {
 // Response from GET /auth/plex/accounts
 export interface PlexAccountsResponse {
   accounts: PlexAccount[];
+  /**
+   * This install's Plex client identifier. The browser creates the link PIN and
+   * the server redeems it, and plex.tv only honours a redemption from the
+   * identifier that created the PIN, so both ends must use this exact value.
+   */
+  clientIdentifier: string;
 }
 
 // Request body for POST /auth/plex/link-account
