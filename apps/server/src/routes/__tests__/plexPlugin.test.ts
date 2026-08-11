@@ -354,6 +354,32 @@ describe('plex better auth plugin', () => {
       expect(db.insert).not.toHaveBeenCalled();
     });
 
+    it('does not probe the caller-supplied plex servers before the claim gate', async () => {
+      // The gate has to run BEFORE getServers/testServerConnections: those
+      // reach hosts named by the caller's own plex.tv account, which turns an
+      // ownerless instance into a LAN scanner for anyone with a plex account.
+      // Asserting only that the guard throws would pass with the gate below
+      // the probe, which is the actual bug.
+      vi.mocked(isClaimCodeEnabled).mockReturnValue(true);
+      vi.mocked(validateClaimCode).mockReturnValue(false);
+
+      await expect(
+        callEndpoint('plexCheckPin', { pinId: 'pin-new', claimCode: 'WRONG-CODE' })
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(PlexClient.getServers).not.toHaveBeenCalled();
+    });
+
+    it('does not probe when a required claim code is missing entirely', async () => {
+      vi.mocked(isClaimCodeEnabled).mockReturnValue(true);
+
+      await expect(callEndpoint('plexCheckPin', { pinId: 'pin-new' })).rejects.toMatchObject({
+        statusCode: 403,
+      });
+
+      expect(PlexClient.getServers).not.toHaveBeenCalled();
+    });
+
     it('proceeds to create the owner when the claim code is valid', async () => {
       vi.mocked(isClaimCodeEnabled).mockReturnValue(true);
       vi.mocked(validateClaimCode).mockReturnValue(true);

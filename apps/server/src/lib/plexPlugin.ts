@@ -303,6 +303,11 @@ export const plexPlugin = () =>
             // No user - first-run setup. Fail closed if an owner already exists.
             await assertSignupAllowed();
 
+            // Claim code guard before the outbound probes below: getServers and
+            // testServerConnections reach hosts named by the caller's own plex
+            // account, so an ungated instance is a LAN scanner.
+            assertClaimCode(claimCode);
+
             const plexServers = await PlexClient.getServers(authResult.token);
 
             const tempToken = randomUUID().replace(/-/g, '');
@@ -354,8 +359,7 @@ export const plexPlugin = () =>
             }
 
             // No servers - create the first user without a server connection.
-            assertClaimCode(claimCode);
-
+            // (Claim code already checked above, before the outbound probes.)
             const [newUser] = await db
               .insert(users)
               .values({
