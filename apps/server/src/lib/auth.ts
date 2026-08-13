@@ -191,6 +191,11 @@ function buildAuth(redis: Redis) {
     account: {
       accountLinking: {
         enabled: true,
+        // Kept deliberately. Authentik hardcodes email_verified:false since
+        // 2025.10 and Keycloak defaults it false for admin-created users, so
+        // requiring the claim breaks OIDC linking on the IdPs self-hosters
+        // actually run. The operator owns both ends here; a shared or
+        // self-registration IdP is the case this does not defend against.
         trustedProviders: ['oidc'],
       },
     },
