@@ -2841,6 +2841,15 @@ export interface MediaAvailabilityEntry {
   episodeCount: number | null;
   /** Physical files of this copy, largest first. Empty for containers. */
   versions: MediaVersionEntry[];
+  /** The copy this one replaced (event-witnessed upgrade); null when none was witnessed. */
+  replaces: MediaReplacedCopy | null;
+}
+
+export interface MediaReplacedCopy {
+  addedAt: string;
+  removedAt: string;
+  videoResolution: string | null;
+  fileSize: number | null;
 }
 
 export interface MediaDetailResponse {
