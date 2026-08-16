@@ -105,6 +105,11 @@ export function initializeWebSocket(
   if (redisClient) {
     redis = redisClient;
   }
+  // Recovery from maintenance runs post-listen init again on the same http
+  // server. A second Server would take new connections while every client
+  // still attached to the first one silently stops receiving broadcasts.
+  if (io) return io;
+
   io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
       origin: process.env.CORS_ORIGIN || true,
@@ -114,7 +119,7 @@ export function initializeWebSocket(
     pingInterval: 25000,
     // Rooms and missed events survive a short drop (proxy blip, wifi handoff).
     // skipMiddlewares defaults to true; keep auth running so a revoked session
-    // is rejected on reconnect instead of resuming as if nothing happened.
+    // is rejected on reconnect.
     connectionStateRecovery: {
       maxDisconnectionDuration: 2 * 60 * 1000,
       skipMiddlewares: false,
