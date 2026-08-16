@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Gendanner fra backup...",
     "startingDescription": "Serveren venter på at backend-tjenester bliver tilgængelige. Denne side opdateres automatisk, når alt er klar.",
-    "startingTitle": "Tracearr starter op..."
+    "startingTitle": "Tracearr starter op...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Alle aktiviteter",

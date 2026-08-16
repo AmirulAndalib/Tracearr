@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Przywracanie z kopii zapasowej...",
     "startingDescription": "Serwer oczekuje, aż usługi backendu staną się dostępne. Ta strona zostanie automatycznie odświeżona, gdy wszystko będzie gotowe.",
-    "startingTitle": "Tracearr jest uruchamiany..."
+    "startingTitle": "Tracearr jest uruchamiany...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Wszystkie działania",

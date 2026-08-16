@@ -332,7 +332,8 @@
     },
     "restoreTitle": "バックアップから復元しています...",
     "startingDescription": "サーバーはバックエンドサービスが利用可能になるのを待っています。このページは準備が整ったら自動的に更新されます。",
-    "startingTitle": "Tracearrを起動しています..."
+    "startingTitle": "Tracearrを起動しています...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "すべてのアクティビティ",

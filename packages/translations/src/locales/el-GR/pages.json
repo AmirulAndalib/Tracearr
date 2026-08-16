@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Επαναφορά από αντίγραφο ασφαλείας...",
     "startingDescription": "Ο διακομιστής περιμένει να γίνουν διαθέσιμες οι υπηρεσίες του συστήματος διαχείρισης. Αυτή η σελίδα θα ανανεωθεί αυτόματα όταν όλα είναι έτοιμα.",
-    "startingTitle": "Το Tracearr ξεκινάει..."
+    "startingTitle": "Το Tracearr ξεκινάει...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Όλη η δραστηριότητα",

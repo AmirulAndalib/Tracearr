@@ -332,7 +332,8 @@
     },
     "restoreTitle": "正在从备份还原……",
     "startingDescription": "服务器正在等待后端服务可用。此页面将在一切就绪时自动刷新。",
-    "startingTitle": "Tracearr 正在启动……"
+    "startingTitle": "Tracearr 正在启动……",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "All activity",

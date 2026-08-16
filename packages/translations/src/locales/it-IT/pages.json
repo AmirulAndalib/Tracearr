@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Ripristino dal backup...",
     "startingDescription": "Il server sta aspettando che i servizi di backend diventino disponibili. Questa pagina si aggiornerà automaticamente quando tutto sarà pronto.",
-    "startingTitle": "Tracearr si sta avviando..."
+    "startingTitle": "Tracearr si sta avviando...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Tutte le attività",

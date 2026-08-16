@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Obnovení ze zálohy...",
     "startingDescription": "Server čeká na dostupnost služeb backendu. Tato stránka se automaticky obnoví, až bude vše připraveno.",
-    "startingTitle": "Tracearr se spustí..."
+    "startingTitle": "Tracearr se spustí...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Všechny aktivity",

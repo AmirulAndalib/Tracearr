@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Restaurare din backup...",
     "startingDescription": "Serverul așteaptă ca serviciile backend să devină disponibile. Această pagină se va reîmprospăta automat când totul este gata.",
-    "startingTitle": "Tracearr pornește..."
+    "startingTitle": "Tracearr pornește...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Toată activitatea",

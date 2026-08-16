@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Återställer från säkerhetskopian...",
     "startingDescription": "Servern väntar på att backend-tjänster ska bli tillgängliga. Denna sida uppdateras automatiskt när allt är klart.",
-    "startingTitle": "Tracearr startar upp..."
+    "startingTitle": "Tracearr startar upp...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "All aktivitet",

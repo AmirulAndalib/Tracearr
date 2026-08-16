@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Herstellen van back-up...",
     "startingDescription": "De server wacht op de beschikbaarheid van achtergronddiensten. De pagina ververst automatisch wanneer alles klaar is.",
-    "startingTitle": "Tracearr opstarten..."
+    "startingTitle": "Tracearr opstarten...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Alle activiteiten",

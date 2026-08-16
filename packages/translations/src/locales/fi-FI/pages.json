@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Palautetaan varmuuskopiosta...",
     "startingDescription": "Palvelin odottaa taustaosan palvelujen tulevan saataville. Tämä sivu päivittyy automaattisesti, kun kaikki on valmis.",
-    "startingTitle": "Tracearr on käynnistymässä..."
+    "startingTitle": "Tracearr on käynnistymässä...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Kaikki toiminnot",

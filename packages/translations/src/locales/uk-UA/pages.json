@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Відновлення з резервної копії...",
     "startingDescription": "Сервер очікує на доступність внутрішніх служб. Ця сторінка автоматично оновиться, коли все буде готове.",
-    "startingTitle": "Tracearr запускається..."
+    "startingTitle": "Tracearr запускається...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Уся діяльність",

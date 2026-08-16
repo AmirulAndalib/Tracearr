@@ -332,7 +332,8 @@
     },
     "restoreTitle": "Восстановление из резервной копии...",
     "startingDescription": "Сервер ожидает доступа к сервисам бэкэнда. Эта страница будет автоматически обновляться, когда все будет готово.",
-    "startingTitle": "Tracearr запускается..."
+    "startingTitle": "Tracearr запускается...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "Все действия",

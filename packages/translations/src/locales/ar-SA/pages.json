@@ -332,7 +332,8 @@
     },
     "restoreTitle": "الاستعادة من النسخة الاحتياطية...",
     "startingDescription": "الخادم في انتظار أن تصبح خدمات الخلفية متاحة. سيتم تحديث هذه الصفحة تلقائياً عندما يكون كل شيء جاهزاً.",
-    "startingTitle": "بدأ Tracearr في الإنتظار..."
+    "startingTitle": "بدأ Tracearr في الإنتظار...",
+    "unreachable": "Can't reach the Tracearr server right now. Live updates are paused and will resume on their own."
   },
   "map": {
     "allActivity": "جميع الأنشطة",
