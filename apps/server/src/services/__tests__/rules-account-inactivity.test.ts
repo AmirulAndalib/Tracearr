@@ -5,17 +5,11 @@
  * inactive for a specified period.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { RuleEngine } from '../rules.js';
+import { describe, it, expect } from 'vitest';
+import { evaluateAccountInactivity } from '../rules/accountInactivity.js';
 import type { AccountInactivityParams } from '@tracearr/shared';
 
-describe('RuleEngine - Account Inactivity', () => {
-  let ruleEngine: RuleEngine;
-
-  beforeEach(() => {
-    ruleEngine = new RuleEngine();
-  });
-
+describe('Account Inactivity', () => {
   // Helper to create a mock server user for inactivity checks
   const createMockServerUser = (
     overrides: {
@@ -48,7 +42,7 @@ describe('RuleEngine - Account Inactivity', () => {
         });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         expect(result.violated).toBe(false);
       });
@@ -60,7 +54,7 @@ describe('RuleEngine - Account Inactivity', () => {
         });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         expect(result.violated).toBe(true);
         expect(result.severity).toBe('low');
@@ -77,7 +71,7 @@ describe('RuleEngine - Account Inactivity', () => {
         });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         // Should not violate if exactly at 30 days or just under
         expect(result.violated).toBe(false);
@@ -90,7 +84,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: fifteenDaysAgo });
 
         // 14 days threshold - should violate (15 > 14)
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 14,
@@ -107,7 +101,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: threeWeeksAgo });
 
         // 2 weeks threshold - should violate (3 weeks > 2 weeks)
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 2,
@@ -124,7 +118,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: twoMonthsAgo });
 
         // 2 months threshold (~60 days) - should violate
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 2,
@@ -141,7 +135,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: fortyFiveDaysAgo });
 
         // 2 months threshold (~60 days) - should not violate (45 < 60)
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 2,
@@ -160,7 +154,7 @@ describe('RuleEngine - Account Inactivity', () => {
         });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         expect(result.violated).toBe(true);
         expect(result.data.neverActive).toBe(true);
@@ -178,7 +172,7 @@ describe('RuleEngine - Account Inactivity', () => {
         });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         expect(result.violated).toBe(true);
         expect(result.data).toMatchObject({
@@ -195,7 +189,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: thirtyOneDaysAgo });
         const params = createInactivityParams({ inactivityValue: 30, inactivityUnit: 'days' });
 
-        const result = ruleEngine.evaluateAccountInactivity(user, params);
+        const result = evaluateAccountInactivity(user, params);
 
         expect(typeof result.data.lastActivityAt).toBe('string');
         // Should be a valid ISO date string
@@ -212,93 +206,81 @@ describe('RuleEngine - Account Inactivity', () => {
       it('eq operator triggers only on the exact day', () => {
         // 30 days inactive — should match eq 30
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'eq').violated).toBe(true);
+        expect(evaluateAccountInactivity(user30, params30, 'eq').violated).toBe(true);
 
         // 29 days inactive — should NOT match eq 30
         const user29 = createMockServerUser({ lastActivityAt: twentyNineDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user29, params30, 'eq').violated).toBe(false);
+        expect(evaluateAccountInactivity(user29, params30, 'eq').violated).toBe(false);
 
         // 60 days inactive — should NOT match eq 30
         const user60 = createMockServerUser({ lastActivityAt: sixtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user60, params30, 'eq').violated).toBe(false);
+        expect(evaluateAccountInactivity(user60, params30, 'eq').violated).toBe(false);
       });
 
       it('gt operator triggers only after the threshold day', () => {
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'gt').violated).toBe(false);
+        expect(evaluateAccountInactivity(user30, params30, 'gt').violated).toBe(false);
 
         const user60 = createMockServerUser({ lastActivityAt: sixtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user60, params30, 'gt').violated).toBe(true);
+        expect(evaluateAccountInactivity(user60, params30, 'gt').violated).toBe(true);
       });
 
       it('gte operator triggers on and after the threshold day', () => {
         const user29 = createMockServerUser({ lastActivityAt: twentyNineDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user29, params30, 'gte').violated).toBe(false);
+        expect(evaluateAccountInactivity(user29, params30, 'gte').violated).toBe(false);
 
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'gte').violated).toBe(true);
+        expect(evaluateAccountInactivity(user30, params30, 'gte').violated).toBe(true);
 
         const user60 = createMockServerUser({ lastActivityAt: sixtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user60, params30, 'gte').violated).toBe(true);
+        expect(evaluateAccountInactivity(user60, params30, 'gte').violated).toBe(true);
       });
 
       it('lt operator triggers only before the threshold day', () => {
         const user29 = createMockServerUser({ lastActivityAt: twentyNineDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user29, params30, 'lt').violated).toBe(true);
+        expect(evaluateAccountInactivity(user29, params30, 'lt').violated).toBe(true);
 
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'lt').violated).toBe(false);
+        expect(evaluateAccountInactivity(user30, params30, 'lt').violated).toBe(false);
       });
 
       it('lte operator triggers on and before the threshold day', () => {
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'lte').violated).toBe(true);
+        expect(evaluateAccountInactivity(user30, params30, 'lte').violated).toBe(true);
 
         const user60 = createMockServerUser({ lastActivityAt: sixtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user60, params30, 'lte').violated).toBe(false);
+        expect(evaluateAccountInactivity(user60, params30, 'lte').violated).toBe(false);
       });
 
       it('neq operator triggers on every day except the threshold', () => {
         const user29 = createMockServerUser({ lastActivityAt: twentyNineDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user29, params30, 'neq').violated).toBe(true);
+        expect(evaluateAccountInactivity(user29, params30, 'neq').violated).toBe(true);
 
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30, 'neq').violated).toBe(false);
+        expect(evaluateAccountInactivity(user30, params30, 'neq').violated).toBe(false);
 
         const user60 = createMockServerUser({ lastActivityAt: sixtyDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user60, params30, 'neq').violated).toBe(true);
+        expect(evaluateAccountInactivity(user60, params30, 'neq').violated).toBe(true);
       });
 
       it('never-active users match gte/gt/neq but not eq/lt/lte', () => {
         const neverActive = createMockServerUser({ lastActivityAt: null });
 
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'gte').violated).toBe(
-          true
-        );
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'gt').violated).toBe(
-          true
-        );
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'neq').violated).toBe(
-          true
-        );
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'eq').violated).toBe(
-          false
-        );
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'lt').violated).toBe(
-          false
-        );
-        expect(ruleEngine.evaluateAccountInactivity(neverActive, params30, 'lte').violated).toBe(
-          false
-        );
+        expect(evaluateAccountInactivity(neverActive, params30, 'gte').violated).toBe(true);
+        expect(evaluateAccountInactivity(neverActive, params30, 'gt').violated).toBe(true);
+        expect(evaluateAccountInactivity(neverActive, params30, 'neq').violated).toBe(true);
+        expect(evaluateAccountInactivity(neverActive, params30, 'eq').violated).toBe(false);
+        expect(evaluateAccountInactivity(neverActive, params30, 'lt').violated).toBe(false);
+        expect(evaluateAccountInactivity(neverActive, params30, 'lte').violated).toBe(false);
       });
 
       it('defaults to gte when no operator is provided', () => {
         const user30 = createMockServerUser({ lastActivityAt: thirtyDaysAgo() });
         // No operator arg — should default to gte
-        expect(ruleEngine.evaluateAccountInactivity(user30, params30).violated).toBe(true);
+        expect(evaluateAccountInactivity(user30, params30).violated).toBe(true);
 
         const user29 = createMockServerUser({ lastActivityAt: twentyNineDaysAgo() });
-        expect(ruleEngine.evaluateAccountInactivity(user29, params30).violated).toBe(false);
+        expect(evaluateAccountInactivity(user29, params30).violated).toBe(false);
       });
     });
 
@@ -307,7 +289,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
         const user = createMockServerUser({ lastActivityAt: twoDaysAgo });
 
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 1,
@@ -323,7 +305,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const user = createMockServerUser({ lastActivityAt: oneYearAgo });
 
         // 2 years threshold - should not violate
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 24,
@@ -338,7 +320,7 @@ describe('RuleEngine - Account Inactivity', () => {
         const justNow = new Date(Date.now() - 1000); // 1 second ago
         const user = createMockServerUser({ lastActivityAt: justNow });
 
-        const result = ruleEngine.evaluateAccountInactivity(
+        const result = evaluateAccountInactivity(
           user,
           createInactivityParams({
             inactivityValue: 1,

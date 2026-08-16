@@ -19,7 +19,7 @@ import type {
 import { WS_EVENTS, TIME_MS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { rules, serverUsers, violations, users, servers } from '../db/schema.js';
-import { ruleEngine } from '../services/rules.js';
+import { evaluateAccountInactivity } from '../services/rules/accountInactivity.js';
 import { compare } from '../services/rules/comparisons.js';
 import { batchGetIdentityServerUserIds } from './poller/database.js';
 import {
@@ -394,7 +394,7 @@ async function processInactivityCheck(job: Job<InactivityCheckJobData>): Promise
     for (const user of usersToCheck) {
       // Evaluate inactivity for this user, then the rule's remaining
       // user-level conditions (trust score, account age, server, user)
-      const result = ruleEngine.evaluateAccountInactivity(user, params, operator);
+      const result = evaluateAccountInactivity(user, params, operator);
 
       const inactiveDays = user.lastActivityAt
         ? Math.floor((Date.now() - user.lastActivityAt.getTime()) / TIME_MS.DAY)
