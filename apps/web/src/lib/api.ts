@@ -171,35 +171,6 @@ export interface StatsTimeRange {
   timezone?: string; // IANA timezone (e.g., 'America/Los_Angeles')
 }
 
-// Rules V2 migration response types
-export interface MigrationPreviewItem {
-  id: string;
-  name: string;
-  type: string;
-  conditions: unknown;
-  actions: unknown;
-}
-
-export interface MigrationPreviewResponse {
-  total: number;
-  alreadyMigrated: number;
-  toMigrate: number;
-  preview: MigrationPreviewItem[];
-}
-
-export interface MigrationResponse {
-  success: boolean;
-  migrated: { id: string; name: string }[];
-  skipped: { id: string; name: string; reason: string }[];
-  errors: { id: string; name: string; error: string }[];
-  summary: {
-    total: number;
-    migrated: number;
-    skipped: number;
-    failed: number;
-  };
-}
-
 // Re-export shared timezone helper for backwards compatibility
 // Uses Intl API which works in both browser and React Native
 export const getBrowserTimezone = getClientTimezone;
@@ -844,16 +815,6 @@ class ApiClient {
       this.request<Rule>('/rules/v2', { method: 'POST', body: JSON.stringify(data) }),
     updateV2: (id: string, data: UpdateRuleV2Input) =>
       this.request<Rule>(`/rules/${id}/v2`, { method: 'PATCH', body: JSON.stringify(data) }),
-
-    // Migration
-    migratePreview: () => this.request<MigrationPreviewResponse>('/rules/migrate/preview'),
-    migrate: (ids?: string[]) =>
-      this.request<MigrationResponse>('/rules/migrate', {
-        method: 'POST',
-        body: JSON.stringify(ids ? { ids } : {}),
-      }),
-    migrateOne: (id: string) =>
-      this.request<Rule>(`/rules/${id}/migrate`, { method: 'POST', body: '{}' }),
   };
 
   // Violations

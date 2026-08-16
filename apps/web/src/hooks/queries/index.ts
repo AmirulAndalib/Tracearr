@@ -71,14 +71,7 @@ export {
 } from './useRules';
 
 // Rule V2 hooks
-export {
-  useCreateRuleV2,
-  useUpdateRuleV2,
-  useMigrationPreview,
-  useMigrateRules,
-  useMigrateOneRule,
-  isRuleV2,
-} from './useRulesV2';
+export { useCreateRuleV2, useUpdateRuleV2, isRuleV2 } from './useRulesV2';
 
 // Violation hooks
 export {
