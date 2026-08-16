@@ -137,24 +137,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    // Don't connect WebSocket during maintenance mode — server hasn't initialized it yet
+    // Nothing to connect to while the server is starting up (Socket.IO attaches
+    // after services init), and a fresh handshake is wanted once it's back.
+    // A merely unreachable server is left to socket.io's own reconnect loop.
     if (!isAuthenticated || isInMaintenance) {
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-        setIsConnected(false);
-      }
+      setSocket(null);
+      setIsConnected(false);
       return;
     }
 
-    // Session cookie rides the handshake via withCredentials
+    // Session cookie rides the handshake via withCredentials. Reconnection is
+    // left at the library defaults: unlimited attempts, 1s-5s jittered backoff.
     const newSocket: TypedSocket = io({
       path: `${BASE_PATH}/socket.io`,
       withCredentials: true,
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
     });
 
     const scheduleTasksRefresh = () => {
@@ -167,9 +163,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     newSocket.on('connect', () => {
       setIsConnected(true);
-      // Catch up on anything missed while the socket was down; skipped on the
-      // very first connect since those queries are freshly fetched anyway.
-      if (hasConnectedRef.current) {
+      // Catch up on anything missed while the socket was down. Skipped on the
+      // very first connect (queries are fresh) and when the server recovered
+      // the session and replayed the gap itself.
+      if (hasConnectedRef.current && !newSocket.recovered) {
         void queryClient.invalidateQueries({ queryKey: ['sessions', 'active'] });
         void queryClient.invalidateQueries({ queryKey: ['tasks', 'running'] });
         void queryClient.invalidateQueries({ queryKey: ['stats', 'dashboard'] });
