@@ -62,8 +62,6 @@ export {
 // Rule hooks
 export {
   useRules,
-  useCreateRule,
-  useUpdateRule,
   useDeleteRule,
   useToggleRule,
   useBulkToggleRules,

@@ -794,8 +794,6 @@ class ApiClient {
       const response = await this.request<{ data: Rule[] }>('/rules');
       return response.data;
     },
-    create: (data: Omit<Rule, 'id' | 'createdAt' | 'updatedAt'>) =>
-      this.request<Rule>('/rules', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Rule>) =>
       this.request<Rule>(`/rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
     delete: (id: string) => this.request<void>(`/rules/${id}`, { method: 'DELETE' }),
