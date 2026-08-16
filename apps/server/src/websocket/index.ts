@@ -112,6 +112,13 @@ export function initializeWebSocket(
     },
     pingTimeout: 60000,
     pingInterval: 25000,
+    // Rooms and missed events survive a short drop (proxy blip, wifi handoff).
+    // skipMiddlewares defaults to true; keep auth running so a revoked session
+    // is rejected on reconnect instead of resuming as if nothing happened.
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: false,
+    },
     // When basePath is set, Socket.io must listen on the prefixed path.
     // Socket.io runs on the raw HTTP server (not Fastify), so rewriteUrl doesn't apply.
     ...(basePath && { path: `${basePath}/socket.io` }),

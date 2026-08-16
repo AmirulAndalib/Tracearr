@@ -402,7 +402,9 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   // Health check endpoint — always reachable, even in maintenance mode.
   // Every value returned here is read from in-memory caches; nothing awaits
   // a network call, so the handler is effectively synchronous.
-  app.get('/health', () => {
+  app.get('/health', (_request, reply) => {
+    // The web client polls this to decide if we're up; a cached answer is a wrong answer
+    reply.header('Cache-Control', 'no-store');
     const dbHealthy = isDbHealthy();
     const redisHealthy = isRedisHealthy();
     const mode = getServerMode();
