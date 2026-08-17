@@ -10,6 +10,7 @@ import type {
   Settings,
   NotificationEventType,
 } from '@tracearr/shared';
+import type { NotificationEvent, NotificationSource } from './events.js';
 
 // Re-export for convenience
 export type { ViolationWithDetails, ActiveSession, Settings, NotificationEventType };
@@ -248,3 +249,39 @@ export const PayloadBuilders = {
     };
   },
 };
+
+/** One NotificationPayload per event; a rule send keeps its own title/message the way processRuleNotification did. */
+export function toNotificationPayload(
+  event: NotificationEvent,
+  source: NotificationSource
+): NotificationPayload {
+  const base = ((): NotificationPayload => {
+    switch (event.type) {
+      case 'violation':
+        return PayloadBuilders.fromViolation(event.payload);
+      case 'session_started':
+        return PayloadBuilders.fromSessionStarted(event.payload);
+      case 'session_stopped':
+        return PayloadBuilders.fromSessionStopped(event.payload);
+      case 'server_down':
+        return PayloadBuilders.fromServerDown(event.payload.serverName);
+      case 'server_up':
+        return PayloadBuilders.fromServerUp(event.payload.serverName);
+      case 'plugin_update_available': {
+        const p = event.payload;
+        return PayloadBuilders.fromPluginUpdate(
+          p.serverId,
+          p.serverName,
+          p.serverType,
+          p.installedVersion,
+          p.latestVersion,
+          p.downloadUrl
+        );
+      }
+    }
+  })();
+  if (source.kind === 'rule') {
+    return { ...base, title: source.title, message: source.message, severity: 'warning' };
+  }
+  return base;
+}

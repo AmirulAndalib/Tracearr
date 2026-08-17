@@ -6,13 +6,12 @@
  */
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
-import type {
-  ViolationWithDetails,
-  ActiveSession,
-  NotificationEventType,
-  GroupEvidence,
-} from '@tracearr/shared';
+import type { ViolationWithDetails, GroupEvidence } from '@tracearr/shared';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
+import {
+  JOB_TYPE_TO_EVENT_TYPE,
+  type NotificationEvent,
+} from '../services/notifications/events.js';
 import { isMaintenance } from '../serverState.js';
 import { WS_EVENTS } from '@tracearr/shared';
 import { notificationManager } from '../services/notifications/index.js';
@@ -21,36 +20,8 @@ import { getNotificationSettings } from '../routes/settings.js';
 import { getChannelRouting } from '../routes/channelRouting.js';
 import { broadcastToAll } from '../websocket/index.js';
 
-/**
- * Map job types to notification event types for routing lookup
- */
-const JOB_TYPE_TO_EVENT_TYPE: Record<NotificationJobData['type'], NotificationEventType> = {
-  violation: 'violation_detected',
-  session_started: 'stream_started',
-  session_stopped: 'stream_stopped',
-  server_down: 'server_down',
-  server_up: 'server_up',
-  plugin_update_available: 'plugin_update_available',
-};
-
 // Job type discriminated union for type-safe job handling
-export type NotificationJobData =
-  | { type: 'violation'; payload: ViolationWithDetails }
-  | { type: 'session_started'; payload: ActiveSession }
-  | { type: 'session_stopped'; payload: ActiveSession }
-  | { type: 'server_down'; payload: { serverName: string; serverId: string } }
-  | { type: 'server_up'; payload: { serverName: string; serverId: string } }
-  | {
-      type: 'plugin_update_available';
-      payload: {
-        serverId: string;
-        serverName: string;
-        serverType: string;
-        installedVersion: string | null;
-        latestVersion: string;
-        downloadUrl: string;
-      };
-    };
+export type NotificationJobData = NotificationEvent;
 
 // Queue name constant
 const QUEUE_NAME = 'notifications';
