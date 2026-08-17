@@ -151,8 +151,6 @@ vi.mock('../sessionLifecycle.js', () => ({
   handleMediaChangeAtomic: vi.fn(),
   handleQualityChangeFallout: mockHandleQualityChangeFallout,
   processPollResults: mockProcessPollResults,
-  reEvaluateRulesOnPauseState: vi.fn(),
-  reEvaluateRulesOnTranscodeChange: vi.fn(),
   stopSessionAtomic: vi.fn(),
 }));
 const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });

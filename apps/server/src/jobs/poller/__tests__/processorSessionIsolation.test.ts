@@ -93,8 +93,6 @@ vi.mock('../sessionLifecycle.js', () => ({
   findActiveSessionByComposite: vi.fn(),
   handleMediaChangeAtomic: vi.fn(),
   processPollResults: (...args: unknown[]) => mockProcessPollResults(...args),
-  reEvaluateRulesOnPauseState: vi.fn(),
-  reEvaluateRulesOnTranscodeChange: vi.fn(),
   stopSessionAtomic: (...args: unknown[]) => mockStopSessionAtomic(...args),
 }));
 

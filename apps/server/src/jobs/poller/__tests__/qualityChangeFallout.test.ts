@@ -122,8 +122,6 @@ vi.mock('../sessionLifecycle.js', () => ({
   handleMediaChangeAtomic: (...args: unknown[]) => mockHandleMediaChangeAtomic(...args),
   handleQualityChangeFallout: (...args: unknown[]) => mockHandleQualityChangeFallout(...args),
   processPollResults: (...args: unknown[]) => mockProcessPollResults(...args),
-  reEvaluateRulesOnPauseState: vi.fn(),
-  reEvaluateRulesOnTranscodeChange: vi.fn(),
   stopSessionAtomic: (...args: unknown[]) => mockStopSessionAtomic(...args),
 }));
 

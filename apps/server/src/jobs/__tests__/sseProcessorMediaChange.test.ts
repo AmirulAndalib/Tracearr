@@ -147,7 +147,6 @@ vi.mock('../poller/sessionLifecycle.js', async () => {
     findActiveSessionsAll: vi.fn().mockResolvedValue([]),
     buildActiveSession: mockBuildActiveSession,
     handleMediaChangeAtomic: mockHandleMediaChangeAtomic,
-    reEvaluateRulesOnTranscodeChange: vi.fn(),
     confirmAndPersistSession: vi.fn(),
   };
 });

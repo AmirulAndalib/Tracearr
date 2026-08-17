@@ -135,17 +135,15 @@ vi.mock('../sessionLifecycle.js', () => ({
   findActiveSessionByComposite: vi.fn().mockResolvedValue(null),
   handleMediaChangeAtomic: vi.fn(),
   processPollResults: mockProcessPollResults,
-  reEvaluateRulesOnPauseState: vi.fn(),
-  reEvaluateRulesOnTranscodeChange: vi.fn(),
   stopSessionAtomic: vi.fn(),
 }));
 vi.mock('../../../services/rules/events/dispatcher.js', () => ({
   dispatch: mockDispatch,
   subscribe: vi.fn(),
 }));
-vi.mock('../sessionMapper.js', () => ({
+vi.mock('../sessionMapper.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   mapMediaSession: mockMapMediaSession,
-  pickStreamDetailFields: vi.fn().mockImplementation((s: unknown) => s),
 }));
 vi.mock('../violations.js', () => ({ broadcastViolations: vi.fn() }));
 

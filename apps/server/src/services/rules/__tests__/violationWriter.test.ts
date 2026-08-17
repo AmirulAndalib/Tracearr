@@ -9,6 +9,7 @@ const mockSelectLimit = vi.fn();
 const mockInsertReturning = vi.fn();
 const mockTransaction = vi.fn();
 const mockRecompute = vi.fn();
+const mockUpdate = vi.fn();
 
 let capturedWhere: unknown;
 let capturedLockSql: unknown;
@@ -30,6 +31,7 @@ function makeTx() {
     insert: () => ({
       values: () => ({ onConflictDoNothing: () => ({ returning: mockInsertReturning }) }),
     }),
+    update: mockUpdate,
   };
 }
 
@@ -96,6 +98,7 @@ describe('recordViolation', () => {
     mockSelectLimit.mockResolvedValue([]);
     mockInsertReturning.mockResolvedValue([inserted]);
     mockRecompute.mockResolvedValue(undefined);
+    mockUpdate.mockReset();
   });
 
   describe('session scope', () => {
@@ -124,6 +127,7 @@ describe('recordViolation', () => {
       );
       expect(gate.params).toEqual(['r1', 's1']);
       expect(mockRecompute).toHaveBeenCalledWith('su1', expect.anything());
+      expect(mockUpdate).not.toHaveBeenCalled();
       expect(v).toEqual(inserted);
     });
 

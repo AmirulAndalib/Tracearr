@@ -26,7 +26,10 @@ import type { CacheService, PubSubService } from '../../services/cache.js';
 import { type GeoLocation } from '../../services/geoip.js';
 import { createMediaServerClient } from '../../services/mediaServer/index.js';
 import { lookupGeoIP } from '../../services/plexGeoip.js';
-import { setContextAssemblyDeps } from '../../services/rules/events/contextAssembly.js';
+import {
+  setContextAssemblyDeps,
+  toRuleSession,
+} from '../../services/rules/events/contextAssembly.js';
 import { dispatch } from '../../services/rules/events/dispatcher.js';
 import { registerRuleSubscribers } from '../../services/rules/events/subscribers.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
@@ -65,7 +68,7 @@ import {
   processPollResults,
   stopSessionAtomic,
 } from './sessionLifecycle.js';
-import { mapMediaSession, pickStreamDetailFields } from './sessionMapper.js';
+import { mapMediaSession, pickLiveSessionFields, pickStreamDetailFields } from './sessionMapper.js';
 import {
   buildCompositeKey,
   calculatePauseAccumulation,
@@ -1723,7 +1726,7 @@ async function processServerSessions(
                     videoDecision: processed.videoDecision,
                     audioDecision: processed.audioDecision,
                   },
-                  raw: { existingSession, processed },
+                  session: toRuleSession(existingSession, pickLiveSessionFields(processed)),
                 },
                 { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
               );
@@ -1755,7 +1758,11 @@ async function processServerSessions(
                     lastPausedAt: pauseResult.lastPausedAt,
                     pausedDurationMs: pauseResult.pausedDurationMs,
                   },
-                  raw: { existingSession, processed },
+                  session: toRuleSession(existingSession, {
+                    ...pickLiveSessionFields(processed),
+                    lastPausedAt: pauseResult.lastPausedAt,
+                    pausedDurationMs: pauseResult.pausedDurationMs,
+                  }),
                 },
                 { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
               );

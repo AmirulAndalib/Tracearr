@@ -104,7 +104,6 @@ describe('dispatch', () => {
         },
         session: { id: 'sess-9' } as never,
         pauseData: { lastPausedAt: null, pausedDurationMs: 0 },
-        raw: {} as never,
       },
       inputs()
     );

@@ -1,4 +1,4 @@
-import type { RuleV2, Session } from '@tracearr/shared';
+import type { RuleV2 } from '@tracearr/shared';
 import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
 import { evaluateRulesAsync, hasPauseConditions, hasTranscodeConditions } from '../engine.js';
 import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
@@ -40,8 +40,7 @@ export async function evaluateTrigger(
   event: EvaluatingEvent,
   inputs: EvaluationInputs
 ): Promise<TriggerEvaluation> {
-  const session: Session | undefined = event.session;
-  if (!session) throw new Error('evaluateTrigger requires event.session');
+  const session = event.session;
   const rules = rulesForTrigger(event.type, inputs.activeRulesV2);
   const baseContext: Omit<EvaluationContext, 'rule'> = {
     session,

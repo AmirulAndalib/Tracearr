@@ -1,7 +1,6 @@
 import type { RuleV2, Session, ViolationSeverity } from '@tracearr/shared';
 import type { db } from '../../../db/client.js';
 import type { sessions } from '../../../db/schema.js';
-import type { ProcessedSession } from '../../../jobs/poller/types.js';
 import type { ActionResult } from '../executors/index.js';
 import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 
@@ -50,7 +49,7 @@ interface BaseEvent {
 interface SessionEventBase extends BaseEvent {
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
-  session?: Session;
+  session: Session;
 }
 
 export interface SessionStartedEvent extends SessionEventBase {
@@ -61,15 +60,11 @@ export interface SessionTranscodeChangedEvent extends SessionEventBase {
   type: 'session.transcode_changed';
   previous: { videoDecision: string | null; audioDecision: string | null };
   next: { videoDecision: string | null; audioDecision: string | null };
-  /** Stage-1 only: the twins still build their own Session. Removed in stage 2. */
-  raw: { existingSession: SessionRow; processed: ProcessedSession };
 }
 
 export interface SessionPausedEvent extends SessionEventBase {
   type: 'session.paused';
   pauseData: PauseData;
-  /** Stage-1 only: the twins still build their own Session. Removed in stage 2. */
-  raw: { existingSession: SessionRow; processed: ProcessedSession };
 }
 
 export interface SessionHeldForEvent extends SessionEventBase {

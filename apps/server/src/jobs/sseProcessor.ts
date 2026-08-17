@@ -25,7 +25,10 @@ import type { CacheService, PubSubService } from '../services/cache.js';
 import { createMediaServerClient } from '../services/mediaServer/index.js';
 import { extractLiveUuid } from '../services/mediaServer/plex/plexUtils.js';
 import { lookupGeoIP } from '../services/plexGeoip.js';
-import { assembleEvaluationInputs } from '../services/rules/events/contextAssembly.js';
+import {
+  assembleEvaluationInputs,
+  toRuleSession,
+} from '../services/rules/events/contextAssembly.js';
 import { dispatch } from '../services/rules/events/dispatcher.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
 import { getWatchedThreshold } from '../services/settings.js';
@@ -57,7 +60,11 @@ import {
   handleQualityChangeFallout,
   stopSessionAtomic,
 } from './poller/sessionLifecycle.js';
-import { mapMediaSession, pickStreamDetailFields } from './poller/sessionMapper.js';
+import {
+  mapMediaSession,
+  pickLiveSessionFields,
+  pickStreamDetailFields,
+} from './poller/sessionMapper.js';
 import {
   calculatePauseAccumulation,
   checkWatchCompletion,
@@ -1463,7 +1470,7 @@ async function updateExistingSession(
                   videoDecision: processed.videoDecision,
                   audioDecision: processed.audioDecision,
                 },
-                raw: { existingSession, processed },
+                session: toRuleSession(existingSession, pickLiveSessionFields(processed)),
               },
               inputs
             );
@@ -1483,7 +1490,11 @@ async function updateExistingSession(
                   lastPausedAt: pauseResult.lastPausedAt,
                   pausedDurationMs: pauseResult.pausedDurationMs,
                 },
-                raw: { existingSession, processed },
+                session: toRuleSession(existingSession, {
+                  ...pickLiveSessionFields(processed),
+                  lastPausedAt: pauseResult.lastPausedAt,
+                  pausedDurationMs: pauseResult.pausedDurationMs,
+                }),
               },
               inputs
             );
