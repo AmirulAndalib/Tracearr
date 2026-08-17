@@ -975,6 +975,8 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
             severity: migrated.severity,
             conditions: migrated.conditions,
             actions: migrated.actions,
+            type: null,
+            params: null,
             updatedAt: new Date(),
           })
           .where(eq(rules.id, migrated.id));
@@ -1078,6 +1080,8 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
         severity: migrated.severity,
         conditions: migrated.conditions,
         actions: migrated.actions,
+        type: null,
+        params: null,
         updatedAt: new Date(),
       })
       .where(eq(rules.id, id))
