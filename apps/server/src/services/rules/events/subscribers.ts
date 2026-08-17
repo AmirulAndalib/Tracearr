@@ -103,6 +103,13 @@ export function registerRuleSubscribers(): void {
   subscribe('session.transcode_changed', 'session-rules', sessionRules({ transcodeReEval: true }));
   subscribe('session.paused', 'session-rules', sessionRules({ pauseReEval: true }));
   subscribe('session.held_for', 'session-rules', sessionRules({ heldFor: true }));
+  subscribe('account.inactive_for', 'account-rules', async (event, inputs, opts) => {
+    if (!inputs) return;
+    return runRulePipeline(event, inputs, opts, {
+      kind: 'account',
+      serverUserId: event.serverUser.id,
+    });
+  });
 }
 
 export function resetRuleSubscribersForTests(): void {

@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleV2, Session } from '@tracearr/shared';
 import type { ProcessedSession } from '../../../jobs/poller/types.js';
 import type {
+  AccountInactiveForEvent,
   EvaluationInputs,
   EvaluationServer,
   EvaluationServerUser,
@@ -307,6 +308,27 @@ function createTotalPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   };
 }
 
+function createInactivityRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+  return {
+    id: 'rule-inactive-1',
+    name: 'Dormant 30 Days',
+    description: null,
+    serverId: null,
+    serverUserId: null,
+    userId: null,
+    enforceAcrossServers: false,
+    severity: 'warning',
+    isActive: true,
+    conditions: {
+      groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
+    },
+    actions: { actions: [] },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
 const server: EvaluationServer = { id: 'server-1', name: 'Test Plex', type: 'plex' };
 const serverUser: EvaluationServerUser = {
   id: 'user-1',
@@ -423,6 +445,10 @@ function heldForEvent(input: PauseTriggerInput): SessionHeldForEvent {
     pauseData: input.pauseData,
     heldMinutes: 12,
   };
+}
+
+function accountInactiveEvent(): AccountInactiveForEvent {
+  return { type: 'account.inactive_for', at: new Date(), server, serverUser, session: null };
 }
 
 function inputsOf(input: TriggerInput): EvaluationInputs {
@@ -1348,6 +1374,38 @@ describe('registerRuleSubscribers', () => {
     );
     expect(result.violations).toHaveLength(1);
     expect(result.violations[0]?.violation).toEqual(pauseViolation);
+  });
+
+  it('records a dispatched account.inactive_for against the account scope with no marker', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-inactive-1',
+        ruleName: 'Dormant 30 Days',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+
+    const result = await dispatch(accountInactiveEvent(), {
+      activeRulesV2: [createInactivityRule(), createTranscodeRule()],
+      activeSessions: [],
+      recentSessions: [],
+      identityServerUserIds: serverUser.identityServerUserIds,
+    });
+
+    // Only the inactivity rule is in scope for this trigger
+    const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+    expect(rules.map((r) => r.id)).toEqual(['rule-inactive-1']);
+    expect(mockRecordViolation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'account', serverUserId: 'user-1' },
+        serverUserId: 'user-1',
+        session: null,
+      })
+    );
+    expect(mockRecordViolation.mock.calls[0]?.[0]?.marker).toBeUndefined();
+    expect(result.violations).toHaveLength(1);
   });
 
   it('records a dispatched session.held_for against the guarded scope', async () => {
