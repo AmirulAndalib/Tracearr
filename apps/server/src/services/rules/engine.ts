@@ -60,6 +60,16 @@ export function hasPauseConditions(rule: RuleV2): boolean {
   );
 }
 
+/** Rules with an inactive_days condition run under account.inactive_for, never at session triggers. */
+export function hasInactivityCondition(rule: {
+  conditions: RuleConditions | null | undefined;
+}): boolean {
+  if (!rule.conditions?.groups) return false;
+  return rule.conditions.groups.some((group) =>
+    group.conditions.some((c) => c.field === 'inactive_days')
+  );
+}
+
 /**
  * Convert an evaluator result to condition evidence.
  */

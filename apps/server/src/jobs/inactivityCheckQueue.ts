@@ -21,6 +21,7 @@ import { db } from '../db/client.js';
 import { rules, serverUsers, violations, users, servers } from '../db/schema.js';
 import { evaluateAccountInactivity } from '../services/rules/accountInactivity.js';
 import { compare } from '../services/rules/comparisons.js';
+import { hasInactivityCondition as engineHasInactivityCondition } from '../services/rules/engine.js';
 import { batchGetIdentityServerUserIds } from './poller/database.js';
 import {
   getActionExecutorDeps,
@@ -46,14 +47,8 @@ interface InactivityCheckJobData {
   ruleId?: string; // If set, only check this specific rule
 }
 
-/**
- * Check if V2 rule conditions contain an inactive_days field.
- */
 export function hasInactivityCondition(conditions: RuleConditions | null): boolean {
-  if (!conditions?.groups) return false;
-  return conditions.groups.some((group) =>
-    group.conditions.some((c) => c.field === 'inactive_days')
-  );
+  return engineHasInactivityCondition({ conditions });
 }
 
 /**
