@@ -35,7 +35,6 @@ vi.mock('../queueConnection.js', () => ({
   getBullPrefix: () => 'bull',
   queueConnectionOptions: () => ({}),
 }));
-vi.mock('../serverState.js', () => ({ isMaintenance: () => false }));
 vi.mock('bullmq', () => {
   class QueueMock {
     on(): this {

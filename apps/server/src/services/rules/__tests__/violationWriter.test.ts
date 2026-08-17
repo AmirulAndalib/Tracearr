@@ -48,10 +48,6 @@ vi.mock('../../../db/schema.js', async (importOriginal) => ({
 vi.mock('../../userService.js', () => ({
   recomputeIdentityAggregatesForServerUser: (...args: unknown[]) => mockRecompute(...args),
 }));
-vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-}));
-
 import { buildViolationValues, recordViolation } from '../violationWriter.js';
 
 const rule = {
@@ -249,6 +245,7 @@ describe('buildViolationValues', () => {
       session: null,
     });
     expect(values.sessionId).toBeNull();
+    expect(values.ruleType).toBeNull();
     expect(values.data).not.toHaveProperty('sessionKey');
     expect(values.data).not.toHaveProperty('mediaTitle');
     expect(values.data).not.toHaveProperty('ipAddress');
