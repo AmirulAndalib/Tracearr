@@ -37,6 +37,7 @@ const {
   mockCreateMediaServerClient,
   mockGetIdentityServerUserIds,
   mockDb,
+  mockDispatch,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EventEmitter: EE } = require('events');
@@ -74,6 +75,7 @@ const {
       getSessions: vi.fn().mockResolvedValue([]),
     }),
     mockGetIdentityServerUserIds: vi.fn().mockResolvedValue([]),
+    mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
     mockDb: {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -172,6 +174,20 @@ vi.mock('../poller/sessionLifecycle.js', () => ({
   handleQualityChangeFallout: vi.fn(),
   reEvaluateRulesOnTranscodeChange: vi.fn(),
   confirmAndPersistSession: mockConfirmAndPersistSession,
+}));
+
+vi.mock('../../services/rules/events/dispatcher.js', () => ({
+  dispatch: (...args: unknown[]) => mockDispatch(...args),
+  subscribe: vi.fn(),
+}));
+vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+  assembleEvaluationInputs: vi.fn().mockResolvedValue({
+    activeRulesV2: [],
+    activeSessions: [],
+    recentSessions: [],
+    identityServerUserIds: [],
+  }),
+  setContextAssemblyDeps: vi.fn(),
 }));
 
 vi.mock('../../services/serviceTracker.js', () => ({

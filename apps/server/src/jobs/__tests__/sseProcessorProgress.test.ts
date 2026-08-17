@@ -19,6 +19,7 @@ const {
   mockCheckWatchCompletion,
   mockCreateMediaServerClient,
   mockDb,
+  mockDispatch,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EventEmitter: EE } = require('events');
@@ -28,6 +29,7 @@ const {
     mockFindActiveSession: vi.fn(),
     mockCheckWatchCompletion: vi.fn().mockReturnValue(false),
     mockCreateMediaServerClient: vi.fn(),
+    mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
     mockDb: {
       select: vi.fn(),
       update: vi.fn(),
@@ -110,6 +112,20 @@ vi.mock('../poller/sessionLifecycle.js', () => ({
   handleQualityChangeFallout: vi.fn(),
   reEvaluateRulesOnTranscodeChange: vi.fn(),
   confirmAndPersistSession: vi.fn(),
+}));
+
+vi.mock('../../services/rules/events/dispatcher.js', () => ({
+  dispatch: (...args: unknown[]) => mockDispatch(...args),
+  subscribe: vi.fn(),
+}));
+vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+  assembleEvaluationInputs: vi.fn().mockResolvedValue({
+    activeRulesV2: [],
+    activeSessions: [],
+    recentSessions: [],
+    identityServerUserIds: [],
+  }),
+  setContextAssemblyDeps: vi.fn(),
 }));
 
 vi.mock('../../services/serviceTracker.js', () => ({

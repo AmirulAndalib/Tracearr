@@ -25,6 +25,8 @@ import type { CacheService, PubSubService } from '../services/cache.js';
 import { createMediaServerClient } from '../services/mediaServer/index.js';
 import { extractLiveUuid } from '../services/mediaServer/plex/plexUtils.js';
 import { lookupGeoIP } from '../services/plexGeoip.js';
+import { assembleEvaluationInputs } from '../services/rules/events/contextAssembly.js';
+import { dispatch } from '../services/rules/events/dispatcher.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
 import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
@@ -53,8 +55,6 @@ import {
   findActiveSessionsAll,
   handleMediaChangeAtomic,
   handleQualityChangeFallout,
-  reEvaluateRulesOnPauseState,
-  reEvaluateRulesOnTranscodeChange,
   stopSessionAtomic,
 } from './poller/sessionLifecycle.js';
 import { mapMediaSession, pickStreamDetailFields } from './poller/sessionMapper.js';
@@ -1411,14 +1411,12 @@ async function updateExistingSession(
     return;
   }
 
-  // Re-evaluate transcode-related V2 rules when transcode state changes.
-  // At session creation (especially via SSE), transcode state may not be known yet,
-  // so rules like "block 4K transcoding" need re-evaluation when transcoding starts.
-  if (transcodeStateChanged) {
+  if (transcodeStateChanged || newState === 'paused' || previousState === 'paused') {
     try {
       const activeRulesV2 = await getActiveRulesV2();
-      if (activeRulesV2.length > 0 && cacheService) {
-        // Load server user details for rule evaluation context
+      // Level-triggered until stage 3 replaces the per-update re-eval with wakes.
+      const evaluating = transcodeStateChanged || newState === 'paused';
+      if (evaluating && activeRulesV2.length > 0) {
         const serverUserRows = await db
           .select({
             id: serverUsers.id,
@@ -1434,123 +1432,79 @@ async function updateExistingSession(
           .innerJoin(users, eq(serverUsers.userId, users.id))
           .where(eq(serverUsers.id, existingSession.serverUserId))
           .limit(1);
-
         const serverUserDetail = serverUserRows[0];
-        if (serverUserDetail) {
-          // Load server info
-          const serverRows = await db
-            .select()
-            .from(servers)
-            .where(eq(servers.id, existingSession.serverId))
-            .limit(1);
+        const serverRows = serverUserDetail
+          ? await db.select().from(servers).where(eq(servers.id, existingSession.serverId)).limit(1)
+          : [];
+        const server = serverRows[0];
 
-          const server = serverRows[0];
-          if (server) {
-            const activeSessions = excludeUncountableSessions(
-              await cacheService.getAllActiveSessions(),
-              gracePeriodSessionIds()
-            );
-            const identityServerUserIds = await resolveIdentityServerUserIds(
-              serverUserDetail.userId,
-              'transcode re-eval'
-            );
-            const recentSessions = await fetchRecentSessionsForRules(
-              serverUserDetail.id,
-              identityServerUserIds
-            );
+        if (serverUserDetail && server) {
+          const serverRef = { id: server.id, name: server.name, type: server.type };
+          const serverUserRef = { ...serverUserDetail, identityServerUserIds: [] as string[] };
+          const inputs = await assembleEvaluationInputs({
+            rules: activeRulesV2,
+            server: serverRef,
+            serverUser: serverUserRef,
+          });
+          serverUserRef.identityServerUserIds = inputs.identityServerUserIds ?? [];
 
-            const violationResults = await reEvaluateRulesOnTranscodeChange({
-              existingSession,
-              processed,
-              server: { id: server.id, name: server.name, type: server.type },
-              serverUser: { ...serverUserDetail, identityServerUserIds },
-              activeRulesV2,
-              activeSessions,
-              recentSessions,
-            });
-
-            if (violationResults.length > 0 && pubSubService) {
-              await broadcastViolations(violationResults, existingSession.id, pubSubService);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(
-        `[SSEProcessor] Error re-evaluating rules on transcode change for session ${existingSession.id}:`,
-        error
-      );
-    }
-  }
-
-  // Re-evaluate pause-related V2 rules when the session is currently paused.
-  // Runs every update cycle because pause duration grows over time.
-  if (newState === 'paused') {
-    try {
-      const activeRulesV2 = await getActiveRulesV2();
-      if (activeRulesV2.length > 0 && cacheService) {
-        const serverUserRows = await db
-          .select({
-            id: serverUsers.id,
-            userId: serverUsers.userId,
-            username: serverUsers.username,
-            thumbUrl: serverUsers.thumbUrl,
-            identityName: users.name,
-            trustScore: serverUsers.trustScore,
-            lastActivityAt: serverUsers.lastActivityAt,
-            createdAt: serverUsers.createdAt,
-          })
-          .from(serverUsers)
-          .innerJoin(users, eq(serverUsers.userId, users.id))
-          .where(eq(serverUsers.id, existingSession.serverUserId))
-          .limit(1);
-
-        const serverUserDetail = serverUserRows[0];
-        if (serverUserDetail) {
-          const serverRows = await db
-            .select()
-            .from(servers)
-            .where(eq(servers.id, existingSession.serverId))
-            .limit(1);
-
-          const server = serverRows[0];
-          if (server) {
-            const activeSessions = excludeUncountableSessions(
-              await cacheService.getAllActiveSessions(),
-              gracePeriodSessionIds()
-            );
-            const identityServerUserIds = await resolveIdentityServerUserIds(
-              serverUserDetail.userId,
-              'pause re-eval'
-            );
-            const recentSessions = await fetchRecentSessionsForRules(
-              serverUserDetail.id,
-              identityServerUserIds
-            );
-
-            const violationResults = await reEvaluateRulesOnPauseState({
-              existingSession,
-              processed,
-              pauseData: {
-                lastPausedAt: pauseResult.lastPausedAt,
-                pausedDurationMs: pauseResult.pausedDurationMs,
+          if (transcodeStateChanged) {
+            const { violations } = await dispatch(
+              {
+                type: 'session.transcode_changed',
+                at: now,
+                server: serverRef,
+                serverUser: serverUserRef,
+                previous: {
+                  videoDecision: existingSession.videoDecision,
+                  audioDecision: existingSession.audioDecision,
+                },
+                next: {
+                  videoDecision: processed.videoDecision,
+                  audioDecision: processed.audioDecision,
+                },
+                raw: { existingSession, processed },
               },
-              server: { id: server.id, name: server.name, type: server.type },
-              serverUser: { ...serverUserDetail, identityServerUserIds },
-              activeRulesV2,
-              activeSessions,
-              recentSessions,
-            });
+              inputs
+            );
+            if (violations.length > 0 && pubSubService) {
+              await broadcastViolations(violations, existingSession.id, pubSubService);
+            }
+          }
 
-            if (violationResults.length > 0 && pubSubService) {
-              await broadcastViolations(violationResults, existingSession.id, pubSubService);
+          if (newState === 'paused') {
+            const { violations } = await dispatch(
+              {
+                type: 'session.paused',
+                at: now,
+                server: serverRef,
+                serverUser: serverUserRef,
+                pauseData: {
+                  lastPausedAt: pauseResult.lastPausedAt,
+                  pausedDurationMs: pauseResult.pausedDurationMs,
+                },
+                raw: { existingSession, processed },
+              },
+              inputs
+            );
+            if (violations.length > 0 && pubSubService) {
+              await broadcastViolations(violations, existingSession.id, pubSubService);
             }
           }
         }
       }
+
+      if (previousState === 'paused' && newState === 'playing') {
+        await dispatch({
+          type: 'session.resumed',
+          at: now,
+          sessionId: existingSession.id,
+          serverId: existingSession.serverId,
+        });
+      }
     } catch (error) {
       console.error(
-        `[SSEProcessor] Error re-evaluating pause rules for session ${existingSession.id}:`,
+        `[SSEProcessor] Error re-evaluating rules for session ${existingSession.id}:`,
         error
       );
     }

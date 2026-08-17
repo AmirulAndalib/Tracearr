@@ -35,6 +35,7 @@ const {
   mockDb,
   mockLookupGeoIP,
   mockGetGeoIPSettings,
+  mockDispatch,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EventEmitter: EE } = require('events');
@@ -57,6 +58,7 @@ const {
       .fn()
       .mockResolvedValue({ city: null, country: null, latitude: null, longitude: null }),
     mockGetGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
+    mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
   };
 });
 
@@ -149,6 +151,20 @@ vi.mock('../poller/sessionLifecycle.js', async () => {
     confirmAndPersistSession: vi.fn(),
   };
 });
+
+vi.mock('../../services/rules/events/dispatcher.js', () => ({
+  dispatch: (...args: unknown[]) => mockDispatch(...args),
+  subscribe: vi.fn(),
+}));
+vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+  assembleEvaluationInputs: vi.fn().mockResolvedValue({
+    activeRulesV2: [],
+    activeSessions: [],
+    recentSessions: [],
+    identityServerUserIds: [],
+  }),
+  setContextAssemblyDeps: vi.fn(),
+}));
 
 // ============================================================================
 // Import after mocking
