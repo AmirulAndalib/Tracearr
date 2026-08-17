@@ -42,6 +42,7 @@ import type {
   PlaybackReportingImportProgress,
   MaintenanceJobProgress,
   LibrarySyncProgress,
+  NotificationToast,
 } from '@tracearr/shared';
 
 import authPlugin, { loadJwtRevokeSettings } from './plugins/auth.js';
@@ -63,7 +64,7 @@ import { stopImageCacheCleanup } from './services/imageProxy.js';
 import { debugRoutes } from './routes/debug.js';
 import { mobileRoutes } from './routes/mobile.js';
 import { notificationPreferencesRoutes } from './routes/notificationPreferences.js';
-import { channelRoutingRoutes } from './routes/channelRouting.js';
+import { destinationRoutes } from './routes/destinations.js';
 import { versionRoutes } from './routes/version.js';
 import { maintenanceRoutes } from './routes/maintenance.js';
 import { publicRoutes } from './routes/public.js';
@@ -102,6 +103,8 @@ import {
   startNotificationWorker,
   shutdownNotificationQueue,
 } from './jobs/notificationQueue.js';
+import { initDestinationCrypto } from './services/notifications/destinationCrypto.js';
+import { invalidateDestinationsCache } from './services/notifications/destinationStore.js';
 import { initKillQueue, startKillWorker, shutdownKillQueue } from './jobs/killQueue.js';
 import { initImportQueue, startImportWorker, shutdownImportQueue } from './jobs/importQueue.js';
 import {
@@ -473,7 +476,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   await app.register(violationRoutes, { prefix: `${API_BASE_PATH}/violations` });
   await app.register(statsRoutes, { prefix: `${API_BASE_PATH}/stats` });
   await app.register(settingsRoutes, { prefix: `${API_BASE_PATH}/settings` });
-  await app.register(channelRoutingRoutes, { prefix: `${API_BASE_PATH}/settings/notifications` });
+  await app.register(destinationRoutes, { prefix: `${API_BASE_PATH}/destinations` });
   await app.register(importRoutes, { prefix: `${API_BASE_PATH}/import` });
   await app.register(imageRoutes, { prefix: `${API_BASE_PATH}/images` });
   await app.register(debugRoutes, { prefix: `${API_BASE_PATH}/debug` });
@@ -803,6 +806,8 @@ async function initializeServices(app: FastifyInstance) {
   app.log.info('Push notification rate limiter initialized');
 
   try {
+    const keySource = initDestinationCrypto();
+    app.log.info(`Destination secrets keyed from ${keySource}`);
     initNotificationQueue(redisUrl);
     startNotificationWorker();
     initKillQueue(redisUrl);
@@ -1129,6 +1134,18 @@ async function initializePostListen(app: FastifyInstance) {
             'version:update',
             data as { current: string; latest: string; releaseUrl: string }
           );
+          break;
+        case WS_EVENTS.DESTINATIONS_CHANGED:
+          invalidateDestinationsCache();
+          break;
+        case WS_EVENTS.NOTIFICATION_TOAST:
+          broadcastToSessions('notification:toast', data as NotificationToast);
+          break;
+        case WS_EVENTS.SERVER_DOWN:
+          broadcastToSessions('server:down', data as { serverId: string; serverName: string });
+          break;
+        case WS_EVENTS.SERVER_UP:
+          broadcastToSessions('server:up', data as { serverId: string; serverName: string });
           break;
         default:
           // Unknown event, ignore

@@ -164,6 +164,25 @@ export async function deleteDestination(id: string): Promise<boolean> {
   return deleted.length > 0;
 }
 
+/** The partial unique index on (type) where builtin makes the insert idempotent. */
+export async function seedBuiltinDestinations(): Promise<void> {
+  await db
+    .insert(destinations)
+    .values([
+      { name: 'Mobile push', type: 'push', config: null, events: [], enabled: true, builtin: true },
+      {
+        name: 'Browser toasts',
+        type: 'web_toast',
+        config: null,
+        events: [],
+        enabled: true,
+        builtin: true,
+      },
+    ])
+    .onConflictDoNothing();
+  invalidateDestinationsCache();
+}
+
 /** Called by the worker when a row fails to decrypt; the UI shows "re-enter" and the dispatcher skips it. */
 export async function markReencrypt(id: string): Promise<void> {
   await db

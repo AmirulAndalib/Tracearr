@@ -33,6 +33,10 @@ import { getInactivityCheckQueueStats } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache, invalidateServersCache } from '../jobs/poller/database.js';
 import { getBackupQueueStats } from '../jobs/backupQueue.js';
 import { resetSettingsCache } from '../services/settings.js';
+import {
+  invalidateDestinationsCache,
+  seedBuiltinDestinations,
+} from '../services/notifications/destinationStore.js';
 import { getAllServices } from '../services/serviceTracker.js';
 import { getAuth } from '../lib/auth.js';
 import { revokeMobileDeviceSession } from './mobile.js';
@@ -47,7 +51,7 @@ import {
   mobileTokens,
   mobileSessions,
   notificationPreferences,
-  notificationChannelRouting,
+  destinations,
   terminationLogs,
   plexAccounts,
   libraryItems,
@@ -590,7 +594,7 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
     await db.delete(terminationLogs);
     await db.delete(sessions);
     await db.delete(rules);
-    await db.delete(notificationChannelRouting);
+    await db.delete(destinations);
     await db.delete(notificationPreferences);
     await db.delete(mobileSessions);
     await db.delete(mobileTokens);
@@ -607,6 +611,8 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
 
     invalidateRulesCache();
     resetSettingsCache();
+    invalidateDestinationsCache();
+    await seedBuiltinDestinations();
 
     return {
       success: true,
