@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import {
   DESTINATION_TYPES,
+  destinationConfigSchema,
   WS_EVENTS,
   type Destination,
   type DestinationKind,
@@ -146,7 +147,13 @@ export async function updateDestination(
       if (v === null) Reflect.deleteProperty(merged, k);
       else merged[k] = v;
     }
-    set.config = encryptConfig(merged);
+    // The route validated its own merge from the cache; re-check against the row so a stale cache never persists an incomplete config.
+    const check = destinationConfigSchema(current.type).safeParse(merged);
+    if (!check.success)
+      throw new Error(
+        `config incomplete after merge: ${check.error.issues[0]?.message ?? 'invalid'}`
+      );
+    set.config = encryptConfig(check.data);
     set.configStatus = 'ok';
   }
   const [row] = await db.update(destinations).set(set).where(eq(destinations.id, id)).returning();
@@ -164,23 +171,32 @@ export async function deleteDestination(id: string): Promise<boolean> {
   return deleted.length > 0;
 }
 
-/** The partial unique index on (type) where builtin makes the insert idempotent. */
+/** Fresh built-ins start on the routing fallback (everything but stream start/stop); a bare ON CONFLICT DO NOTHING covers both unique indexes, so re-runs never touch existing rows. */
 export async function seedBuiltinDestinations(): Promise<void> {
+  const defaultEvents = (kind: 'push' | 'web_toast'): NotificationEventType[] =>
+    DESTINATION_TYPES[kind].events.filter((e) => e !== 'stream_started' && e !== 'stream_stopped');
   await db
     .insert(destinations)
     .values([
-      { name: 'Mobile push', type: 'push', config: null, events: [], enabled: true, builtin: true },
+      {
+        name: 'Mobile push',
+        type: 'push',
+        config: null,
+        events: defaultEvents('push'),
+        enabled: true,
+        builtin: true,
+      },
       {
         name: 'Browser toasts',
         type: 'web_toast',
         config: null,
-        events: [],
+        events: defaultEvents('web_toast'),
         enabled: true,
         builtin: true,
       },
     ])
     .onConflictDoNothing();
-  invalidateDestinationsCache();
+  await publishChanged();
 }
 
 /** Called by the worker when a row fails to decrypt; the UI shows "re-enter" and the dispatcher skips it. */

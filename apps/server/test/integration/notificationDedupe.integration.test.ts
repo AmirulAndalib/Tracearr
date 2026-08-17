@@ -6,7 +6,7 @@
  * bucket doesn't notify twice. A mocked queue can't settle that, so this pins
  * it against the real thing.
  *
- * Run with: pnpm --filter @tracearr/server test:integration -- notificationDedupe
+ * Run with: pnpm --filter @tracearr/server test:integration notificationDedupe
  */
 
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest';

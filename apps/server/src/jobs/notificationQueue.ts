@@ -245,7 +245,7 @@ async function resolveUserNames(event: NotificationEvent): Promise<void> {
   }
 }
 
-/** Returns how many jobs were enqueued (0 when nothing is subscribed or every target is disabled/reencrypt). */
+/** Returns how many destinations the event fanned out to (0 when nothing is subscribed or every target is disabled/reencrypt). */
 export async function enqueueNotification(
   event: NotificationEvent,
   opts: { to?: string[]; source?: NotificationSource } = {}
@@ -279,7 +279,12 @@ export async function enqueueNotification(
 async function processJob(job: Job<NotificationJob>): Promise<void> {
   const { destinationId, source, event } = job.data;
   const destination = await getDestination(destinationId);
-  if (!destination || !destination.enabled || destination.configStatus !== 'ok') return;
+  if (!destination || !destination.enabled || destination.configStatus !== 'ok') {
+    console.log(
+      `[Notifications] job ${job.id}: destination ${destinationId} missing, disabled or awaiting re-entry; skipped`
+    );
+    return;
+  }
 
   const opened = readConfig(destination);
   if (!opened.ok) {

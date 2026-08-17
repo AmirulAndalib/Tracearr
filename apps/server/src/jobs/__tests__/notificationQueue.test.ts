@@ -5,6 +5,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { UnrecoverableError } from 'bullmq';
+import type * as BullMq from 'bullmq';
 import type { ActiveSession, ViolationWithDetails } from '@tracearr/shared';
 import type * as NotificationQueue from '../notificationQueue.js';
 import type { DestinationRow } from '../../services/notifications/destinationStore.js';
@@ -34,7 +36,6 @@ interface MockWorker {
 const {
   queueInstances,
   workerInstances,
-  MockUnrecoverableError,
   mockFindDestinationsForEvent,
   mockGetDestination,
   mockReadConfig,
@@ -47,8 +48,6 @@ const {
 } = vi.hoisted(() => ({
   queueInstances: [] as MockQueue[],
   workerInstances: [] as MockWorker[],
-  // Held across resetModules so the queue's `instanceof` check sees one class
-  MockUnrecoverableError: class UnrecoverableError extends Error {},
   mockFindDestinationsForEvent: vi.fn(),
   mockGetDestination: vi.fn(),
   mockReadConfig: vi.fn(),
@@ -60,8 +59,8 @@ const {
   mockGetServerUserDisplayNames: vi.fn(),
 }));
 
-vi.mock('bullmq', () => ({
-  UnrecoverableError: MockUnrecoverableError,
+vi.mock('bullmq', async (importOriginal) => ({
+  UnrecoverableError: (await importOriginal<typeof BullMq>()).UnrecoverableError,
   Queue: vi.fn(function (name: string) {
     const instance: MockQueue = {
       name,
@@ -567,7 +566,7 @@ describe('failure handler', () => {
   });
 
   it('moves an UnrecoverableError to the DLQ on the first attempt', async () => {
-    await fail(failedJob(), new MockUnrecoverableError('404 webhook gone'));
+    await fail(failedJob(), new UnrecoverableError('404 webhook gone'));
 
     expect(dlq().add).toHaveBeenCalledWith('dlq-violation', expect.anything(), {
       jobId: 'dlq-job-7',
