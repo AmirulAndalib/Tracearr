@@ -561,6 +561,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     // overlaps an in-flight poll from this instance
     stopPoller();
     stopSSEProcessor();
+    stopPauseWakes();
     stopPluginUpdateChecker();
     await sseManager.stop();
     await stopLeaderLease();

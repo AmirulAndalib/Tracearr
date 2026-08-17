@@ -110,10 +110,8 @@ export async function loadEvaluationContext(
 }
 
 /**
- * The SSE processor and the wake scheduler have no tick; this builds the same
- * inputs the poller carries per tick. Failed identity/recent lookups degrade to
- * this server_user only, so a transient DB error narrows detection instead of
- * blocking the event.
+ * The SSE processor and the wake scheduler have no tick; this builds the inputs the poller
+ * carries per tick. Failed identity/recent lookups degrade to this server_user only.
  */
 export async function assembleEvaluationInputs(args: {
   rules: RuleV2[];
