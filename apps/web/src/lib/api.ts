@@ -28,8 +28,6 @@ import type {
   PlexAccountsResponse,
   LinkPlexAccountResponse,
   UnlinkPlexAccountResponse,
-  NotificationChannelRouting,
-  NotificationEventType,
   Destination,
   DestinationKind,
   CreateDestinationInput,
@@ -45,7 +43,6 @@ import type {
   ShowStatsResponse,
   SetupStatus,
   MediaType,
-  WebhookFormat,
   ServerConnectionStatus,
   // New analytics types
   DeviceCompatibilityResponse,
@@ -1599,42 +1596,11 @@ class ApiClient {
     get: () => this.request<Settings>('/settings'),
     update: (data: Partial<Settings>) =>
       this.request<Settings>('/settings', { method: 'PATCH', body: JSON.stringify(data) }),
-    testWebhook: (data: {
-      type: 'discord' | 'custom';
-      url?: string;
-      format?: WebhookFormat;
-      ntfyTopic?: string;
-      ntfyAuthToken?: string;
-      pushoverUserKey?: string;
-      pushoverApiToken?: string;
-    }) =>
-      this.request<{ success: boolean; error?: string }>('/settings/test-webhook', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
     getApiKey: () => this.request<{ token: string | null }>('/settings/api-key'),
     regenerateApiKey: () =>
       this.request<{ token: string }>('/settings/api-key/regenerate', { method: 'POST' }),
     getIpWarning: () =>
       this.request<{ showWarning: boolean; stateHash: string }>('/settings/ip-warning'),
-  };
-
-  // Channel Routing
-  channelRouting = {
-    getAll: () => this.request<NotificationChannelRouting[]>('/settings/notifications/routing'),
-    update: (
-      eventType: NotificationEventType,
-      data: {
-        discordEnabled?: boolean;
-        webhookEnabled?: boolean;
-        webToastEnabled?: boolean;
-        pushEnabled?: boolean;
-      }
-    ) =>
-      this.request<NotificationChannelRouting>(`/settings/notifications/routing/${eventType}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
   };
 
   // Notification destinations

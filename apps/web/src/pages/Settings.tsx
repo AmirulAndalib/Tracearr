@@ -15,7 +15,7 @@ import { TailscaleSettings } from '@/components/settings/TailscaleSettings';
 import { ImportSettings } from '@/components/settings/ImportSettings';
 import { JobsSettings } from '@/components/settings/JobsSettings';
 import { BackupSettings } from '@/components/settings/BackupSettings';
-import { NotificationAgentsManager } from '@/components/settings/notification-agents';
+import { DestinationsManager } from '@/components/settings/destinations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
 
@@ -63,12 +63,12 @@ function NotificationSettings() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Bell className="h-5 w-5" />
-          {t('settings.notifications.title')}
+          {t('settings.destinations.title')}
         </CardTitle>
-        <CardDescription>{t('settings.notifications.description')}</CardDescription>
+        <CardDescription>{t('settings.destinations.description')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <NotificationAgentsManager />
+        <DestinationsManager />
       </CardContent>
     </Card>
   );

@@ -97,9 +97,6 @@ export {
 // Settings hooks
 export { useSettings, useUpdateSettings, useApiKey, useRegenerateApiKey } from './useSettings';
 
-// Channel Routing hooks
-export { useChannelRouting, useUpdateChannelRouting } from './useChannelRouting';
-
 // Destination hooks
 export {
   useDestinations,

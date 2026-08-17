@@ -36,7 +36,7 @@ describe('api client 401 handling', () => {
   it('fires the auth-state event when a data endpoint 401s (lost session)', async () => {
     mockFetch401();
 
-    await expect(api.channelRouting.getAll()).rejects.toThrow();
+    await expect(api.destinations.list()).rejects.toThrow();
     expect(authEvents).toBe(1);
   });
 });

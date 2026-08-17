@@ -371,7 +371,6 @@
         "availability": {
           "added": "added {{date}}",
           "addedRemoved": "added {{added}} – removed {{removed}}",
-          "removed": "removed {{date}}",
           "replaced": "replaced {{date}}"
         },
         "loadError": "Couldn't load this title",
@@ -721,6 +720,53 @@
     "weeks": "Wochen"
   },
   "settings": {
+    "destinations": {
+      "add": "Add destination",
+      "builtinNote": "Built in",
+      "clearSecret": "Clear",
+      "delete": "Delete",
+      "deleteConfirm": "Delete {{name}}? Rules that send to it will be blocked until they are updated.",
+      "description": "Where notifications go. Add as many as you like; each one picks the system events it receives, and rules can send to any of them.",
+      "empty": "No destinations yet.",
+      "events": {
+        "plugin_update_available": "Plugin update available",
+        "server_down": "Server down",
+        "server_up": "Server up",
+        "stream_started": "Stream started",
+        "stream_stopped": "Stream stopped",
+        "violation_detected": "Violation detected"
+      },
+      "eventsLabel": "Events",
+      "fields": {
+        "apiToken": "API token",
+        "apiUrl": "API URL",
+        "authToken": "Auth token",
+        "serverUrl": "Server URL",
+        "topic": "Topic",
+        "url": "URL",
+        "userKey": "User key",
+        "webhookUrl": "Webhook URL"
+      },
+      "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
+      "reencrypt": "Re-enter this destination's secret",
+      "secretSet": "Set (leave blank to keep)",
+      "test": "Test",
+      "testHint": "Save first to test",
+      "title": "Notification destinations",
+      "types": {
+        "apprise": "Apprise",
+        "discord": "Discord",
+        "gotify": "Gotify",
+        "jsonWebhook": "Webhook (JSON)",
+        "ntfy": "ntfy",
+        "push": "Mobile push",
+        "pushover": "Pushover",
+        "webToast": "Browser toasts"
+      },
+      "usedBy": "Used by {{count}} rule",
+      "usedBy_other": "Used by {{count}} rules",
+      "webToastNote": "Toasts in this browser."
+    },
     "jobs": {
       "lastRun": "Letzter Lauf",
       "nextRun": "Nächster Lauf",
@@ -734,36 +780,6 @@
       "editDisplayName": "Anzeigename bearbeiten",
       "editDisplayNameDesc": "Ändern Sie, wie dieses Gerät in Ihrer Geräteliste angezeigt wird",
       "updating": "Aktualisiere..."
-    },
-    "notifications": {
-      "addAgent": "Benachrichtigungsagent hinzufügen",
-      "addAgentDesc": "Wählen Sie einen Benachrichtigungsdienst und konfigurieren Sie ihn.",
-      "agentType": "Agenttyp",
-      "allAgentsConfigured": "Alle Benachrichtigungs-Agenten sind bereits konfiguriert.",
-      "allEvents": "Alle Ereignisse",
-      "currentlyConfigured": "{{name}} ist derzeit konfiguriert.",
-      "customEvents": "Benutzerdefinierte Ereignisse",
-      "description": "Konfigurieren Sie die Benachrichtigungskanäle und wählen Sie aus, welche Ereignisse jeder Agent empfangen soll.",
-      "editAgent": "Benachrichtigungsagent bearbeiten",
-      "editAgentDesc": "Aktualisieren Sie die Agentkonfiguration.",
-      "eventSelection": "Ereignisauswahl",
-      "loadingSettings": "Lade Benachrichtigungseinstellungen...",
-      "noAgents": "Keine Benachrichtigungsagenten konfiguriert",
-      "noAgentsHint": "Fügen Sie einen Agenten hinzu, um Benachrichtigungen über Sharing-Verstöße und Stream-Ereignisse zu erhalten.",
-      "noConfigNeeded": "Für diesen Agenten ist keine Konfiguration erforderlich.",
-      "oneWebhookLimit": "Es kann nur ein Webhook-Agent gleichzeitig aktiv sein.",
-      "removeAgentDesc": "Dies entfernt {{name}} und deaktiviert alle Benachrichtigungen. Sie können ihn später wieder hinzufügen.",
-      "removeAgentTitle": "{{name}} entfernen?",
-      "saveAgent": "Agent hinzufügen",
-      "selectType": "Typ auswählen...",
-      "testAgent": "Agent testen",
-      "testingAgent": "Teste...",
-      "title": "Benachrichtigungsagenturen",
-      "triggerEvents": "Auslöser-Ereignisse",
-      "updateAgent": "Agent aktualisieren",
-      "webhookAgents": "Webhook-Agenten",
-      "webhookUrl": "Webhook-URL",
-      "webhookUrlPlaceholder": "https://..."
     },
     "plex": {
       "accountsLinked_one": "{{count}} Plex-Konto verknüpft",
