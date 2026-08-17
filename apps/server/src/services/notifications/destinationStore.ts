@@ -1,0 +1,179 @@
+import { and, eq } from 'drizzle-orm';
+import {
+  DESTINATION_TYPES,
+  WS_EVENTS,
+  type Destination,
+  type DestinationKind,
+  type NotificationEventType,
+} from '@tracearr/shared';
+import { db } from '../../db/client.js';
+import { destinations } from '../../db/schema.js';
+import { createLogger } from '../../utils/logger.js';
+import { getPubSubService } from '../cache.js';
+import { decryptConfig, encryptConfig, type DecryptResult } from './destinationCrypto.js';
+
+const logger = createLogger('destinations');
+export type DestinationRow = typeof destinations.$inferSelect;
+
+/** Pub/sub invalidation is the primary signal; the TTL only covers a missed message. */
+const CACHE_TTL_MS = 5 * 60_000;
+let cache: { rows: DestinationRow[]; expiresAt: number } | null = null;
+
+export function invalidateDestinationsCache(): void {
+  cache = null;
+}
+
+async function publishChanged(): Promise<void> {
+  invalidateDestinationsCache();
+  await getPubSubService()
+    ?.publish(WS_EVENTS.DESTINATIONS_CHANGED, {})
+    .catch((error: unknown) => {
+      logger.warn(
+        'destinations:changed publish failed; other instances fall back to the cache TTL',
+        { error }
+      );
+    });
+}
+
+export async function listDestinations(): Promise<DestinationRow[]> {
+  if (cache && cache.expiresAt > Date.now()) return cache.rows;
+  const rows = await db.select().from(destinations).orderBy(destinations.createdAt);
+  cache = { rows, expiresAt: Date.now() + CACHE_TTL_MS };
+  return rows;
+}
+
+export async function getDestination(id: string): Promise<DestinationRow | null> {
+  return (await listDestinations()).find((d) => d.id === id) ?? null;
+}
+
+export async function findDestinationsForEvent(
+  eventType: NotificationEventType
+): Promise<DestinationRow[]> {
+  return (await listDestinations()).filter(
+    (d) => d.enabled && d.configStatus === 'ok' && d.events.includes(eventType)
+  );
+}
+
+export function readConfig(row: DestinationRow): DecryptResult {
+  if (row.config === null) return { ok: true, config: {}, rewrap: false };
+  return decryptConfig(row.config);
+}
+
+export function toPublicDestination(
+  row: DestinationRow,
+  referencedByRuleCount: number
+): Destination {
+  const descriptor = DESTINATION_TYPES[row.type];
+  const secretKeys = descriptor.fields.filter((f) => f.secret).map((f) => f.key);
+  let config: Destination['config'] = null;
+  let secretsSet: string[] = [];
+  if (row.configStatus === 'ok' && !row.builtin) {
+    const opened = readConfig(row);
+    if (opened.ok) {
+      config = {};
+      for (const f of descriptor.fields) {
+        const v = opened.config[f.key];
+        config[f.key] = f.secret ? null : typeof v === 'string' ? v : null;
+      }
+      secretsSet = secretKeys.filter(
+        (k) => typeof opened.config[k] === 'string' && opened.config[k] !== ''
+      );
+    }
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    enabled: row.enabled,
+    builtin: row.builtin,
+    events: row.events as NotificationEventType[],
+    configStatus: row.configStatus,
+    config,
+    secretsSet,
+    referencedByRuleCount,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function createDestination(input: {
+  name: string;
+  type: DestinationKind;
+  config: Record<string, unknown>;
+  events: NotificationEventType[];
+  enabled: boolean;
+}): Promise<DestinationRow> {
+  const [row] = await db
+    .insert(destinations)
+    .values({
+      name: input.name,
+      type: input.type,
+      config: encryptConfig(input.config),
+      events: input.events,
+      enabled: input.enabled,
+    })
+    .returning();
+  if (!row) throw new Error('insert returned no row');
+  await publishChanged();
+  return row;
+}
+
+/** Secrets: omitted keeps, null clears, string replaces. Non-secret fields follow the same rule; the route validates the merged object. */
+export async function updateDestination(
+  id: string,
+  patch: {
+    name?: string;
+    config?: Record<string, string | null>;
+    events?: NotificationEventType[];
+    enabled?: boolean;
+  }
+): Promise<DestinationRow> {
+  const current = await getDestination(id);
+  if (!current) throw new Error('destination not found');
+  const set: Partial<typeof destinations.$inferInsert> = { updatedAt: new Date() };
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.events !== undefined) set.events = patch.events;
+  if (patch.enabled !== undefined) set.enabled = patch.enabled;
+  if (patch.config !== undefined && !current.builtin) {
+    const opened = readConfig(current);
+    const base = opened.ok ? opened.config : {};
+    const merged: Record<string, unknown> = { ...base };
+    for (const [k, v] of Object.entries(patch.config)) {
+      if (v === null) Reflect.deleteProperty(merged, k);
+      else merged[k] = v;
+    }
+    set.config = encryptConfig(merged);
+    set.configStatus = 'ok';
+  }
+  const [row] = await db.update(destinations).set(set).where(eq(destinations.id, id)).returning();
+  if (!row) throw new Error('destination not found');
+  await publishChanged();
+  return row;
+}
+
+export async function deleteDestination(id: string): Promise<boolean> {
+  const deleted = await db
+    .delete(destinations)
+    .where(and(eq(destinations.id, id), eq(destinations.builtin, false)))
+    .returning();
+  await publishChanged();
+  return deleted.length > 0;
+}
+
+/** Called by the worker when a row fails to decrypt; the UI shows "re-enter" and the dispatcher skips it. */
+export async function markReencrypt(id: string): Promise<void> {
+  await db
+    .update(destinations)
+    .set({ configStatus: 'reencrypt', updatedAt: new Date() })
+    .where(eq(destinations.id, id));
+  await publishChanged();
+}
+
+/** Rewrap a row that opened under the secondary key so it stops depending on it. */
+export async function rewrapConfig(id: string, config: Record<string, unknown>): Promise<void> {
+  await db
+    .update(destinations)
+    .set({ config: encryptConfig(config), updatedAt: new Date() })
+    .where(eq(destinations.id, id));
+  invalidateDestinationsCache();
+}
