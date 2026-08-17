@@ -15,13 +15,6 @@ const PUBLIC_DEFAULTS: Settings = {
   // Settings interface fields
   allowGuestAccess: false,
   unitSystem: 'metric',
-  discordWebhookUrl: null,
-  customWebhookUrl: null,
-  webhookFormat: null,
-  ntfyTopic: null,
-  ntfyAuthToken: null,
-  pushoverUserKey: null,
-  pushoverApiToken: null,
   pollerEnabled: true,
   pollerIntervalMs: 15000,
   usePlexGeoip: false,

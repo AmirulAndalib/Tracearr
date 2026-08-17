@@ -2,7 +2,7 @@
  * Core type definitions for Tracearr
  */
 import type { NotificationToast } from './destinations.js';
-import type { webhookFormatSchema, sessionTargetSchema, statPeriodSchema } from './schemas.js';
+import type { sessionTargetSchema, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
 
 // Re-export SessionTarget for use in action interfaces
@@ -682,7 +682,6 @@ export interface RuleConditions {
 // Action types
 export type ActionType =
   | 'log_only'
-  | 'notify'
   | 'send'
   | 'adjust_trust'
   | 'set_trust'
@@ -690,19 +689,10 @@ export type ActionType =
   | 'kill_stream'
   | 'message_client';
 
-// Notification channels
-export type NotificationChannelV2 = 'push' | 'discord' | 'email' | 'webhook';
-
 // Action definitions
 export interface LogOnlyAction {
   type: 'log_only';
   message?: string;
-}
-
-export interface NotifyAction {
-  type: 'notify';
-  channels: NotificationChannelV2[];
-  cooldown_minutes?: number;
 }
 
 export interface SendAction {
@@ -745,7 +735,6 @@ export interface MessageClientAction {
 
 export type Action =
   | LogOnlyAction
-  | NotifyAction
   | SendAction
   | AdjustTrustAction
   | SetTrustAction
@@ -1080,9 +1069,6 @@ export interface ServerLiveStats {
   fetchedAt: string;
 }
 
-// Webhook format types
-export type WebhookFormat = z.infer<typeof webhookFormatSchema>;
-
 // Unit system for display preferences (stored in settings)
 export type UnitSystem = 'metric' | 'imperial';
 
@@ -1091,14 +1077,6 @@ export interface Settings {
   allowGuestAccess: boolean;
   // Display preferences
   unitSystem: UnitSystem;
-  // Notifications settings
-  discordWebhookUrl: string | null;
-  customWebhookUrl: string | null;
-  webhookFormat: WebhookFormat | null;
-  ntfyTopic: string | null;
-  ntfyAuthToken: string | null;
-  pushoverApiToken: string | null;
-  pushoverUserKey: string | null;
   // Poller settings
   pollerEnabled: boolean;
   pollerIntervalMs: number;
@@ -1621,21 +1599,6 @@ export interface RateLimitStatus {
 // Extended preferences response including live rate limit status
 export interface NotificationPreferencesWithStatus extends NotificationPreferences {
   rateLimitStatus?: RateLimitStatus;
-}
-
-// Notification channel types
-export type NotificationChannel = 'discord' | 'webhook' | 'push' | 'webToast';
-
-// Notification channel routing configuration (per-event type)
-export interface NotificationChannelRouting {
-  id: string;
-  eventType: NotificationEventType;
-  discordEnabled: boolean;
-  webhookEnabled: boolean;
-  pushEnabled: boolean;
-  webToastEnabled: boolean;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 // Encrypted push payload (AES-256-GCM with separate authTag per security best practices)

@@ -533,7 +533,6 @@ export const ruleConditionsSchema = z
 // Action types
 export const actionTypeSchema = z.enum([
   'log_only',
-  'notify',
   'send',
   'adjust_trust',
   'set_trust',
@@ -542,18 +541,10 @@ export const actionTypeSchema = z.enum([
   'message_client',
 ]);
 
-export const notificationChannelV2Schema = z.enum(['push', 'discord', 'email', 'webhook']);
-
 // Individual action schemas
 export const logOnlyActionSchema = z.object({
   type: z.literal('log_only'),
   message: z.string().max(500).optional(),
-});
-
-export const notifyActionSchema = z.object({
-  type: z.literal('notify'),
-  channels: z.array(notificationChannelV2Schema).min(1),
-  cooldown_minutes: z.number().int().nonnegative().optional(),
 });
 
 export const sendActionSchema = z.object({
@@ -606,7 +597,6 @@ export const messageClientActionSchema = z.object({
 // Union of all actions
 export const actionSchema = z.discriminatedUnion('type', [
   logOnlyActionSchema,
-  notifyActionSchema,
   sendActionSchema,
   adjustTrustActionSchema,
   setTrustActionSchema,
@@ -788,9 +778,6 @@ export const locationStatsQuerySchema = z
 // Webhook & Settings Schemas
 // ============================================================================
 
-// Webhook format enum
-export const webhookFormatSchema = z.enum(['json', 'ntfy', 'apprise', 'pushover', 'gotify']);
-
 // Unit system enum for display preferences
 export const unitSystemSchema = z.enum(['metric', 'imperial']);
 
@@ -834,13 +821,6 @@ export const updateSettingsSchema = z.object({
   allowGuestAccess: z.boolean().optional(),
   // Display preferences
   unitSystem: unitSystemSchema.optional(),
-  discordWebhookUrl: nullableUrlSchema.optional(),
-  customWebhookUrl: nullableUrlSchema.optional(),
-  webhookFormat: webhookFormatSchema.nullable().optional(),
-  ntfyTopic: z.string().max(200).nullable().optional(),
-  ntfyAuthToken: nullableStringSchema(500).optional(),
-  pushoverUserKey: nullableStringSchema(200).optional(),
-  pushoverApiToken: nullableStringSchema(200).optional(),
   // Poller settings
   pollerEnabled: z.boolean().optional(),
   pollerIntervalMs: z.number().int().min(5000).max(300000).optional(),

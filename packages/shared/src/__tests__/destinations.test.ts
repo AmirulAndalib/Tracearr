@@ -99,6 +99,6 @@ describe('send action', () => {
         cooldown_minutes: 5,
       }).success
     ).toBe(true);
-    expect(actionSchema.safeParse({ type: 'notify', channels: ['push'] }).success).toBe(true); // still accepted until Task 15
+    expect(actionSchema.safeParse({ type: 'notify', channels: ['push'] }).success).toBe(false);
   });
 });

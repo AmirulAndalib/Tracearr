@@ -669,7 +669,7 @@ describe('evaluateRulesAsync', () => {
         conditions: {
           groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: false }] }],
         },
-        actions: { actions: [{ type: 'notify', channels: ['push'] }] },
+        actions: { actions: [{ type: 'send', to: ['11111111-1111-4111-8111-111111111111'] }] },
       }),
     ];
 

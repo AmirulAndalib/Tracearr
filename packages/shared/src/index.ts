@@ -59,14 +59,12 @@ export type {
   ActionType,
   Action,
   LogOnlyAction,
-  NotifyAction,
   SendAction,
   AdjustTrustAction,
   SetTrustAction,
   ResetTrustAction,
   KillStreamAction,
   MessageClientAction,
-  NotificationChannelV2,
   RuleActions,
   RuleV2,
   ActionResult,
@@ -109,7 +107,6 @@ export type {
   ServerLiveStats,
   // Settings
   Settings,
-  WebhookFormat,
   UnitSystem,
   // Tailscale
   TailscaleStatus,
@@ -164,8 +161,6 @@ export type {
   NotificationPreferences,
   RateLimitStatus,
   NotificationPreferencesWithStatus,
-  NotificationChannel,
-  NotificationChannelRouting,
   EncryptedPushPayload,
   PushNotificationPayload,
   // SSE (Server-Sent Events)

@@ -57,10 +57,22 @@ export interface RoutingRow {
   webToastEnabled: boolean;
 }
 
+/** Rules stored before the cutover still hold `notify`, which the shared Action union no longer has. */
+interface LegacyNotifyAction {
+  type: 'notify';
+  channels: string[];
+  cooldown_minutes?: number;
+}
+
 export interface PlanInput {
   settings: Record<SevenKey, string | null>;
   routing: RoutingRow[] | null;
-  rules: Array<{ id: string; name: string; isActive: boolean; actions: RuleActions | null }>;
+  rules: Array<{
+    id: string;
+    name: string;
+    isActive: boolean;
+    actions: { actions: Array<Action | LegacyNotifyAction> } | null;
+  }>;
   builtins: { pushId: string; webToastId: string };
 }
 

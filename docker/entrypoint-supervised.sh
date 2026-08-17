@@ -101,7 +101,7 @@ fi
 # Load existing key if present (for backward compatibility), but don't generate new ones
 if [ -z "$ENCRYPTION_KEY" ] && [ -f /data/tracearr/.encryption_key ]; then
     export ENCRYPTION_KEY=$(cat /data/tracearr/.encryption_key)
-    log "Loaded ENCRYPTION_KEY from persistent storage (for token migration)"
+    log "Loaded ENCRYPTION_KEY from persistent storage (legacy token migration and destination secrets)"
 fi
 
 # =============================================================================
