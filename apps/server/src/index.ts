@@ -154,6 +154,7 @@ import { initHeavyOpsLock } from './jobs/heavyOpsLock.js';
 import { startConnectionBudget, stopConnectionBudget } from './services/connectionBudget.js';
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
 import { initializeV2Rules } from './services/rules/v2Integration.js';
+import { rehydratePauseWakes, stopPauseWakes } from './services/rules/wakes/pauseWakes.js';
 import { processPushReceipts } from './services/pushNotification.js';
 import { cleanupMobileTokens } from './jobs/cleanupMobileTokens.js';
 import { db, checkDatabaseConnection } from './db/client.js';
@@ -1160,6 +1161,12 @@ async function initializePostListen(app: FastifyInstance) {
       app.log.error({ err }, 'Failed to start SSE connections - falling back to polling');
     }
 
+    try {
+      await rehydratePauseWakes();
+    } catch (err) {
+      app.log.error({ err }, 'Failed to rehydrate pause wakes');
+    }
+
     // One bounded pass per leadership term; nothing else sweeps these rows.
     void backfillMissingServerIdentifiers(app.log)
       .then((filled) => {
@@ -1173,6 +1180,7 @@ async function initializePostListen(app: FastifyInstance) {
   const stopProducers = async (): Promise<void> => {
     stopPoller();
     stopSSEProcessor();
+    stopPauseWakes();
     stopPluginUpdateChecker();
     await sseManager.stop();
   };
@@ -1340,6 +1348,7 @@ async function start() {
         app.log.info('Entering maintenance mode — shutting down services');
         stopPoller();
         stopSSEProcessor();
+        stopPauseWakes();
         stopPluginUpdateChecker();
         void sseManager
           .stop()

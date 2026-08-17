@@ -1349,12 +1349,12 @@ async function updateExistingSession(
     return;
   }
 
-  if (transcodeStateChanged || newState === 'paused' || previousState === 'paused') {
+  const pauseEdge = previousState !== 'paused' && newState === 'paused';
+
+  if (transcodeStateChanged || pauseEdge) {
     try {
       const activeRulesV2 = await getActiveRulesV2();
-      // Level-triggered until stage 3 replaces the per-update re-eval with wakes.
-      const evaluating = transcodeStateChanged || newState === 'paused';
-      if (evaluating && activeRulesV2.length > 0) {
+      if (activeRulesV2.length > 0) {
         const ctx = await loadEvaluationContext(
           existingSession.serverId,
           existingSession.serverUserId,
@@ -1388,7 +1388,7 @@ async function updateExistingSession(
             }
           }
 
-          if (newState === 'paused') {
+          if (pauseEdge) {
             const { violations } = await dispatch(
               {
                 type: 'session.paused',
@@ -1413,21 +1413,21 @@ async function updateExistingSession(
           }
         }
       }
-
-      if (previousState === 'paused' && newState === 'playing') {
-        await dispatch({
-          type: 'session.resumed',
-          at: now,
-          sessionId: existingSession.id,
-          serverId: existingSession.serverId,
-        });
-      }
     } catch (error) {
       console.error(
         `[SSEProcessor] Error re-evaluating rules for session ${existingSession.id}:`,
         error
       );
     }
+  }
+
+  if (previousState === 'paused' && newState === 'playing') {
+    await dispatch({
+      type: 'session.resumed',
+      at: now,
+      sessionId: existingSession.id,
+      serverId: existingSession.serverId,
+    });
   }
 
   if (cacheService) {

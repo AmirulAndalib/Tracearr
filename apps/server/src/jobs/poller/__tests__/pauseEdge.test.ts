@@ -1,11 +1,6 @@
 /**
- * Session Resurrection Guard Tests (poller)
- *
- * An SSE stop landing between the tick's batch read and the poller's update
- * write must not resurrect the session: the update has to carry a liveness
- * condition, and a zero-row result must not be pushed into updatedSessions
- * (the cache would otherwise show a stopped session as active, and the next
- * tick mints a duplicate DB row for it).
+ * The poller dispatches session.paused on the playing→paused edge only; the
+ * scheduled wakes carry the re-evaluation while the session stays paused.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -15,8 +10,6 @@ const {
   mockMapMediaSession,
   mockBuildActiveSession,
   mockBatchFindActiveSessionsByComposite,
-  mockFindActiveSession,
-  mockProcessPollResults,
   mockDb,
   mockUpdateWhere,
 } = vi.hoisted(() => {
@@ -63,8 +56,6 @@ const {
     mockMapMediaSession: vi.fn(),
     mockBuildActiveSession: vi.fn(),
     mockBatchFindActiveSessionsByComposite: vi.fn(),
-    mockFindActiveSession: vi.fn().mockResolvedValue(null),
-    mockProcessPollResults: vi.fn().mockResolvedValue(undefined),
     mockUpdateWhere: updateWhere,
     mockDb: {
       select: vi.fn((columns?: unknown) => ({
@@ -132,10 +123,10 @@ vi.mock('../sessionLifecycle.js', () => ({
   buildActiveSession: mockBuildActiveSession,
   buildPendingActiveSession: vi.fn(),
   createSessionWithRulesAtomic: vi.fn(),
-  findActiveSession: mockFindActiveSession,
+  findActiveSession: vi.fn().mockResolvedValue(null),
   findActiveSessionByComposite: vi.fn().mockResolvedValue(null),
   handleMediaChangeAtomic: vi.fn(),
-  processPollResults: mockProcessPollResults,
+  processPollResults: vi.fn().mockResolvedValue(undefined),
   stopSessionAtomic: vi.fn(),
 }));
 vi.mock('../../../services/rules/events/dispatcher.js', () => ({
@@ -224,29 +215,21 @@ const cachedActiveSession = {
   deviceId: 'device-1',
 };
 
-describe('poller session update guard against stop races', () => {
-  let cacheService: {
-    getAllActiveSessions: ReturnType<typeof vi.fn>;
-    getPendingSession: ReturnType<typeof vi.fn>;
-    withSessionCreateLock: ReturnType<typeof vi.fn>;
-    hasTerminationCooldown: ReturnType<typeof vi.fn>;
-    hasTerminationCooldownComposite: ReturnType<typeof vi.fn>;
-  };
-
+describe('poller pause edge', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUpdateWhere.mockResolvedValue([]);
+    mockUpdateWhere.mockResolvedValue([{ id: EXISTING_SESSION_ID }]);
+    vi.mocked(getActiveRulesV2).mockResolvedValue([{ id: 'rule-1' }] as unknown as Awaited<
+      ReturnType<typeof getActiveRulesV2>
+    >);
 
     mockCreateMediaServerClient.mockReturnValue({
       getSessions: vi.fn().mockResolvedValue([{}]),
     });
     mockMapMediaSession.mockReturnValue(processedSession());
     mockBuildActiveSession.mockReturnValue({ id: EXISTING_SESSION_ID, sessionKey: 'sess-key-1' });
-    mockBatchFindActiveSessionsByComposite.mockResolvedValue(
-      new Map([[`server-user-1::1001`, [existingSessionRow()]]])
-    );
 
-    cacheService = {
+    const cacheService = {
       getAllActiveSessions: vi.fn().mockResolvedValue([cachedActiveSession]),
       getPendingSession: vi.fn().mockResolvedValue(null),
       withSessionCreateLock: vi.fn().mockImplementation(async (_s, _k, op) => op()),
@@ -260,113 +243,42 @@ describe('poller session update guard against stop races', () => {
     );
   });
 
-  it('does not push a resurrected session when the update affects zero rows', async () => {
-    mockUpdateWhere.mockResolvedValue([]); // update raced a concurrent stop
-
-    await triggerServerPoll('server-1');
-
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
-    expect(mockProcessPollResults).not.toHaveBeenCalled();
-  });
-
-  it('pushes the updated session normally when the update affects a row', async () => {
-    mockUpdateWhere.mockResolvedValue([{ id: EXISTING_SESSION_ID }]);
-
-    await triggerServerPoll('server-1');
-
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
-    expect(mockProcessPollResults).toHaveBeenCalledTimes(1);
-    const call = mockProcessPollResults.mock.calls[0]?.[0];
-    expect(call.updatedSessions).toHaveLength(1);
-    expect(call.updatedSessions[0].id).toBe(EXISTING_SESSION_ID);
-  });
-
-  it('does not re-evaluate transcode rules when the update raced a concurrent stop', async () => {
-    mockUpdateWhere.mockResolvedValue([]); // update raced a concurrent stop
-    vi.mocked(getActiveRulesV2).mockResolvedValue([{ id: 'rule-1' }] as unknown as Awaited<
-      ReturnType<typeof getActiveRulesV2>
-    >);
-    mockMapMediaSession.mockReturnValue(
-      processedSession({ state: 'playing', videoDecision: 'transcode', isTranscode: true })
+  it('dispatches session.paused once on the playing→paused edge', async () => {
+    mockBatchFindActiveSessionsByComposite.mockResolvedValue(
+      new Map([['server-user-1::1001', [existingSessionRow({ state: 'playing' })]]])
     );
+    mockMapMediaSession.mockReturnValue(processedSession({ state: 'paused' }));
 
     await triggerServerPoll('server-1');
 
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
+    const types = mockDispatch.mock.calls.map((c) => (c[0] as { type: string }).type);
+    expect(types.filter((t) => t === 'session.paused')).toHaveLength(1);
+    expect(types).not.toContain('session.resumed');
+  });
+
+  it('dispatches nothing for a paused→paused update', async () => {
+    mockBatchFindActiveSessionsByComposite.mockResolvedValue(
+      new Map([['server-user-1::1001', [existingSessionRow({ state: 'paused' })]]])
+    );
+    mockMapMediaSession.mockReturnValue(processedSession({ state: 'paused' }));
+
+    await triggerServerPoll('server-1');
+
     expect(mockDispatch).not.toHaveBeenCalled();
   });
 
-  it('re-evaluates transcode rules when the update affects a row', async () => {
-    mockUpdateWhere.mockResolvedValue([{ id: EXISTING_SESSION_ID }]);
-    vi.mocked(getActiveRulesV2).mockResolvedValue([{ id: 'rule-1' }] as unknown as Awaited<
-      ReturnType<typeof getActiveRulesV2>
-    >);
-    mockMapMediaSession.mockReturnValue(
-      processedSession({ state: 'playing', videoDecision: 'transcode', isTranscode: true })
+  it('dispatches session.resumed on the paused→playing edge', async () => {
+    mockBatchFindActiveSessionsByComposite.mockResolvedValue(
+      new Map([['server-user-1::1001', [existingSessionRow({ state: 'paused' })]]])
     );
+    mockMapMediaSession.mockReturnValue(processedSession({ state: 'playing' }));
 
     await triggerServerPoll('server-1');
 
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
-    expect(mockDispatch).toHaveBeenCalledTimes(1);
-    expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({ type: 'session.transcode_changed' });
-  });
-});
-
-describe('poller rediscovered-session guard against stop races', () => {
-  let cacheService: {
-    getAllActiveSessions: ReturnType<typeof vi.fn>;
-    getPendingSession: ReturnType<typeof vi.fn>;
-    withSessionCreateLock: ReturnType<typeof vi.fn>;
-    hasTerminationCooldown: ReturnType<typeof vi.fn>;
-    hasTerminationCooldownComposite: ReturnType<typeof vi.fn>;
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUpdateWhere.mockResolvedValue([]);
-
-    mockCreateMediaServerClient.mockReturnValue({
-      getSessions: vi.fn().mockResolvedValue([{}]),
-    });
-    mockMapMediaSession.mockReturnValue(processedSession());
-    mockBuildActiveSession.mockReturnValue({ id: EXISTING_SESSION_ID, sessionKey: 'sess-key-1' });
-    mockFindActiveSession.mockResolvedValue(existingSessionRow());
-
-    cacheService = {
-      // Empty so the composite key isn't cached: forces the isNew branch,
-      // which rediscovers the session via findActiveSession.
-      getAllActiveSessions: vi.fn().mockResolvedValue([]),
-      getPendingSession: vi.fn().mockResolvedValue(null),
-      withSessionCreateLock: vi.fn().mockImplementation(async (_s, _k, op) => op()),
-      hasTerminationCooldown: vi.fn().mockResolvedValue(false),
-      hasTerminationCooldownComposite: vi.fn().mockResolvedValue(false),
-    };
-
-    initializePoller(
-      cacheService as unknown as Parameters<typeof initializePoller>[0],
-      { publish: vi.fn(), subscribe: vi.fn() } as unknown as Parameters<typeof initializePoller>[1]
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'session.resumed', sessionId: EXISTING_SESSION_ID })
     );
-  });
-
-  it('does not push the rediscovered session when its lastSeenAt touch affects zero rows', async () => {
-    mockUpdateWhere.mockResolvedValue([]); // update raced a concurrent stop
-
-    await triggerServerPoll('server-1');
-
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
-    expect(mockProcessPollResults).not.toHaveBeenCalled();
-  });
-
-  it('pushes the rediscovered session normally when the touch affects a row', async () => {
-    mockUpdateWhere.mockResolvedValue([{ id: EXISTING_SESSION_ID }]);
-
-    await triggerServerPoll('server-1');
-
-    expect(mockDb.update).toHaveBeenCalledTimes(1);
-    expect(mockProcessPollResults).toHaveBeenCalledTimes(1);
-    const call = mockProcessPollResults.mock.calls[0]?.[0];
-    expect(call.updatedSessions).toHaveLength(1);
-    expect(call.updatedSessions[0].id).toBe(EXISTING_SESSION_ID);
+    const types = mockDispatch.mock.calls.map((c) => (c[0] as { type: string }).type);
+    expect(types).not.toContain('session.paused');
   });
 });

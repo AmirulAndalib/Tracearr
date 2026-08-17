@@ -32,6 +32,10 @@ import {
 } from '../../services/rules/events/contextAssembly.js';
 import { dispatch } from '../../services/rules/events/dispatcher.js';
 import { registerRuleSubscribers } from '../../services/rules/events/subscribers.js';
+import {
+  registerPauseWakeSubscriptions,
+  setPauseWakeDeps,
+} from '../../services/rules/wakes/pauseWakes.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { sseManager } from '../../services/sseManager.js';
@@ -1741,8 +1745,7 @@ async function processServerSessions(
             }
           }
 
-          // Level-triggered until stage 3 replaces the per-update re-eval with wakes.
-          if (newState === 'paused' && activeRulesV2.length > 0) {
+          if (previousState !== 'paused' && newState === 'paused' && activeRulesV2.length > 0) {
             try {
               const recentSessions = await getOrFetchRecentSessions(
                 recentSessionsMap,
@@ -2255,6 +2258,8 @@ export function initializePoller(cache: CacheService, pubSub: PubSubService): vo
     gracePeriodSessionIds,
   });
   registerRuleSubscribers();
+  setPauseWakeDeps({ pubSubService });
+  registerPauseWakeSubscriptions();
 }
 
 /**
