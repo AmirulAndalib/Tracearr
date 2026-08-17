@@ -303,3 +303,5 @@ This product includes GeoLite2 data created by MaxMind, available from https://w
 <p align="center">
   <sub>For Plex, Jellyfin, and Emby admins who want to see what's actually happening.</sub>
 </p>
+
+This project is tested with BrowserStack.
