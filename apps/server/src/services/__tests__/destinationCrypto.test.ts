@@ -31,6 +31,14 @@ describe('destinationCrypto', () => {
     });
   });
 
+  it('reports bad_key when a byte of a valid blob is flipped', () => {
+    initDestinationCrypto();
+    const blob = encryptConfig({ a: 1 });
+    const raw = Buffer.from(blob.slice(3), 'base64');
+    raw[raw.length - 1] = (raw[raw.length - 1] ?? 0) ^ 0xff;
+    expect(decryptConfig(`v1:${raw.toString('base64')}`)).toEqual({ ok: false, reason: 'bad_key' });
+  });
+
   it('uses a random iv per write', () => {
     initDestinationCrypto();
     expect(encryptConfig({ a: 1 })).not.toBe(encryptConfig({ a: 1 }));

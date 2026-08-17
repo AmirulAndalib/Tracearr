@@ -70,10 +70,10 @@ export function decryptConfig(blob: string): DecryptResult {
   const { primary, secondary } = requireKeys();
   const sep = blob.indexOf(':');
   if (sep < 0 || blob.slice(0, sep) !== VERSION) return { ok: false, reason: 'malformed' };
-  const raw = Buffer.from(blob.slice(sep + 1), 'base64');
-  if (raw.length <= IV_BYTES + TAG_BYTES || !/^[A-Za-z0-9+/=]+$/.test(blob.slice(sep + 1))) {
-    return { ok: false, reason: 'malformed' };
-  }
+  const encoded = blob.slice(sep + 1);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) return { ok: false, reason: 'malformed' };
+  const raw = Buffer.from(encoded, 'base64');
+  if (raw.length <= IV_BYTES + TAG_BYTES) return { ok: false, reason: 'malformed' };
   const iv = raw.subarray(0, IV_BYTES);
   const tag = raw.subarray(IV_BYTES, IV_BYTES + TAG_BYTES);
   const ct = raw.subarray(IV_BYTES + TAG_BYTES);

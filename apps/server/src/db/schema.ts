@@ -25,7 +25,7 @@ import {
   check,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
-import { MEDIA_TYPES } from '@tracearr/shared';
+import { MEDIA_TYPES, type NotificationEventType } from '@tracearr/shared';
 
 // Server types enum
 export const serverTypeEnum = ['plex', 'jellyfin', 'emby'] as const;
@@ -666,7 +666,7 @@ export const destinations = pgTable(
     name: text('name').notNull().unique(),
     type: varchar('type', { length: 30 }).notNull().$type<(typeof destinationKindEnum)[number]>(),
     config: text('config'),
-    events: jsonb('events').notNull().default([]).$type<string[]>(),
+    events: jsonb('events').notNull().default([]).$type<NotificationEventType[]>(),
     enabled: boolean('enabled').notNull().default(true),
     builtin: boolean('builtin').notNull().default(false),
     configStatus: varchar('config_status', { length: 20 })

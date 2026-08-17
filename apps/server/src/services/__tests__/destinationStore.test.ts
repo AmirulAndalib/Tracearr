@@ -7,7 +7,13 @@ vi.mock('../../db/client.js', () => ({
   db: {
     // a query returns a fresh array, so the cached list does not track later pushes
     select: () => ({
-      from: () => ({ where: async () => [...rows], orderBy: async () => [...rows] }),
+      from: () => ({
+        where: () => {
+          const found = [...rows];
+          return Object.assign(Promise.resolve(found), { limit: async () => found });
+        },
+        orderBy: async () => [...rows],
+      }),
     }),
     insert: () => ({
       values: (v: Record<string, unknown>) => ({
@@ -149,6 +155,20 @@ describe('destinationStore', () => {
     expect(typeof created.config).toBe('string');
     expect(created.config).toMatch(/^v1:/);
     expect(mockPublish).toHaveBeenCalledWith('destinations:changed', expect.anything());
+    expect((await listDestinations()).some((d) => d.id === 'new')).toBe(true);
+  });
+
+  it('toPublicDestination passes non-secret values through and returns null config for built-ins and unopenable blobs', () => {
+    const ntfy: DestinationRow = {
+      ...discord(),
+      type: 'ntfy',
+      config: encryptConfig({ url: 'https://n', topic: 'alerts', authToken: 'tok' }),
+    };
+    const pub = toPublicDestination(ntfy, 0);
+    expect(pub.config).toEqual({ url: null, topic: 'alerts', authToken: null });
+    expect(pub.secretsSet).toEqual(['url', 'authToken']);
+    expect(toPublicDestination(push(), 0).config).toBeNull();
+    expect(toPublicDestination({ ...discord(), config: 'v1:zzz' }, 0).config).toBeNull();
   });
 
   it('updateDestination keeps omitted secrets, clears null, replaces strings', async () => {

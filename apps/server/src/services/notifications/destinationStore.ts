@@ -36,10 +36,13 @@ async function publishChanged(): Promise<void> {
 }
 
 export async function listDestinations(): Promise<DestinationRow[]> {
-  if (cache && cache.expiresAt > Date.now()) return cache.rows;
-  const rows = await db.select().from(destinations).orderBy(destinations.createdAt);
+  if (cache && cache.expiresAt > Date.now()) return [...cache.rows];
+  const rows = await db
+    .select()
+    .from(destinations)
+    .orderBy(destinations.createdAt, destinations.id);
   cache = { rows, expiresAt: Date.now() + CACHE_TTL_MS };
-  return rows;
+  return [...rows];
 }
 
 export async function getDestination(id: string): Promise<DestinationRow | null> {
@@ -86,7 +89,7 @@ export function toPublicDestination(
     type: row.type,
     enabled: row.enabled,
     builtin: row.builtin,
-    events: row.events as NotificationEventType[],
+    events: row.events,
     configStatus: row.configStatus,
     config,
     secretsSet,
@@ -128,7 +131,8 @@ export async function updateDestination(
     enabled?: boolean;
   }
 ): Promise<DestinationRow> {
-  const current = await getDestination(id);
+  // Merge against the row, not the cache: another instance's write may not have invalidated here yet.
+  const [current] = await db.select().from(destinations).where(eq(destinations.id, id)).limit(1);
   if (!current) throw new Error('destination not found');
   const set: Partial<typeof destinations.$inferInsert> = { updatedAt: new Date() };
   if (patch.name !== undefined) set.name = patch.name;
