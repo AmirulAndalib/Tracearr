@@ -127,6 +127,12 @@ vi.mock('../sessionLifecycle.js', () => ({
   stopSessionAtomic: (...args: unknown[]) => mockStopSessionAtomic(...args),
 }));
 
+const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });
+vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+  dispatch: (...args: unknown[]) => mockDispatch(...args),
+  subscribe: vi.fn(),
+}));
+
 vi.mock('../stateTracker.js', async (importOriginal) => {
   const actual = await importOriginal<typeof StateTrackerModule>();
   return {

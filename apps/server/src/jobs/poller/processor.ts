@@ -27,6 +27,7 @@ import { type GeoLocation } from '../../services/geoip.js';
 import { createMediaServerClient } from '../../services/mediaServer/index.js';
 import { lookupGeoIP } from '../../services/plexGeoip.js';
 import { setContextAssemblyDeps } from '../../services/rules/events/contextAssembly.js';
+import { dispatch } from '../../services/rules/events/dispatcher.js';
 import { registerRuleSubscribers } from '../../services/rules/events/subscribers.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
 import { getWatchedThreshold } from '../../services/settings.js';
@@ -62,8 +63,6 @@ import {
   handleMediaChangeAtomic,
   handleQualityChangeFallout,
   processPollResults,
-  reEvaluateRulesOnPauseState,
-  reEvaluateRulesOnTranscodeChange,
   stopSessionAtomic,
 } from './sessionLifecycle.js';
 import { mapMediaSession, pickStreamDetailFields } from './sessionMapper.js';
@@ -1704,60 +1703,64 @@ async function processServerSessions(
           // If transcode state changed, re-evaluate rules that have transcode-related conditions.
           // Gated by the wasStoppedConcurrently guard above (like the pause re-eval below) so a
           // session stopped mid-tick cannot still earn a violation row or a kill enqueue.
-          if (transcodeStateChanged) {
-            // Re-evaluate V2 rules that have transcode-related conditions.
-            // At session creation, transcode state might not be known yet (especially Plex SSE),
-            // so rules like "block 4K transcoding" need a second chance when transcode starts.
-            if (activeRulesV2.length > 0) {
-              try {
-                const recentSessions = await getOrFetchRecentSessions(
-                  recentSessionsMap,
-                  serverUserId
-                );
-                const violationResults = await reEvaluateRulesOnTranscodeChange({
-                  existingSession,
-                  processed,
+          if (transcodeStateChanged && activeRulesV2.length > 0) {
+            try {
+              const recentSessions = await getOrFetchRecentSessions(
+                recentSessionsMap,
+                serverUserId
+              );
+              const { violations } = await dispatch(
+                {
+                  type: 'session.transcode_changed',
+                  at: now,
                   server: { id: server.id, name: server.name, type: server.type },
                   serverUser: userDetail,
-                  activeRulesV2,
-                  activeSessions: ruleEvalSessions,
-                  recentSessions,
-                });
-
-                if (violationResults.length > 0 && pubSubService) {
-                  await broadcastViolations(violationResults, existingSession.id, pubSubService);
-                }
-              } catch (error) {
-                console.error(
-                  `[Poller] Error re-evaluating rules on transcode change for session ${existingSession.id}:`,
-                  error
-                );
+                  previous: {
+                    videoDecision: existingSession.videoDecision,
+                    audioDecision: existingSession.audioDecision,
+                  },
+                  next: {
+                    videoDecision: processed.videoDecision,
+                    audioDecision: processed.audioDecision,
+                  },
+                  raw: { existingSession, processed },
+                },
+                { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
+              );
+              if (violations.length > 0 && pubSubService) {
+                await broadcastViolations(violations, existingSession.id, pubSubService);
               }
+            } catch (error) {
+              console.error(
+                `[Poller] Error re-evaluating rules on transcode change for session ${existingSession.id}:`,
+                error
+              );
             }
           }
 
+          // Level-triggered until stage 3 replaces the per-update re-eval with wakes.
           if (newState === 'paused' && activeRulesV2.length > 0) {
             try {
               const recentSessions = await getOrFetchRecentSessions(
                 recentSessionsMap,
                 serverUserId
               );
-              const violationResults = await reEvaluateRulesOnPauseState({
-                existingSession,
-                processed,
-                pauseData: {
-                  lastPausedAt: pauseResult.lastPausedAt,
-                  pausedDurationMs: pauseResult.pausedDurationMs,
+              const { violations } = await dispatch(
+                {
+                  type: 'session.paused',
+                  at: now,
+                  server: { id: server.id, name: server.name, type: server.type },
+                  serverUser: userDetail,
+                  pauseData: {
+                    lastPausedAt: pauseResult.lastPausedAt,
+                    pausedDurationMs: pauseResult.pausedDurationMs,
+                  },
+                  raw: { existingSession, processed },
                 },
-                server: { id: server.id, name: server.name, type: server.type },
-                serverUser: userDetail,
-                activeRulesV2,
-                activeSessions: ruleEvalSessions,
-                recentSessions,
-              });
-
-              if (violationResults.length > 0 && pubSubService) {
-                await broadcastViolations(violationResults, existingSession.id, pubSubService);
+                { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
+              );
+              if (violations.length > 0 && pubSubService) {
+                await broadcastViolations(violations, existingSession.id, pubSubService);
               }
             } catch (error) {
               console.error(
@@ -1765,6 +1768,13 @@ async function processServerSessions(
                 error
               );
             }
+          } else if (previousState === 'paused' && newState === 'playing') {
+            await dispatch({
+              type: 'session.resumed',
+              at: now,
+              sessionId: existingSession.id,
+              serverId: server.id,
+            });
           }
 
           // Build active session for cache/broadcast (with updated pause tracking values)
