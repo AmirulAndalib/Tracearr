@@ -44,7 +44,7 @@ export function hasTranscodeConditions(rule: RuleV2): boolean {
  * Rules containing these fields are re-evaluated on every poll cycle for paused sessions
  * because the pause duration grows over time even without state transitions.
  */
-const PAUSE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
+export const PAUSE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
   'current_pause_minutes',
   'total_pause_minutes',
 ]);
