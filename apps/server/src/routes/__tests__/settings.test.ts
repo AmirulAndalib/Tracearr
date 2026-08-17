@@ -21,7 +21,6 @@ vi.mock('../../services/settings.js', () => ({
   getPollerSettings: vi.fn(),
   getGeoIPSettings: vi.fn(),
   getNetworkSettings: vi.fn(),
-  getNotificationSettings: vi.fn(),
   getBackupScheduleSettings: vi.fn(),
 }));
 
@@ -31,13 +30,6 @@ vi.mock('../../db/client.js', () => ({
     select: vi.fn(),
     update: vi.fn(),
     selectDistinct: vi.fn(),
-  },
-}));
-
-// Mock notification manager
-vi.mock('../../services/notifications/index.js', () => ({
-  notificationManager: {
-    testAgent: vi.fn(),
   },
 }));
 

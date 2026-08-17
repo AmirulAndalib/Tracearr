@@ -80,10 +80,6 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
     /**
      * Send notification via the notification queue.
      * Uses dynamic import to avoid circular dependency.
-     *
-     * The V2 notify action specifies channels directly (e.g., ['webhook', 'push']).
-     * These are passed to the notification queue which sends to those channels
-     * without applying the global channel routing rules.
      */
     sendNotification: async (params) => {
       // Dynamic import to avoid circular dependencies
@@ -94,9 +90,6 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         message: params.message,
       });
 
-      // Violations are auto-created on rule match. For standalone notify actions,
-      // we create a minimal violation-like payload. The notification worker will
-      // handle routing based on global settings.
       // serverUserId and rule.id feed the queue's dedupe key; user feeds the
       // channel formatters. All three must carry real values or every rule
       // notification collapses into one dedupe bucket attributed to "System".
@@ -104,40 +97,38 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       const username = (params.data?.username as string) ?? 'System';
       const displayName = (params.data?.displayName as string) ?? username;
 
-      await enqueueNotification({
-        type: 'violation',
-        payload: {
-          id: `rule-notify-${Date.now()}`,
-          serverUserId,
-          sessionId: (params.data?.sessionId as string) ?? null,
-          severity: 'info',
-          createdAt: new Date().toISOString(),
-          resolvedAt: null,
-          data: {
-            ruleNotification: true,
-            channels: params.channels,
-            customTitle: params.title,
-            customMessage: params.message,
-            ...params.data,
-          },
-          rule: {
-            id: (params.data?.ruleId as string) ?? '',
-            name: params.title,
-            type: null,
-          },
-          session: null,
-          user: {
-            id: serverUserId,
-            username,
-            identityName: displayName,
-            thumbUrl: (params.data?.userThumbUrl as string | null) ?? null,
-            serverId: (params.data?.serverId as string) ?? '',
-          },
-        } as any,
-      });
+      const enqueued = await enqueueNotification(
+        {
+          type: 'violation',
+          payload: {
+            id: `rule-notify-${Date.now()}`,
+            serverUserId,
+            sessionId: (params.data?.sessionId as string) ?? null,
+            severity: 'info',
+            createdAt: new Date().toISOString(),
+            resolvedAt: null,
+            data: { ...params.data },
+            rule: {
+              id: (params.data?.ruleId as string) ?? '',
+              name: params.title,
+              type: null,
+            },
+            session: null,
+            user: {
+              id: serverUserId,
+              username,
+              identityName: displayName,
+              thumbUrl: (params.data?.userThumbUrl as string | null) ?? null,
+              serverId: (params.data?.serverId as string) ?? '',
+            },
+          } as any,
+        },
+        { to: [], source: { kind: 'rule', title: params.title, message: params.message } }
+      );
 
       rulesLogger.info(`Notification enqueued: ${params.title}`, {
         channels: params.channels,
+        enqueued,
       });
     },
 

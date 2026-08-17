@@ -1,19 +1,12 @@
 /**
- * Notification Agent System Types
- *
- * Based on Jellyseerr's agent pattern for extensible notifications.
+ * Notification payload types shared by every destination type module.
  */
 
-import type {
-  ViolationWithDetails,
-  ActiveSession,
-  Settings,
-  NotificationEventType,
-} from '@tracearr/shared';
+import type { ViolationWithDetails, ActiveSession, NotificationEventType } from '@tracearr/shared';
 import type { NotificationEvent, NotificationSource } from './events.js';
 
 // Re-export for convenience
-export type { ViolationWithDetails, ActiveSession, Settings, NotificationEventType };
+export type { ViolationWithDetails, ActiveSession, NotificationEventType };
 
 /**
  * Severity levels for notifications
@@ -88,73 +81,6 @@ export interface NotificationPayload {
 
   /** Optional image URL (e.g., poster) */
   imageUrl?: string;
-}
-
-/**
- * Result of a notification send attempt
- */
-export interface SendResult {
-  success: boolean;
-  error?: string;
-  /** Agent name for logging/debugging */
-  agent: string;
-}
-
-/**
- * Result of a test notification
- */
-export interface TestResult {
-  success: boolean;
-  error?: string;
-}
-
-/**
- * Settings type with agent-specific fields extracted
- * Agents can pick the fields they need
- */
-export type NotificationSettings = Pick<
-  Settings,
-  | 'discordWebhookUrl'
-  | 'customWebhookUrl'
-  | 'webhookFormat'
-  | 'ntfyTopic'
-  | 'ntfyAuthToken'
-  | 'pushoverUserKey'
-  | 'pushoverApiToken'
->;
-
-/**
- * Interface that all notification agents must implement
- */
-export interface NotificationAgent {
-  /** Unique agent identifier */
-  readonly name: string;
-
-  /** Human-readable display name */
-  readonly displayName: string;
-
-  /**
-   * Check if this agent should send for the given event and settings
-   * @param event The notification event type
-   * @param settings Current notification settings
-   * @returns true if the agent is configured and should send
-   */
-  shouldSend(event: NotificationEventType, settings: NotificationSettings): boolean;
-
-  /**
-   * Send a notification
-   * @param payload The notification payload
-   * @param settings Current notification settings
-   * @returns Result indicating success or failure
-   */
-  send(payload: NotificationPayload, settings: NotificationSettings): Promise<SendResult>;
-
-  /**
-   * Send a test notification
-   * @param settings Current notification settings
-   * @returns Result indicating success or failure with optional error message
-   */
-  sendTest(settings: NotificationSettings): Promise<TestResult>;
 }
 
 /**

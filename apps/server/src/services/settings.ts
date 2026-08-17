@@ -6,13 +6,7 @@
  */
 
 import { eq, inArray, sql } from 'drizzle-orm';
-import {
-  SESSION_LIMITS,
-  type Settings,
-  type WebhookFormat,
-  type UnitSystem,
-  type BackupScheduleType,
-} from '@tracearr/shared';
+import { SESSION_LIMITS, type Settings, type BackupScheduleType } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { settings } from '../db/schema.js';
 
@@ -230,37 +224,6 @@ export async function getNetworkSettings(): Promise<{
   return {
     externalUrl: s.externalUrl,
     trustProxy: s.trustProxy,
-  };
-}
-
-export interface NotificationSettings {
-  discordWebhookUrl: string | null;
-  customWebhookUrl: string | null;
-  webhookFormat: WebhookFormat | null;
-  ntfyTopic: string | null;
-  ntfyAuthToken: string | null;
-  pushoverUserKey: string | null;
-  pushoverApiToken: string | null;
-  webhookSecret: string | null;
-  mobileEnabled: boolean;
-  unitSystem: UnitSystem;
-}
-
-export async function getNotificationSettings(): Promise<NotificationSettings> {
-  const s = await getSettings([
-    'discordWebhookUrl',
-    'customWebhookUrl',
-    'webhookFormat',
-    'ntfyTopic',
-    'ntfyAuthToken',
-    'pushoverUserKey',
-    'pushoverApiToken',
-    'mobileEnabled',
-    'unitSystem',
-  ]);
-  return {
-    ...s,
-    webhookSecret: null, // TODO: Phase 4
   };
 }
 

@@ -64,11 +64,14 @@ describe('createActionExecutorDeps - sendNotification', () => {
       username: 'alice',
       identityName: 'Alice',
     });
-    expect(arg.payload.data).toMatchObject({
-      ruleNotification: true,
-      channels: ['discord', 'push'],
-      customTitle: 'Rule Triggered: Sharing',
-      customMessage: 'User "alice" triggered rule "Sharing"',
+    expect(arg.payload.data).toMatchObject({ ruleId: 'rule-1', serverUserId: 'su-1' });
+    expect(mockEnqueueNotification.mock.calls[0]?.[1]).toEqual({
+      to: [],
+      source: {
+        kind: 'rule',
+        title: 'Rule Triggered: Sharing',
+        message: 'User "alice" triggered rule "Sharing"',
+      },
     });
   });
 
