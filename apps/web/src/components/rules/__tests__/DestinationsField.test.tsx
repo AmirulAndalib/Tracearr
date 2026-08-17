@@ -81,7 +81,21 @@ describe('DestinationsField', () => {
     const toggles = screen.getAllByRole('button', { name: /Discord|Push/ });
     expect(toggles.map((b) => b.textContent)).toEqual(['Zed Push', 'Alpha Discord']);
     expect(toggles[0]).toHaveAttribute('aria-pressed', 'true');
+    expect(toggles[0]).toHaveAttribute('data-state', 'on');
     expect(toggles[1]).toHaveAttribute('aria-pressed', 'false');
+    expect(toggles[1]).toHaveAttribute('data-state', 'off');
+  });
+
+  it('keeps an id that has no row of its own when a listed one is toggled', async () => {
+    const user = userEvent.setup();
+    setDestinations([destination()]);
+    render(
+      <DestinationsField value={['deadbeef-gone-1234']} onChange={onChange} label="Destinations" />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Alpha Discord' }));
+
+    expect(onChange).toHaveBeenCalledWith(['deadbeef-gone-1234', 'dest-discord']);
   });
 
   it('adds and removes ids through onChange', async () => {

@@ -8,7 +8,7 @@ import type {
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/api';
 
-const DESTINATIONS_KEY = ['destinations'];
+export const DESTINATIONS_KEY = ['destinations'];
 
 /** Non-owners get a 403 and this mounts inside useSocket for everyone, so a retry loop would be pure noise. */
 export function useDestinations(enabled = true) {

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Destination } from '@tracearr/shared';
 import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DestinationDialog } from '@/components/settings/destinations/DestinationDialog';
 import { iconFor } from '@/components/settings/destinations/destinationIcons';
@@ -26,6 +27,7 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
   const { t } = useTranslation(['pages', 'common']);
   const { data: destinations, isLoading } = useDestinations();
   const [addOpen, setAddOpen] = useState(false);
+  const labelId = useId();
 
   if (isLoading) {
     return <Skeleton className="h-8 w-64" />;
@@ -34,10 +36,6 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
   const rows = [...(destinations ?? [])].sort(byBuiltinThenName);
   // A rule can outlive the destination it sends to; keep those ids visible so they can be dropped.
   const missingIds = value.filter((id) => !rows.some((row) => row.id === id));
-
-  const toggle = (id: string) => {
-    onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
-  };
 
   const addButton = (
     <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
@@ -48,7 +46,9 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-muted-foreground text-sm">{label}:</span>
+      <span id={labelId} className="text-muted-foreground text-sm">
+        {label}:
+      </span>
 
       {rows.length === 0 && (
         <span className="text-muted-foreground text-sm">
@@ -56,47 +56,59 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
         </span>
       )}
 
-      <TooltipProvider delayDuration={100}>
-        {rows.map((row) => {
-          const Icon = iconFor(row.type);
-          const selected = value.includes(row.id);
-          const button = (
-            <Button
-              key={row.id}
-              type="button"
-              variant={selected ? 'default' : 'outline'}
-              size="sm"
-              aria-pressed={selected}
-              className={cn(!row.enabled && 'opacity-60')}
-              onClick={() => toggle(row.id)}
-            >
-              <Icon className="h-4 w-4" />
-              {row.name}
-            </Button>
-          );
+      {rows.length > 0 && (
+        <TooltipProvider delayDuration={100}>
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            size="sm"
+            value={value}
+            onValueChange={onChange}
+            aria-labelledby={labelId}
+          >
+            {rows.map((row) => {
+              const Icon = iconFor(row.type);
+              // A disabled row stays pickable so an existing rule can keep it; the tooltip says why it is dimmed.
+              const item = (
+                <ToggleGroupItem
+                  key={row.id}
+                  value={row.id}
+                  className={cn(
+                    'data-[state=on]:bg-primary/15 data-[state=on]:text-primary',
+                    !row.enabled && 'opacity-60'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {row.name}
+                </ToggleGroupItem>
+              );
 
-          if (row.enabled) return button;
+              if (row.enabled) return item;
 
-          return (
-            <Tooltip key={row.id}>
-              <TooltipTrigger asChild>{button}</TooltipTrigger>
-              <TooltipContent>{t('pages:rules.builder.destinationDisabled')}</TooltipContent>
-            </Tooltip>
-          );
-        })}
-      </TooltipProvider>
+              return (
+                <Tooltip key={row.id}>
+                  <TooltipTrigger asChild>{item}</TooltipTrigger>
+                  <TooltipContent>{t('pages:rules.builder.destinationDisabled')}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </ToggleGroup>
+        </TooltipProvider>
+      )}
 
       {missingIds.map((id) => (
         <Badge key={id} variant="outline" className="gap-1 font-mono">
           {id.slice(0, 8)}
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             aria-label={`${t('common:actions.remove')} ${id.slice(0, 8)}`}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-muted-foreground hover:text-destructive size-4"
             onClick={() => onChange(value.filter((v) => v !== id))}
           >
             <X className="h-3 w-3" />
-          </button>
+          </Button>
         </Badge>
       ))}
 

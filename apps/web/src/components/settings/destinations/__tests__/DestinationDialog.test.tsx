@@ -7,6 +7,7 @@ import {
   type Destination,
   type DestinationKind,
 } from '@tracearr/shared';
+import { ApiError } from '@/lib/api';
 import { DestinationDialog } from '../DestinationDialog';
 
 vi.mock('react-i18next', () => ({
@@ -153,6 +154,26 @@ describe('DestinationDialog create mode', () => {
         config: { webhookUrl: 'https://discord.com/api/webhooks/1/x' },
       })
     );
+  });
+
+  it('shows what the server said when the name is already taken', async () => {
+    const user = userEvent.setup();
+    createAsync.mockRejectedValue(
+      new ApiError('A destination named "Discord" already exists', 409, {
+        message: 'A destination named "Discord" already exists',
+      })
+    );
+    renderCreate();
+    await pickType(user, 'discord');
+    await user.type(
+      screen.getByLabelText(/fields\.webhookUrl/),
+      'https://discord.com/api/webhooks/1/x'
+    );
+    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(
+      await screen.findByText('A destination named "Discord" already exists')
+    ).toBeInTheDocument();
   });
 
   it('tests the unsaved config without saving it', async () => {

@@ -140,6 +140,21 @@ describe('DestinationsManager', () => {
     expect(deleteMutate).toHaveBeenCalledWith('dest-discord');
   });
 
+  it('explains the disabled test button on a row whose config stopped decrypting', async () => {
+    const user = userEvent.setup();
+    setDestinations([destination({ configStatus: 'reencrypt' })]);
+    render(<DestinationsManager />);
+
+    const test = screen.getByRole('button', { name: 'pages:settings.destinations.test' });
+    expect(test).toBeDisabled();
+
+    await user.hover(test.parentElement as HTMLElement);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'pages:settings.destinations.reencrypt'
+    );
+  });
+
   it('sends a test for a saved destination', async () => {
     const user = userEvent.setup();
     setDestinations([destination()]);

@@ -757,6 +757,7 @@
       "hints": {
         "authTokenOptional": "Optional for public topics"
       },
+      "ownerOnly": "Only the owner can manage notification destinations.",
       "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
       "reencrypt": "Re-enter this destination's secret",
       "secretSet": "Set (leave blank to keep)",

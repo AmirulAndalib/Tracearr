@@ -289,26 +289,3 @@ export function createDefaultAction(type: ActionType): Action {
       return { type: 'log_only' };
   }
 }
-
-/**
- * Validate an action's configuration
- */
-export function validateAction(action: Action): string[] {
-  const errors: string[] = [];
-  const def = ACTION_DEFINITIONS[action.type];
-  const actionRecord = action as unknown as Record<string, unknown>;
-
-  for (const field of def.configFields) {
-    if (field.required) {
-      const value = actionRecord[field.name];
-      if (value === undefined || value === null || value === '') {
-        errors.push(`${field.label} is required`);
-      }
-      if (field.type === 'destinations' && Array.isArray(value) && value.length === 0) {
-        errors.push(`${field.label} requires at least one selection`);
-      }
-    }
-  }
-
-  return errors;
-}

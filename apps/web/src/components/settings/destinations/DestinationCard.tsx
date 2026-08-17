@@ -109,19 +109,22 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
             {!destination.builtin && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => testDestination.mutate(destination.id)}
-                    disabled={testDestination.isPending || destination.configStatus !== 'ok'}
-                    aria-label={t('pages:settings.destinations.test')}
-                  >
-                    {testDestination.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
+                  {/* Radix drops pointer events on a disabled trigger, so the span carries them. */}
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => testDestination.mutate(destination.id)}
+                      disabled={testDestination.isPending || destination.configStatus !== 'ok'}
+                      aria-label={t('pages:settings.destinations.test')}
+                    >
+                      {testDestination.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent>
                   {destination.configStatus === 'ok'

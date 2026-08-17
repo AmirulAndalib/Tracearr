@@ -17,6 +17,7 @@ import { JobsSettings } from '@/components/settings/JobsSettings';
 import { BackupSettings } from '@/components/settings/BackupSettings';
 import { DestinationsManager } from '@/components/settings/destinations';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
 import { Bell } from 'lucide-react';
 
 function SettingsNav() {
@@ -57,6 +58,8 @@ function SettingsNav() {
 
 function NotificationSettings() {
   const { t } = useTranslation('pages');
+  const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
 
   return (
     <Card>
@@ -68,7 +71,11 @@ function NotificationSettings() {
         <CardDescription>{t('settings.destinations.description')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <DestinationsManager />
+        {isOwner ? (
+          <DestinationsManager />
+        ) : (
+          <p className="text-muted-foreground text-sm">{t('settings.destinations.ownerOnly')}</p>
+        )}
       </CardContent>
     </Card>
   );

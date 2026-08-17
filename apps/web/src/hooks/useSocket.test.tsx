@@ -58,6 +58,7 @@ vi.mock('@/lib/api', () => ({
 
 import { WS_EVENTS } from '@tracearr/shared';
 import { toast } from 'sonner';
+import { DESTINATIONS_KEY } from './queries/useDestinations';
 import { SocketProvider, useSocket } from './useSocket';
 
 const startedSession = {
@@ -170,6 +171,13 @@ describe('SocketProvider', () => {
     fire(WS_EVENTS.SERVER_DOWN, { serverId: 's1', serverName: 'Plex' });
 
     expect(toast.error).toHaveBeenCalled();
+  });
+
+  it('refetches the destination list when another instance changes one', () => {
+    const { invalidate } = setup();
+    fire(WS_EVENTS.DESTINATIONS_CHANGED);
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: DESTINATIONS_KEY });
   });
 
   it('renders a rule toast from the notification payload', () => {

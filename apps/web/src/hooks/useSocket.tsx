@@ -32,6 +32,7 @@ import { useAuth } from './useAuth';
 import { useMaintenanceMode } from './useMaintenanceMode';
 import { toast } from 'sonner';
 import { useDestinations } from './queries';
+import { DESTINATIONS_KEY } from './queries/useDestinations';
 import { api } from '@/lib/api';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -312,6 +313,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             ? toast.warning
             : toast.info;
       toastFn(data.title, { description: data.message, duration: 10000 });
+    });
+
+    // Any instance's destination write lands here, including the toast preferences read above.
+    newSocket.on(WS_EVENTS.DESTINATIONS_CHANGED, () => {
+      void queryClient.invalidateQueries({ queryKey: DESTINATIONS_KEY });
     });
 
     newSocket.on(WS_EVENTS.SERVER_CONNECTION, (status: ServerConnectionStatus) => {

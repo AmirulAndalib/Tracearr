@@ -480,6 +480,7 @@
       "description": "Where notifications go. Add as many as you like; each one picks the system events it receives, and rules can send to any of them.",
       "add": "Add destination",
       "empty": "No destinations yet.",
+      "ownerOnly": "Only the owner can manage notification destinations.",
       "eventsLabel": "Events",
       "builtinNote": "Built in",
       "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
