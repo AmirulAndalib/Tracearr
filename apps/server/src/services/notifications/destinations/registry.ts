@@ -4,6 +4,9 @@ import { discordType } from './discord.js';
 import { gotifyType } from './gotify.js';
 import { jsonWebhookType } from './jsonWebhook.js';
 import { ntfyType } from './ntfy.js';
+import { pushType } from './push.js';
+import { pushoverType } from './pushover.js';
+import { webToastType } from './webToast.js';
 import type { DestinationType } from './types.js';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,6 +16,9 @@ const registry: Partial<Record<DestinationKind, DestinationType<any, any>>> = {
   ntfy: ntfyType,
   gotify: gotifyType,
   apprise: appriseType,
+  pushover: pushoverType,
+  push: pushType,
+  web_toast: webToastType,
 };
 
 export function getDestinationType(
