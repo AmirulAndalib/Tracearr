@@ -250,7 +250,7 @@ export const PayloadBuilders = {
   },
 };
 
-/** One NotificationPayload per event; a rule send keeps its own title/message the way processRuleNotification did. */
+/** One NotificationPayload per event; a rule send carries its own title and message. */
 export function toNotificationPayload(
   event: NotificationEvent,
   source: NotificationSource

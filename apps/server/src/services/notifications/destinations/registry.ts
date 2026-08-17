@@ -24,5 +24,5 @@ export function getDestinationType(
 }
 
 export function registerDestinationType(type: DestinationType<never, unknown>): void {
-  registry[type.kind as DestinationKind] = type as DestinationType<unknown, unknown>;
+  registry[type.kind] = type as DestinationType<unknown, unknown>;
 }

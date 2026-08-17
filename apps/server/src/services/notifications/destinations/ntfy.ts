@@ -1,3 +1,4 @@
+import { DESTINATION_TYPES } from '@tracearr/shared';
 import { formatPluginUpdateMessage } from '../formatters/pluginUpdate.js';
 import { formatViolationMessage } from '../formatters/violation.js';
 import { toNotificationPayload } from '../types.js';
@@ -133,14 +134,7 @@ async function post(config: NtfyConfig, body: NtfyMessage, ctx: DeliverContext):
 
 export const ntfyType: DestinationType<NtfyConfig, NtfyMessage> = {
   kind: 'ntfy',
-  events: [
-    'violation_detected',
-    'stream_started',
-    'stream_stopped',
-    'server_down',
-    'server_up',
-    'plugin_update_available',
-  ],
+  events: DESTINATION_TYPES.ntfy.events,
   render: (event, config, ctx) =>
     build(toNotificationPayload(event, ctx.source), config.topic || 'tracearr'),
   deliver: (body, config, ctx) => post(config, body, ctx),

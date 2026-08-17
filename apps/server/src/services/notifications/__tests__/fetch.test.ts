@@ -33,6 +33,21 @@ describe('deliverFetch', () => {
     expect(headers['Authorization']).toBe(`Basic ${btoa('user:pa@ss')}`);
   });
 
+  it('names the destination in the thrown message and lets caller headers win over url credentials', async () => {
+    const f = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', f);
+    await deliverFetch(
+      'https://user:pw@example.com/x',
+      { method: 'POST', headers: { Authorization: 'Bearer t' } },
+      ctx
+    );
+    expect(f.mock.calls[0]?.[1]).toMatchObject({ headers: { Authorization: 'Bearer t' } });
+    vi.stubGlobal('fetch', vi.fn());
+    await expect(deliverFetch('http://169.254.1.1/x', { method: 'POST' }, ctx)).rejects.toThrow(
+      /^D: /
+    );
+  });
+
   it('resolves on 2xx', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
     await expect(

@@ -4,7 +4,7 @@ import type { DeliverContext } from './types.js';
 
 export const DELIVER_TIMEOUT_MS = 10_000;
 
-/** Basic-auth in the URL becomes a header (moved from BaseAgent.buildFetchOptions). */
+/** Basic-auth embedded in the URL becomes an Authorization header. */
 export function buildFetchOptions(rawUrl: string): {
   url: string;
   headers: Record<string, string>;
@@ -23,7 +23,7 @@ export function buildFetchOptions(rawUrl: string): {
 /** SSRF policy first (link-local and non-web only; LAN/Tailscale/loopback allowed), then a timed request that throws on non-2xx. */
 export async function deliverFetch(
   rawUrl: string,
-  init: RequestInit,
+  init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> },
   ctx: DeliverContext
 ): Promise<void> {
   try {
@@ -36,7 +36,7 @@ export async function deliverFetch(
   const { url, headers } = buildFetchOptions(rawUrl);
   const response = await fetch(url, {
     ...init,
-    headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
+    headers: { ...headers, ...init.headers },
     signal: ctx.signal,
   });
   if (!response.ok) {

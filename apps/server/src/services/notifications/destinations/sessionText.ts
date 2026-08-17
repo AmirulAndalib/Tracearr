@@ -1,7 +1,6 @@
 import { formatEpisodeLabel } from '@tracearr/shared';
 import type { ActiveSession } from '../types.js';
 
-/** Format duration in milliseconds to human-readable string */
 export function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
   const minutes = Math.floor(seconds / 60);
@@ -48,7 +47,6 @@ export function getPlaybackType(session: ActiveSession): string {
   return 'Direct Play';
 }
 
-/** Get user display name */
 export function getUserDisplayName(session: ActiveSession): string {
   return session.user.identityName ?? session.user.username;
 }

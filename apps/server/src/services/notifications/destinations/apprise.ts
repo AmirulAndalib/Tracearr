@@ -1,3 +1,4 @@
+import { DESTINATION_TYPES } from '@tracearr/shared';
 import { formatPluginUpdateMessage } from '../formatters/pluginUpdate.js';
 import { formatViolationMessage } from '../formatters/violation.js';
 import { toNotificationPayload } from '../types.js';
@@ -123,14 +124,7 @@ async function post(url: string, body: AppriseMessage, ctx: DeliverContext): Pro
 
 export const appriseType: DestinationType<AppriseConfig, AppriseMessage> = {
   kind: 'apprise',
-  events: [
-    'violation_detected',
-    'stream_started',
-    'stream_stopped',
-    'server_down',
-    'server_up',
-    'plugin_update_available',
-  ],
+  events: DESTINATION_TYPES.apprise.events,
   render: (event, _config, ctx) => build(toNotificationPayload(event, ctx.source)),
   deliver: (body, config, ctx) => post(config.url, body, ctx),
   test: (config, ctx) =>

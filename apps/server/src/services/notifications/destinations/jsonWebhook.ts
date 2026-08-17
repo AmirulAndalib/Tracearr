@@ -1,3 +1,4 @@
+import { DESTINATION_TYPES } from '@tracearr/shared';
 import { NOTIFICATION_EVENTS } from '@tracearr/shared';
 import { toNotificationPayload } from '../types.js';
 import { deliverFetch } from './fetch.js';
@@ -181,14 +182,7 @@ async function post(url: string, body: JsonWebhookBody, ctx: DeliverContext): Pr
 
 export const jsonWebhookType: DestinationType<JsonWebhookConfig, JsonWebhookBody> = {
   kind: 'json_webhook',
-  events: [
-    'violation_detected',
-    'stream_started',
-    'stream_stopped',
-    'server_down',
-    'server_up',
-    'plugin_update_available',
-  ],
+  events: DESTINATION_TYPES.json_webhook.events,
   render: (event, _config, ctx) => build(toNotificationPayload(event, ctx.source)),
   deliver: (body, config, ctx) => post(config.url, body, ctx),
   test: (config, ctx) =>

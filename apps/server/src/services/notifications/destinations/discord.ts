@@ -1,3 +1,4 @@
+import { DESTINATION_TYPES } from '@tracearr/shared';
 import { formatPluginUpdateMessage } from '../formatters/pluginUpdate.js';
 import {
   formatViolationDetailsForDiscord,
@@ -200,14 +201,7 @@ async function post(webhookUrl: string, embed: DiscordEmbed, ctx: DeliverContext
 
 export const discordType: DestinationType<DiscordConfig, DiscordEmbed> = {
   kind: 'discord',
-  events: [
-    'violation_detected',
-    'stream_started',
-    'stream_stopped',
-    'server_down',
-    'server_up',
-    'plugin_update_available',
-  ],
+  events: DESTINATION_TYPES.discord.events,
   render: (event, _config, ctx) => buildEmbed(toNotificationPayload(event, ctx.source)),
   deliver: (embed, config, ctx) => post(config.webhookUrl, embed, ctx),
   test: (config, ctx) =>

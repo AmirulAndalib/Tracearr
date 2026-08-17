@@ -1,4 +1,4 @@
-import type { NotificationEventType } from '@tracearr/shared';
+import type { DestinationKind, NotificationEventType } from '@tracearr/shared';
 import type { NotificationEvent, NotificationSource } from '../events.js';
 
 export interface RenderContext {
@@ -12,7 +12,7 @@ export interface DeliverContext {
 }
 
 export interface DestinationType<C, R> {
-  kind: string;
+  kind: DestinationKind;
   events: readonly NotificationEventType[];
   render(event: NotificationEvent, config: C, ctx: RenderContext): Promise<R> | R;
   /** Throws on any failure; the queue's retries and DLQ depend on that. */
