@@ -71,6 +71,7 @@ export function toPublicDestination(
   const secretKeys = descriptor.fields.filter((f) => f.secret).map((f) => f.key);
   let config: Destination['config'] = null;
   let secretsSet: string[] = [];
+  let configStatus = row.configStatus;
   if (row.configStatus === 'ok' && !row.builtin) {
     const opened = readConfig(row);
     if (opened.ok) {
@@ -82,6 +83,9 @@ export function toPublicDestination(
       secretsSet = secretKeys.filter(
         (k) => typeof opened.config[k] === 'string' && opened.config[k] !== ''
       );
+    } else {
+      // The row only flips to reencrypt on the next boot sweep; reporting ok would offer a test that cannot run.
+      configStatus = 'reencrypt';
     }
   }
   return {
@@ -91,7 +95,7 @@ export function toPublicDestination(
     enabled: row.enabled,
     builtin: row.builtin,
     events: row.events,
-    configStatus: row.configStatus,
+    configStatus,
     config,
     secretsSet,
     referencedByRuleCount,

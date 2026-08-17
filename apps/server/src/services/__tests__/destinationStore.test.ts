@@ -171,6 +171,13 @@ describe('destinationStore', () => {
     expect(toPublicDestination({ ...discord(), config: 'v1:zzz' }, 0).config).toBeNull();
   });
 
+  it('toPublicDestination reports reencrypt for a stored-ok row that no longer opens', () => {
+    const pub = toPublicDestination({ ...discord(), config: 'v1:zzz' }, 0);
+    expect(pub.configStatus).toBe('reencrypt');
+    expect(pub.secretsSet).toEqual([]);
+    expect(toPublicDestination(push(), 0).configStatus).toBe('ok');
+  });
+
   it('updateDestination keeps omitted secrets, clears null, replaces strings', async () => {
     rows.push({
       ...discord(),

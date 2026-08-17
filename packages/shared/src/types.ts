@@ -1313,6 +1313,7 @@ export interface ServerToClientEvents {
   'server:up': (data: { serverId: string; serverName: string }) => void;
   'server:connection': (status: ServerConnectionStatus) => void;
   'notification:toast': (data: NotificationToast) => void;
+  'destinations:changed': () => void;
 }
 
 export interface ClientToServerEvents {

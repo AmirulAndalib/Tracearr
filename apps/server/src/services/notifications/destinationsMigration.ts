@@ -227,6 +227,14 @@ export function planDestinationsMigration(input: PlanInput): Plan {
   };
 }
 
+/** name.unique means a collision throws inside the transaction and boot retries forever, so count up until one is free. */
+function freeName(name: string, taken: ReadonlySet<string>): string {
+  if (!taken.has(name)) return name;
+  let candidate = `${name} (migrated)`;
+  for (let n = 2; taken.has(candidate); n += 1) candidate = `${name} (migrated ${n})`;
+  return candidate;
+}
+
 function mapRoutingRow(row: Record<string, unknown>): RoutingRow {
   return {
     eventType: typeof row.event_type === 'string' ? row.event_type : '',
@@ -342,7 +350,7 @@ export async function runDestinationsMigration(): Promise<void> {
       (await tx.select({ name: destinations.name }).from(destinations)).map((r) => r.name)
     );
     for (const p of plan.destinations) {
-      const name = taken.has(p.name) ? `${p.name} (migrated)` : p.name;
+      const name = freeName(p.name, taken);
       taken.add(name);
       const [row] = await tx
         .insert(destinations)

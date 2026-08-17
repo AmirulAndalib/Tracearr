@@ -281,7 +281,7 @@ function sqlText(query: unknown): string {
 }
 
 interface TxState {
-  builtinRows: Array<{ id: string; type: string }>;
+  builtinRows: Array<{ id: string; type: string; name?: string }>;
   settingRows: Array<{ name: string; value: unknown }>;
   ruleRows: PlanInput['rules'];
   routingRows: Array<Record<string, unknown>>;
@@ -523,6 +523,23 @@ describe('runDestinationsMigration', () => {
       harness.log.some((l) => l.includes('DROP TABLE IF EXISTS notification_channel_routing'))
     ).toBe(true);
     expect(publishDestinationsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts up the suffix until the planned name is free', async () => {
+    const harness = await runWith({
+      builtinRows: [
+        { id: 'push-row', type: 'push', name: 'Mobile push' },
+        { id: 'toast-row', type: 'web_toast', name: 'Browser toasts' },
+        { id: 'u1', type: 'discord', name: 'Discord' },
+        { id: 'u2', type: 'discord', name: 'Discord (migrated)' },
+      ],
+      settingRows: [{ name: 'discordWebhookUrl', value: 'https://d/h' }],
+      ruleRows: [],
+      routingRows: [],
+      routingExists: false,
+    });
+
+    expect(harness.inserted[0]).toMatchObject({ name: 'Discord (migrated 2)' });
   });
 
   it('propagates a failed insert instead of swallowing it', async () => {

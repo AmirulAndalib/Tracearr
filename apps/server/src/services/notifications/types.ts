@@ -207,7 +207,7 @@ export function toNotificationPayload(
     }
   })();
   if (source.kind === 'rule') {
-    return { ...base, title: source.title, message: source.message, severity: 'warning' };
+    return { ...base, title: source.title, message: source.message };
   }
   return base;
 }

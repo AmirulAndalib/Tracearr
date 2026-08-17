@@ -218,6 +218,47 @@ describe('Destination Routes', () => {
       expect(response.json().message).toContain('link-local');
       expect(createDestination).not.toHaveBeenCalled();
     });
+
+    it('409s a name the unique index already holds', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(createDestination).mockRejectedValue(
+        Object.assign(new Error('duplicate key value violates unique constraint'), {
+          code: '23505',
+        })
+      );
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/destinations',
+        payload: {
+          name: 'Discord',
+          type: 'discord',
+          config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toBe('A destination named "Discord" already exists');
+    });
+
+    it('lets a store error that is not a unique violation through', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(createDestination).mockRejectedValue(
+        Object.assign(new Error('deadlock detected'), { code: '40P01' })
+      );
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/destinations',
+        payload: {
+          name: 'Discord',
+          type: 'discord',
+          config: { webhookUrl: 'https://discord.com/api/webhooks/1/abc' },
+        },
+      });
+
+      expect(response.statusCode).toBe(500);
+    });
   });
 
   describe('PATCH /destinations/:id', () => {
@@ -363,6 +404,44 @@ describe('Destination Routes', () => {
       expect(response.statusCode).toBe(400);
       expect(response.json().message).toContain('url:');
       expect(updateDestination).not.toHaveBeenCalled();
+    });
+
+    it('409s a rename onto a name the unique index already holds', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(getDestination).mockResolvedValue(makeRow({ id: 'ntfy-1', name: 'Ntfy' }));
+      // drizzle wraps the driver error, so the code arrives under cause
+      vi.mocked(updateDestination).mockRejectedValue(
+        Object.assign(new Error('Failed query'), {
+          cause: Object.assign(new Error('duplicate key value violates unique constraint'), {
+            code: '23505',
+          }),
+        })
+      );
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/destinations/ntfy-1',
+        payload: { name: 'Discord' },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toBe('A destination named "Discord" already exists');
+    });
+
+    it('lets a store error that is not a unique violation through', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(getDestination).mockResolvedValue(makeRow({ id: 'ntfy-1', name: 'Ntfy' }));
+      vi.mocked(updateDestination).mockRejectedValue(
+        Object.assign(new Error('deadlock detected'), { code: '40P01' })
+      );
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/destinations/ntfy-1',
+        payload: { name: 'Discord' },
+      });
+
+      expect(response.statusCode).toBe(500);
     });
   });
 

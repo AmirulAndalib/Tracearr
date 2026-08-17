@@ -21,6 +21,7 @@ import {
   readConfig,
   toPublicDestination,
   updateDestination,
+  type DestinationRow,
 } from '../services/notifications/destinationStore.js';
 import { getDestinationType } from '../services/notifications/destinations/registry.js';
 import { assertSafeProbeUrl } from '../utils/ssrf.js';
@@ -49,6 +50,13 @@ function assertSafeUrls(kind: DestinationKind, config: Record<string, unknown>):
       throw new Error(`${field.key}: ${error instanceof Error ? error.message : 'blocked url'}`);
     }
   }
+}
+
+/** Postgres unique_violation on destinations.name. drizzle wraps the driver error, so the code can sit one level down. */
+function isUniqueViolation(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const err = error as { code?: unknown; cause?: { code?: unknown } };
+  return err.code === '23505' || err.cause?.code === '23505';
 }
 
 const unsavedTestSchema = z.strictObject({
@@ -107,7 +115,15 @@ export async function destinationRoutes(app: FastifyInstance): Promise<void> {
       return reply.badRequest(error instanceof Error ? error.message : 'blocked url');
     }
 
-    const row = await createDestination({ ...parsed.data, config: config.data });
+    let row: DestinationRow;
+    try {
+      row = await createDestination({ ...parsed.data, config: config.data });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        return reply.conflict(`A destination named "${parsed.data.name}" already exists`);
+      }
+      throw error;
+    }
     return reply.code(201).send(toPublicDestination(row, 0));
   });
 
@@ -149,7 +165,16 @@ export async function destinationRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    const row = await updateDestination(current.id, parsed.data);
+    let row: DestinationRow;
+    try {
+      row = await updateDestination(current.id, parsed.data);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        const name = parsed.data.name ?? current.name;
+        return reply.conflict(`A destination named "${name}" already exists`);
+      }
+      throw error;
+    }
     const refs = await rulesReferencingDestinations();
     return toPublicDestination(row, refs.get(row.id)?.length ?? 0);
   });

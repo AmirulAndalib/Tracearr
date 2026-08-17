@@ -81,7 +81,7 @@ describe('toNotificationPayload', () => {
     );
   });
 
-  it('lets a rule source override title, message, and severity', () => {
+  it('lets a rule source override title and message but keeps the event severity', () => {
     const payload = toNotificationPayload(
       { type: 'session_started', payload: session },
       { kind: 'rule', title: 'Rule fired', message: 'Too many streams' }
@@ -89,7 +89,7 @@ describe('toNotificationPayload', () => {
 
     expect(payload.title).toBe('Rule fired');
     expect(payload.message).toBe('Too many streams');
-    expect(payload.severity).toBe('warning');
+    expect(payload.severity).toBe('low');
     expect(payload.event).toBe('stream_started');
     expect(payload.context).toEqual({ type: 'stream_started', session });
   });

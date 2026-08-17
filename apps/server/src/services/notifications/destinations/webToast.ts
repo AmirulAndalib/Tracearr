@@ -1,6 +1,5 @@
-import { DESTINATION_TYPES, WS_EVENTS } from '@tracearr/shared';
+import { DESTINATION_TYPES, WS_EVENTS, type NotificationToast } from '@tracearr/shared';
 import { getPubSubService } from '../../cache.js';
-import type { NotificationToast } from '@tracearr/shared';
 import type { DestinationType } from './types.js';
 
 export type ToastRendered =
