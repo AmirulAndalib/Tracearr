@@ -7,11 +7,9 @@
   "license": "AGPL-3.0",
   "author": "Connor Gallopo",
   "scripts": {
-    "dev": "turbo dev --filter=!@tracearr/mobile",
+    "dev": "turbo dev",
     "docker:up": "docker compose -f docker/docker-compose.dev.yml up -d --build",
     "docker:down": "docker compose -f docker/docker-compose.dev.yml down",
-    "dev:all": "turbo dev",
-    "dev:mobile": "turbo dev --filter=@tracearr/mobile",
     "build": "turbo build",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",

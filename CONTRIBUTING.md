@@ -38,7 +38,6 @@ Tracearr is a monorepo using pnpm workspaces and Turborepo:
 apps/
   server/       # Fastify + Drizzle ORM + BullMQ + Socket.io
   web/          # React 19 + Vite + Tailwind + shadcn/ui
-  mobile/       # React Native (Expo)
 packages/
   shared/       # Types, Zod schemas, constants
   translations/ # i18n

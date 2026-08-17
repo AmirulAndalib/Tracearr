@@ -119,60 +119,6 @@
       "description": "3d cooldown for GitHub Actions"
     },
 
-    // ----- mobile workspace -----
-
-    // Expo SDK controls too many transitive pins to trust automerge here.
-    // Prefix branches so they're easy to find.
-    {
-      "matchFileNames": ["apps/mobile/**"],
-      "additionalBranchPrefix": "mobile-",
-      "labels": ["dep-mobile"],
-      "automerge": false
-    },
-
-    // RN-locked libs. expo-server-sdk lives in apps/server and isn't part of
-    // the mobile build, so it's excluded from the group.
-    {
-      "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "expo",
-        "expo-*",
-        "@expo/*",
-        "react-native",
-        "react-native-*",
-        "@react-native/*",
-        "@react-native-*/*",
-        "@react-navigation/*",
-        "@gorhom/bottom-sheet",
-        "@shopify/react-native-skia",
-        "nativewind",
-        "victory-native",
-        "lucide-react-native",
-        "!expo-server-sdk"
-      ],
-      "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "Expo and React Native"
-    },
-
-    // Gate Expo SDK majors behind dashboard approval.
-    {
-      "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "expo",
-        "expo-*",
-        "@expo/*",
-        "react-native",
-        "react-native-*",
-        "@react-native/*",
-        "@react-native-*/*",
-        "@react-navigation/*",
-        "!expo-server-sdk"
-      ],
-      "matchUpdateTypes": ["major"],
-      "dependencyDashboardApproval": true,
-      "labels": ["dep-mobile", "dep-major"]
-    },
-
     // ----- ecosystem groups, minor + patch only -----
     // Majors get one PR each. See #740 for why grouping eslint + typescript +
     // plugins through a major is a bad idea.
@@ -374,15 +320,10 @@
     },
 
     // ----- native modules: manual review on majors -----
-    // bcrypt and sharp have rebuild risk. Native crypto powers the mobile pair flow.
+    // bcrypt and sharp have rebuild risk.
     {
       "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "bcrypt",
-        "sharp",
-        "react-native-quick-crypto",
-        "react-native-nitro-modules"
-      ],
+      "matchPackageNames": ["bcrypt", "sharp"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true,
       "description": "Native modules: rebuild risk, review by hand"

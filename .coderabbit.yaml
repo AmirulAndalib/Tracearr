@@ -100,24 +100,6 @@ reviews:
         - Use cn() for conditional classes, cva() for variants. Flag
           hand-concatenated class strings.
 
-    - path: 'apps/mobile/**/*.{ts,tsx}'
-      instructions: |
-        - ThemeProvider imports from expo-router, never @react-navigation/native.
-          expo-router vendors its own copy and the npm package sets a context it
-          never reads. This caused a white toolbar flash on iOS 26 tab switches.
-        - Styling is NativeWind, not StyleSheet. Not every Tailwind utility has
-          a native equivalent.
-        - The app is dark only. Flag light-mode branches and hardcoded light
-          colors.
-
-    - path: 'apps/mobile/{metro.config.js,babel.config.js}'
-      instructions: |
-        metro.config.js pins i18next, react-i18next and react to the app's own
-        copies. pnpm gives workspace packages their own, and two instances mean
-        raw i18n keys or invalid-hook-call crashes. Worklets bundle mode stays
-        off. Changes here break at runtime, not typecheck, so ask for evidence
-        the app was run.
-
   # Contributors can tick these checkboxes on their own PRs and have the bot
   # write the code. That defeats "you own what you submit".
   finishing_touches:
@@ -287,9 +269,8 @@ reviews:
           .github/workflows/. Renovate PRs included.
 
           Fail if typescript moves above 6.x in the root package.json or in any
-          package except apps/mobile. typescript-eslint caps its typescript peer
-          below 6.1 and the lint parser resolves the root copy. apps/mobile pins
-          7.0.2 deliberately; that copy only feeds its own tsc --noEmit.
+          package. typescript-eslint caps its typescript peer below 6.1 and the
+          lint parser resolves the root copy.
 
           Fail if a postgres or timescaledb image tag or digest changes anywhere,
           including compose files and CI service definitions. Those pins are
