@@ -19,6 +19,7 @@ import { and, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from 'drizzle
 import { db } from '../../db/client.js';
 import { serverUsers, sessions, violations } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
+import { dispatch } from '../../services/rules/events/dispatcher.js';
 import {
   evaluateRulesAsync,
   hasPauseConditions,
@@ -1286,6 +1287,12 @@ export async function stopSessionAtomic(input: SessionStopInput): Promise<Sessio
         console.log(
           `[SessionLifecycle] Session stopped: "${session.mediaTitle}" after ${Math.round(durationMs / 1000)}s (watched=${watched}${forceStopped ? ', forced' : ''})`
         );
+        await dispatch({
+          type: 'session.stopped',
+          at: stoppedAt,
+          sessionId: session.id,
+          serverId: session.serverId,
+        });
       }
 
       return { durationMs, watched, shortSession, wasUpdated };
@@ -1363,6 +1370,13 @@ export async function handleMediaChangeAtomic(
     );
     return null;
   }
+
+  await dispatch({
+    type: 'session.media_changed',
+    at: now,
+    sessionId: existingSession.id,
+    serverId: existingSession.serverId,
+  });
 
   // STEP 2: Create new session for the new media
   const { insertedSession, violationResults, wasTerminatedByRule, qualityChange } =
