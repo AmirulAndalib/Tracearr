@@ -8,10 +8,9 @@
 import type { ActionType, ViolationSeverity, Action } from '@tracearr/shared';
 
 // Config field types for rendering action configuration
-export type ConfigFieldType =
-  'number' | 'text' | 'select' | 'multi-select' | 'slider' | 'destinations';
+export type ConfigFieldType = 'number' | 'text' | 'select' | 'slider' | 'destinations';
 
-// Option definition for select/multi-select fields
+// Option definition for select fields
 export interface ConfigFieldOption {
   value: string;
   label: string;
@@ -305,8 +304,7 @@ export function validateAction(action: Action): string[] {
       if (value === undefined || value === null || value === '') {
         errors.push(`${field.label} is required`);
       }
-      const isList = field.type === 'multi-select' || field.type === 'destinations';
-      if (isList && Array.isArray(value) && value.length === 0) {
+      if (field.type === 'destinations' && Array.isArray(value) && value.length === 0) {
         errors.push(`${field.label} requires at least one selection`);
       }
     }

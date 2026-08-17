@@ -64,7 +64,7 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
             <Button
               key={row.id}
               type="button"
-              variant={selected && row.enabled ? 'default' : 'outline'}
+              variant={selected ? 'default' : 'outline'}
               size="sm"
               aria-pressed={selected}
               className={cn(!row.enabled && 'opacity-60')}

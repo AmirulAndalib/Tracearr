@@ -251,36 +251,6 @@ function ConfigFieldInput({ field, value, onChange }: ConfigFieldInputProps) {
     );
   }
 
-  // Multi-select
-  if (field.type === 'multi-select') {
-    const selectedValues = (value as string[]) ?? [];
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground text-sm">{field.label}:</span>
-        {field.options?.map((opt) => {
-          const isSelected = selectedValues.includes(opt.value);
-          return (
-            <Button
-              key={opt.value}
-              type="button"
-              variant={isSelected ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (isSelected) {
-                  onChange(selectedValues.filter((v) => v !== opt.value));
-                } else {
-                  onChange([...selectedValues, opt.value]);
-                }
-              }}
-            >
-              {opt.label}
-            </Button>
-          );
-        })}
-      </div>
-    );
-  }
-
   // Slider
   if (field.type === 'slider') {
     const numValue = (value as number) ?? 50;

@@ -8,6 +8,21 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 
+vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
+  DestinationDialog: ({
+    open,
+    onCreated,
+  }: {
+    open: boolean;
+    onCreated?: (created: { id: string }) => void;
+  }) =>
+    open ? (
+      <button type="button" onClick={() => onCreated?.({ id: 'dest-new' })}>
+        simulate created
+      </button>
+    ) : null,
+}));
+
 vi.mock('@/hooks/queries/useDestinations', () => ({
   useDestinations: vi.fn(),
   useCreateDestination: vi.fn(),
@@ -119,14 +134,23 @@ describe('DestinationsField', () => {
     expect(onChange).toHaveBeenCalledWith(['dest-discord']);
   });
 
-  it('offers the add button when there are no destinations', () => {
+  it('offers the add button when there are no destinations and selects what the dialog creates', async () => {
+    const user = userEvent.setup();
     setDestinations([]);
     render(<DestinationsField value={[]} onChange={onChange} label="Destinations" />);
 
     expect(screen.getByText('pages:rules.builder.noDestinations')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'pages:settings.destinations.add' })
-    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'pages:settings.destinations.add' }));
+    await user.click(screen.getByRole('button', { name: 'simulate created' }));
+    expect(onChange).toHaveBeenCalledWith(['dest-new']);
+  });
+
+  it('keeps a selected but disabled destination visibly selected', () => {
+    setDestinations([destination({ enabled: false })]);
+    render(<DestinationsField value={['dest-discord']} onChange={onChange} label="Destinations" />);
+    const button = screen.getByRole('button', { name: /Alpha Discord/ });
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(button.className).toContain('opacity-60');
   });
 
   it('renders a skeleton while the list loads', () => {
