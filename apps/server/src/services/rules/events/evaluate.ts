@@ -1,9 +1,15 @@
 import type { RuleV2 } from '@tracearr/shared';
 import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
-import { evaluateRulesAsync, hasPauseConditions, hasTranscodeConditions } from '../engine.js';
+import {
+  evaluateRulesAsync,
+  hasInactivityCondition,
+  hasPauseConditions,
+  hasTranscodeConditions,
+} from '../engine.js';
 import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type {
+  AccountInactiveForEvent,
   EvaluationInputs,
   SessionHeldForEvent,
   SessionPausedEvent,
@@ -12,18 +18,23 @@ import type {
   TriggerType,
 } from './types.js';
 
-export type EvaluatingEvent =
+export type SessionEvaluatingEvent =
   SessionStartedEvent | SessionTranscodeChangedEvent | SessionPausedEvent | SessionHeldForEvent;
 
+export type EvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
+
+/** Rules with an inactive_days condition run under account.inactive_for, never at session triggers. */
 export function rulesForTrigger(trigger: TriggerType, rules: RuleV2[]): RuleV2[] {
   switch (trigger) {
     case 'session.started':
-      return rules;
+      return rules.filter((r) => !hasInactivityCondition(r));
     case 'session.transcode_changed':
       return rules.filter(hasTranscodeConditions);
     case 'session.paused':
     case 'session.held_for':
       return rules.filter(hasPauseConditions);
+    case 'account.inactive_for':
+      return rules.filter(hasInactivityCondition);
     default:
       return [];
   }
@@ -46,7 +57,9 @@ export async function evaluateTrigger(
     session,
     serverUser: toRuleServerUser(event.serverUser, event.server.id),
     server: toRuleServer(event.server),
-    activeSessions: buildRuleContextSessions(inputs.activeSessions, session, null),
+    activeSessions: session
+      ? buildRuleContextSessions(inputs.activeSessions, session, null)
+      : inputs.activeSessions,
     recentSessions: inputs.recentSessions,
     identityServerUserIds: inputs.identityServerUserIds ?? event.serverUser.identityServerUserIds,
   };

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleV2, Session } from '@tracearr/shared';
 import type {
+  AccountInactiveForEvent,
   EvaluationInputs,
   SessionPausedEvent,
   SessionTranscodeChangedEvent,
@@ -49,8 +50,11 @@ const serverUser = {
 const session = { id: 's1', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
 
 describe('rulesForTrigger', () => {
-  it('session.started evaluates every rule (stage 2; stage 4 excludes inactivity rules)', () => {
-    expect(rulesForTrigger('session.started', all).map((r) => r.id)).toEqual(['t', 'p', 'c', 'i']);
+  it('session.started evaluates every rule except inactivity rules', () => {
+    expect(rulesForTrigger('session.started', all).map((r) => r.id)).toEqual(['t', 'p', 'c']);
+  });
+  it('account.inactive_for evaluates only inactivity rules', () => {
+    expect(rulesForTrigger('account.inactive_for', all).map((r) => r.id)).toEqual(['i']);
   });
   it('transcode_changed evaluates only transcode rules', () => {
     expect(rulesForTrigger('session.transcode_changed', all).map((r) => r.id)).toEqual(['t']);
@@ -116,6 +120,29 @@ describe('evaluateTrigger', () => {
     };
     const { baseContext } = await evaluateTrigger(event, inputs);
     expect(baseContext.activeSessions).toHaveLength(1);
+  });
+
+  it('builds a session-less context for account.inactive_for and leaves activeSessions alone', async () => {
+    const other = { id: 's2', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
+    const inputs: EvaluationInputs = {
+      activeRulesV2: all,
+      activeSessions: [other],
+      recentSessions: [],
+    };
+    const event: AccountInactiveForEvent = {
+      type: 'account.inactive_for',
+      at: new Date(),
+      server,
+      serverUser,
+      session: null,
+    };
+
+    const { rules, baseContext } = await evaluateTrigger(event, inputs);
+
+    expect(rules.map((r) => r.id)).toEqual(['i']);
+    expect(baseContext.session).toBeNull();
+    expect(baseContext.activeSessions).toBe(inputs.activeSessions);
+    expect(mockEvaluateRulesAsync).toHaveBeenCalledWith(baseContext, [inactivityRule]);
   });
 
   it('returns early with no evaluation when no rule matches the trigger', async () => {

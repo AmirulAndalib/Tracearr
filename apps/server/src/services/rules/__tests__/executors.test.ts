@@ -21,7 +21,7 @@ import {
   executorRegistry,
   type ActionExecutorDeps,
 } from '../executors/index.js';
-import type { EvaluationContext } from '../types.js';
+import type { EvaluationContext, SessionEvaluationContext } from '../types.js';
 
 // Mock factories for testing - matching actual types from @tracearr/shared
 function createMockSession(overrides: Partial<Session> = {}): Session {
@@ -153,7 +153,9 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   };
 }
 
-function createMockContext(overrides: Partial<EvaluationContext> = {}): EvaluationContext {
+function createMockContext(
+  overrides: Partial<SessionEvaluationContext> = {}
+): SessionEvaluationContext {
   const session = createMockSession();
   return {
     session,
@@ -952,6 +954,179 @@ describe('Action Executor Registry', () => {
       const results = await executeActions(context, []);
 
       expect(results).toEqual([]);
+    });
+  });
+
+  describe('without a session (account violations)', () => {
+    let mockDeps: ActionExecutorDeps;
+    const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
+
+    function createAccountContext(serverUser: ServerUser): EvaluationContext {
+      return {
+        ...createMockContext(),
+        session: null,
+        serverUser,
+        activeSessions: [],
+        recentSessions: [],
+      };
+    }
+
+    beforeEach(() => {
+      mockDeps = createMockDeps();
+      setActionExecutorDeps(mockDeps);
+    });
+
+    afterEach(() => {
+      resetActionExecutorDeps();
+    });
+
+    it('sends the account notify payload and skips the session-bound actions', async () => {
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+      const actions: Action[] = [
+        { type: 'notify', channels: ['discord', 'push'] },
+        { type: 'kill_stream' },
+        { type: 'message_client', message: 'stop' },
+      ];
+
+      const results = await executeActions(context, actions);
+
+      expect(mockDeps.sendNotification).toHaveBeenCalledWith({
+        channels: ['discord', 'push'],
+        title: `Rule Triggered: ${context.rule.name}`,
+        message: 'Account "testuser" has been inactive for 45 days',
+        data: {
+          ruleId: context.rule.id,
+          serverUserId: context.serverUser.id,
+          username: 'testuser',
+          displayName: 'testuser',
+          serverId: context.server.id,
+          userThumbUrl: null,
+        },
+      });
+      expect(mockDeps.terminateSession).not.toHaveBeenCalled();
+      expect(mockDeps.sendClientMessage).not.toHaveBeenCalled();
+      expect(results[0]).toMatchObject({ success: true, message: 'Executed notify' });
+      expect(results[1]).toMatchObject({
+        success: true,
+        skipped: true,
+        skipReason: 'No active session for an inactivity violation',
+      });
+      expect(results[2]).toMatchObject({
+        success: true,
+        skipped: true,
+        skipReason: 'No active session for an inactivity violation',
+      });
+    });
+
+    it('words the message for never-active accounts', async () => {
+      const context = createAccountContext(createMockServerUser({ lastActivityAt: null }));
+
+      await executeActions(context, [{ type: 'notify', channels: ['webhook'] }]);
+
+      expect(mockDeps.sendNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Account "testuser" has never been active' })
+      );
+    });
+
+    it('keys cooldowns per action type and lets other actions run', async () => {
+      (mockDeps.checkCooldown as ReturnType<typeof vi.fn>).mockImplementation(
+        (_ruleId: string, targetId: string) => targetId.endsWith(':notify')
+      );
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+      const actions: Action[] = [
+        { type: 'notify', channels: ['discord'], cooldown_minutes: 60 },
+        { type: 'adjust_trust', amount: -10 },
+      ];
+
+      const results = await executeActions(context, actions);
+
+      expect(mockDeps.checkCooldown).toHaveBeenCalledWith(
+        context.rule.id,
+        `${context.rule.id}:${context.serverUser.id}:notify`,
+        60
+      );
+      expect(mockDeps.sendNotification).not.toHaveBeenCalled();
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
+      expect(results[0]).toMatchObject({ skipped: true, skipReason: 'On cooldown (60 minutes)' });
+      expect(results[1]).toMatchObject({ success: true, message: 'Executed adjust_trust' });
+    });
+
+    it('arms the cooldown with the action-type key after executing', async () => {
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+
+      await executeActions(context, [
+        { type: 'notify', channels: ['discord'], cooldown_minutes: 30 },
+      ]);
+
+      expect(mockDeps.setCooldown).toHaveBeenCalledWith(
+        context.rule.id,
+        `${context.rule.id}:${context.serverUser.id}:notify`,
+        30
+      );
+    });
+
+    it('runs trust and log actions against the account', async () => {
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+      const actions: Action[] = [
+        { type: 'adjust_trust', amount: -5 },
+        { type: 'set_trust', value: 20 },
+        { type: 'reset_trust' },
+        { type: 'log_only', message: 'dormant account seen' },
+      ];
+
+      await executeActions(context, actions);
+
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
+      expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 20);
+      expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
+      expect(mockDeps.logAudit).toHaveBeenCalledWith({
+        sessionId: null,
+        serverUserId: context.serverUser.id,
+        serverId: context.server.id,
+        ruleId: context.rule.id,
+        ruleName: context.rule.name,
+        message: 'dormant account seen',
+        details: { lastActivityAt: fortyFiveDaysAgo },
+      });
+    });
+
+    it('records a failure without aborting later actions', async () => {
+      (mockDeps.sendNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('discord webhook 500')
+      );
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+      const actions: Action[] = [
+        { type: 'notify', channels: ['discord'] },
+        { type: 'adjust_trust', amount: -5 },
+      ];
+
+      const results = await executeActions(context, actions);
+
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
+      expect(results[0]).toMatchObject({ success: false, message: 'discord webhook 500' });
+      expect(results[1]).toMatchObject({ success: true });
+    });
+
+    it('does nothing when the rule has no actions', async () => {
+      const context = createAccountContext(
+        createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
+      );
+
+      const results = await executeActions(context, []);
+
+      expect(results).toEqual([]);
+      expect(mockDeps.sendNotification).not.toHaveBeenCalled();
+      expect(mockDeps.logAudit).not.toHaveBeenCalled();
     });
   });
 });

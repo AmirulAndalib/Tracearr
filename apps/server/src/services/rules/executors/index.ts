@@ -1,3 +1,4 @@
+import { TIME_MS } from '@tracearr/shared';
 import type {
   Action,
   ActionType,
@@ -7,6 +8,7 @@ import type {
   SetTrustAction,
   KillStreamAction,
   MessageClientAction,
+  ServerUser,
 } from '@tracearr/shared';
 import type { ActionExecutor, EvaluationContext } from '../types.js';
 import { resolveTargetSessions } from './targeting.js';
@@ -75,7 +77,7 @@ export interface ActionExecutorDeps {
   queueForConfirmation: (params: {
     ruleId: string;
     ruleName: string;
-    sessionId: string;
+    sessionId: string | null;
     serverUserId: string;
     serverId: string;
     action: Action;
@@ -189,19 +191,29 @@ const executeLogOnly: ActionExecutor = async (
   const typedAction = action as LogOnlyAction;
 
   await currentDeps.logAudit({
-    sessionId: session.id,
+    sessionId: session?.id ?? null,
     serverUserId: serverUser.id,
     serverId: server.id,
     ruleId: rule.id,
     ruleName: rule.name,
     message: typedAction.message,
-    details: {
-      sessionKey: session.sessionKey,
-      mediaTitle: session.mediaTitle,
-      ipAddress: session.ipAddress,
-    },
+    details: session
+      ? {
+          sessionKey: session.sessionKey,
+          mediaTitle: session.mediaTitle,
+          ipAddress: session.ipAddress,
+        }
+      : { lastActivityAt: serverUser.lastActivityAt },
   });
 };
+
+function accountInactivityMessage(serverUser: ServerUser): string {
+  if (!serverUser.lastActivityAt) return `Account "${serverUser.username}" has never been active`;
+  const days = Math.floor(
+    (Date.now() - new Date(serverUser.lastActivityAt).getTime()) / TIME_MS.DAY
+  );
+  return `Account "${serverUser.username}" has been inactive for ${days} days`;
+}
 
 /**
  * Send notification to specified channels.
@@ -219,7 +231,9 @@ const executeNotify: ActionExecutor = async (
   }
 
   const title = `Rule Triggered: ${rule.name}`;
-  const message = `User "${serverUser.username}" triggered rule "${rule.name}" while playing "${session.mediaTitle}"`;
+  const message = session
+    ? `User "${serverUser.username}" triggered rule "${rule.name}" while playing "${session.mediaTitle}"`
+    : accountInactivityMessage(serverUser);
 
   await currentDeps.sendNotification({
     channels,
@@ -227,15 +241,15 @@ const executeNotify: ActionExecutor = async (
     message,
     data: {
       ruleId: rule.id,
-      sessionId: session.id,
       serverUserId: serverUser.id,
       username: serverUser.username,
       displayName: serverUser.identityName ?? serverUser.username,
-      mediaTitle: session.mediaTitle,
       // Image data for rich push notifications
       serverId: server.id,
-      thumbPath: session.thumbPath,
       userThumbUrl: serverUser.thumbUrl,
+      ...(session
+        ? { sessionId: session.id, mediaTitle: session.mediaTitle, thumbPath: session.thumbPath }
+        : {}),
     },
   });
 };
@@ -285,6 +299,7 @@ const executeKillStream: ActionExecutor = async (
   action: Action
 ): Promise<{ enqueuedSessionIds: string[]; queueFailure: boolean }> => {
   const { session, serverUser, activeSessions, rule, identityServerUserIds } = context;
+  if (!session) return { enqueuedSessionIds: [], queueFailure: false };
   const typedAction = action as KillStreamAction;
   const delaySeconds = typedAction.delay_seconds ?? 0;
   const message = typedAction.message;
@@ -361,6 +376,7 @@ const executeMessageClient: ActionExecutor = async (
   action: Action
 ): Promise<void> => {
   const { session, serverUser, activeSessions, rule, identityServerUserIds } = context;
+  if (!session) return;
   const typedAction = action as MessageClientAction;
   const message = typedAction.message;
   const target = typedAction.target ?? 'triggering';
@@ -441,6 +457,15 @@ export async function executeAction(
     };
   }
 
+  if (!context.session && (action.type === 'kill_stream' || action.type === 'message_client')) {
+    return {
+      action,
+      success: true,
+      skipped: true,
+      skipReason: 'No active session for an inactivity violation',
+    };
+  }
+
   // Check cooldown
   const cooldownMinutes = getCooldownMinutes(action);
   if (cooldownMinutes && cooldownMinutes > 0) {
@@ -462,7 +487,7 @@ export async function executeAction(
     await currentDeps.queueForConfirmation({
       ruleId: rule.id,
       ruleName: rule.name,
-      sessionId: context.session.id,
+      sessionId: context.session?.id ?? null,
       serverUserId: serverUser.id,
       serverId: context.server.id,
       action,

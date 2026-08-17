@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Condition, Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
-import type { EvaluationContext, EvaluatorResult } from '../types.js';
+import type { Condition, Operator, Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
+import type { EvaluatorResult, SessionEvaluationContext } from '../types.js';
 import {
   evaluatorRegistry,
   getResolution,
@@ -165,7 +165,9 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
 }
 
 // Helper to create a test context
-function createTestContext(overrides: Partial<EvaluationContext> = {}): EvaluationContext {
+function createTestContext(
+  overrides: Partial<SessionEvaluationContext> = {}
+): SessionEvaluationContext {
   const server = createMockServer();
   const serverUser = createMockServerUser({ serverId: server.id });
   const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
@@ -1640,18 +1642,25 @@ describe('Session Behavior Evaluators', () => {
       ).toBe(false);
     });
 
-    it('uses account age when no activity recorded', () => {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    it('treats never-active accounts as infinitely inactive: gte/gt/neq match, eq/lt/lte do not', () => {
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
       const ctx = createTestContext({
-        serverUser: createMockServerUser({ lastActivityAt: null, createdAt: thirtyDaysAgo }),
+        serverUser: createMockServerUser({ lastActivityAt: null, createdAt: tenDaysAgo }),
       });
-
       const evaluator = evaluatorRegistry.inactive_days;
-      expect(
-        matched(
-          evaluator(ctx, createCondition({ field: 'inactive_days', operator: 'gte', value: 30 }))
-        )
-      ).toBe(true);
+      const run = (operator: Operator) =>
+        evaluator(
+          ctx,
+          createCondition({ field: 'inactive_days', operator, value: 30 })
+        ) as EvaluatorResult;
+      expect(run('gte').matched).toBe(true);
+      expect(run('gt').matched).toBe(true);
+      expect(run('neq').matched).toBe(true);
+      expect(run('eq').matched).toBe(false);
+      expect(run('lt').matched).toBe(false);
+      expect(run('lte').matched).toBe(false);
+      expect(run('gte').actual).toBeNull();
+      expect(run('gte').details).toMatchObject({ neverActive: true });
     });
   });
 

@@ -581,6 +581,78 @@ describe('evaluateRuleAsync', () => {
   });
 });
 
+describe('session-less context', () => {
+  it.each(['concurrent_streams', 'active_session_distance_km', 'travel_speed_kmh'] as const)(
+    'never matches a group whose conditions all need a session: %s',
+    async (field) => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            { conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] },
+            { conditions: [{ field, operator: 'lt', value: 1 }] },
+          ],
+        },
+      });
+      const ctx = {
+        ...createTestContext(rule),
+        session: null,
+        serverUser: createMockServerUser({ trustScore: 10 }),
+        activeSessions: [],
+        recentSessions: [],
+      };
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(false);
+    }
+  );
+
+  it('matches on the account condition when a session condition shares the group', async () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const rule = createMockRule({
+      conditions: {
+        groups: [
+          {
+            conditions: [
+              { field: 'inactive_days', operator: 'gte', value: 30 },
+              { field: 'trust_score', operator: 'lt', value: 50 },
+            ],
+          },
+        ],
+      },
+    });
+    const ctx = {
+      ...createTestContext(rule),
+      session: null,
+      serverUser: createMockServerUser({ trustScore: 30, lastActivityAt: tenDaysAgo }),
+      activeSessions: [],
+    };
+
+    const result = await evaluateRuleAsync(ctx);
+
+    expect(result.matched).toBe(true);
+  });
+
+  it('runs inactive_days through the registry without a session', async () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'inactive_days', operator: 'in', value: [10, 20] }] }],
+      },
+    });
+    const ctx = {
+      ...createTestContext(rule),
+      session: null,
+      serverUser: createMockServerUser({ lastActivityAt: tenDaysAgo }),
+      activeSessions: [],
+    };
+
+    const result = await evaluateRuleAsync(ctx);
+
+    expect(result.matched).toBe(true);
+  });
+});
+
 describe('evaluateRulesAsync', () => {
   it('returns only matching rules', async () => {
     const rules: RuleV2[] = [

@@ -2,7 +2,7 @@ import { executeActions, type ActionResult } from '../executors/index.js';
 import { storeActionResults } from '../v2Integration.js';
 import { recordViolation, type ViolationScope } from '../violationWriter.js';
 import { subscribe } from './dispatcher.js';
-import { evaluateTrigger, type EvaluatingEvent } from './evaluate.js';
+import { evaluateTrigger, type EvaluatingEvent, type SessionEvaluatingEvent } from './evaluate.js';
 import type { RuleV2 } from '@tracearr/shared';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type { DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
@@ -78,7 +78,7 @@ export async function runRulePipeline(
 
 function sessionRules(marker?: Record<string, true>, fresh?: boolean) {
   return async (
-    event: EvaluatingEvent,
+    event: SessionEvaluatingEvent,
     inputs: EvaluationInputs | undefined,
     opts: DispatchOptions
   ) => {
