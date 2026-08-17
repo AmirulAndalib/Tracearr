@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Save, Loader2 } from 'lucide-react';
 import type {
   ConditionGroup as ConditionGroupType,
@@ -118,6 +119,7 @@ export function RuleBuilder({
   isLoading = false,
   filterOptions,
 }: RuleBuilderProps) {
+  const { t } = useTranslation('pages');
   const { servers } = useServer();
 
   // Derive initial scope mode from existing rule fields
@@ -209,6 +211,10 @@ export function RuleBuilder({
       if (group.conditions.length === 0) {
         newErrors.push('Each condition group must have at least one condition');
       }
+    }
+
+    if (actions.actions.some((a) => a.type === 'send' && a.to.length === 0)) {
+      newErrors.push(t('rules.builder.errors.sendNeedsDestination'));
     }
 
     setErrors(newErrors);

@@ -660,6 +660,13 @@
     "blocked": "Blocat",
     "blockedCountries": "Țări blocate",
     "blocklist": "Blocklist (bblochează aceste țări)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Alegeți un Șablon de Regulă",
     "chooseTemplateDesc": "Selectați un tip de regulă pre-configurat pentru a începe rapid.",
     "classicRule": "Regulă clasică",

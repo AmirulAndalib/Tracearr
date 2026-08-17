@@ -660,6 +660,13 @@
     "blocked": "Заблоковано",
     "blockedCountries": "Заблоковані країни",
     "blocklist": "Список блокувань (блокувати ці країни)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Виберіть шаблон правила",
     "chooseTemplateDesc": "Оберіть попередньо налаштований тип правила, щоб швидко запускатися.",
     "classicRule": "Класичне правило",

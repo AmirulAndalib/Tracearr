@@ -5,15 +5,11 @@
  * All action-related components reference this registry.
  */
 
-import type {
-  ActionType,
-  ViolationSeverity,
-  NotificationChannelV2,
-  Action,
-} from '@tracearr/shared';
+import type { ActionType, ViolationSeverity, Action } from '@tracearr/shared';
 
 // Config field types for rendering action configuration
-export type ConfigFieldType = 'number' | 'text' | 'select' | 'multi-select' | 'slider';
+export type ConfigFieldType =
+  'number' | 'text' | 'select' | 'multi-select' | 'slider' | 'destinations';
 
 // Option definition for select/multi-select fields
 export interface ConfigFieldOption {
@@ -56,14 +52,6 @@ export const SEVERITY_OPTIONS: { value: ViolationSeverity; label: string; color:
   { value: 'low', label: 'Low', color: 'bg-blue-500' },
   { value: 'warning', label: 'Warning', color: 'bg-yellow-500' },
   { value: 'high', label: 'High', color: 'bg-red-500' },
-];
-
-// Notification channel options
-export const NOTIFICATION_CHANNEL_OPTIONS: { value: NotificationChannelV2; label: string }[] = [
-  { value: 'push', label: 'Push Notification' },
-  { value: 'discord', label: 'Discord' },
-  { value: 'email', label: 'Email' },
-  { value: 'webhook', label: 'Webhook' },
 ];
 
 // Session target options for kill_stream and message_client actions
@@ -114,19 +102,18 @@ export const ACTION_DEFINITIONS: Partial<Record<ActionType, ActionDefinition>> =
     ],
   },
 
-  notify: {
-    type: 'notify',
+  send: {
+    type: 'send',
     label: 'Send Notification',
-    description: 'Send alert to configured channels',
+    description: 'Send to one or more destinations',
     icon: 'Bell',
     color: 'default',
     configFields: [
       {
-        name: 'channels',
-        label: 'Channels',
-        type: 'multi-select',
+        name: 'to',
+        label: 'Destinations',
+        type: 'destinations',
         required: true,
-        options: NOTIFICATION_CHANNEL_OPTIONS,
       },
       {
         name: 'cooldown_minutes',
@@ -287,8 +274,8 @@ export function createDefaultAction(type: ActionType): Action {
   switch (type) {
     case 'log_only':
       return { type: 'log_only' };
-    case 'notify':
-      return { type: 'notify', channels: ['push'] };
+    case 'send':
+      return { type: 'send', to: [] };
     case 'adjust_trust':
       return { type: 'adjust_trust', amount: -10 };
     case 'set_trust':
@@ -319,7 +306,8 @@ export function validateAction(action: Action): string[] {
       if (value === undefined || value === null || value === '') {
         errors.push(`${field.label} is required`);
       }
-      if (field.type === 'multi-select' && Array.isArray(value) && value.length === 0) {
+      const isList = field.type === 'multi-select' || field.type === 'destinations';
+      if (isList && Array.isArray(value) && value.length === 0) {
         errors.push(`${field.label} requires at least one selection`);
       }
     }

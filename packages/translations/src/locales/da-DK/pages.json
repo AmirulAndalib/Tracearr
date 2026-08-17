@@ -660,6 +660,13 @@
     "blocked": "Blokeret",
     "blockedCountries": "Blokerede Lande",
     "blocklist": "Blokliste (blokér disse lande)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Vælg en regelskabelon",
     "chooseTemplateDesc": "Vælg en prækonfigureret regeltype for at komme i gang hurtigt.",
     "classicRule": "Klassisk Regel",

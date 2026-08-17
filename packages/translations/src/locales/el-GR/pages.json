@@ -660,6 +660,13 @@
     "blocked": "Αποκλεισμένος",
     "blockedCountries": "Αποκλεισμένες Χώρες",
     "blocklist": "Λίστα αποκλεισμών (μπλοκ αυτών των χωρών)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Επιλέξτε ένα πρότυπο κανόνα",
     "chooseTemplateDesc": "Επιλέξτε έναν προ-ρυθμισμένο τύπο κανόνα για να ξεκινήσετε γρήγορα.",
     "classicRule": "Κλασικός Κανόνας",

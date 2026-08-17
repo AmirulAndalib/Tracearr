@@ -660,6 +660,13 @@
     "blocked": "Geblokkeerd",
     "blockedCountries": "Geblokkeerde landen",
     "blocklist": "Blokkeerlijst (deze landen blokkeren)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Kies een regelsjabloon",
     "chooseTemplateDesc": "Selecteer een vooraf geconfigureerd regeltype om snel te beginnen.",
     "classicRule": "Klassieke regel",

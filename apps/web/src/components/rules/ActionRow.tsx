@@ -29,11 +29,12 @@ import {
   type ConfigField,
 } from '@/lib/rules';
 import { cn } from '@/lib/utils';
+import { DestinationsField } from './DestinationsField';
 
 // Icon mapping
 const ACTION_ICONS: Partial<Record<ActionType, React.ComponentType<{ className?: string }>>> = {
   log_only: FileText,
-  notify: Bell,
+  send: Bell,
   adjust_trust: TrendingUp,
   set_trust: Target,
   reset_trust: RotateCcw,
@@ -241,7 +242,17 @@ function ConfigFieldInput({ field, value, onChange }: ConfigFieldInputProps) {
     );
   }
 
-  // Multi-select (for channels)
+  if (field.type === 'destinations') {
+    return (
+      <DestinationsField
+        value={(value as string[]) ?? []}
+        onChange={onChange}
+        label={field.label}
+      />
+    );
+  }
+
+  // Multi-select
   if (field.type === 'multi-select') {
     const selectedValues = (value as string[]) ?? [];
     return (

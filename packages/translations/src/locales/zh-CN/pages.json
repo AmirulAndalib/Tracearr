@@ -660,6 +660,13 @@
     "blocked": "已屏蔽",
     "blockedCountries": "被封锁的国家",
     "blocklist": "黑名单(屏蔽这些国家)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "选择规则模板",
     "chooseTemplateDesc": "选择一个预先配置的规则类型来快速开始。",
     "classicRule": "经典规则",

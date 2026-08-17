@@ -660,6 +660,13 @@
     "blocked": "محظور",
     "blockedCountries": "الدول المحظورة",
     "blocklist": "قائمة الحظر (حظر هذه البلدان)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "اختر قالب قاعدة",
     "chooseTemplateDesc": "حدد نوع قاعدة تم تكوينها مسبقاً للبدء بسرعة.",
     "classicRule": "قاعدة كلاسيكية",

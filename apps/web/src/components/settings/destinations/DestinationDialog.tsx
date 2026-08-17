@@ -60,6 +60,7 @@ interface DestinationDialogProps {
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
   destination?: Destination;
+  onCreated?: (destination: Destination) => void;
 }
 
 export function DestinationDialog({
@@ -67,6 +68,7 @@ export function DestinationDialog({
   onOpenChange,
   mode,
   destination,
+  onCreated,
 }: DestinationDialogProps) {
   const { t } = useTranslation(['pages', 'common']);
   const createDestination = useCreateDestination();
@@ -191,13 +193,14 @@ export function DestinationDialog({
     try {
       if (mode === 'create') {
         if (!kind || !isCreatable(kind)) return;
-        await createDestination.mutateAsync({
+        const created = await createDestination.mutateAsync({
           name: name.trim(),
           type: kind,
           config: fullConfig(),
           events,
           enabled,
         });
+        onCreated?.(created);
       } else if (destination) {
         const data: UpdateDestinationInput = { name: name.trim(), enabled, events };
         const patch = configPatch();

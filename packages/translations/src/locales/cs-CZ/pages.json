@@ -660,6 +660,13 @@
     "blocked": "Blokované",
     "blockedCountries": "Blokované země",
     "blocklist": "Seznam blokací (blokuje tyto země)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Vyberte šablonu pravidla",
     "chooseTemplateDesc": "Vyberte přednastavený typ pravidla pro rychlý začátek.",
     "classicRule": "Klasické pravidlo",

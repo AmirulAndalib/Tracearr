@@ -660,6 +660,13 @@
     "blocked": "ブロック",
     "blockedCountries": "ブロックされた国",
     "blocklist": "ブロックリスト (これらの国をブロック)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "ルールテンプレートを選択",
     "chooseTemplateDesc": "迅速に開始するには、事前に設定されたルールタイプを選択します。",
     "classicRule": "クラシックルール",

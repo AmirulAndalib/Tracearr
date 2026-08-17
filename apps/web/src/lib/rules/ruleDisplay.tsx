@@ -276,7 +276,7 @@ function formatConditionValue(
 
 // Compact action labels for summary display (design spec)
 const COMPACT_ACTION_LABELS: Partial<Record<ActionType, string>> = {
-  notify: 'Notify',
+  send: 'Send',
   log_only: 'Log',
   adjust_trust: 'Adjust trust',
   set_trust: 'Set trust',

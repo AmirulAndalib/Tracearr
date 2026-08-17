@@ -660,6 +660,13 @@
     "blocked": "Estetty",
     "blockedCountries": "Estetyt Maat",
     "blocklist": "Lohkolista (lukitse nämä maat)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Valitse sääntömalli",
     "chooseTemplateDesc": "Valitse ennalta määritetty sääntötyyppi aloittaaksesi nopeasti.",
     "classicRule": "Klassinen Sääntö",

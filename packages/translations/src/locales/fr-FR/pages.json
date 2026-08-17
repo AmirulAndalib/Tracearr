@@ -660,6 +660,13 @@
     "blocked": "Bloqué",
     "blockedCountries": "Pays bloqués",
     "blocklist": "Liste de blocage (bloquer ces pays)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Choisir un modèle de règle",
     "chooseTemplateDesc": "Sélectionnez un type de règle pré-configuré pour commencer rapidement.",
     "classicRule": "Règle classique",

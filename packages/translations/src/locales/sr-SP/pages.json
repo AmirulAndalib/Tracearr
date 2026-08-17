@@ -660,6 +660,13 @@
     "blocked": "Blocked",
     "blockedCountries": "Blocked Countries",
     "blocklist": "Blocklist (block these countries)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Choose a Rule Template",
     "chooseTemplateDesc": "Select a pre-configured rule type to get started quickly.",
     "classicRule": "Classic Rule",

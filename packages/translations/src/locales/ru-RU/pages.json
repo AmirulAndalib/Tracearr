@@ -660,6 +660,13 @@
     "blocked": "Заблокирован",
     "blockedCountries": "Заблокированные страны",
     "blocklist": "Список блоков (блокировать эти страны)",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      },
+      "noDestinations": "No destinations yet. Add one to send notifications."
+    },
     "chooseTemplate": "Выберите шаблон правила",
     "chooseTemplateDesc": "Выберите тип предварительно настроенных правил, чтобы начать быстро.",
     "classicRule": "Классическое правило",

@@ -405,7 +405,14 @@
     "classicRule": "Classic Rule",
     "customRule": "Custom Rule",
     "chooseTemplate": "Choose a Rule Template",
-    "chooseTemplateDesc": "Select a pre-configured rule type to get started quickly."
+    "chooseTemplateDesc": "Select a pre-configured rule type to get started quickly.",
+    "builder": {
+      "destinationDisabled": "Disabled destination",
+      "noDestinations": "No destinations yet. Add one to send notifications.",
+      "errors": {
+        "sendNeedsDestination": "Pick at least one destination"
+      }
+    }
   },
   "terminateStream": {
     "title": "Terminate Stream",
