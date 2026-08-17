@@ -24,7 +24,7 @@ export function invalidateDestinationsCache(): void {
   cache = null;
 }
 
-async function publishChanged(): Promise<void> {
+export async function publishDestinationsChanged(): Promise<void> {
   invalidateDestinationsCache();
   await getPubSubService()
     ?.publish(WS_EVENTS.DESTINATIONS_CHANGED, {})
@@ -118,7 +118,7 @@ export async function createDestination(input: {
     })
     .returning();
   if (!row) throw new Error('insert returned no row');
-  await publishChanged();
+  await publishDestinationsChanged();
   return row;
 }
 
@@ -158,7 +158,7 @@ export async function updateDestination(
   }
   const [row] = await db.update(destinations).set(set).where(eq(destinations.id, id)).returning();
   if (!row) throw new Error('destination not found');
-  await publishChanged();
+  await publishDestinationsChanged();
   return row;
 }
 
@@ -167,36 +167,8 @@ export async function deleteDestination(id: string): Promise<boolean> {
     .delete(destinations)
     .where(and(eq(destinations.id, id), eq(destinations.builtin, false)))
     .returning();
-  await publishChanged();
+  await publishDestinationsChanged();
   return deleted.length > 0;
-}
-
-/** Fresh built-ins start on the routing fallback (everything but stream start/stop); a bare ON CONFLICT DO NOTHING covers both unique indexes, so re-runs never touch existing rows. */
-export async function seedBuiltinDestinations(): Promise<void> {
-  const defaultEvents = (kind: 'push' | 'web_toast'): NotificationEventType[] =>
-    DESTINATION_TYPES[kind].events.filter((e) => e !== 'stream_started' && e !== 'stream_stopped');
-  await db
-    .insert(destinations)
-    .values([
-      {
-        name: 'Mobile push',
-        type: 'push',
-        config: null,
-        events: defaultEvents('push'),
-        enabled: true,
-        builtin: true,
-      },
-      {
-        name: 'Browser toasts',
-        type: 'web_toast',
-        config: null,
-        events: defaultEvents('web_toast'),
-        enabled: true,
-        builtin: true,
-      },
-    ])
-    .onConflictDoNothing();
-  await publishChanged();
 }
 
 /** Called by the worker when a row fails to decrypt; the UI shows "re-enter" and the dispatcher skips it. */
@@ -205,7 +177,7 @@ export async function markReencrypt(id: string): Promise<void> {
     .update(destinations)
     .set({ configStatus: 'reencrypt', updatedAt: new Date() })
     .where(eq(destinations.id, id));
-  await publishChanged();
+  await publishDestinationsChanged();
 }
 
 /** Rewrap a row that opened under the secondary key so it stops depending on it. */

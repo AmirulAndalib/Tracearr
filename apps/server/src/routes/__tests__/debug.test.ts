@@ -40,6 +40,9 @@ vi.mock('../mobile.js', () => ({
 
 vi.mock('../../services/notifications/destinationStore.js', () => ({
   invalidateDestinationsCache: vi.fn(),
+}));
+
+vi.mock('../../services/notifications/destinationsMigration.js', () => ({
   seedBuiltinDestinations: vi.fn(),
 }));
 
@@ -48,7 +51,7 @@ import { db } from '../../db/client.js';
 import { destinations } from '../../db/schema.js';
 import { getAuth } from '../../lib/auth.js';
 import { revokeMobileDeviceSession } from '../mobile.js';
-import { seedBuiltinDestinations } from '../../services/notifications/destinationStore.js';
+import { seedBuiltinDestinations } from '../../services/notifications/destinationsMigration.js';
 import { debugRoutes } from '../debug.js';
 
 /**

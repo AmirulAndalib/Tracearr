@@ -105,6 +105,10 @@ import {
 } from './jobs/notificationQueue.js';
 import { initDestinationCrypto } from './services/notifications/destinationCrypto.js';
 import { invalidateDestinationsCache } from './services/notifications/destinationStore.js';
+import {
+  runDestinationsMigration,
+  sweepDestinationConfigs,
+} from './services/notifications/destinationsMigration.js';
 import { initKillQueue, startKillWorker, shutdownKillQueue } from './jobs/killQueue.js';
 import { initImportQueue, startImportWorker, shutdownImportQueue } from './jobs/importQueue.js';
 import {
@@ -801,13 +805,25 @@ async function initializeServices(app: FastifyInstance) {
   const cacheService = createCacheService(app.redis);
   const pubSubService = createPubSubService(app.redis, pubSubRedis);
 
+  const keySource = initDestinationCrypto();
+  app.log.info(`Destination secrets keyed from ${keySource}`);
+
+  // Unwrapped on purpose: a half-applied migration must reach the boot recovery loop, not leave
+  // rules pointing at destinations that were never inserted.
+  await runDestinationsMigration();
+  app.log.info('Destinations migration applied');
+
+  try {
+    await sweepDestinationConfigs();
+  } catch (err) {
+    app.log.warn({ err }, 'Failed to sweep destination configs');
+  }
+
   // Initialize push notification rate limiter (uses Redis for sliding window counters)
   initPushRateLimiter(app.redis);
   app.log.info('Push notification rate limiter initialized');
 
   try {
-    const keySource = initDestinationCrypto();
-    app.log.info(`Destination secrets keyed from ${keySource}`);
     initNotificationQueue(redisUrl);
     startNotificationWorker();
     initKillQueue(redisUrl);

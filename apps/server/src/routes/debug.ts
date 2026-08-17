@@ -33,10 +33,8 @@ import { getInactivityCheckQueueStats } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache, invalidateServersCache } from '../jobs/poller/database.js';
 import { getBackupQueueStats } from '../jobs/backupQueue.js';
 import { resetSettingsCache } from '../services/settings.js';
-import {
-  invalidateDestinationsCache,
-  seedBuiltinDestinations,
-} from '../services/notifications/destinationStore.js';
+import { invalidateDestinationsCache } from '../services/notifications/destinationStore.js';
+import { seedBuiltinDestinations } from '../services/notifications/destinationsMigration.js';
 import { getAllServices } from '../services/serviceTracker.js';
 import { getAuth } from '../lib/auth.js';
 import { revokeMobileDeviceSession } from './mobile.js';
