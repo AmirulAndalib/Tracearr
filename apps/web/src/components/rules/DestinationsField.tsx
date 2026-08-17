@@ -65,6 +65,7 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
             value={value}
             onValueChange={onChange}
             aria-labelledby={labelId}
+            className="flex-wrap"
           >
             {rows.map((row) => {
               const Icon = iconFor(row.type);
@@ -99,16 +100,14 @@ export function DestinationsField({ value, onChange, label }: DestinationsFieldP
       {missingIds.map((id) => (
         <Badge key={id} variant="outline" className="gap-1 font-mono">
           {id.slice(0, 8)}
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="icon-sm"
             aria-label={`${t('common:actions.remove')} ${id.slice(0, 8)}`}
-            className="text-muted-foreground hover:text-destructive size-4"
+            className="hover:bg-muted-foreground/20 text-muted-foreground hover:text-destructive rounded-full p-0.5"
             onClick={() => onChange(value.filter((v) => v !== id))}
           >
             <X className="h-3 w-3" />
-          </Button>
+          </button>
         </Badge>
       ))}
 
