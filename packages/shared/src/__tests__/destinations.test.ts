@@ -45,6 +45,9 @@ describe('destinationConfigSchema', () => {
     const r = destinationConfigSchema('ntfy').safeParse({ url: 'https://ntfy.sh' });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.topic).toBe('tracearr');
+    expect(
+      destinationConfigSchema('ntfy').safeParse({ url: 'https://ntfy.sh', topic: '' }).success
+    ).toBe(false);
   });
   it('pushover requires both keys and has no url', () => {
     expect(destinationConfigSchema('pushover').safeParse({ userKey: 'u' }).success).toBe(false);
@@ -61,7 +64,7 @@ describe('destinationConfigSchema', () => {
 });
 
 describe('createDestinationSchema', () => {
-  it('rejects built-in types and events the type cannot receive', () => {
+  it('rejects built-in types; events are checked against the type by the route, not here', () => {
     expect(
       createDestinationSchema.safeParse({
         name: 'x',

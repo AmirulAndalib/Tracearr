@@ -24,8 +24,8 @@ export const NOTIFICATION_EVENT_TYPES = [
 
 const ALL_EVENTS = NOTIFICATION_EVENT_TYPES;
 /** Push has no plugin-update method and the browser has no toast for it. */
-const EVENTS_WITHOUT_PLUGIN = NOTIFICATION_EVENT_TYPES.filter(
-  (e) => e !== 'plugin_update_available'
+const EVENTS_WITHOUT_PLUGIN = Object.freeze(
+  NOTIFICATION_EVENT_TYPES.filter((e) => e !== 'plugin_update_available')
 );
 
 export interface DestinationFieldDescriptor {
@@ -163,29 +163,22 @@ export const DESTINATION_TYPES = {
 const httpUrl = z
   .string()
   .trim()
-  .min(1)
   .refine((v) => /^https?:\/\/\S+$/i.test(v), 'Must be an http(s) URL');
 
 /** Zod object for one kind's config, built from its descriptor; unknown keys rejected. */
 export function destinationConfigSchema(kind: DestinationKind): z.ZodObject<z.ZodRawShape> {
   const shape: Record<string, z.ZodType> = {};
   for (const f of DESTINATION_TYPES[kind].fields) {
-    let s: z.ZodType = f.input === 'url' ? httpUrl : z.string().trim().max(2000);
-    if (f.default !== undefined) s = (s as z.ZodString).default(f.default);
-    else if (!f.required) s = s.optional().nullable();
-    else s = (s as z.ZodString).min(1);
-    shape[f.key] = s;
+    let s: z.ZodString = f.input === 'url' ? httpUrl : z.string().trim().max(2000);
+    if (f.required) s = s.min(1);
+    shape[f.key] =
+      f.default !== undefined ? s.default(f.default) : f.required ? s : s.optional().nullable();
   }
   return z.strictObject(shape);
 }
 
 export const notificationEventTypeSchema = z.enum(NOTIFICATION_EVENT_TYPES);
-const nonBuiltinKind = z.enum(
-  DESTINATION_KINDS.filter((k) => !DESTINATION_TYPES[k].builtin) as [
-    DestinationKind,
-    ...DestinationKind[],
-  ]
-);
+const nonBuiltinKind = z.enum(DESTINATION_KINDS.filter((k) => !DESTINATION_TYPES[k].builtin));
 
 export const createDestinationSchema = z.strictObject({
   name: z.string().trim().min(1).max(100),
