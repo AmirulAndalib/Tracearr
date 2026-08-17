@@ -10,22 +10,17 @@ import {
   TIME_MS,
   type ActiveSession,
   type RuleV2,
-  type Server,
-  type ServerUser,
   type Session,
   type StreamDetailFields,
 } from '@tracearr/shared';
 import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { serverUsers, sessions, violations } from '../../db/schema.js';
+import { serverUsers, sessions } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
+import { toRuleSession } from '../../services/rules/events/contextAssembly.js';
 import { dispatch } from '../../services/rules/events/dispatcher.js';
-import { evaluateRulesAsync } from '../../services/rules/engine.js';
-import { executeActions, type ActionResult } from '../../services/rules/executors/index.js';
-import type { EvaluationContext, EvaluationResult } from '../../services/rules/types.js';
-import { storeActionResults } from '../../services/rules/v2Integration.js';
+import type { ActionResult } from '../../services/rules/executors/index.js';
 import { getWatchedThreshold } from '../../services/settings.js';
-import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
 import { pickStreamDetailFields } from './sessionMapper.js';
 import {
@@ -46,7 +41,6 @@ import type {
   SessionStopInput,
   SessionStopResult,
 } from './types.js';
-import type { ViolationInsertResult } from './violations.js';
 
 // ============================================================================
 // Serialization Retry Logic
@@ -757,7 +751,7 @@ export async function createSessionWithRulesAtomic(
 
   for (let attempt = 1; attempt <= MAX_SERIALIZATION_RETRIES; attempt++) {
     try {
-      const { insertedSession, violationResults, pendingSideEffects } = await db.transaction(
+      const { insertedSession, violationResults, deferredActions } = await db.transaction(
         async (tx) => {
           // Set SERIALIZABLE isolation to prevent duplicate violations from concurrent polls
           // This ensures that if two transactions read the violations table simultaneously,
@@ -856,234 +850,36 @@ export async function createSessionWithRulesAtomic(
             })
             .where(eq(serverUsers.id, serverUser.id));
 
-          // Build session object for rule evaluation (matches Session type)
-          const session: Session = {
-            id: inserted.id,
-            serverId: server.id,
-            serverUserId: serverUser.id,
-            sessionKey: processed.sessionKey,
-            state: processed.state,
-            mediaType: processed.mediaType,
-            mediaTitle: processed.mediaTitle,
-            grandparentTitle: processed.grandparentTitle || null,
-            seasonNumber: processed.mediaType === 'episode' ? processed.seasonNumber : null,
-            episodeNumber: processed.mediaType === 'episode' ? processed.episodeNumber : null,
-            year: processed.year || null,
-            thumbPath: processed.thumbPath || null,
-            ratingKey: processed.ratingKey || null,
-            serverVersionKey: processed.serverVersionKey ?? null,
-            parentRatingKey: processed.identity?.parentRatingKey ?? null,
-            grandparentRatingKey: processed.identity?.grandparentRatingKey ?? null,
-            mediaId: processed.identity?.mediaId ?? null,
-            showMediaId: processed.identity?.showMediaId ?? null,
-            imdbId: processed.identity?.imdbId ?? null,
-            tmdbId: processed.identity?.tmdbId ?? null,
-            tvdbId: processed.identity?.tvdbId ?? null,
-            externalSessionId: null,
-            startedAt: inserted.startedAt,
-            stoppedAt: null,
-            durationMs: null,
-            totalDurationMs: processed.totalDurationMs || null,
-            progressMs: processed.progressMs || null,
-            lastPausedAt: inserted.lastPausedAt,
-            pausedDurationMs: inserted.pausedDurationMs,
-            referenceId: inserted.referenceId,
-            watched: inserted.watched,
-            ipAddress: processed.ipAddress,
-            geoCity: geo.city,
-            geoRegion: geo.region,
-            geoCountry: geo.countryCode ?? geo.country,
-            geoContinent: geo.continent,
-            geoPostal: geo.postal,
-            geoLat: geo.lat,
-            geoLon: geo.lon,
-            geoAsnNumber: geo.asnNumber,
-            geoAsnOrganization: geo.asnOrganization,
-            playerName: processed.playerName,
-            deviceId: processed.deviceId || null,
-            product: processed.product || null,
-            device: processed.device || null,
-            platform: processed.platform,
-            quality: processed.quality,
-            isTranscode: processed.isTranscode,
-            videoDecision: processed.videoDecision,
-            audioDecision: processed.audioDecision,
-            bitrate: processed.bitrate,
-            // Stream details (source media, stream output, transcode/subtitle info)
-            ...pickStreamDetailFields(processed),
-            // Live TV specific fields
-            channelTitle: processed.channelTitle,
-            channelIdentifier: processed.channelIdentifier,
-            channelThumb: processed.channelThumb,
-            // Music track metadata
-            artistName: processed.artistName,
-            albumName: processed.albumName,
-            trackNumber: processed.trackNumber,
-            discNumber: processed.discNumber,
-          };
-
-          // Build V2 evaluation context
-          const serverObj: Server = {
-            id: server.id,
-            name: server.name,
-            type: server.type,
-            url: '', // Not needed for rule evaluation
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          const serverUserObj: ServerUser = {
-            id: serverUser.id,
-            userId: serverUser.userId,
-            serverId: server.id,
-            externalId: '',
-            username: serverUser.username,
-            email: null,
-            thumbUrl: serverUser.thumbUrl,
-            isServerAdmin: false,
-            trustScore: serverUser.trustScore,
-            joinedAt: null,
-            lastActivityAt: serverUser.lastActivityAt,
-            createdAt: serverUser.createdAt,
-            removedAt: null,
-            updatedAt: new Date(),
-            identityName: serverUser.identityName,
-          };
-
-          // The quality-change twin was stopped in STEP 1 but still sits in the
-          // caller's cache snapshot; counting it doubles this viewer.
-          const activeSessionsWithNew = buildRuleContextSessions(
-            activeSessions,
-            session,
-            qualityChange?.stoppedSession.id
+          const session = toRuleSession(inserted);
+          const { violations: violationResults, deferredActions } = await dispatch(
+            {
+              type: 'session.started',
+              at: inserted.startedAt,
+              server: { id: server.id, name: server.name, type: server.type },
+              serverUser,
+              session,
+            },
+            {
+              activeRulesV2,
+              // The quality-change twin was stopped in STEP 1 but still sits in the caller's snapshot.
+              activeSessions: qualityChange
+                ? activeSessions.filter((s) => s.id !== qualityChange.stoppedSession.id)
+                : activeSessions,
+              recentSessions,
+              identityServerUserIds: serverUser.identityServerUserIds,
+            },
+            { tx, deferActions: true }
           );
 
-          const baseContext: Omit<EvaluationContext, 'rule'> = {
-            session,
-            serverUser: serverUserObj,
-            server: serverObj,
-            activeSessions: activeSessionsWithNew,
-            recentSessions,
-            identityServerUserIds: serverUser.identityServerUserIds,
-          };
-
-          // Evaluate V2 rules
-          const ruleResults = await evaluateRulesAsync(baseContext, activeRulesV2);
-
-          // Process matched rules - create violations within transaction, queue side effects
-          const createdViolations: ViolationInsertResult[] = [];
-          const pendingSideEffects: Array<{
-            context: EvaluationContext;
-            result: EvaluationResult;
-            rule: RuleV2;
-          }> = [];
-
-          for (const result of ruleResults) {
-            if (!result.matched) continue;
-
-            // Find the rule that produced this result
-            const rule = activeRulesV2.find((r) => r.id === result.ruleId);
-            if (!rule) continue;
-
-            // Every rule match auto-creates a violation. Severity from rule.
-            {
-              const severity = rule.severity ?? 'warning';
-
-              // Collect related session IDs from evidence
-              const allRelatedSessionIds = new Set<string>();
-              for (const group of result.evidence ?? []) {
-                for (const cond of group.conditions) {
-                  for (const id of cond.relatedSessionIds ?? []) {
-                    allRelatedSessionIds.add(id);
-                  }
-                }
-              }
-
-              // Insert violation
-              const insertedViolations = await tx
-                .insert(violations)
-                .values({
-                  ruleId: rule.id,
-                  serverUserId: serverUser.id,
-                  sessionId: inserted.id,
-                  severity,
-                  ruleType: null, // V2 rules don't have a type field
-                  data: {
-                    evidence: result.evidence,
-                    relatedSessionIds: Array.from(allRelatedSessionIds),
-                    ruleName: rule.name,
-                    matchedGroups: result.matchedGroups,
-                    sessionKey: session.sessionKey,
-                    mediaTitle: session.mediaTitle,
-                    ipAddress: session.ipAddress,
-                  },
-                })
-                .onConflictDoNothing()
-                .returning();
-
-              const violation = insertedViolations[0];
-
-              if (violation) {
-                await recomputeIdentityAggregatesForServerUser(serverUser.id, tx);
-
-                // Create rule info for ViolationInsertResult (V2 rules don't have type)
-                const ruleInfo = {
-                  id: rule.id,
-                  name: rule.name,
-                  type: null, // V2 rules don't have a type
-                };
-
-                createdViolations.push({
-                  violation,
-                  rule: ruleInfo,
-                });
-              }
-            }
-
-            // Queue actions for execution after transaction
-            if (result.actions.length > 0) {
-              pendingSideEffects.push({
-                context: { ...baseContext, rule },
-                result,
-                rule,
-              });
-            }
-          }
-
-          return {
-            insertedSession: inserted,
-            violationResults: createdViolations,
-            pendingSideEffects,
-          };
+          return { insertedSession: inserted, violationResults, deferredActions };
         }
       );
 
-      // Execute side effect actions after transaction commits
-      let wasTerminatedByRule = false;
-
-      for (const { context, result, rule } of pendingSideEffects) {
-        // Find violation ID if one was created for this rule - kill_stream needs
-        // it before executing so the kill queue can attribute its eventual
-        // outcome (killed/skipped/failed) back to the right violation.
-        const violationId =
-          violationResults.find((v) => v.rule.id === rule.id)?.violation.id ?? null;
-
-        const actionResults: ActionResult[] = await executeActions(
-          { ...context, violationId },
-          result.actions
-        );
-
-        // A kill job was actually enqueued for the triggering session - not a
-        // prediction made before actions ran, so it stays accurate even if
-        // reverify later aborts the kill (the session just gets re-added on
-        // the next poll tick since it's still in the server's response).
-        if (wasTriggeringSessionTargetedForKill(actionResults, insertedSession.id)) {
-          wasTerminatedByRule = true;
-        }
-
-        // Store results for UI
-        await storeActionResults(violationId, result.ruleId, actionResults);
-      }
+      const actionResults = deferredActions ? await deferredActions() : [];
+      const wasTerminatedByRule = wasTriggeringSessionTargetedForKill(
+        actionResults,
+        insertedSession.id
+      );
 
       console.log(
         `[SessionLifecycle] Session started: ${processed.mediaType} "${processed.grandparentTitle ? `${processed.grandparentTitle} - ` : ''}${processed.mediaTitle}" by ${serverUser.username} on ${server.name} (${processed.playerName ?? 'unknown player'}, key ${processed.sessionKey})`

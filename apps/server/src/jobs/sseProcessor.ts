@@ -11,11 +11,7 @@
  * 4. Broadcast updates via WebSocket
  */
 
-import {
-  SESSION_WRITE_RETRY,
-  type PlexPlaySessionNotification,
-  type Session,
-} from '@tracearr/shared';
+import { SESSION_WRITE_RETRY, type PlexPlaySessionNotification } from '@tracearr/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { db } from '../db/client.js';
@@ -38,10 +34,8 @@ import { createLogger } from '../utils/logger.js';
 import { enqueueNotification } from './notificationQueue.js';
 import {
   batchGetLibraryItemIdentity,
-  batchGetRecentUserSessions,
   getActiveRulesV2,
   getServerUserIdByExternalId,
-  mergeRecentSessionsForIdentity,
 } from './poller/database.js';
 import {
   clearDbWriteTracking,
@@ -49,7 +43,6 @@ import {
   shouldFlushDbWrite,
 } from './poller/dbWriteThrottle.js';
 import { triggerReconciliationPoll } from './poller/index.js';
-import { gracePeriodSessionIds } from './poller/processor.js';
 import {
   buildActiveSession,
   buildPendingActiveSession,
@@ -74,7 +67,6 @@ import {
   updateConfirmationState,
 } from './poller/stateTracker.js';
 import { PENDING_STOP_PERSIST_MIN_PROGRESS_MS, type PendingSessionData } from './poller/types.js';
-import { excludeUncountableSessions } from './poller/utils.js';
 import { broadcastViolations } from './poller/violations.js';
 
 const sseLogger = createLogger('SSEProcessor');
@@ -82,51 +74,6 @@ const sseLogger = createLogger('SSEProcessor');
 let cacheService: CacheService | null = null;
 let pubSubService: PubSubService | null = null;
 let isRunning = false;
-
-/**
- * Resolve the sibling server_user ids for an identity, for cross-server rule
- * aggregation. Falls back to no siblings (single server_user behavior) if the
- * lookup fails, so a transient DB error degrades detection instead of
- * blocking this event.
- */
-async function resolveIdentityServerUserIds(userId: string, context: string): Promise<string[]> {
-  try {
-    return await getIdentityServerUserIds(userId);
-  } catch (error) {
-    console.error(
-      `[SSEProcessor] Failed to resolve identity server users for ${userId} (${context}), ` +
-        'evaluating rules for this server only:',
-      error
-    );
-    return [];
-  }
-}
-
-/**
- * Fetch recent sessions for windowed rule evaluation (unique_ips_in_window,
- * unique_devices_in_window, travel_speed_kmh), widened to every server_user
- * id of the same identity when merged (identityServerUserIds.length > 1).
- * Falls back to this server_user's own recent sessions if the widened fetch
- * fails, so a transient DB error degrades detection instead of blocking
- * this event.
- */
-async function fetchRecentSessionsForRules(
-  serverUserId: string,
-  identityServerUserIds: string[]
-): Promise<Session[]> {
-  const ids = identityServerUserIds.length > 1 ? identityServerUserIds : [serverUserId];
-  try {
-    const recentSessionsMap = await batchGetRecentUserSessions(ids);
-    return mergeRecentSessionsForIdentity(recentSessionsMap, ids);
-  } catch (error) {
-    console.error(
-      `[SSEProcessor] Failed to fetch recent sessions for ${serverUserId}, falling back to this server only:`,
-      error
-    );
-    const fallbackMap = await batchGetRecentUserSessions([serverUserId]);
-    return fallbackMap.get(serverUserId) ?? [];
-  }
-}
 
 // Server down notification threshold in milliseconds
 // Delay prevents false alarms from brief connection blips
@@ -1261,25 +1208,23 @@ async function handleMediaChange(
   }
 
   const activeRulesV2 = await getActiveRulesV2();
-  const activeSessions = excludeUncountableSessions(
-    await cacheService.getAllActiveSessions(),
-    gracePeriodSessionIds()
-  );
-  const identityServerUserIds = await resolveIdentityServerUserIds(
-    serverUser.userId,
-    'media change'
-  );
-  const recentSessions = await fetchRecentSessionsForRules(serverUser.id, identityServerUserIds);
+  const serverRef = { id: server.id, name: server.name, type: server.type };
+  const inputs = await assembleEvaluationInputs({
+    rules: activeRulesV2,
+    server: serverRef,
+    serverUser: { ...serverUser, identityServerUserIds: [] },
+  });
+  const identityServerUserIds = inputs.identityServerUserIds ?? [];
 
   const result = await handleMediaChangeAtomic({
     existingSession,
     processed,
-    server: { id: server.id, name: server.name, type: server.type },
+    server: serverRef,
     serverUser: { ...serverUser, identityServerUserIds },
     geo,
     activeRulesV2,
-    activeSessions,
-    recentSessions,
+    activeSessions: inputs.activeSessions,
+    recentSessions: inputs.recentSessions,
   });
 
   if (!result) {
@@ -1768,20 +1713,17 @@ async function confirmPendingSessionAndPersist(
     }
 
     const activeRulesV2 = await getActiveRulesV2();
-    const activeSessions = excludeUncountableSessions(
-      await cache.getAllActiveSessions(),
-      gracePeriodSessionIds()
-    );
-    const recentSessions = await fetchRecentSessionsForRules(
-      pendingData.serverUser.id,
-      pendingData.serverUser.identityServerUserIds
-    );
+    const inputs = await assembleEvaluationInputs({
+      rules: activeRulesV2,
+      server: pendingData.server,
+      serverUser: pendingData.serverUser,
+    });
 
     const persisted = await confirmAndPersistSession({
       pendingData,
       activeRulesV2,
-      activeSessions,
-      recentSessions,
+      activeSessions: inputs.activeSessions,
+      recentSessions: inputs.recentSessions,
     });
 
     await cache.deletePendingSession(serverId, sessionKey);
