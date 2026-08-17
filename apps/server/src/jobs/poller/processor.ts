@@ -26,6 +26,8 @@ import type { CacheService, PubSubService } from '../../services/cache.js';
 import { type GeoLocation } from '../../services/geoip.js';
 import { createMediaServerClient } from '../../services/mediaServer/index.js';
 import { lookupGeoIP } from '../../services/plexGeoip.js';
+import { setContextAssemblyDeps } from '../../services/rules/events/contextAssembly.js';
+import { registerRuleSubscribers } from '../../services/rules/events/subscribers.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { sseManager } from '../../services/sseManager.js';
@@ -2231,6 +2233,11 @@ export async function sweepStaleSessions(): Promise<number> {
 export function initializePoller(cache: CacheService, pubSub: PubSubService): void {
   cacheService = cache;
   pubSubService = pubSub;
+  setContextAssemblyDeps({
+    getAllActiveSessions: () => cache.getAllActiveSessions(),
+    gracePeriodSessionIds,
+  });
+  registerRuleSubscribers();
 }
 
 /**
