@@ -96,6 +96,7 @@ vi.mock('../../services/rules/events/dispatcher.js', () => ({
   subscribe: vi.fn(),
 }));
 vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+  loadEvaluationContext: vi.fn().mockResolvedValue(null),
   assembleEvaluationInputs: vi.fn().mockResolvedValue({
     activeRulesV2: [],
     activeSessions: [],

@@ -16,6 +16,7 @@ import type {
   EvaluationServer,
   EvaluationServerUser,
   PauseData,
+  SessionHeldForEvent,
   SessionPausedEvent,
   SessionRow,
   SessionStartedEvent,
@@ -405,6 +406,22 @@ function pauseEvent(input: PauseTriggerInput): SessionPausedEvent {
       pausedDurationMs: input.pauseData.pausedDurationMs,
     }),
     pauseData: input.pauseData,
+  };
+}
+
+function heldForEvent(input: PauseTriggerInput): SessionHeldForEvent {
+  return {
+    type: 'session.held_for',
+    at: new Date(),
+    server: input.server,
+    serverUser: input.serverUser,
+    session: toRuleSession(input.existingSession, {
+      ...pickLiveSessionFields(input.processed),
+      lastPausedAt: input.pauseData.lastPausedAt,
+      pausedDurationMs: input.pauseData.pausedDurationMs,
+    }),
+    pauseData: input.pauseData,
+    heldMinutes: 12,
   };
 }
 
@@ -1327,6 +1344,31 @@ describe('registerRuleSubscribers', () => {
       expect.objectContaining({
         scope: { kind: 'session', sessionId: 'session-1' },
         marker: { pauseReEval: true },
+      })
+    );
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]?.violation).toEqual(pauseViolation);
+  });
+
+  it('records a dispatched session.held_for against the guarded scope', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-pause-1',
+        ruleName: 'Kill After 15min Pause',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    mockRecordViolation.mockResolvedValue(pauseViolation);
+    const input = createPauseInput();
+
+    const result = await dispatch(heldForEvent(input), inputsOf(input));
+
+    expect(mockRecordViolation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'session', sessionId: 'session-1' },
+        marker: { heldFor: true },
       })
     );
     expect(result.violations).toHaveLength(1);

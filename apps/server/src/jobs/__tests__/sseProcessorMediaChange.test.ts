@@ -36,6 +36,7 @@ const {
   mockLookupGeoIP,
   mockGetGeoIPSettings,
   mockDispatch,
+  mockLoadEvaluationServerUser,
 } = vi.hoisted(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { EventEmitter: EE } = require('events');
@@ -59,6 +60,7 @@ const {
       .mockResolvedValue({ city: null, country: null, latitude: null, longitude: null }),
     mockGetGeoIPSettings: vi.fn().mockResolvedValue({ usePlexGeoip: false }),
     mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
+    mockLoadEvaluationServerUser: vi.fn().mockResolvedValue(null),
   };
 });
 
@@ -156,6 +158,8 @@ vi.mock('../../services/rules/events/dispatcher.js', () => ({
   subscribe: vi.fn(),
 }));
 vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+  loadEvaluationContext: vi.fn().mockResolvedValue(null),
+  loadEvaluationServerUser: (...args: unknown[]) => mockLoadEvaluationServerUser(...args),
   assembleEvaluationInputs: vi.fn().mockResolvedValue({
     activeRulesV2: [],
     activeSessions: [],
@@ -335,19 +339,14 @@ function setupFetchFullSession(processed: Record<string, unknown> = mockProcesse
  * Set up mocks for the server user DB query inside handleMediaChange
  */
 function setupServerUserQuery() {
-  // After fetchFullSession completes, handleMediaChange also calls db.select()
-  // We need a more flexible mock chain for the inner join query
-  const limitFn = vi.fn().mockResolvedValue([mockServerUser]);
-  const whereFn = vi.fn().mockReturnValue({ limit: limitFn });
-  const innerJoinFn = vi.fn().mockReturnValue({ where: whereFn });
-  const fromFn = vi.fn().mockReturnValue({ innerJoin: innerJoinFn });
+  mockLoadEvaluationServerUser.mockResolvedValue(mockServerUser);
 
   // getIdentityServerUserIds: db.select({...}).from(serverUsers).where() (no join, no limit)
   const identityWhereFn = vi.fn().mockResolvedValue([mockServerUser]);
   const identityFromFn = vi.fn().mockReturnValue({ where: identityWhereFn });
 
-  // Track call count — first call is fetchFullSession (servers), second is
-  // handleMediaChange (serverUsers innerJoin), third is getIdentityServerUserIds
+  // Track call count — first call is fetchFullSession (servers), the rest is
+  // getIdentityServerUserIds
   let callCount = 0;
   const mockGetSessions = vi.fn().mockResolvedValue([mockProcessedSession]);
   mockCreateMediaServerClient.mockReturnValue({ getSessions: mockGetSessions });
@@ -360,10 +359,6 @@ function setupServerUserQuery() {
       const serverWhereFn = vi.fn().mockReturnValue({ limit: serverLimitFn });
       const serverFromFn = vi.fn().mockReturnValue({ where: serverWhereFn });
       return { from: serverFromFn };
-    }
-    if (callCount === 2) {
-      // handleMediaChange: db.select({...}).from(serverUsers).innerJoin().where().limit()
-      return { from: fromFn };
     }
     // getIdentityServerUserIds: db.select({...}).from(serverUsers).where()
     return { from: identityFromFn };

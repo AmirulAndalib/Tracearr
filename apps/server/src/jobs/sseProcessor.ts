@@ -23,6 +23,8 @@ import { extractLiveUuid } from '../services/mediaServer/plex/plexUtils.js';
 import { lookupGeoIP } from '../services/plexGeoip.js';
 import {
   assembleEvaluationInputs,
+  loadEvaluationContext,
+  loadEvaluationServerUser,
   toRuleSession,
 } from '../services/rules/events/contextAssembly.js';
 import { dispatch } from '../services/rules/events/dispatcher.js';
@@ -1176,23 +1178,7 @@ async function handleMediaChange(
   processed: ReturnType<typeof mapMediaSession>,
   server: typeof servers.$inferSelect
 ): Promise<void> {
-  const serverUserRows = await db
-    .select({
-      id: serverUsers.id,
-      userId: serverUsers.userId,
-      username: serverUsers.username,
-      thumbUrl: serverUsers.thumbUrl,
-      identityName: users.name,
-      trustScore: serverUsers.trustScore,
-      lastActivityAt: serverUsers.lastActivityAt,
-      createdAt: serverUsers.createdAt,
-    })
-    .from(serverUsers)
-    .innerJoin(users, eq(serverUsers.userId, users.id))
-    .where(eq(serverUsers.id, existingSession.serverUserId))
-    .limit(1);
-
-  const serverUser = serverUserRows[0];
+  const serverUser = await loadEvaluationServerUser(existingSession.serverUserId);
   if (!serverUser) {
     console.warn(
       `[SSEProcessor] Server user not found for media change on session ${existingSession.id}`
@@ -1369,36 +1355,14 @@ async function updateExistingSession(
       // Level-triggered until stage 3 replaces the per-update re-eval with wakes.
       const evaluating = transcodeStateChanged || newState === 'paused';
       if (evaluating && activeRulesV2.length > 0) {
-        const serverUserRows = await db
-          .select({
-            id: serverUsers.id,
-            userId: serverUsers.userId,
-            username: serverUsers.username,
-            thumbUrl: serverUsers.thumbUrl,
-            identityName: users.name,
-            trustScore: serverUsers.trustScore,
-            lastActivityAt: serverUsers.lastActivityAt,
-            createdAt: serverUsers.createdAt,
-          })
-          .from(serverUsers)
-          .innerJoin(users, eq(serverUsers.userId, users.id))
-          .where(eq(serverUsers.id, existingSession.serverUserId))
-          .limit(1);
-        const serverUserDetail = serverUserRows[0];
-        const serverRows = serverUserDetail
-          ? await db.select().from(servers).where(eq(servers.id, existingSession.serverId)).limit(1)
-          : [];
-        const server = serverRows[0];
+        const ctx = await loadEvaluationContext(
+          existingSession.serverId,
+          existingSession.serverUserId,
+          activeRulesV2
+        );
 
-        if (serverUserDetail && server) {
-          const serverRef = { id: server.id, name: server.name, type: server.type };
-          const serverUserRef = { ...serverUserDetail, identityServerUserIds: [] as string[] };
-          const inputs = await assembleEvaluationInputs({
-            rules: activeRulesV2,
-            server: serverRef,
-            serverUser: serverUserRef,
-          });
-          serverUserRef.identityServerUserIds = inputs.identityServerUserIds ?? [];
+        if (ctx) {
+          const { server: serverRef, serverUser: serverUserRef, inputs } = ctx;
 
           if (transcodeStateChanged) {
             const { violations } = await dispatch(

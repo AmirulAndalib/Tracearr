@@ -341,6 +341,14 @@ export function invalidateRulesCache(): void {
   rulesCache = null;
 }
 
+type RulesRefillListener = (rules: RuleV2[]) => void;
+const refillListeners: RulesRefillListener[] = [];
+
+/** Called after every rules-cache fill on this instance; listeners must not throw. */
+export function onActiveRulesRefill(listener: RulesRefillListener): void {
+  refillListeners.push(listener);
+}
+
 // Same TTL story as the rules cache: a server change on another instance can
 // take up to this long to reach this instance's poll loop.
 const SERVERS_CACHE_TTL_MS = 10_000;
@@ -416,5 +424,6 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
   const mapped = activeRules.map(mapRuleRowToRuleV2);
 
   rulesCache = { data: mapped, expiresAt: now + RULES_CACHE_TTL_MS };
+  for (const listener of refillListeners) listener(mapped);
   return mapped;
 }

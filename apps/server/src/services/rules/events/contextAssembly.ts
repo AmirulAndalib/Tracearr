@@ -1,4 +1,7 @@
+import { eq } from 'drizzle-orm';
 import type { ActiveSession, RuleV2, Server, ServerUser, Session } from '@tracearr/shared';
+import { db } from '../../../db/client.js';
+import { servers, serverUsers, users } from '../../../db/schema.js';
 import {
   batchGetRecentUserSessions,
   maxWindowHoursFromRules,
@@ -61,6 +64,49 @@ export function toRuleServerUser(serverUser: EvaluationServerUser, serverId: str
 /** One Session builder for every trigger: the stored row plus whatever the fresh payload overrides. */
 export function toRuleSession(row: SessionRow, live?: Partial<Session>): Session {
   return { ...mapSessionRow(row), ...live };
+}
+
+/** The eight-column server-user shape the rule pipeline reads, by server-user id. */
+export async function loadEvaluationServerUser(
+  serverUserId: string
+): Promise<Omit<EvaluationServerUser, 'identityServerUserIds'> | null> {
+  const [su] = await db
+    .select({
+      id: serverUsers.id,
+      userId: serverUsers.userId,
+      username: serverUsers.username,
+      thumbUrl: serverUsers.thumbUrl,
+      identityName: users.name,
+      trustScore: serverUsers.trustScore,
+      lastActivityAt: serverUsers.lastActivityAt,
+      createdAt: serverUsers.createdAt,
+    })
+    .from(serverUsers)
+    .innerJoin(users, eq(serverUsers.userId, users.id))
+    .where(eq(serverUsers.id, serverUserId))
+    .limit(1);
+  return su ?? null;
+}
+
+/** Refs plus inputs for producers that hold only ids (SSE updates, wakes); the poller already has the rows. */
+export async function loadEvaluationContext(
+  serverId: string,
+  serverUserId: string,
+  rules: RuleV2[]
+): Promise<{
+  server: EvaluationServer;
+  serverUser: EvaluationServerUser;
+  inputs: EvaluationInputs;
+} | null> {
+  const su = await loadEvaluationServerUser(serverUserId);
+  if (!su) return null;
+  const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1);
+  if (!srv) return null;
+  const server: EvaluationServer = { id: srv.id, name: srv.name, type: srv.type };
+  const serverUser: EvaluationServerUser = { ...su, identityServerUserIds: [] };
+  const inputs = await assembleEvaluationInputs({ rules, server, serverUser });
+  serverUser.identityServerUserIds = inputs.identityServerUserIds ?? [];
+  return { server, serverUser, inputs };
 }
 
 /**

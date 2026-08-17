@@ -102,6 +102,7 @@ export function registerRuleSubscribers(): void {
   subscribe('session.started', 'session-rules', sessionRules(undefined, true));
   subscribe('session.transcode_changed', 'session-rules', sessionRules({ transcodeReEval: true }));
   subscribe('session.paused', 'session-rules', sessionRules({ pauseReEval: true }));
+  subscribe('session.held_for', 'session-rules', sessionRules({ heldFor: true }));
 }
 
 export function resetRuleSubscribersForTests(): void {
