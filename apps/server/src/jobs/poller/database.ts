@@ -110,9 +110,10 @@ export function maxWindowHoursFromRules(rulesList: RuleV2[]): number {
   return Math.min(max, MAX_RULE_WINDOW_HOURS);
 }
 
-// Refreshed on every rules-cache fill; read synchronously by the history
-// fetch below so a 72h unique-IP rule really evaluates over 72h.
-let activeRuleMaxWindowHours = 24;
+/** History window implied by the cached active rules; 24h until the cache fills. */
+export function defaultRecentSessionWindowHours(): number {
+  return rulesCache ? maxWindowHoursFromRules(rulesCache.data) : 24;
+}
 
 /**
  * Batch load recent sessions for multiple server users (eliminates N+1 in polling loop)
@@ -135,7 +136,7 @@ export async function batchGetRecentUserSessions(
 ): Promise<Map<string, Session[]>> {
   if (serverUserIds.length === 0) return new Map();
 
-  const windowHours = hours ?? activeRuleMaxWindowHours;
+  const windowHours = hours ?? defaultRecentSessionWindowHours();
   const since = new Date(Date.now() - windowHours * TIME_MS.HOUR);
   // The per-user cap scales with the window so a longer window doesn't
   // silently truncate at one day's worth of rows
@@ -415,6 +416,5 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
   const mapped = activeRules.map(mapRuleRowToRuleV2);
 
   rulesCache = { data: mapped, expiresAt: now + RULES_CACHE_TTL_MS };
-  activeRuleMaxWindowHours = maxWindowHoursFromRules(mapped);
   return mapped;
 }
