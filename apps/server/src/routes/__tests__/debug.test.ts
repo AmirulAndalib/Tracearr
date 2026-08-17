@@ -40,6 +40,7 @@ vi.mock('../mobile.js', () => ({
 
 vi.mock('../../services/notifications/destinationStore.js', () => ({
   invalidateDestinationsCache: vi.fn(),
+  publishDestinationsChanged: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('../../services/notifications/destinationsMigration.js', () => ({

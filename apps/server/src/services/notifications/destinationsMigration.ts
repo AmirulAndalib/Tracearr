@@ -228,10 +228,10 @@ function mapRoutingRow(row: Record<string, unknown>): RoutingRow {
 /** Fresh built-ins start on the routing fallback (everything but stream start/stop); a bare ON CONFLICT DO NOTHING covers both unique indexes, so re-runs never touch existing rows. */
 export async function seedBuiltinDestinations(
   executor: Executor = db
-): Promise<{ pushId: string; webToastId: string }> {
+): Promise<{ pushId: string; webToastId: string; inserted: number }> {
   const defaultEvents = (kind: 'push' | 'web_toast'): NotificationEventType[] =>
     DESTINATION_TYPES[kind].events.filter((e) => e !== 'stream_started' && e !== 'stream_stopped');
-  await executor
+  const created = await executor
     .insert(destinations)
     .values([
       {
@@ -251,7 +251,8 @@ export async function seedBuiltinDestinations(
         builtin: true,
       },
     ])
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning({ id: destinations.id });
   const rows = await executor
     .select({ id: destinations.id, type: destinations.type })
     .from(destinations)
@@ -261,13 +262,12 @@ export async function seedBuiltinDestinations(
   if (pushId === undefined || webToastId === undefined) {
     throw new Error('built-in destinations are missing after seeding');
   }
-  await publishDestinationsChanged();
-  return { pushId, webToastId };
+  return { pushId, webToastId, inserted: created.length };
 }
 
 /** One transaction under an advisory lock; throws into boot recovery on failure. Re-runs are no-ops. */
 export async function runDestinationsMigration(): Promise<void> {
-  await db.transaction(async (tx) => {
+  const changed = await db.transaction(async (tx): Promise<boolean> => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_KEY})`);
     const builtins = await seedBuiltinDestinations(tx);
 
@@ -299,8 +299,6 @@ export async function runDestinationsMigration(): Promise<void> {
         sql`SELECT event_type, discord_enabled, webhook_enabled, push_enabled, web_toast_enabled FROM notification_channel_routing`
       );
       routing = raw.rows.map(mapRoutingRow);
-    } else {
-      logger.warn('notification_channel_routing absent; applying the fallback for every event');
     }
 
     const plan = planDestinationsMigration({
@@ -309,22 +307,31 @@ export async function runDestinationsMigration(): Promise<void> {
       rules: ruleRows,
       builtins,
     });
-    for (const line of plan.logs) logger.warn(line);
     if (
       plan.destinations.length === 0 &&
       plan.ruleUpdates.length === 0 &&
       settingRows.length === 0 &&
       !routingExists
     ) {
-      return;
+      return builtins.inserted > 0;
     }
+    if (!routingExists) {
+      logger.warn('notification_channel_routing absent; applying the fallback for every event');
+    }
+    for (const line of plan.logs) logger.warn(line);
 
     const ids = new Map<string, string>();
+    // A user-made row could already own a planned name (settings re-entered after a downgrade); suffix instead of wedging boot.
+    const taken = new Set(
+      (await tx.select({ name: destinations.name }).from(destinations)).map((r) => r.name)
+    );
     for (const p of plan.destinations) {
+      const name = taken.has(p.name) ? `${p.name} (migrated)` : p.name;
+      taken.add(name);
       const [row] = await tx
         .insert(destinations)
         .values({
-          name: p.name,
+          name,
           type: p.type,
           config: encryptConfig(p.config),
           events: p.events,
@@ -360,10 +367,12 @@ export async function runDestinationsMigration(): Promise<void> {
     logger.info(
       `Migrated ${plan.destinations.length} destination(s) and ${plan.ruleUpdates.length} rule(s)`
     );
+    return true;
   });
   invalidateRulesCache();
   invalidateDestinationsCache();
   resetSettingsCache();
+  if (changed) await publishDestinationsChanged();
 }
 
 /** Decrypt every non-builtin row once at boot so a rotated key is reported per row instead of discovered job by job. */
@@ -375,9 +384,13 @@ export async function sweepDestinationConfigs(): Promise<void> {
       if (opened.rewrap) await rewrapConfig(row.id, opened.config);
       continue;
     }
-    logger.warn(
-      `destination "${row.name}" cannot be decrypted (${opened.reason}); marking for re-entry`
-    );
-    if (opened.reason === 'bad_key') await markReencrypt(row.id);
+    if (opened.reason === 'bad_key') {
+      logger.warn(
+        `destination "${row.name}" was encrypted under another key; marking for re-entry`
+      );
+      await markReencrypt(row.id);
+    } else {
+      logger.warn(`destination "${row.name}" has a malformed config blob; re-save it`);
+    }
   }
 }

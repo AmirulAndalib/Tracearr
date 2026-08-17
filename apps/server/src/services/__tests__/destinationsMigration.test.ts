@@ -35,6 +35,7 @@ import {
   invalidateDestinationsCache,
   listDestinations,
   markReencrypt,
+  publishDestinationsChanged,
   readConfig,
   rewrapConfig,
   type DestinationRow,
@@ -286,6 +287,7 @@ interface TxState {
   routingRows: Array<Record<string, unknown>>;
   routingExists: boolean;
   failInsert?: boolean;
+  builtinsInserted?: boolean;
 }
 
 function buildTx(state: TxState) {
@@ -329,7 +331,10 @@ function buildTx(state: TxState) {
           inserted.push(values);
         }
         return {
-          onConflictDoNothing: () => Promise.resolve(undefined),
+          onConflictDoNothing: () => ({
+            returning: () =>
+              Promise.resolve(state.builtinsInserted ? [{ id: 'p' }, { id: 'w' }] : []),
+          }),
           returning: () => {
             if (state.failInsert) return Promise.reject(new Error('insert exploded'));
             nextId += 1;
@@ -394,7 +399,7 @@ describe('runDestinationsMigration', () => {
     });
 
     expect(harness.log[0]).toContain('pg_advisory_xact_lock');
-    expect(harness.log[0]).not.toContain('875100002');
+    expect(harness.log[0]).toContain('875100003');
     expect(harness.log.slice(1)).toEqual([
       'insert:destinations:builtins',
       'select:destinations',
@@ -402,6 +407,7 @@ describe('runDestinationsMigration', () => {
       'select:rules',
       expect.stringContaining('to_regclass'),
       expect.stringContaining('SELECT event_type'),
+      'select:destinations',
       'insert:destinations:Discord',
       'update:destinations',
       'update:destinations',
@@ -431,6 +437,7 @@ describe('runDestinationsMigration', () => {
     expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
     expect(invalidateDestinationsCache).toHaveBeenCalledTimes(1);
     expect(resetSettingsCache).toHaveBeenCalledTimes(1);
+    expect(publishDestinationsChanged).toHaveBeenCalledTimes(1);
   });
 
   it('deletes exactly the seven legacy setting names', async () => {
@@ -484,9 +491,38 @@ describe('runDestinationsMigration', () => {
     expect(harness.log.some((l) => l.startsWith('update:'))).toBe(false);
     expect(harness.log.some((l) => l.startsWith('delete:'))).toBe(false);
     expect(harness.log.some((l) => l.includes('DROP TABLE'))).toBe(false);
-    expect(warnings).toContain(
+    expect(warnings).not.toContain(
       'notification_channel_routing absent; applying the fallback for every event'
     );
+    expect(publishDestinationsChanged).not.toHaveBeenCalled();
+  });
+
+  it('writes the built-in events and drops the table when only routing toggles exist', async () => {
+    const harness = await runWith({
+      builtinRows: [
+        { id: 'push-row', type: 'push' },
+        { id: 'toast-row', type: 'web_toast' },
+      ],
+      settingRows: [],
+      ruleRows: [],
+      routingRows: [
+        {
+          event_type: 'server_up',
+          discord_enabled: true,
+          webhook_enabled: true,
+          push_enabled: false,
+          web_toast_enabled: true,
+        },
+      ],
+      routingExists: true,
+    });
+
+    expect(harness.log[0]).toContain('875100003');
+    expect(harness.updates.filter((u) => u.table === destinations)).toHaveLength(2);
+    expect(
+      harness.log.some((l) => l.includes('DROP TABLE IF EXISTS notification_channel_routing'))
+    ).toBe(true);
+    expect(publishDestinationsChanged).toHaveBeenCalledTimes(1);
   });
 
   it('propagates a failed insert instead of swallowing it', async () => {
@@ -563,7 +599,7 @@ describe('sweepDestinationConfigs', () => {
     expect(markReencrypt).toHaveBeenCalledWith('bad');
     expect(rewrapConfig).not.toHaveBeenCalled();
     expect(warnings).toEqual([
-      'destination "Bad" cannot be decrypted (bad_key); marking for re-entry',
+      'destination "Bad" was encrypted under another key; marking for re-entry',
     ]);
   });
 
