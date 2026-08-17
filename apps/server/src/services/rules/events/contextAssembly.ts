@@ -4,10 +4,16 @@ import {
   maxWindowHoursFromRules,
   mergeRecentSessionsForIdentity,
 } from '../../../jobs/poller/database.js';
+import { mapSessionRow } from '../../../jobs/poller/sessionMapper.js';
 import { excludeUncountableSessions } from '../../../jobs/poller/utils.js';
 import { rulesLogger } from '../../../utils/logger.js';
 import { getIdentityServerUserIds } from '../../userService.js';
-import type { EvaluationInputs, EvaluationServer, EvaluationServerUser } from './types.js';
+import type {
+  EvaluationInputs,
+  EvaluationServer,
+  EvaluationServerUser,
+  SessionRow,
+} from './types.js';
 
 export interface ContextAssemblyDeps {
   getAllActiveSessions: () => Promise<ActiveSession[]>;
@@ -50,6 +56,11 @@ export function toRuleServerUser(serverUser: EvaluationServerUser, serverId: str
     updatedAt: new Date(),
     identityName: serverUser.identityName,
   };
+}
+
+/** One Session builder for every trigger: the stored row plus whatever the fresh payload overrides. */
+export function toRuleSession(row: SessionRow, live?: Partial<Session>): Session {
+  return { ...mapSessionRow(row), ...live };
 }
 
 /**

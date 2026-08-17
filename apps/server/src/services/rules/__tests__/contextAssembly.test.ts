@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActiveSession, RuleV2, Session } from '@tracearr/shared';
+import type { sessions } from '../../../db/schema.js';
 
 const mockGetIdentityServerUserIds = vi.fn();
 vi.mock('../../userService.js', () => ({
@@ -24,6 +25,7 @@ import {
   setContextAssemblyDeps,
   toRuleServer,
   toRuleServerUser,
+  toRuleSession,
 } from '../events/contextAssembly.js';
 
 const server = { id: 'srv1', name: 'Plex', type: 'plex' as const };
@@ -132,5 +134,110 @@ describe('assembleEvaluationInputs', () => {
     expect(result.identityServerUserIds).toEqual(['su1']);
     expect(mockBatchGetRecentUserSessions).toHaveBeenLastCalledWith(['su1'], 72);
     expect(result.recentSessions.map((s) => s.id)).toEqual(['mine']);
+  });
+});
+
+describe('toRuleSession', () => {
+  const row = {
+    id: 'sess-1',
+    serverId: 'srv1',
+    serverUserId: 'su1',
+    sessionKey: 'sk',
+    plexSessionId: null,
+    externalSessionId: null,
+    state: 'playing',
+    mediaType: 'movie',
+    mediaTitle: 'Old Title',
+    grandparentTitle: null,
+    seasonNumber: null,
+    episodeNumber: null,
+    year: 2020,
+    thumbPath: null,
+    ratingKey: '',
+    serverVersionKey: null,
+    parentRatingKey: null,
+    grandparentRatingKey: null,
+    mediaId: null,
+    showMediaId: null,
+    imdbId: null,
+    tmdbId: null,
+    tvdbId: null,
+    startedAt: new Date('2026-08-16T10:00:00Z'),
+    lastSeenAt: new Date('2026-08-16T10:05:00Z'),
+    stoppedAt: null,
+    durationMs: null,
+    totalDurationMs: 7200000,
+    progressMs: 60000,
+    lastPausedAt: null,
+    pausedDurationMs: 0,
+    referenceId: null,
+    watched: false,
+    shortSession: false,
+    forceStopped: false,
+    ipAddress: '1.2.3.4',
+    geoCity: null,
+    geoRegion: null,
+    geoCountry: 'US',
+    geoContinent: null,
+    geoPostal: null,
+    geoLat: null,
+    geoLon: null,
+    geoAsnNumber: null,
+    geoAsnOrganization: null,
+    playerName: 'Player',
+    deviceId: 'dev-1',
+    product: null,
+    device: null,
+    platform: null,
+    quality: null,
+    isTranscode: false,
+    videoDecision: 'directplay',
+    audioDecision: 'directplay',
+    bitrate: null,
+    sourceVideoCodec: null,
+    sourceAudioCodec: null,
+    sourceAudioChannels: null,
+    sourceVideoDetails: null,
+    sourceAudioDetails: null,
+    streamVideoCodec: null,
+    streamAudioCodec: null,
+    streamVideoDetails: null,
+    streamAudioDetails: null,
+    transcodeInfo: null,
+    subtitleInfo: null,
+    channelTitle: null,
+    channelIdentifier: null,
+    channelThumb: null,
+    artistName: null,
+    albumName: null,
+    trackNumber: null,
+    discNumber: null,
+  } as unknown as typeof sessions.$inferSelect;
+
+  it('maps a row through mapSessionRow when there are no live overrides', () => {
+    const s = toRuleSession(row);
+    expect(s.id).toBe('sess-1');
+    expect(s.mediaTitle).toBe('Old Title');
+    expect(s.videoDecision).toBe('directplay');
+    expect(s.ratingKey).toBe('');
+    expect(s.stoppedAt).toBeNull();
+  });
+
+  it('lets live fields override the row and keeps identity fields from the row', () => {
+    const s = toRuleSession(row, {
+      videoDecision: 'transcode',
+      isTranscode: true,
+      mediaTitle: 'New Title',
+      lastPausedAt: new Date('2026-08-16T10:04:00Z'),
+      pausedDurationMs: 30000,
+    });
+    expect(s.id).toBe('sess-1');
+    expect(s.serverUserId).toBe('su1');
+    expect(s.videoDecision).toBe('transcode');
+    expect(s.isTranscode).toBe(true);
+    expect(s.mediaTitle).toBe('New Title');
+    expect(s.lastPausedAt).toEqual(new Date('2026-08-16T10:04:00Z'));
+    expect(s.pausedDurationMs).toBe(30000);
+    expect(s.ipAddress).toBe('1.2.3.4');
   });
 });
