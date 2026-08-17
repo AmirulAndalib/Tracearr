@@ -531,25 +531,6 @@ describe('Channel Routing Helper Functions', () => {
       expect(routing.webhookEnabled).toBe(false);
       expect(routing.pushEnabled).toBe(false);
     });
-
-    it('returns defaults for trust_score_changed (low-priority)', async () => {
-      vi.mocked(db.select).mockImplementation(
-        () =>
-          ({
-            from: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([]),
-              }),
-            }),
-          }) as never
-      );
-
-      const routing = await getChannelRouting('trust_score_changed');
-
-      expect(routing.discordEnabled).toBe(false);
-      expect(routing.webhookEnabled).toBe(false);
-      expect(routing.pushEnabled).toBe(false);
-    });
   });
 
   describe('getAllChannelRouting', () => {

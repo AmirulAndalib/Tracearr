@@ -411,7 +411,7 @@ const executeMessageClient: ActionExecutor = async (
 // Executor Registry
 // ============================================================================
 
-export const executorRegistry: Record<ActionType, ActionExecutor> = {
+export const executorRegistry: Partial<Record<ActionType, ActionExecutor>> = {
   log_only: executeLogOnly,
   notify: executeNotify,
   adjust_trust: executeAdjustTrust,

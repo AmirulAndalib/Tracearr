@@ -16,8 +16,6 @@ import type {
   SessionContext,
   ServerContext,
   PluginUpdateContext,
-  NewDeviceContext,
-  TrustScoreChangedContext,
 } from '../types.js';
 
 interface JsonWebhookPayload {
@@ -84,10 +82,6 @@ export class JsonWebhookAgent extends BaseAgent {
         return this.buildServerPayload(payload, payload.context);
       case 'plugin_update_available':
         return this.buildPluginUpdatePayload(payload, payload.context);
-      case 'new_device':
-        return this.buildNewDevicePayload(payload, payload.context);
-      case 'trust_score_changed':
-        return this.buildTrustScoreChangedPayload(payload, payload.context);
     }
   }
 
@@ -225,38 +219,6 @@ export class JsonWebhookAgent extends BaseAgent {
         installedVersion: ctx.installedVersion,
         latestVersion: ctx.latestVersion,
         downloadUrl: ctx.downloadUrl,
-      },
-    };
-  }
-
-  private buildNewDevicePayload(
-    payload: NotificationPayload,
-    ctx: NewDeviceContext
-  ): JsonWebhookPayload {
-    return {
-      event: NOTIFICATION_EVENTS.NEW_DEVICE,
-      timestamp: payload.timestamp,
-      data: {
-        userName: ctx.userName,
-        deviceName: ctx.deviceName,
-        platform: ctx.platform,
-        location: ctx.location,
-      },
-    };
-  }
-
-  private buildTrustScoreChangedPayload(
-    payload: NotificationPayload,
-    ctx: TrustScoreChangedContext
-  ): JsonWebhookPayload {
-    return {
-      event: NOTIFICATION_EVENTS.TRUST_SCORE_CHANGED,
-      timestamp: payload.timestamp,
-      data: {
-        userName: ctx.userName,
-        previousScore: ctx.previousScore,
-        newScore: ctx.newScore,
-        reason: ctx.reason,
       },
     };
   }

@@ -96,7 +96,7 @@ export const SESSION_TARGET_OPTIONS: ConfigFieldOption[] = [
 ];
 
 // The main action definitions registry
-export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
+export const ACTION_DEFINITIONS: Partial<Record<ActionType, ActionDefinition>> = {
   log_only: {
     type: 'log_only',
     label: 'Log Only',
@@ -269,7 +269,7 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
 /**
  * Get action definition by type
  */
-export function getActionDefinition(type: ActionType): ActionDefinition {
+export function getActionDefinition(type: ActionType): ActionDefinition | undefined {
   return ACTION_DEFINITIONS[type];
 }
 
@@ -310,6 +310,7 @@ export function createDefaultAction(type: ActionType): Action {
 export function validateAction(action: Action): string[] {
   const errors: string[] = [];
   const def = ACTION_DEFINITIONS[action.type];
+  if (!def) return errors;
   const actionRecord = action as unknown as Record<string, unknown>;
 
   for (const field of def.configFields) {

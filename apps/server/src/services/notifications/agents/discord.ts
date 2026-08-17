@@ -15,8 +15,6 @@ import type {
   SessionContext,
   ServerContext,
   PluginUpdateContext,
-  NewDeviceContext,
-  TrustScoreChangedContext,
 } from '../types.js';
 import {
   formatViolationDetailsForDiscord,
@@ -87,10 +85,6 @@ export class DiscordAgent extends BaseAgent {
         return this.buildServerUpEmbed(payload, payload.context);
       case 'plugin_update_available':
         return this.buildPluginUpdateEmbed(payload, payload.context);
-      case 'new_device':
-        return this.buildNewDeviceEmbed(payload, payload.context);
-      case 'trust_score_changed':
-        return this.buildTrustScoreChangedEmbed(payload, payload.context);
     }
   }
 
@@ -233,51 +227,6 @@ export class DiscordAgent extends BaseAgent {
       title: 'Plugin Update Available',
       description: `${ctx.serverName}: ${formatPluginUpdateMessage(ctx)}`,
       color: 0xf39c12, // Orange/Warning
-    };
-  }
-
-  private buildNewDeviceEmbed(_payload: NotificationPayload, ctx: NewDeviceContext): DiscordEmbed {
-    const fields: DiscordField[] = [
-      { name: 'User', value: ctx.userName, inline: true },
-      { name: 'Device', value: ctx.deviceName, inline: true },
-    ];
-
-    if (ctx.platform) {
-      fields.push({ name: 'Platform', value: ctx.platform, inline: true });
-    }
-
-    if (ctx.location) {
-      fields.push({ name: 'Location', value: ctx.location, inline: true });
-    }
-
-    return {
-      title: 'New Device Detected',
-      color: 0xf39c12, // Orange/Warning
-      fields,
-    };
-  }
-
-  private buildTrustScoreChangedEmbed(
-    _payload: NotificationPayload,
-    ctx: TrustScoreChangedContext
-  ): DiscordEmbed {
-    const direction = ctx.newScore < ctx.previousScore ? 'decreased' : 'increased';
-    const color = ctx.newScore < ctx.previousScore ? 0xe74c3c : 0x2ecc71; // Red or Green
-
-    const fields: DiscordField[] = [
-      { name: 'User', value: ctx.userName, inline: true },
-      { name: 'Previous Score', value: String(ctx.previousScore), inline: true },
-      { name: 'New Score', value: String(ctx.newScore), inline: true },
-    ];
-
-    if (ctx.reason) {
-      fields.push({ name: 'Reason', value: ctx.reason, inline: false });
-    }
-
-    return {
-      title: `Trust Score ${direction.charAt(0).toUpperCase() + direction.slice(1)}`,
-      color,
-      fields,
     };
   }
 

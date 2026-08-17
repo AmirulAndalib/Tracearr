@@ -4,23 +4,15 @@
  * Based on Jellyseerr's agent pattern for extensible notifications.
  */
 
-import type { ViolationWithDetails, ActiveSession, Settings } from '@tracearr/shared';
+import type {
+  ViolationWithDetails,
+  ActiveSession,
+  Settings,
+  NotificationEventType,
+} from '@tracearr/shared';
 
 // Re-export for convenience
-export type { ViolationWithDetails, ActiveSession, Settings };
-
-/**
- * Notification event types matching NOTIFICATION_EVENTS from shared
- */
-export type NotificationEventType =
-  | 'violation_detected'
-  | 'stream_started'
-  | 'stream_stopped'
-  | 'new_device'
-  | 'trust_score_changed'
-  | 'server_down'
-  | 'server_up'
-  | 'plugin_update_available';
+export type { ViolationWithDetails, ActiveSession, Settings, NotificationEventType };
 
 /**
  * Severity levels for notifications
@@ -66,37 +58,10 @@ export interface PluginUpdateContext {
 }
 
 /**
- * Context provided with new device notifications
- */
-export interface NewDeviceContext {
-  type: 'new_device';
-  userName: string;
-  deviceName: string;
-  platform: string | null;
-  location: string | null;
-}
-
-/**
- * Context provided with trust score change notifications
- */
-export interface TrustScoreChangedContext {
-  type: 'trust_score_changed';
-  userName: string;
-  previousScore: number;
-  newScore: number;
-  reason: string | null;
-}
-
-/**
  * Union of all notification contexts
  */
 export type NotificationContext =
-  | ViolationContext
-  | SessionContext
-  | ServerContext
-  | PluginUpdateContext
-  | NewDeviceContext
-  | TrustScoreChangedContext;
+  ViolationContext | SessionContext | ServerContext | PluginUpdateContext;
 
 /**
  * Unified notification payload for all agents
@@ -280,41 +245,6 @@ export const PayloadBuilders = {
         latestVersion,
         downloadUrl,
       },
-    };
-  },
-
-  fromNewDevice(
-    userName: string,
-    deviceName: string,
-    platform: string | null,
-    location: string | null
-  ): NotificationPayload {
-    const locationStr = location ? ` from ${location}` : '';
-    return {
-      event: 'new_device',
-      title: 'New Device Detected',
-      message: `${userName} connected from a new device: ${deviceName}${locationStr}`,
-      severity: 'warning',
-      timestamp: new Date().toISOString(),
-      context: { type: 'new_device', userName, deviceName, platform, location },
-    };
-  },
-
-  fromTrustScoreChanged(
-    userName: string,
-    previousScore: number,
-    newScore: number,
-    reason: string | null
-  ): NotificationPayload {
-    const direction = newScore < previousScore ? 'decreased' : 'increased';
-    const reasonStr = reason ? `: ${reason}` : '';
-    return {
-      event: 'trust_score_changed',
-      title: 'Trust Score Changed',
-      message: `${userName}'s trust score ${direction} from ${previousScore} to ${newScore}${reasonStr}`,
-      severity: newScore < previousScore ? 'warning' : 'low',
-      timestamp: new Date().toISOString(),
-      context: { type: 'trust_score_changed', userName, previousScore, newScore, reason },
     };
   },
 };

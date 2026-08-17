@@ -31,7 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 
 // Icon mapping
-const ACTION_ICONS: Record<ActionType, React.ComponentType<{ className?: string }>> = {
+const ACTION_ICONS: Partial<Record<ActionType, React.ComponentType<{ className?: string }>>> = {
   log_only: FileText,
   notify: Bell,
   adjust_trust: TrendingUp,
@@ -65,16 +65,16 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
   };
 
   // Split fields into inline and full-width
-  const inlineFields = def.configFields.filter((f) => !f.fullWidth);
-  const fullWidthFields = def.configFields.filter((f) => f.fullWidth);
+  const inlineFields = def?.configFields.filter((f) => !f.fullWidth) ?? [];
+  const fullWidthFields = def?.configFields.filter((f) => f.fullWidth) ?? [];
 
   return (
     <div
       className={cn(
         'rounded-lg border p-4',
-        def.color === 'destructive' && 'border-destructive/50 bg-destructive/5',
-        def.color === 'warning' && 'border-yellow-500/50 bg-yellow-500/5',
-        def.color === 'default' && 'border-border bg-card'
+        def?.color === 'destructive' && 'border-destructive/50 bg-destructive/5',
+        def?.color === 'warning' && 'border-yellow-500/50 bg-yellow-500/5',
+        def?.color === 'default' && 'border-border bg-card'
       )}
     >
       <div className="flex items-start gap-4">
@@ -87,6 +87,7 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
             {getAllActionTypes().map((type) => {
               const actionDef = ACTION_DEFINITIONS[type];
               const ActionIcon = ACTION_ICONS[type];
+              if (!actionDef || !ActionIcon) return null;
               return (
                 <SelectItem key={type} value={type}>
                   <div className="flex items-center gap-2">
@@ -141,10 +142,10 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
       )}
 
       {/* Description */}
-      <p className="text-muted-foreground mt-2 text-xs">{def.description}</p>
+      <p className="text-muted-foreground mt-2 text-xs">{def?.description}</p>
 
       {/* Hint (if present) */}
-      {def.hint && (
+      {def?.hint && (
         <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
           <AlertTriangle className="h-3 w-3" />
           {def.hint}

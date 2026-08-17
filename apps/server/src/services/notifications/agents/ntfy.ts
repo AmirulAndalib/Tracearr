@@ -15,8 +15,6 @@ import type {
   SessionContext,
   ServerContext,
   PluginUpdateContext,
-  NewDeviceContext,
-  TrustScoreChangedContext,
 } from '../types.js';
 import { formatViolationMessage } from '../formatters/violation.js';
 import { formatPluginUpdateMessage } from '../formatters/pluginUpdate.js';
@@ -88,10 +86,6 @@ export class NtfyAgent extends BaseAgent {
         return this.buildServerUpPayload(ntfyTopic, payload.context);
       case 'plugin_update_available':
         return this.buildPluginUpdatePayload(ntfyTopic, payload.context);
-      case 'new_device':
-        return this.buildNewDevicePayload(ntfyTopic, payload.context);
-      case 'trust_score_changed':
-        return this.buildTrustScoreChangedPayload(ntfyTopic, payload.context);
     }
   }
 
@@ -162,29 +156,6 @@ export class NtfyAgent extends BaseAgent {
       title: 'Plugin Update Available',
       message: `${ctx.serverName}: ${formatPluginUpdateMessage(ctx)}`,
       priority: 3,
-      tags: ['tracearr'],
-    };
-  }
-
-  private buildNewDevicePayload(topic: string, ctx: NewDeviceContext): NtfyPayload {
-    const locationStr = ctx.location ? ` from ${ctx.location}` : '';
-    return {
-      topic,
-      title: 'New Device Detected',
-      message: `${ctx.userName} connected from a new device: ${ctx.deviceName}${locationStr}`,
-      priority: 4,
-      tags: ['tracearr'],
-    };
-  }
-
-  private buildTrustScoreChangedPayload(topic: string, ctx: TrustScoreChangedContext): NtfyPayload {
-    const direction = ctx.newScore < ctx.previousScore ? 'decreased' : 'increased';
-    const reasonStr = ctx.reason ? `: ${ctx.reason}` : '';
-    return {
-      topic,
-      title: 'Trust Score Changed',
-      message: `${ctx.userName}'s trust score ${direction} from ${ctx.previousScore} to ${ctx.newScore}${reasonStr}`,
-      priority: ctx.newScore < ctx.previousScore ? 4 : 3,
       tags: ['tracearr'],
     };
   }

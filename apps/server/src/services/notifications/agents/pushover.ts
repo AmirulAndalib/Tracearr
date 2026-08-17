@@ -15,8 +15,6 @@ import type {
   SessionContext,
   ServerContext,
   PluginUpdateContext,
-  NewDeviceContext,
-  TrustScoreChangedContext,
 } from '../types.js';
 import { formatViolationMessage } from '../formatters/violation.js';
 import { formatPluginUpdateMessage } from '../formatters/pluginUpdate.js';
@@ -93,10 +91,6 @@ export class PushoverAgent extends BaseAgent {
         return this.buildServerUpParams(payload.context);
       case 'plugin_update_available':
         return this.buildPluginUpdateParams(payload.context);
-      case 'new_device':
-        return this.buildNewDeviceParams(payload.context);
-      case 'trust_score_changed':
-        return this.buildTrustScoreChangedParams(payload.context);
     }
   }
 
@@ -180,33 +174,6 @@ export class PushoverAgent extends BaseAgent {
       title: 'Plugin Update Available',
       message: `${ctx.serverName}: ${formatPluginUpdateMessage(ctx)}`,
       priority: '-1',
-    };
-  }
-
-  private buildNewDeviceParams(ctx: NewDeviceContext): {
-    title: string;
-    message: string;
-    priority: string;
-  } {
-    const locationStr = ctx.location ? ` from ${ctx.location}` : '';
-    return {
-      title: 'New Device Detected',
-      message: `${ctx.userName} connected from a new device: ${ctx.deviceName}${locationStr}`,
-      priority: '0',
-    };
-  }
-
-  private buildTrustScoreChangedParams(ctx: TrustScoreChangedContext): {
-    title: string;
-    message: string;
-    priority: string;
-  } {
-    const direction = ctx.newScore < ctx.previousScore ? 'decreased' : 'increased';
-    const reasonStr = ctx.reason ? `: ${ctx.reason}` : '';
-    return {
-      title: 'Trust Score Changed',
-      message: `${ctx.userName}'s trust score ${direction} from ${ctx.previousScore} to ${ctx.newScore}${reasonStr}`,
-      priority: ctx.newScore < ctx.previousScore ? '0' : '-1',
     };
   }
 

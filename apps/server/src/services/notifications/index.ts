@@ -30,8 +30,6 @@ export type {
   SessionContext,
   ServerContext,
   PluginUpdateContext,
-  NewDeviceContext,
-  TrustScoreChangedContext,
   NotificationContext,
 } from './types.js';
 export { PayloadBuilders } from './types.js';
@@ -195,39 +193,6 @@ export class NotificationManager {
       payload.downloadUrl
     );
     return this.sendAll(notificationPayload, settings);
-  }
-
-  /**
-   * Send a new device notification to all enabled agents
-   */
-  async notifyNewDevice(
-    userName: string,
-    deviceName: string,
-    platform: string | null,
-    location: string | null,
-    settings: NotificationSettings
-  ): Promise<SendResult[]> {
-    const payload = PayloadBuilders.fromNewDevice(userName, deviceName, platform, location);
-    return this.sendAll(payload, settings);
-  }
-
-  /**
-   * Send a trust score changed notification to all enabled agents
-   */
-  async notifyTrustScoreChanged(
-    userName: string,
-    previousScore: number,
-    newScore: number,
-    reason: string | null,
-    settings: NotificationSettings
-  ): Promise<SendResult[]> {
-    const payload = PayloadBuilders.fromTrustScoreChanged(
-      userName,
-      previousScore,
-      newScore,
-      reason
-    );
-    return this.sendAll(payload, settings);
   }
 }
 

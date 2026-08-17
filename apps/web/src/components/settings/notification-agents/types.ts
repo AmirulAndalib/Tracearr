@@ -117,8 +117,6 @@ export interface EventConfig {
  */
 export const NOTIFICATION_EVENT_ORDER: NotificationEventType[] = [
   'violation_detected',
-  'new_device',
-  'trust_score_changed',
   'stream_started',
   'stream_stopped',
   'server_down',
@@ -129,14 +127,6 @@ export const NOTIFICATION_EVENT_CONFIG = {
   violation_detected: {
     nameKey: 'notifications:settings.violationDetected' as const,
     descKey: 'notifications:settings.violationDetectedDesc' as const,
-  },
-  new_device: {
-    nameKey: 'notifications:settings.newDevice' as const,
-    descKey: 'notifications:settings.newDeviceDesc' as const,
-  },
-  trust_score_changed: {
-    nameKey: 'notifications:settings.trustScoreChanged' as const,
-    descKey: 'notifications:settings.trustScoreChangedDesc' as const,
   },
   stream_started: {
     nameKey: 'notifications:settings.streamStarted' as const,

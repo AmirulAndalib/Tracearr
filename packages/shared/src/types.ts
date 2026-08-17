@@ -1,6 +1,7 @@
 /**
  * Core type definitions for Tracearr
  */
+import type { NotificationToast } from './destinations.js';
 import type { webhookFormatSchema, sessionTargetSchema, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
 
@@ -682,6 +683,7 @@ export interface RuleConditions {
 export type ActionType =
   | 'log_only'
   | 'notify'
+  | 'send'
   | 'adjust_trust'
   | 'set_trust'
   | 'reset_trust'
@@ -700,6 +702,13 @@ export interface LogOnlyAction {
 export interface NotifyAction {
   type: 'notify';
   channels: NotificationChannelV2[];
+  cooldown_minutes?: number;
+}
+
+export interface SendAction {
+  type: 'send';
+  /** destination ids; validated against the destinations table on rule save */
+  to: string[];
   cooldown_minutes?: number;
 }
 
@@ -737,6 +746,7 @@ export interface MessageClientAction {
 export type Action =
   | LogOnlyAction
   | NotifyAction
+  | SendAction
   | AdjustTrustAction
   | SetTrustAction
   | ResetTrustAction
@@ -1324,6 +1334,7 @@ export interface ServerToClientEvents {
   'server:down': (data: { serverId: string; serverName: string }) => void;
   'server:up': (data: { serverId: string; serverName: string }) => void;
   'server:connection': (status: ServerConnectionStatus) => void;
+  'notification:toast': (data: NotificationToast) => void;
 }
 
 export interface ClientToServerEvents {
@@ -1557,9 +1568,6 @@ export type NotificationEventType =
   | 'violation_detected'
   | 'stream_started'
   | 'stream_stopped'
-  | 'concurrent_streams'
-  | 'new_device'
-  | 'trust_score_changed'
   | 'server_down'
   | 'server_up'
   | 'plugin_update_available';
