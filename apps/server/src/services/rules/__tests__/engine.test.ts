@@ -4,6 +4,7 @@ import type { EvaluationContext } from '../types.js';
 import {
   evaluateRuleAsync,
   evaluateRulesAsync,
+  hasInactivityCondition,
   hasTranscodeConditions,
   hasPauseConditions,
 } from '../engine.js';
@@ -1011,5 +1012,61 @@ describe('hasPauseConditions', () => {
     });
 
     expect(hasPauseConditions(rule)).toBe(false);
+  });
+});
+
+describe('hasInactivityCondition', () => {
+  it('returns false for null conditions', () => {
+    expect(hasInactivityCondition({ conditions: null })).toBe(false);
+  });
+
+  it('returns false for conditions with no groups', () => {
+    expect(hasInactivityCondition({ conditions: { groups: [] } })).toBe(false);
+  });
+
+  it('returns false when no inactive_days field exists', () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 2 }] }],
+      },
+    });
+    expect(hasInactivityCondition(rule)).toBe(false);
+  });
+
+  it('returns true for a single group with inactive_days', () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'inactive_days', operator: 'gt', value: 30 }] }],
+      },
+    });
+    expect(hasInactivityCondition(rule)).toBe(true);
+  });
+
+  it('returns true when inactive_days is in a later group', () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [
+          { conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 2 }] },
+          { conditions: [{ field: 'inactive_days', operator: 'gte', value: 14 }] },
+        ],
+      },
+    });
+    expect(hasInactivityCondition(rule)).toBe(true);
+  });
+
+  it('returns true when inactive_days shares a group with other conditions', () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [
+          {
+            conditions: [
+              { field: 'inactive_days', operator: 'gt', value: 30 },
+              { field: 'trust_score', operator: 'lt', value: 20 },
+            ],
+          },
+        ],
+      },
+    });
+    expect(hasInactivityCondition(rule)).toBe(true);
   });
 });

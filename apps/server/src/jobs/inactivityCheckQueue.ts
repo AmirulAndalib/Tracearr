@@ -184,22 +184,6 @@ export async function scheduleInactivityChecks(): Promise<void> {
   console.log(`[Inactivity] Scheduled hourly checks for ${activeRules.length} rule(s)`);
 }
 
-/**
- * Trigger an immediate inactivity check for all rules or a specific rule
- */
-export async function triggerInactivityCheck(ruleId?: string): Promise<void> {
-  if (!inactivityQueue) {
-    console.error('[Inactivity] Queue not initialized');
-    return;
-  }
-
-  await inactivityQueue.add(
-    'manual-check',
-    { type: 'check', ruleId },
-    { jobId: `manual-${Date.now()}` }
-  );
-}
-
 interface CandidateRow {
   id: string;
   userId: string;
@@ -327,13 +311,6 @@ export async function shutdownInactivityCheckQueue(): Promise<void> {
   pubSubPublish = null;
 
   console.log('[Inactivity] Queue shutdown complete');
-}
-
-/**
- * Get the inactivity check queue instance (for testing or external scheduling)
- */
-export function getInactivityQueue(): Queue<InactivityCheckJobData> | null {
-  return inactivityQueue;
 }
 
 /**

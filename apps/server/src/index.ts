@@ -908,6 +908,9 @@ async function initializeServices(app: FastifyInstance) {
     // Don't throw - version checks are non-critical
   }
 
+  // Registers the rule subscribers; the inactivity worker below dispatches into them.
+  initializePoller(cacheService, pubSubService);
+
   // Initialize inactivity check queue (monitors inactive accounts)
   try {
     initInactivityCheckQueue(redisUrl, app.redis, pubSubService.publish.bind(pubSubService));
@@ -954,9 +957,6 @@ async function initializeServices(app: FastifyInstance) {
     app.log.error({ err }, 'Failed to initialize plex token refresh queue');
     // Don't throw - legacy tokens don't need refreshing and login has its own fallback
   }
-
-  // Initialize poller with cache services
-  initializePoller(cacheService, pubSubService);
 
   // Initialize SSE manager and processor for real-time Plex updates
   try {
