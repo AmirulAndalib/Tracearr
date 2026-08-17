@@ -31,7 +31,10 @@ vi.mock('../../services/notifications/destinationStore.js', () => ({
 
 // Import the mocked db and the routes
 import { db } from '../../db/client.js';
-import { listDestinations } from '../../services/notifications/destinationStore.js';
+import {
+  listDestinations,
+  type DestinationRow,
+} from '../../services/notifications/destinationStore.js';
 import { ruleRoutes } from '../rules.js';
 
 /**
@@ -348,7 +351,9 @@ describe('Rule Routes', () => {
 
       const knownId = randomUUID();
       const unknownId = randomUUID();
-      vi.mocked(listDestinations).mockResolvedValue([{ id: knownId }] as never);
+      vi.mocked(listDestinations).mockResolvedValue([
+        { id: knownId },
+      ] as unknown as DestinationRow[]);
 
       const response = await app.inject({
         method: 'POST',
@@ -370,7 +375,9 @@ describe('Rule Routes', () => {
       app = await buildTestApp(ownerUser);
 
       const knownId = randomUUID();
-      vi.mocked(listDestinations).mockResolvedValue([{ id: knownId }] as never);
+      vi.mocked(listDestinations).mockResolvedValue([
+        { id: knownId },
+      ] as unknown as DestinationRow[]);
 
       const created = { id: randomUUID(), name: 'Send Rule' };
       mockDb.insert.mockReturnValue({
@@ -771,7 +778,9 @@ describe('Rule Routes', () => {
       const knownId = randomUUID();
       const unknownId = randomUUID();
       mockExistingRule(ruleId);
-      vi.mocked(listDestinations).mockResolvedValue([{ id: knownId }] as never);
+      vi.mocked(listDestinations).mockResolvedValue([
+        { id: knownId },
+      ] as unknown as DestinationRow[]);
 
       const response = await app.inject({
         method: 'PATCH',
@@ -791,7 +800,9 @@ describe('Rule Routes', () => {
       const ruleId = randomUUID();
       const knownId = randomUUID();
       mockExistingRule(ruleId);
-      vi.mocked(listDestinations).mockResolvedValue([{ id: knownId }] as never);
+      vi.mocked(listDestinations).mockResolvedValue([
+        { id: knownId },
+      ] as unknown as DestinationRow[]);
 
       mockDb.update.mockReturnValue({
         set: vi.fn().mockReturnValue({

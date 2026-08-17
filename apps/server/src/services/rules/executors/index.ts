@@ -236,8 +236,7 @@ const executeSend: ActionExecutor = async (
     ? `User "${serverUser.username}" triggered rule "${rule.name}" while playing "${session.mediaTitle}"`
     : accountInactivityMessage(serverUser);
 
-  // A rule that matched without recording a violation still needs a stable id:
-  // the queue's dedupe key and the formatters both read payload.id.
+  // No violation row for this match, so synthesize an id; the json webhook body carries payload.id.
   const event: NotificationEvent = {
     type: 'violation',
     payload: {
