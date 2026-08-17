@@ -13,12 +13,19 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
   render(event, _config, ctx) {
     if (ctx.source.kind === 'rule' && event.type === 'violation') {
       const v = event.payload;
-      // notifyRuleDirect reads serverId/thumbPath/userThumbUrl for the image; the executor puts them in data
+      // Only what notifyRuleDirect reads: the image fields, never the whole violation data (its `type` key would replace the push discriminator).
+      const d = v.data ?? {};
       return {
         kind: 'rule',
         title: ctx.source.title,
         message: ctx.source.message,
-        data: { ruleId: v.rule.id, ruleName: v.rule.name, ...(v.data ?? {}) },
+        data: {
+          ruleId: v.rule.id,
+          ruleName: v.rule.name,
+          serverId: d.serverId,
+          thumbPath: d.thumbPath,
+          userThumbUrl: d.userThumbUrl,
+        },
       };
     }
     return { kind: 'system', event };

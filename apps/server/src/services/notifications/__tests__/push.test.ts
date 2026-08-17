@@ -57,6 +57,19 @@ describe('pushType.render', () => {
     });
   });
 
+  it('does not forward other violation data keys into the push payload', async () => {
+    const noisy = {
+      ...violation,
+      data: { ...violation.data, type: 'violation_detected', evidence: [{ big: true }] },
+    };
+    const rendered = await render({ type: 'violation', payload: noisy }, ruleCtx);
+    expect(rendered.kind).toBe('rule');
+    if (rendered.kind === 'rule') {
+      expect(rendered.data).not.toHaveProperty('type');
+      expect(rendered.data).not.toHaveProperty('evidence');
+    }
+  });
+
   it('renders a system violation as the raw event', async () => {
     const event = { type: 'violation', payload: violation } as const;
 

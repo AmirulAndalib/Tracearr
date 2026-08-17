@@ -1,5 +1,4 @@
-import { DESTINATION_TYPES } from '@tracearr/shared';
-import { NOTIFICATION_EVENTS } from '@tracearr/shared';
+import { DESTINATION_TYPES, NOTIFICATION_EVENTS } from '@tracearr/shared';
 import { toNotificationPayload } from '../types.js';
 import { deliverFetch } from './fetch.js';
 import { getMediaDisplay, getPlaybackType, getUserDisplayName } from './sessionText.js';
