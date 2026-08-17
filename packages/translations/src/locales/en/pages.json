@@ -520,7 +520,11 @@
         "authToken": "Auth token",
         "userKey": "User key",
         "apiToken": "API token"
-      }
+      },
+      "hints": {
+        "authTokenOptional": "Optional for public topics"
+      },
+      "testNeedsForm": "Fill in the required fields to test"
     },
     "jobs": {
       "runNow": "Run Now",

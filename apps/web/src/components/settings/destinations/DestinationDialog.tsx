@@ -48,6 +48,7 @@ type CreatableKind = CreateDestinationInput['type'];
 
 /** Field labels are plain strings on the shared descriptor; the pages resource decides which exist. */
 type FieldLabel = keyof PagesTranslations['settings']['destinations']['fields'];
+type FieldHint = keyof PagesTranslations['settings']['destinations']['hints'];
 
 function isCreatable(kind: DestinationKind): kind is CreatableKind {
   return !DESTINATION_TYPES[kind].builtin;
@@ -338,6 +339,11 @@ export function DestinationDialog({
                   ) : (
                     <Input {...inputProps} />
                   )}
+                  {field.hint && !stored && (
+                    <FieldDescription>
+                      {t(`pages:settings.destinations.hints.${field.hint as FieldHint}`)}
+                    </FieldDescription>
+                  )}
                   {stored && (
                     <FieldDescription>
                       <Button
@@ -387,9 +393,11 @@ export function DestinationDialog({
                     </Button>
                   </span>
                 </TooltipTrigger>
-                {mode === 'edit' && dirty && (
+                {mode === 'edit' && dirty ? (
                   <TooltipContent>{t('pages:settings.destinations.testHint')}</TooltipContent>
-                )}
+                ) : !canSave ? (
+                  <TooltipContent>{t('pages:settings.destinations.testNeedsForm')}</TooltipContent>
+                ) : null}
               </Tooltip>
             </TooltipProvider>
           )}

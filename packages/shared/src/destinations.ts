@@ -32,12 +32,13 @@ export interface DestinationFieldDescriptor {
   key: string;
   /** i18n key under pages:settings.destinations.fields */
   label: string;
-  input: 'text' | 'url' | 'secret' | 'select';
+  input: 'text' | 'url' | 'secret';
   required: boolean;
   /** Masked on read, kept on omit; every url is secret because webhook urls embed credentials */
   secret: boolean;
   placeholder?: string;
-  options?: { value: string; label: string }[];
+  /** i18n key under pages:settings.destinations.hints, rendered as the field description */
+  hint?: string;
   default?: string;
 }
 
@@ -64,14 +65,14 @@ const secret = (
   key: string,
   label: string,
   required: boolean,
-  placeholder?: string
+  hint?: string
 ): DestinationFieldDescriptor => ({
   key,
   label,
   input: 'secret',
   required,
   secret: true,
-  placeholder,
+  hint,
 });
 const text = (
   key: string,
@@ -115,7 +116,7 @@ export const DESTINATION_TYPES = {
     fields: [
       url('url', 'serverUrl', 'https://ntfy.sh/'),
       text('topic', 'topic', true, 'tracearr', 'tracearr'),
-      secret('authToken', 'authToken', false, 'Optional for public topics'),
+      secret('authToken', 'authToken', false, 'authTokenOptional'),
     ],
   },
   gotify: {

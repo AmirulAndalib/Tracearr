@@ -197,6 +197,32 @@ describe('DestinationDialog edit mode', () => {
     });
   });
 
+  it('treats every field of a reencrypt row as unfilled until retyped', async () => {
+    const user = userEvent.setup();
+    render(
+      <DestinationDialog
+        open
+        onOpenChange={vi.fn()}
+        mode="edit"
+        destination={destination({ configStatus: 'reencrypt', config: null, secretsSet: [] })}
+      />
+    );
+
+    const save = screen.getByRole('button', { name: 'common:actions.save' });
+    expect(save).toBeDisabled();
+    const userKey = screen.getByLabelText(/fields\.userKey/);
+    expect(userKey).not.toHaveAttribute('placeholder', 'pages:settings.destinations.secretSet');
+
+    await user.type(userKey, 'u');
+    await user.type(screen.getByLabelText(/fields\.apiToken/), 't');
+    expect(save).toBeEnabled();
+    await user.click(save);
+    expect(updateAsync).toHaveBeenCalledWith({
+      id: 'dest-1',
+      data: expect.objectContaining({ config: { userKey: 'u', apiToken: 't' } }),
+    });
+  });
+
   it('sends null for a secret the user clears', async () => {
     const user = userEvent.setup();
     render(

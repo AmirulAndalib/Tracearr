@@ -754,11 +754,15 @@
         "userKey": "User key",
         "webhookUrl": "Webhook URL"
       },
+      "hints": {
+        "authTokenOptional": "Optional for public topics"
+      },
       "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
       "reencrypt": "Re-enter this destination's secret",
       "secretSet": "Set (leave blank to keep)",
       "test": "Test",
       "testHint": "Save first to test",
+      "testNeedsForm": "Fill in the required fields to test",
       "title": "Notification destinations",
       "types": {
         "apprise": "Apprise",

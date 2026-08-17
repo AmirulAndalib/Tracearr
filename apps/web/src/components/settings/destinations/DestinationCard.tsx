@@ -4,7 +4,7 @@ import { DESTINATION_TYPES, type Destination } from '@tracearr/shared';
 import { Loader2, Pencil, Send, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -40,16 +40,16 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="truncate font-semibold">{destination.name}</h3>
+                <CardTitle className="truncate text-base">{destination.name}</CardTitle>
                 {destination.builtin && (
                   <Badge variant="secondary">{t('pages:settings.destinations.builtinNote')}</Badge>
                 )}
               </div>
-              <p className="text-muted-foreground truncate text-sm">
+              <CardDescription className="truncate">
                 {t(
                   `pages:settings.destinations.types.${DESTINATION_TYPES[destination.type].label}`
                 )}
-              </p>
+              </CardDescription>
             </div>
           </div>
           <Switch
@@ -113,7 +113,7 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
                     variant="ghost"
                     size="icon-sm"
                     onClick={() => testDestination.mutate(destination.id)}
-                    disabled={testDestination.isPending}
+                    disabled={testDestination.isPending || destination.configStatus !== 'ok'}
                     aria-label={t('pages:settings.destinations.test')}
                   >
                     {testDestination.isPending ? (
@@ -123,7 +123,11 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{t('pages:settings.destinations.test')}</TooltipContent>
+                <TooltipContent>
+                  {destination.configStatus === 'ok'
+                    ? t('pages:settings.destinations.test')
+                    : t('pages:settings.destinations.reencrypt')}
+                </TooltipContent>
               </Tooltip>
             )}
 
