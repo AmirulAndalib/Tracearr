@@ -275,7 +275,9 @@ export function RuleBuilder({
   };
 
   return (
-    <div className="space-y-6">
+    // min-w-0: DialogContent is a grid, and a grid item can't shrink below its
+    // min-content, so one too-wide row would otherwise widen the whole form.
+    <div className="min-w-0 space-y-6">
       {/* Errors */}
       {errors.length > 0 && (
         <div className="border-destructive/50 bg-destructive/5 rounded-lg border p-4">

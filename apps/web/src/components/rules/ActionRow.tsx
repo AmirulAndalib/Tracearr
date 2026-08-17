@@ -99,8 +99,9 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
           </SelectContent>
         </Select>
 
-        {/* Inline Config Fields */}
-        <div className="flex flex-1 items-center gap-6">
+        {/* Inline config fields. Must wrap: a row wider than the dialog grows
+            the dialog's grid track and every section gets clipped. */}
+        <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-2">
           {inlineFields.map((field) => (
             <ConfigFieldInput
               key={field.name}
