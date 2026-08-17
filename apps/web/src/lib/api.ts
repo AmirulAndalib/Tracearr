@@ -30,6 +30,10 @@ import type {
   UnlinkPlexAccountResponse,
   NotificationChannelRouting,
   NotificationEventType,
+  Destination,
+  DestinationKind,
+  CreateDestinationInput,
+  UpdateDestinationInput,
   HistorySessionResponse,
   HistoryFilterOptions,
   RulesFilterOptions,
@@ -264,11 +268,14 @@ export const API_BASE_URL = `${BASE_PATH}${API_BASE_PATH}`;
 /** Carries the response status so callers can distinguish e.g. a 404 from a network failure. */
 export class ApiError extends Error {
   status: number;
+  /** Parsed error body, for endpoints whose failure carries detail (a 409 delete lists the blocking rules). */
+  body: Record<string, unknown>;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body: Record<string, unknown> = {}) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -332,7 +339,8 @@ class ApiClient {
       const errorBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
       throw new ApiError(
         ((errorBody.message ?? errorBody.error) as string) ?? `Request failed: ${response.status}`,
-        response.status
+        response.status,
+        errorBody
       );
     }
 
@@ -1625,6 +1633,28 @@ class ApiClient {
     ) =>
       this.request<NotificationChannelRouting>(`/settings/notifications/routing/${eventType}`, {
         method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  };
+
+  // Notification destinations
+  destinations = {
+    list: () => this.request<Destination[]>('/destinations'),
+    create: (data: CreateDestinationInput) =>
+      this.request<Destination>('/destinations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: UpdateDestinationInput) =>
+      this.request<Destination>(`/destinations/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    remove: (id: string) => this.request<void>(`/destinations/${id}`, { method: 'DELETE' }),
+    test: (id: string) =>
+      this.request<{ success: boolean; error?: string }>(`/destinations/${id}/test`, {
+        method: 'POST',
+      }),
+    testUnsaved: (data: { type: DestinationKind; config: Record<string, unknown> }) =>
+      this.request<{ success: boolean; error?: string }>('/destinations/test', {
+        method: 'POST',
         body: JSON.stringify(data),
       }),
   };

@@ -100,6 +100,16 @@ export { useSettings, useUpdateSettings, useApiKey, useRegenerateApiKey } from '
 // Channel Routing hooks
 export { useChannelRouting, useUpdateChannelRouting } from './useChannelRouting';
 
+// Destination hooks
+export {
+  useDestinations,
+  useCreateDestination,
+  useUpdateDestination,
+  useDeleteDestination,
+  useTestDestination,
+  useTestUnsavedDestination,
+} from './useDestinations';
+
 // Mobile hooks
 export {
   useMobileConfig,
