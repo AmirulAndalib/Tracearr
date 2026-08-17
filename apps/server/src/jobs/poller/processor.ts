@@ -27,6 +27,7 @@ import { type GeoLocation } from '../../services/geoip.js';
 import { createMediaServerClient } from '../../services/mediaServer/index.js';
 import { lookupGeoIP } from '../../services/plexGeoip.js';
 import {
+  fetchRecentSessionsForIdentity,
   setContextAssemblyDeps,
   toRuleSession,
 } from '../../services/rules/events/contextAssembly.js';
@@ -48,7 +49,6 @@ import {
   batchGetRecentUserSessions,
   getActiveRulesV2,
   getCachedServers,
-  mergeRecentSessionsForIdentity,
   widenRecentSessionsForMergedIdentities,
 } from './database.js';
 import {
@@ -278,29 +278,6 @@ async function sendGracePeriodStopNotification(
 }
 
 /**
- * Fetch recent sessions for windowed rule evaluation, widened to every
- * server_user id of the same identity when merged. Mirrors sseProcessor's
- * fetchRecentSessionsForRules so both confirm paths see identical history.
- */
-async function fetchRecentSessionsForRules(
-  serverUserId: string,
-  identityServerUserIds: string[]
-): Promise<Session[]> {
-  const ids = identityServerUserIds.length > 1 ? identityServerUserIds : [serverUserId];
-  try {
-    const recentSessionsMap = await batchGetRecentUserSessions(ids);
-    return mergeRecentSessionsForIdentity(recentSessionsMap, ids);
-  } catch (error) {
-    console.error(
-      `[Poller] Failed to fetch recent sessions for ${serverUserId}, falling back to this server only:`,
-      error
-    );
-    const fallbackMap = await batchGetRecentUserSessions([serverUserId]);
-    return fallbackMap.get(serverUserId) ?? [];
-  }
-}
-
-/**
  * Lazily backfill recentSessionsMap for a server user absent from the
  * new-session batch (e.g. a pending session confirming on a later tick, so
  * its key already reads as "not new"). Writes back into the map so repeat
@@ -378,7 +355,7 @@ async function resolveVanishedPendingSession(
         await cache.getAllActiveSessions(),
         gracePeriodSessionIds()
       );
-      const recentSessions = await fetchRecentSessionsForRules(
+      const recentSessions = await fetchRecentSessionsForIdentity(
         stillPending.serverUser.id,
         stillPending.serverUser.identityServerUserIds
       );

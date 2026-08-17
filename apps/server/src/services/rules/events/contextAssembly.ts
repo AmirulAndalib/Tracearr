@@ -147,20 +147,31 @@ export async function assembleEvaluationInputs(args: {
     identityServerUserIds = [serverUser.id];
   }
 
-  const windowHours = maxWindowHoursFromRules(rules);
-  const ids = identityServerUserIds.length > 1 ? identityServerUserIds : [serverUser.id];
-  let recentSessions: Session[];
-  try {
-    const recentMap = await batchGetRecentUserSessions(ids, windowHours);
-    recentSessions = mergeRecentSessionsForIdentity(recentMap, ids);
-  } catch (error) {
-    rulesLogger.error('Failed to fetch recent sessions, falling back to this server only', {
-      serverUserId: serverUser.id,
-      error,
-    });
-    const fallback = await batchGetRecentUserSessions([serverUser.id], windowHours);
-    recentSessions = fallback.get(serverUser.id) ?? [];
-  }
+  const recentSessions = await fetchRecentSessionsForIdentity(
+    serverUser.id,
+    identityServerUserIds,
+    maxWindowHoursFromRules(rules)
+  );
 
   return { activeRulesV2: rules, activeSessions, recentSessions, identityServerUserIds };
+}
+
+/** History for windowed rules across every server_user of the identity; a failed wide read falls back to this server alone. */
+export async function fetchRecentSessionsForIdentity(
+  serverUserId: string,
+  identityServerUserIds: string[],
+  windowHours?: number
+): Promise<Session[]> {
+  const ids = identityServerUserIds.length > 1 ? identityServerUserIds : [serverUserId];
+  try {
+    const recentMap = await batchGetRecentUserSessions(ids, windowHours);
+    return mergeRecentSessionsForIdentity(recentMap, ids);
+  } catch (error) {
+    rulesLogger.error('Failed to fetch recent sessions, falling back to this server only', {
+      serverUserId,
+      error,
+    });
+    const fallback = await batchGetRecentUserSessions([serverUserId], windowHours);
+    return fallback.get(serverUserId) ?? [];
+  }
 }
