@@ -24,18 +24,10 @@ import {
 } from '../services/notifications/destinationStore.js';
 import { getDestinationType } from '../services/notifications/destinations/registry.js';
 import { assertSafeProbeUrl } from '../utils/ssrf.js';
+import { firstIssueMessage } from '../utils/zod.js';
 
 const DELIVER_TEST_TIMEOUT_MS = 10_000;
 const REENCRYPT_MESSAGE = "Re-enter this destination's secret first";
-
-// safeParse errors serialize as a JSON issue array; surface the first issue
-// as a sentence the destination editor can show directly.
-function firstIssueMessage(error: { issues: { path: PropertyKey[]; message: string }[] }): string {
-  const issue = error.issues[0];
-  if (!issue) return 'validation failed';
-  const path = issue.path.join('.');
-  return path ? `${path}: ${issue.message}` : issue.message;
-}
 
 function firstDisallowedEvent(
   kind: DestinationKind,

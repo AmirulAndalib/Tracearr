@@ -29,6 +29,8 @@ import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
 import { hasInactivityCondition } from '../services/rules/engine.js';
 import { needsMigration, convertLegacyRule, migrateRules } from '../services/rules/migration.js';
+import { listDestinations } from '../services/notifications/destinationStore.js';
+import { firstIssueMessage } from '../utils/zod.js';
 
 /**
  * Batch resolve the server ids each given identity has an account on, so
@@ -61,13 +63,15 @@ function hasIdentityAccess(authUser: AuthUser, identityServerIds: string[] | und
   return (identityServerIds ?? []).some((serverId) => hasServerAccess(authUser, serverId));
 }
 
-// safeParse errors serialize as a JSON issue array; surface the first issue
-// as a sentence the rule editor can show directly.
-function firstIssueMessage(error: { issues: { path: PropertyKey[]; message: string }[] }): string {
-  const issue = error.issues[0];
-  if (!issue) return 'validation failed';
-  const path = issue.path.join('.');
-  return path ? `${path}: ${issue.message}` : issue.message;
+// A send action stores destination ids; one naming a row that doesn't exist
+// would fail silently at rule-match time, so reject it at save.
+async function unknownDestinationIds(actions: RuleActions | undefined): Promise<string[]> {
+  const sendIds = [
+    ...new Set(actions?.actions.flatMap((a) => (a.type === 'send' ? a.to : [])) ?? []),
+  ];
+  if (sendIds.length === 0) return [];
+  const known = new Set((await listDestinations()).map((d) => d.id));
+  return sendIds.filter((id) => !known.has(id));
 }
 
 export const ruleRoutes: FastifyPluginAsync = async (app) => {
@@ -287,6 +291,11 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
       if (!identityRows[0]) {
         return reply.notFound('User not found');
       }
+    }
+
+    const missingDestinations = await unknownDestinationIds(actions);
+    if (missingDestinations.length > 0) {
+      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
     }
 
     // Create rule with V2 format
@@ -572,6 +581,11 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
       })
     ) {
       return reply.badRequest(RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE);
+    }
+
+    const missingDestinations = await unknownDestinationIds(body.data.actions);
+    if (missingDestinations.length > 0) {
+      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
     }
 
     // Build update object

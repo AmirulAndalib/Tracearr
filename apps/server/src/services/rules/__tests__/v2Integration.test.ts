@@ -1,17 +1,16 @@
 /**
- * V2 Integration Tests - Notification Payload
+ * V2 Integration Tests - Rule notification dependency
  *
- * The notify executor passes the triggering account in params.data. The
- * violation-like payload built here must carry those values through to the
- * queue: the dedupe key reads payload.serverUserId and payload.rule.id, and
- * formatters read payload.user. A payload built from defaults collapses every
- * rule notification into one dedupe bucket attributed to "System".
+ * The send executor already built the event; this dep only resolves the
+ * destination ids and reports how many jobs landed, so a rule whose
+ * destinations are all disabled can be logged as such.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Redis } from 'ioredis';
+import type { NotificationEvent } from '../../notifications/events.js';
 
 const { mockEnqueueNotification } = vi.hoisted(() => ({
-  mockEnqueueNotification: vi.fn().mockResolvedValue('job-1'),
+  mockEnqueueNotification: vi.fn().mockResolvedValue(2),
 }));
 
 vi.mock('../../../jobs/notificationQueue.js', () => ({
@@ -30,43 +29,47 @@ vi.mock('../../userService.js', () => ({
 
 import { createActionExecutorDeps } from '../v2Integration.js';
 
-describe('createActionExecutorDeps - sendNotification', () => {
+const event: NotificationEvent = {
+  type: 'violation',
+  payload: {
+    id: 'v1',
+    ruleId: 'rule-1',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    severity: 'warning',
+    createdAt: new Date('2026-08-17T00:00:00.000Z'),
+    acknowledgedAt: null,
+    data: { ruleId: 'rule-1', serverUserId: 'su-1' },
+    rule: { id: 'rule-1', name: 'Sharing', type: null },
+    session: undefined,
+    user: {
+      id: 'su-1',
+      username: 'alice',
+      identityName: 'Alice',
+      thumbUrl: null,
+      serverId: 'srv-1',
+    },
+  },
+};
+
+describe('createActionExecutorDeps - enqueueRuleNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('carries the triggering account and rule into the violation payload', async () => {
+  it('hands the event straight to the queue with the destination ids and the rule source', async () => {
     const deps = createActionExecutorDeps({} as unknown as Redis);
 
-    await deps.sendNotification({
-      channels: ['discord', 'push'],
+    const count = await deps.enqueueRuleNotification({
+      to: ['d1', 'd2'],
       title: 'Rule Triggered: Sharing',
       message: 'User "alice" triggered rule "Sharing"',
-      data: {
-        ruleId: 'rule-1',
-        sessionId: 'sess-1',
-        serverUserId: 'su-1',
-        username: 'alice',
-        displayName: 'Alice',
-        serverId: 'srv-1',
-      },
+      event,
     });
 
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    const arg = mockEnqueueNotification.mock.calls[0]![0];
-    expect(arg.type).toBe('violation');
-    expect(arg.payload.serverUserId).toBe('su-1');
-    expect(arg.payload.sessionId).toBe('sess-1');
-    expect(arg.payload.rule.id).toBe('rule-1');
-    expect(arg.payload.rule.type).toBeNull();
-    expect(arg.payload.user).toMatchObject({
-      id: 'su-1',
-      username: 'alice',
-      identityName: 'Alice',
-    });
-    expect(arg.payload.data).toMatchObject({ ruleId: 'rule-1', serverUserId: 'su-1' });
-    expect(mockEnqueueNotification.mock.calls[0]?.[1]).toEqual({
-      to: [],
+    expect(count).toBe(2);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(event, {
+      to: ['d1', 'd2'],
       source: {
         kind: 'rule',
         title: 'Rule Triggered: Sharing',
@@ -75,18 +78,17 @@ describe('createActionExecutorDeps - sendNotification', () => {
     });
   });
 
-  it('falls back to safe defaults when data is missing', async () => {
+  it('returns the queue count when nothing was enqueued', async () => {
+    mockEnqueueNotification.mockResolvedValueOnce(0);
     const deps = createActionExecutorDeps({} as unknown as Redis);
 
-    await deps.sendNotification({
-      channels: ['webhook'],
+    const count = await deps.enqueueRuleNotification({
+      to: ['d1'],
       title: 'Rule Triggered: Orphan',
-      message: 'no data',
+      message: 'no destination',
+      event,
     });
 
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    const arg = mockEnqueueNotification.mock.calls[0]![0];
-    expect(arg.payload.serverUserId).toBe('');
-    expect(arg.payload.user.username).toBe('System');
+    expect(count).toBe(0);
   });
 });

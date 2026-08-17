@@ -78,58 +78,20 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
     },
 
     /**
-     * Send notification via the notification queue.
+     * Fan the rule's event out to its destinations.
      * Uses dynamic import to avoid circular dependency.
      */
-    sendNotification: async (params) => {
-      // Dynamic import to avoid circular dependencies
+    enqueueRuleNotification: async ({ to, title, message, event }) => {
       const { enqueueNotification } = await import('../../jobs/notificationQueue.js');
 
-      rulesLogger.debug(`Sending notification to channels: ${params.channels.join(', ')}`, {
-        title: params.title,
-        message: params.message,
+      const count = await enqueueNotification(event, {
+        to,
+        source: { kind: 'rule', title, message },
       });
-
-      // serverUserId and rule.id feed the queue's dedupe key; user feeds the
-      // channel formatters. All three must carry real values or every rule
-      // notification collapses into one dedupe bucket attributed to "System".
-      const serverUserId = (params.data?.serverUserId as string) ?? '';
-      const username = (params.data?.username as string) ?? 'System';
-      const displayName = (params.data?.displayName as string) ?? username;
-
-      const enqueued = await enqueueNotification(
-        {
-          type: 'violation',
-          payload: {
-            id: `rule-notify-${Date.now()}`,
-            serverUserId,
-            sessionId: (params.data?.sessionId as string) ?? null,
-            severity: 'info',
-            createdAt: new Date().toISOString(),
-            resolvedAt: null,
-            data: { ...params.data },
-            rule: {
-              id: (params.data?.ruleId as string) ?? '',
-              name: params.title,
-              type: null,
-            },
-            session: null,
-            user: {
-              id: serverUserId,
-              username,
-              identityName: displayName,
-              thumbUrl: (params.data?.userThumbUrl as string | null) ?? null,
-              serverId: (params.data?.serverId as string) ?? '',
-            },
-          } as any,
-        },
-        { to: [], source: { kind: 'rule', title: params.title, message: params.message } }
-      );
-
-      rulesLogger.info(`Notification enqueued: ${params.title}`, {
-        channels: params.channels,
-        enqueued,
-      });
+      if (count > 0) {
+        rulesLogger.info(`Notification enqueued: ${title}`, { to, count });
+      }
+      return count;
     },
 
     /**
