@@ -811,7 +811,6 @@ async function initializeServices(app: FastifyInstance) {
   // Unwrapped on purpose: a half-applied migration must reach the boot recovery loop, not leave
   // rules pointing at destinations that were never inserted.
   await runDestinationsMigration();
-  app.log.info('Destinations migration applied');
 
   try {
     await sweepDestinationConfigs();

@@ -57,7 +57,7 @@ export interface RoutingRow {
   webToastEnabled: boolean;
 }
 
-/** Rules stored before the cutover still hold `notify`, which the shared Action union no longer has. */
+/** Rules written before the cutover hold `notify`, which the shared Action union does not include. */
 interface LegacyNotifyAction {
   type: 'notify';
   channels: string[];
@@ -237,7 +237,11 @@ function mapRoutingRow(row: Record<string, unknown>): RoutingRow {
   };
 }
 
-/** Fresh built-ins start on the routing fallback (everything but stream start/stop); a bare ON CONFLICT DO NOTHING covers both unique indexes, so re-runs never touch existing rows. */
+/**
+ * Seeded events (everything but stream start/stop) only stick when no routing table exists, e.g.
+ * after a factory reset; upgrades and fresh installs inherit the routing rows' toggles instead.
+ * A bare ON CONFLICT DO NOTHING covers both unique indexes, so re-runs never touch existing rows.
+ */
 export async function seedBuiltinDestinations(
   executor: Executor = db
 ): Promise<{ pushId: string; webToastId: string; inserted: number }> {

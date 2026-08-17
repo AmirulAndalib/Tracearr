@@ -374,7 +374,7 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
       WHERE relname IN (
         'sessions', 'users', 'servers', 'server_users', 'rules', 'violations',
         'termination_logs', 'plex_accounts', 'settings',
-        'notification_preferences', 'notification_channel_routing',
+        'notification_preferences', 'destinations',
         'mobile_sessions', 'mobile_tokens',
         'library_items', 'library_item_versions', 'library_snapshots'
       )
