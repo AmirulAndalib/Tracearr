@@ -784,7 +784,11 @@ export class SSEManager extends EventEmitter {
       }
 
       for (const server of allServers) {
-        if (!connectedServerIds.has(server.id)) {
+        // A connection keeps the url and token it was built with, so matching
+        // on id alone strands a rotated token here forever. Also the only
+        // convergence path when a follower served the write.
+        const connection = this.connections.get(server.id);
+        if (connection?.token !== server.token || connection.url !== server.url) {
           await this.addServer(server.id, server.name, server.type, server.url, server.token);
         }
       }

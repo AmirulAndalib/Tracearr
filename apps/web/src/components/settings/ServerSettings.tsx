@@ -430,7 +430,12 @@ export function ServerSettings() {
             <CardDescription>{t('pages:settings.plex.linkedAccountsDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <PlexAccountsManager onAccountLinked={() => void fetchPlexServers()} />
+            <PlexAccountsManager
+              onAccountLinked={(accountId) => {
+                setSelectedPlexAccountId(accountId);
+                void fetchPlexServers(accountId);
+              }}
+            />
           </CardContent>
         </Card>
       )}
