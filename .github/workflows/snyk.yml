@@ -1,15 +1,28 @@
 name: Snyk Security Scan
-on: push
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   snyk:
+    name: Snyk
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-      
-      # Use the action matching your language (node, python, go, and so on)
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # --all-projects is required: snyk won't pick between pnpm-lock.yaml and
+      # pnpm-workspace.yaml on its own, it scans every workspace package instead.
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=high
+          args: --all-projects --severity-threshold=high
