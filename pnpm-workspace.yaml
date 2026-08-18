@@ -37,11 +37,10 @@ allowBuilds:
   tree-sitter-json: false
   vue-demi: false
 minimumReleaseAgeExclude:
-  - '@fastify/swagger@9.8.1'
-  - '@turbo/darwin-64@2.10.5 || 2.10.11'
-  - '@turbo/darwin-arm64@2.10.5 || 2.10.11'
-  - '@turbo/linux-64@2.10.5 || 2.10.11'
-  - '@turbo/linux-arm64@2.10.5 || 2.10.11'
-  - '@turbo/windows-64@2.10.5 || 2.10.11'
-  - '@turbo/windows-arm64@2.10.5 || 2.10.11'
-  - turbo@2.10.5 || 2.10.11
+  - '@turbo/darwin-64@2.10.11'
+  - '@turbo/darwin-arm64@2.10.11'
+  - '@turbo/linux-64@2.10.11'
+  - '@turbo/linux-arm64@2.10.11'
+  - '@turbo/windows-64@2.10.11'
+  - '@turbo/windows-arm64@2.10.11'
+  - turbo@2.10.11
