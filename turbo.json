@@ -4,8 +4,7 @@
     "tsconfig.base.json",
     "tsconfig.eslint.json",
     "eslint.config.js",
-    ".prettierrc",
-    "pnpm-workspace.yaml"
+    ".prettierrc"
   ],
   "tasks": {
     "build": {
