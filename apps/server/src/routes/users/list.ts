@@ -480,7 +480,7 @@ export const listRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('ids array or selectAll is required');
     }
 
-    let seedIds: string[] = [];
+    let seedIds: string[];
 
     if (body.selectAll) {
       // Same filters as GET / (serverIds, includeRemoved), resolved against

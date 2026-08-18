@@ -142,7 +142,7 @@ export function PlaysChart({
           shared: true,
           formatter: function () {
             const date = new Date(this.x);
-            let dateStr = 'Unknown';
+            let dateStr: string;
 
             if (period === 'all') {
               dateStr = `Week of ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
@@ -227,7 +227,7 @@ export function PlaysChart({
         ...tooltipBase,
         formatter: function () {
           const date = new Date(this.x);
-          let dateStr = 'Unknown';
+          let dateStr: string;
 
           if (period === 'all') {
             dateStr = `Week of ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;

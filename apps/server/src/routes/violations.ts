@@ -475,7 +475,7 @@ async function enrichViolations(violationData: ViolationRow[]) {
     // This is more accurate than time-based queries
     const relatedSessionIdsFromData = (v.data?.relatedSessionIds as string[] | undefined) ?? [];
 
-    let relatedSessions: ViolationSessionInfo[] = [];
+    let relatedSessions: ViolationSessionInfo[];
     if (relatedSessionIdsFromData.length > 0) {
       // Use the stored relatedSessionIds for direct lookup (preferred)
       relatedSessions = relatedSessionIdsFromData

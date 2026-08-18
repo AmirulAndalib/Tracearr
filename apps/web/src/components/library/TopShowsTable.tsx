@@ -54,6 +54,19 @@ function getCompletionBadge(rate: number) {
  * Server-side sortable by episode views, watch hours, viewers, completion rate, and binge score.
  * In multi-server mode renders per-title color dots for each server that owns the show.
  */
+function SortIcon({
+  field,
+  sortBy,
+  sortOrder,
+}: {
+  field: ShowSortBy;
+  sortBy: ShowSortBy;
+  sortOrder: SortOrder;
+}) {
+  if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+  return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+}
+
 export function TopShowsTable({
   data,
   isLoading,
@@ -72,15 +85,6 @@ export function TopShowsTable({
       // Default sort direction: desc for metrics
       onSortChange(field, 'desc');
     }
-  };
-
-  const SortIcon = ({ field }: { field: ShowSortBy }) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-    return sortOrder === 'asc' ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
-    );
   };
 
   if (isLoading) {
@@ -115,7 +119,7 @@ export function TopShowsTable({
                 onClick={() => handleSort('plays')}
               >
                 Episodes
-                <SortIcon field="plays" />
+                <SortIcon field="plays" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>
@@ -124,7 +128,7 @@ export function TopShowsTable({
                 onClick={() => handleSort('watch_hours')}
               >
                 Watch Hours
-                <SortIcon field="watch_hours" />
+                <SortIcon field="watch_hours" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>
@@ -133,7 +137,7 @@ export function TopShowsTable({
                 onClick={() => handleSort('viewers')}
               >
                 Viewers
-                <SortIcon field="viewers" />
+                <SortIcon field="viewers" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>
@@ -142,7 +146,7 @@ export function TopShowsTable({
                 onClick={() => handleSort('completion_rate')}
               >
                 Completion
-                <SortIcon field="completion_rate" />
+                <SortIcon field="completion_rate" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>
@@ -151,7 +155,7 @@ export function TopShowsTable({
                 onClick={() => handleSort('binge_score')}
               >
                 Binge Score
-                <SortIcon field="binge_score" />
+                <SortIcon field="binge_score" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
           </TableRow>

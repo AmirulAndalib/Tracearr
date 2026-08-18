@@ -75,6 +75,19 @@ interface RoiTableProps {
  * Table component for displaying ROI (Return on Investment) analysis.
  * Server-side sortable by watch hours, file size, hours per GB, and title.
  */
+function SortIcon({
+  field,
+  sortBy,
+  sortOrder,
+}: {
+  field: SortBy;
+  sortBy: SortBy;
+  sortOrder: SortOrder;
+}) {
+  if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
+  return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+}
+
 export function RoiTable({
   data,
   isLoading,
@@ -97,15 +110,6 @@ export function RoiTable({
       // Default sort direction: title asc, others asc (low value first)
       onSortChange(field, field === 'title' ? 'asc' : 'asc');
     }
-  };
-
-  const SortIcon = ({ field }: { field: SortBy }) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-    return sortOrder === 'asc' ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
-    );
   };
 
   const filterSelect = (
@@ -163,7 +167,7 @@ export function RoiTable({
                 onClick={() => handleSort('title')}
               >
                 Title
-                <SortIcon field="title" />
+                <SortIcon field="title" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             {isMultiServer && <TableHead>Server</TableHead>}
@@ -173,7 +177,7 @@ export function RoiTable({
                 onClick={() => handleSort('file_size')}
               >
                 Size
-                <SortIcon field="file_size" />
+                <SortIcon field="file_size" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>Watch Hours</TableHead>
@@ -183,7 +187,7 @@ export function RoiTable({
                 onClick={() => handleSort('watch_hours_per_gb')}
               >
                 Hours/GB
-                <SortIcon field="watch_hours_per_gb" />
+                <SortIcon field="watch_hours_per_gb" sortBy={sortBy} sortOrder={sortOrder} />
               </button>
             </TableHead>
             <TableHead>Value</TableHead>

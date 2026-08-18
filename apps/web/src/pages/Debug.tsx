@@ -976,17 +976,17 @@ export function Debug() {
             </CardHeader>
             <CardContent className="text-muted-foreground space-y-2 text-sm">
               <p>
-                Library snapshots are point-in-time records of your library's state. They power the
-                Storage Trend and Quality Evolution charts.
+                Library snapshots are point-in-time records of your library&apos;s state. They power
+                the Storage Trend and Quality Evolution charts.
               </p>
               <p>
                 <strong className="text-foreground">Suspicious snapshots</strong> have 0 bytes total
                 size but contain video content - this usually indicates an incomplete sync where
-                episodes/tracks weren't fetched properly.
+                episodes/tracks weren&apos;t fetched properly.
               </p>
               <p>
                 Deleting bad snapshots allows the backfill job to recreate them correctly from your
-                library items' created_at dates.
+                library items&apos; created_at dates.
               </p>
             </CardContent>
           </Card>

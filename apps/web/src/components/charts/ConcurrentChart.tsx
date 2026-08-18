@@ -128,7 +128,7 @@ export function ConcurrentChart({
           const points = this.points || [];
           const date = new Date(this.x);
 
-          let dateStr = 'Unknown';
+          let dateStr: string;
           if (period === 'all') {
             dateStr = `Week of ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
           } else if (period === 'year' || period === 'month') {
