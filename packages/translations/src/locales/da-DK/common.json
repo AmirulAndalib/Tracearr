@@ -90,6 +90,13 @@
     "warning": "Advarsel",
     "high": "Høj"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Nu",
     "today": "Idag",
@@ -304,5 +311,11 @@
     "unsavedChanges": "Du har ugemte ændringer. Er du sikker på, at du vil forlade?"
   },
   "beta": "beta",
-  "or": "eller"
+  "or": "eller",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

@@ -90,6 +90,13 @@
     "warning": "警告",
     "high": "高"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "当前",
     "today": "今天",
@@ -304,5 +311,11 @@
     "unsavedChanges": "有尚未保存的更改，确定要离开吗？"
   },
   "beta": "测试版",
-  "or": "或者"
+  "or": "或者",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

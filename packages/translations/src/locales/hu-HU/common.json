@@ -90,6 +90,13 @@
     "warning": "Figyelmeztetés",
     "high": "Magas"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Most",
     "today": "Ma",
@@ -304,5 +311,11 @@
     "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?"
   },
   "beta": "beta",
-  "or": "or"
+  "or": "or",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

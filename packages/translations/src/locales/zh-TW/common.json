@@ -90,6 +90,13 @@
     "warning": "警告",
     "high": "高"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "現在",
     "today": "今天",
@@ -304,5 +311,11 @@
     "unsavedChanges": "你有尚未儲存的變更，確定要離開嗎？"
   },
   "beta": "測試版",
-  "or": "或者"
+  "or": "或者",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

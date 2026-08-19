@@ -90,6 +90,13 @@
     "warning": "Предупреждение",
     "high": "Высокий"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Сейчас",
     "today": "Сегодня",
@@ -304,5 +311,11 @@
     "unsavedChanges": "У вас есть несохраненные изменения. Вы уверены, что хотите выйти?"
   },
   "beta": "бета",
-  "or": "или"
+  "or": "или",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

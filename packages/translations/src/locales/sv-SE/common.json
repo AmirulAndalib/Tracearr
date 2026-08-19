@@ -90,6 +90,13 @@
     "warning": "Varning",
     "high": "Hög"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Nu",
     "today": "Idag",
@@ -304,5 +311,11 @@
     "unsavedChanges": "Du har osparade ändringar. Är du säker på att du vill lämna?"
   },
   "beta": "beta",
-  "or": "eller"
+  "or": "eller",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

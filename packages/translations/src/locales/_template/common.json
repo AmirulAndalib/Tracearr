@@ -90,6 +90,13 @@
     "warning": "Warning",
     "high": "High"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Now",
     "today": "Today",

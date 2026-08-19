@@ -90,6 +90,13 @@
     "warning": "Varování",
     "high": "Vysoká"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Nyní",
     "today": "Dnes",
@@ -304,5 +311,11 @@
     "unsavedChanges": "Máte neuložené změny. Jste si jisti, že chcete odejít?"
   },
   "beta": "beta",
-  "or": "nebo"
+  "or": "nebo",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

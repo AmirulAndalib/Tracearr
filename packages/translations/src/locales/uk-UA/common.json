@@ -90,6 +90,13 @@
     "warning": "Попередження",
     "high": "Висока"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Зараз",
     "today": "Сьогодні",
@@ -304,5 +311,11 @@
     "unsavedChanges": "У вас є незбережені зміни. Ви впевнені, що хочете вийти?"
   },
   "beta": "бета",
-  "or": "або"
+  "or": "або",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

@@ -41,6 +41,26 @@ if (typeof Element.prototype.releasePointerCapture === 'undefined') {
   };
 }
 
+// jsdom has no media-query engine; the sidebar's useIsMobile hook calls this
+// on mount, so anything rendering a Sidebar throws without it.
+const noop = () => {
+  // no-op: nothing subscribes to media-query changes under test
+};
+
+if (typeof window.matchMedia === 'undefined') {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: noop,
+      removeListener: noop,
+      addEventListener: noop,
+      removeEventListener: noop,
+      dispatchEvent: () => false,
+    }) as MediaQueryList;
+}
+
 afterEach(() => {
   cleanup();
 });

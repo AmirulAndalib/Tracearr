@@ -90,6 +90,13 @@
     "warning": "警告",
     "high": "高い"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "現在",
     "today": "今日",
@@ -304,5 +311,11 @@
     "unsavedChanges": "保存されていない変更があります。本当に退出しますか？"
   },
   "beta": "ベータ",
-  "or": "または"
+  "or": "または",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

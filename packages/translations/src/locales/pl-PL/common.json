@@ -90,6 +90,13 @@
     "warning": "Ostrzeżenie",
     "high": "Wysoki"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Teraz",
     "today": "Dzisiaj",
@@ -304,5 +311,11 @@
     "unsavedChanges": "Masz niezapisane zmiany. Czy na pewno chcesz wyjść?"
   },
   "beta": "beta",
-  "or": "lub"
+  "or": "lub",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

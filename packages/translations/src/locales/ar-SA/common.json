@@ -90,6 +90,13 @@
     "warning": "تحذير",
     "high": "مرتفع"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "الآن",
     "today": "اليوم",
@@ -304,5 +311,11 @@
     "unsavedChanges": "لديك تغييرات غير محفوظة. هل أنت متأكد من أنك تريد المغادرة؟"
   },
   "beta": "بيتا",
-  "or": "أو"
+  "or": "أو",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }

@@ -90,6 +90,13 @@
     "warning": "Προειδοποίηση",
     "high": "Υψηλή"
   },
+  "tasks": {
+    "title": "Running Tasks",
+    "running": "Running",
+    "waiting": "Waiting",
+    "queued": "Queued",
+    "startedAgo": "Started {{time}}"
+  },
   "time": {
     "now": "Τώρα",
     "today": "Σήμερα",
@@ -304,5 +311,11 @@
     "unsavedChanges": "Έχετε μη αποθηκευμένες αλλαγές. Είστε σίγουροι ότι θέλετε να φύγετε?"
   },
   "beta": "βήτα",
-  "or": "ή"
+  "or": "ή",
+  "serverSelector": {
+    "all": "All servers",
+    "some": "{{count}} of {{total}} servers",
+    "search": "Search servers...",
+    "noMatches": "No servers found"
+  }
 }
