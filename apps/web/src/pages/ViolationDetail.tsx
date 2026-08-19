@@ -179,7 +179,7 @@ function EvidenceGroupCard({
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent>
         <div className="divide-y">
           {group.conditions.map((condition, idx) => (
             <ConditionEvidenceRow
@@ -365,7 +365,7 @@ export function ViolationDetail() {
       <div className="space-y-6">
         <Link to="/violations">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft />
             {t('common:actions.back')}
           </Button>
         </Link>
@@ -412,7 +412,7 @@ export function ViolationDetail() {
         <div className="flex items-center gap-4">
           <Link to="/violations">
             <Button variant="ghost" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft />
               {t('common:actions.back')}
             </Button>
           </Link>
@@ -432,14 +432,14 @@ export function ViolationDetail() {
         <div className="flex items-center gap-2">
           {isPending && (
             <Button onClick={handleAcknowledge} disabled={acknowledgeViolation.isPending}>
-              <Check className="mr-2 h-4 w-4" />
+              <Check />
               {acknowledgeViolation.isPending
                 ? t('common:states.acknowledging')
                 : t('common:actions.acknowledge')}
             </Button>
           )}
           <Button variant="destructive" onClick={() => setDismissConfirmOpen(true)}>
-            <X className="mr-2 h-4 w-4" />
+            <X />
             {t('common:actions.dismiss')}
           </Button>
         </div>

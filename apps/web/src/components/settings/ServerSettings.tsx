@@ -369,7 +369,7 @@ export function ServerSettings() {
               setShowAddDialog(true);
             }}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus />
             {t('servers.addServer')}
           </Button>
         </CardHeader>
@@ -711,7 +711,7 @@ export function ServerSettings() {
               <Button onClick={handleAddServer} disabled={isConnecting}>
                 {isConnecting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="animate-spin" />
                     {t('servers.connecting')}
                   </>
                 ) : (
@@ -994,7 +994,7 @@ function EditServerDialog({
           <Button onClick={handleSave} disabled={isUpdating || !canSave}>
             {isUpdating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="animate-spin" />
                 {t('servers.updating')}
               </>
             ) : (
@@ -1291,7 +1291,7 @@ function SortableServerCard({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onSync} disabled={isSyncing}>
-            <RefreshCw className={cn('mr-1 h-4 w-4', isSyncing && 'animate-spin')} />
+            <RefreshCw className={cn(isSyncing && 'animate-spin')} />
             {t('common:actions.sync')}
           </Button>
           <Button variant="ghost" size="sm" onClick={onDelete}>

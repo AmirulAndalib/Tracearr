@@ -695,7 +695,7 @@ export function Debug() {
                   }
                   disabled={deleteMutation.isPending}
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                  <RefreshCw />
                   {t('debug.refreshAggregates')}
                 </Button>
                 <Button
@@ -705,7 +705,7 @@ export function Debug() {
                   }
                   disabled={deleteMutation.isPending}
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                  <RotateCcw />
                   {t('debug.clearStuckJobs')}
                 </Button>
                 <Button
@@ -724,7 +724,7 @@ export function Debug() {
                   {t('debug.obliterateAllJobs')}
                 </Button>
                 <Button variant="outline" onClick={() => queryClient.invalidateQueries()}>
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                  <RotateCcw />
                   {t('debug.clearQueryCache')}
                 </Button>
                 <Button
@@ -1021,7 +1021,7 @@ export function Debug() {
                       onClick={handleLogsRefresh}
                       disabled={logFiles.isFetching || logEntries.isFetching}
                     >
-                      <RotateCcw className="mr-2 h-4 w-4" />
+                      <RotateCcw />
                       Refresh Logs
                     </Button>
                     <Button
@@ -1038,7 +1038,7 @@ export function Debug() {
                       onClick={handleDownloadLogs}
                       disabled={isDownloadingLogs}
                     >
-                      <Download className="mr-2 h-4 w-4" />
+                      <Download />
                       {isDownloadingLogs ? 'Downloading...' : 'Download All'}
                     </Button>
                   </div>

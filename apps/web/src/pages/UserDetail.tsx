@@ -414,7 +414,7 @@ export function UserDetail() {
         <Skeleton className="h-8 w-48" />
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               <div className="flex items-center gap-4">
                 <Skeleton className="h-16 w-16 rounded-full" />
                 <div className="space-y-2">
@@ -425,7 +425,7 @@ export function UserDetail() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="pt-6">
+            <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 {[...Array(4)].map((_, i) => (
                   <Skeleton key={i} className="h-16" />
@@ -443,7 +443,7 @@ export function UserDetail() {
       <div className="space-y-6">
         <Link to="/users">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft />
             {t('userDetail.backToUsers')}
           </Button>
         </Link>
@@ -467,7 +467,7 @@ export function UserDetail() {
       <div className="flex flex-wrap items-center gap-4">
         <Link to="/users">
           <Button variant="ghost" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft />
             {t('common:actions.back')}
           </Button>
         </Link>
@@ -729,7 +729,7 @@ export function UserDetail() {
                       onClick={() => setSplitTarget({ id: account.id, username: account.username })}
                       disabled={splitMutation.isPending}
                     >
-                      <Split className="mr-2 h-4 w-4" />
+                      <Split />
                       {t('pages:userDetail.splitAccount')}
                     </Button>
                   )}
