@@ -1,4 +1,4 @@
-import { Tv, ArrowUpDown, ArrowUp, ArrowDown, Zap } from 'lucide-react';
+import { Tv, Zap } from 'lucide-react';
 import type { TopShowsResponse } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +13,13 @@ import {
 } from '@/components/ui/table';
 import { ServerBadge } from '@/components/server';
 import { EmptyState } from '@/components/library';
+import {
+  SortableTableHead,
+  nextSortOrder,
+  type SortOrder,
+} from '@/components/ui/sortable-table-head';
 
 type ShowSortBy = 'plays' | 'watch_hours' | 'viewers' | 'completion_rate' | 'binge_score';
-type SortOrder = 'asc' | 'desc';
 
 interface TopShowsTableProps {
   data: TopShowsResponse | undefined;
@@ -54,19 +58,6 @@ function getCompletionBadge(rate: number) {
  * Server-side sortable by episode views, watch hours, viewers, completion rate, and binge score.
  * In multi-server mode renders per-title color dots for each server that owns the show.
  */
-function SortIcon({
-  field,
-  sortBy,
-  sortOrder,
-}: {
-  field: ShowSortBy;
-  sortBy: ShowSortBy;
-  sortOrder: SortOrder;
-}) {
-  if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-  return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
-}
-
 export function TopShowsTable({
   data,
   isLoading,
@@ -79,12 +70,7 @@ export function TopShowsTable({
   isMultiServer = false,
 }: TopShowsTableProps) {
   const handleSort = (field: ShowSortBy) => {
-    if (sortBy === field) {
-      onSortChange(field, sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Default sort direction: desc for metrics
-      onSortChange(field, 'desc');
-    }
+    onSortChange(field, nextSortOrder(field, sortBy, sortOrder, 'desc'));
   };
 
   if (isLoading) {
@@ -113,51 +99,46 @@ export function TopShowsTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[30%]">Show</TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('plays')}
-              >
-                Episodes
-                <SortIcon field="plays" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('watch_hours')}
-              >
-                Watch Hours
-                <SortIcon field="watch_hours" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('viewers')}
-              >
-                Viewers
-                <SortIcon field="viewers" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('completion_rate')}
-              >
-                Completion
-                <SortIcon field="completion_rate" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('binge_score')}
-              >
-                Binge Score
-                <SortIcon field="binge_score" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              field="plays"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Episodes
+            </SortableTableHead>
+            <SortableTableHead
+              field="watch_hours"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Watch Hours
+            </SortableTableHead>
+            <SortableTableHead
+              field="viewers"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Viewers
+            </SortableTableHead>
+            <SortableTableHead
+              field="completion_rate"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Completion
+            </SortableTableHead>
+            <SortableTableHead
+              field="binge_score"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Binge Score
+            </SortableTableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -1,4 +1,4 @@
-import { Film, Tv, Music, ArrowUpDown, ArrowUp, ArrowDown, BarChart } from 'lucide-react';
+import { Film, Tv, Music, BarChart } from 'lucide-react';
 import type { RoiResponse } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +21,13 @@ import {
 import { useServerColorMap } from '@/hooks/useServerColorMap';
 import { ServerColumnCell } from '@/components/server';
 import { ValueCategoryBadge, EmptyState } from '@/components/library';
+import {
+  SortableTableHead,
+  nextSortOrder,
+  type SortOrder,
+} from '@/components/ui/sortable-table-head';
 
 type SortBy = 'watch_hours_per_gb' | 'value_score' | 'file_size' | 'title';
-type SortOrder = 'asc' | 'desc';
 type MediaTypeFilter = 'all' | 'movie' | 'show' | 'artist';
 
 /**
@@ -75,19 +79,6 @@ interface RoiTableProps {
  * Table component for displaying ROI (Return on Investment) analysis.
  * Server-side sortable by watch hours, file size, hours per GB, and title.
  */
-function SortIcon({
-  field,
-  sortBy,
-  sortOrder,
-}: {
-  field: SortBy;
-  sortBy: SortBy;
-  sortOrder: SortOrder;
-}) {
-  if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-  return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
-}
-
 export function RoiTable({
   data,
   isLoading,
@@ -104,12 +95,7 @@ export function RoiTable({
   const colorMap = useServerColorMap();
 
   const handleSort = (field: SortBy) => {
-    if (sortBy === field) {
-      onSortChange(field, sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Default sort direction: title asc, others asc (low value first)
-      onSortChange(field, field === 'title' ? 'asc' : 'asc');
-    }
+    onSortChange(field, nextSortOrder(field, sortBy, sortOrder, 'asc'));
   };
 
   const filterSelect = (
@@ -161,35 +147,32 @@ export function RoiTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[60px]">Type</TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('title')}
-              >
-                Title
-                <SortIcon field="title" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              field="title"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Title
+            </SortableTableHead>
             {isMultiServer && <TableHead>Server</TableHead>}
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('file_size')}
-              >
-                Size
-                <SortIcon field="file_size" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              field="file_size"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Size
+            </SortableTableHead>
             <TableHead>Watch Hours</TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('watch_hours_per_gb')}
-              >
-                Hours/GB
-                <SortIcon field="watch_hours_per_gb" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              field="watch_hours_per_gb"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Hours/GB
+            </SortableTableHead>
             <TableHead>Value</TableHead>
           </TableRow>
         </TableHeader>

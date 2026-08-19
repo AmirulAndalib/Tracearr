@@ -1,4 +1,4 @@
-import { Film, ArrowUpDown, ArrowUp, ArrowDown, BarChart3 } from 'lucide-react';
+import { Film, BarChart3 } from 'lucide-react';
 import type { TopMoviesResponse } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -13,9 +13,13 @@ import {
 } from '@/components/ui/table';
 import { ServerBadge } from '@/components/server';
 import { EmptyState } from '@/components/library';
+import {
+  SortableTableHead,
+  nextSortOrder,
+  type SortOrder,
+} from '@/components/ui/sortable-table-head';
 
 type MovieSortBy = 'plays' | 'watch_hours' | 'viewers' | 'completion_rate';
-type SortOrder = 'asc' | 'desc';
 
 interface TopMoviesTableProps {
   data: TopMoviesResponse | undefined;
@@ -44,19 +48,6 @@ function getCompletionBadge(rate: number) {
  * Server-side sortable by plays, watch hours, viewers, and completion rate.
  * In multi-server mode renders per-title color dots for each server that owns the title.
  */
-function SortIcon({
-  field,
-  sortBy,
-  sortOrder,
-}: {
-  field: MovieSortBy;
-  sortBy: MovieSortBy;
-  sortOrder: SortOrder;
-}) {
-  if (sortBy !== field) return <ArrowUpDown className="h-4 w-4 opacity-50" />;
-  return sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
-}
-
 export function TopMoviesTable({
   data,
   isLoading,
@@ -69,12 +60,7 @@ export function TopMoviesTable({
   isMultiServer = false,
 }: TopMoviesTableProps) {
   const handleSort = (field: MovieSortBy) => {
-    if (sortBy === field) {
-      onSortChange(field, sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Default sort direction: desc for metrics
-      onSortChange(field, 'desc');
-    }
+    onSortChange(field, nextSortOrder(field, sortBy, sortOrder, 'desc'));
   };
 
   if (isLoading) {
@@ -103,42 +89,38 @@ export function TopMoviesTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[40%]">Title</TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('plays')}
-              >
-                Plays
-                <SortIcon field="plays" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('watch_hours')}
-              >
-                Watch Hours
-                <SortIcon field="watch_hours" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('viewers')}
-              >
-                Viewers
-                <SortIcon field="viewers" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
-            <TableHead>
-              <button
-                className="hover:text-foreground flex items-center gap-1"
-                onClick={() => handleSort('completion_rate')}
-              >
-                Completion
-                <SortIcon field="completion_rate" sortBy={sortBy} sortOrder={sortOrder} />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              field="plays"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Plays
+            </SortableTableHead>
+            <SortableTableHead
+              field="watch_hours"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Watch Hours
+            </SortableTableHead>
+            <SortableTableHead
+              field="viewers"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Viewers
+            </SortableTableHead>
+            <SortableTableHead
+              field="completion_rate"
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSort={handleSort}
+            >
+              Completion
+            </SortableTableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
