@@ -20,13 +20,11 @@ import {
   Cpu,
   Globe,
   Clock,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   Clapperboard,
 } from 'lucide-react';
 import { TableCell, TableHead, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -154,7 +152,8 @@ interface Props {
 
 // State icon component
 function StateIcon({ state }: { state: SessionState }) {
-  if (state === 'stopped') return null;
+  // keeps the date column aligned across playing and stopped rows
+  if (state === 'stopped') return <span className="size-4 shrink-0" aria-hidden="true" />;
 
   const config: Record<'playing' | 'paused', { icon: typeof Play; color: string; label: string }> =
     {
@@ -253,7 +252,7 @@ export const HistoryTableRow = memo(
         >
           {/* Selection checkbox */}
           {selectable && (
-            <TableCell className="w-10">
+            <TableCell className={COLUMN_WIDTHS.select}>
               <Checkbox
                 checked={isSelected}
                 onCheckedChange={onSelect}
@@ -265,7 +264,7 @@ export const HistoryTableRow = memo(
 
           {/* Date/Time with State */}
           {columnVisibility.date && (
-            <TableCell className="w-[140px]">
+            <TableCell className={COLUMN_WIDTHS.date}>
               <div className="flex items-center gap-2">
                 <StateIcon state={session.state} />
                 <div>
@@ -282,7 +281,7 @@ export const HistoryTableRow = memo(
 
           {/* User */}
           {columnVisibility.user && (
-            <TableCell className="w-[150px]">
+            <TableCell className={COLUMN_WIDTHS.user}>
               <Link
                 to={`/users/${session.serverUserId}`}
                 onClick={(e) => e.stopPropagation()}
@@ -314,7 +313,7 @@ export const HistoryTableRow = memo(
 
           {/* Content */}
           {columnVisibility.content && (
-            <TableCell className="max-w-[300px] min-w-[200px]">
+            <TableCell className={COLUMN_WIDTHS.content}>
               <div className="flex items-center gap-2">
                 <MediaTypeIcon type={session.mediaType} />
                 <div className="min-w-0 flex-1">
@@ -336,14 +335,14 @@ export const HistoryTableRow = memo(
 
           {/* Server - only rendered in multi-server mode */}
           {isMultiServer && columnVisibility.server && (
-            <TableCell className="w-[140px] max-w-[140px]">
+            <TableCell className={COLUMN_WIDTHS.server}>
               <ServerColumnCell server={session.server} />
             </TableCell>
           )}
 
           {/* Platform/Device */}
           {columnVisibility.platform && (
-            <TableCell className="w-[120px]">
+            <TableCell className={COLUMN_WIDTHS.platform}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
@@ -369,7 +368,7 @@ export const HistoryTableRow = memo(
 
           {/* Location */}
           {columnVisibility.location && (
-            <TableCell className="w-[130px]">
+            <TableCell className={COLUMN_WIDTHS.location}>
               {session.geoCity || session.geoCountry ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -403,7 +402,7 @@ export const HistoryTableRow = memo(
 
           {/* IP Address */}
           {columnVisibility.ip && (
-            <TableCell className="w-[120px]">
+            <TableCell className={COLUMN_WIDTHS.ip}>
               <span className="text-muted-foreground font-mono text-xs">
                 {session.ipAddress || '—'}
               </span>
@@ -412,7 +411,7 @@ export const HistoryTableRow = memo(
 
           {/* Quality */}
           {columnVisibility.quality && (
-            <TableCell className="w-[150px]">
+            <TableCell className={COLUMN_WIDTHS.quality}>
               {(() => {
                 const isHwTranscode =
                   session.isTranscode &&
@@ -441,7 +440,7 @@ export const HistoryTableRow = memo(
 
           {/* Duration */}
           {columnVisibility.duration && (
-            <TableCell className="w-[100px]">
+            <TableCell className={COLUMN_WIDTHS.duration}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-1.5">
@@ -478,7 +477,7 @@ export const HistoryTableRow = memo(
 
           {/* Progress */}
           {columnVisibility.progress && (
-            <TableCell className="w-[100px]">
+            <TableCell className={COLUMN_WIDTHS.progress}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex items-center gap-2">
@@ -513,7 +512,7 @@ function SkeletonRow({
   return (
     <TableRow style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}>
       {selectable && (
-        <TableCell className="w-10">
+        <TableCell className={COLUMN_WIDTHS.select}>
           <Skeleton className="h-4 w-4" />
         </TableCell>
       )}
@@ -590,6 +589,21 @@ function SkeletonRow({
 }
 
 // Count visible columns for empty state colspan
+const COLUMN_WIDTHS = {
+  select: 'w-10',
+  date: 'w-[140px]',
+  user: 'w-[150px]',
+  // an explicit share, or fixed layout hands this column every spare pixel
+  content: 'w-[26%]',
+  server: 'w-[150px]',
+  platform: 'w-[130px]',
+  location: 'w-[170px]',
+  ip: 'w-[130px]',
+  quality: 'w-[140px]',
+  duration: 'w-[100px]',
+  progress: 'w-[110px]',
+} as const;
+
 function getVisibleColumnCount(columnVisibility: ColumnVisibility, isMultiServer: boolean): number {
   return Object.entries(columnVisibility).filter(
     ([key, visible]) => visible && (key !== 'server' || isMultiServer)
@@ -597,34 +611,6 @@ function getVisibleColumnCount(columnVisibility: ColumnVisibility, isMultiServer
 }
 
 // Sortable header component
-function SortableHeader({
-  column,
-  label,
-  currentSortBy,
-  currentSortDir,
-  onSortChange,
-}: {
-  column: SortableColumn;
-  label: string;
-  currentSortBy?: SortableColumn;
-  currentSortDir?: SortDirection;
-  onSortChange?: (column: SortableColumn) => void;
-}) {
-  const isActive = currentSortBy === column;
-  const Icon = isActive ? (currentSortDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
-
-  return (
-    <button
-      type="button"
-      className="hover:text-foreground flex items-center gap-1 transition-colors"
-      onClick={() => onSortChange?.(column)}
-    >
-      {label}
-      <Icon className={cn('h-3.5 w-3.5', isActive ? 'opacity-100' : 'opacity-40')} />
-    </button>
-  );
-}
-
 export function HistoryTable({
   sessions,
   isLoading,
@@ -687,19 +673,33 @@ export function HistoryTable({
             style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}
           >
             <tr>
-              {selectable && <TableHead className="w-10" />}
-              {columnVisibility.date && <TableHead className="w-[140px]">Date</TableHead>}
-              {columnVisibility.user && <TableHead className="w-[150px]">User</TableHead>}
-              {columnVisibility.content && <TableHead className="min-w-[200px]">Content</TableHead>}
-              {isMultiServer && columnVisibility.server && (
-                <TableHead className="w-[140px]">Server</TableHead>
+              {selectable && <TableHead className={COLUMN_WIDTHS.select} />}
+              {columnVisibility.date && <TableHead className={COLUMN_WIDTHS.date}>Date</TableHead>}
+              {columnVisibility.user && <TableHead className={COLUMN_WIDTHS.user}>User</TableHead>}
+              {columnVisibility.content && (
+                <TableHead className={COLUMN_WIDTHS.content}>Content</TableHead>
               )}
-              {columnVisibility.platform && <TableHead className="w-[120px]">Platform</TableHead>}
-              {columnVisibility.location && <TableHead className="w-[130px]">Location</TableHead>}
-              {columnVisibility.ip && <TableHead className="w-[120px]">IP Address</TableHead>}
-              {columnVisibility.quality && <TableHead className="w-[150px]">Quality</TableHead>}
-              {columnVisibility.duration && <TableHead className="w-[100px]">Duration</TableHead>}
-              {columnVisibility.progress && <TableHead className="w-[100px]">Progress</TableHead>}
+              {isMultiServer && columnVisibility.server && (
+                <TableHead className={COLUMN_WIDTHS.server}>Server</TableHead>
+              )}
+              {columnVisibility.platform && (
+                <TableHead className={COLUMN_WIDTHS.platform}>Platform</TableHead>
+              )}
+              {columnVisibility.location && (
+                <TableHead className={COLUMN_WIDTHS.location}>Location</TableHead>
+              )}
+              {columnVisibility.ip && (
+                <TableHead className={COLUMN_WIDTHS.ip}>IP Address</TableHead>
+              )}
+              {columnVisibility.quality && (
+                <TableHead className={COLUMN_WIDTHS.quality}>Quality</TableHead>
+              )}
+              {columnVisibility.duration && (
+                <TableHead className={COLUMN_WIDTHS.duration}>Duration</TableHead>
+              )}
+              {columnVisibility.progress && (
+                <TableHead className={COLUMN_WIDTHS.progress}>Progress</TableHead>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -730,19 +730,33 @@ export function HistoryTable({
             style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}
           >
             <tr>
-              {selectable && <TableHead className="w-10" />}
-              {columnVisibility.date && <TableHead className="w-[140px]">Date</TableHead>}
-              {columnVisibility.user && <TableHead className="w-[150px]">User</TableHead>}
-              {columnVisibility.content && <TableHead className="min-w-[200px]">Content</TableHead>}
-              {isMultiServer && columnVisibility.server && (
-                <TableHead className="w-[140px]">Server</TableHead>
+              {selectable && <TableHead className={COLUMN_WIDTHS.select} />}
+              {columnVisibility.date && <TableHead className={COLUMN_WIDTHS.date}>Date</TableHead>}
+              {columnVisibility.user && <TableHead className={COLUMN_WIDTHS.user}>User</TableHead>}
+              {columnVisibility.content && (
+                <TableHead className={COLUMN_WIDTHS.content}>Content</TableHead>
               )}
-              {columnVisibility.platform && <TableHead className="w-[120px]">Platform</TableHead>}
-              {columnVisibility.location && <TableHead className="w-[130px]">Location</TableHead>}
-              {columnVisibility.ip && <TableHead className="w-[120px]">IP Address</TableHead>}
-              {columnVisibility.quality && <TableHead className="w-[150px]">Quality</TableHead>}
-              {columnVisibility.duration && <TableHead className="w-[100px]">Duration</TableHead>}
-              {columnVisibility.progress && <TableHead className="w-[100px]">Progress</TableHead>}
+              {isMultiServer && columnVisibility.server && (
+                <TableHead className={COLUMN_WIDTHS.server}>Server</TableHead>
+              )}
+              {columnVisibility.platform && (
+                <TableHead className={COLUMN_WIDTHS.platform}>Platform</TableHead>
+              )}
+              {columnVisibility.location && (
+                <TableHead className={COLUMN_WIDTHS.location}>Location</TableHead>
+              )}
+              {columnVisibility.ip && (
+                <TableHead className={COLUMN_WIDTHS.ip}>IP Address</TableHead>
+              )}
+              {columnVisibility.quality && (
+                <TableHead className={COLUMN_WIDTHS.quality}>Quality</TableHead>
+              )}
+              {columnVisibility.duration && (
+                <TableHead className={COLUMN_WIDTHS.duration}>Duration</TableHead>
+              )}
+              {columnVisibility.progress && (
+                <TableHead className={COLUMN_WIDTHS.progress}>Progress</TableHead>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -777,7 +791,7 @@ export function HistoryTable({
         >
           <tr>
             {selectable && (
-              <TableHead className="w-10">
+              <TableHead className={COLUMN_WIDTHS.select}>
                 <Checkbox
                   checked={selectAllMode || isAllVisibleSelected}
                   onCheckedChange={onSelectAllVisible}
@@ -786,47 +800,55 @@ export function HistoryTable({
               </TableHead>
             )}
             {columnVisibility.date && (
-              <TableHead className="w-[140px]">
-                <SortableHeader
-                  column="startedAt"
-                  label="Date"
-                  currentSortBy={sortBy}
-                  currentSortDir={sortDir}
-                  onSortChange={onSortChange}
-                />
-              </TableHead>
+              <SortableTableHead
+                className={COLUMN_WIDTHS.date}
+                field="startedAt"
+                sortBy={sortBy}
+                sortOrder={sortDir}
+                onSort={(next) => onSortChange?.(next)}
+              >
+                Date
+              </SortableTableHead>
             )}
-            {columnVisibility.user && <TableHead className="w-[150px]">User</TableHead>}
+            {columnVisibility.user && <TableHead className={COLUMN_WIDTHS.user}>User</TableHead>}
             {columnVisibility.content && (
-              <TableHead className="min-w-[200px]">
-                <SortableHeader
-                  column="mediaTitle"
-                  label="Content"
-                  currentSortBy={sortBy}
-                  currentSortDir={sortDir}
-                  onSortChange={onSortChange}
-                />
-              </TableHead>
+              <SortableTableHead
+                className={COLUMN_WIDTHS.content}
+                field="mediaTitle"
+                sortBy={sortBy}
+                sortOrder={sortDir}
+                onSort={(next) => onSortChange?.(next)}
+              >
+                Content
+              </SortableTableHead>
             )}
             {isMultiServer && columnVisibility.server && (
-              <TableHead className="w-[140px]">Server</TableHead>
+              <TableHead className={COLUMN_WIDTHS.server}>Server</TableHead>
             )}
-            {columnVisibility.platform && <TableHead className="w-[120px]">Platform</TableHead>}
-            {columnVisibility.location && <TableHead className="w-[130px]">Location</TableHead>}
-            {columnVisibility.ip && <TableHead className="w-[120px]">IP Address</TableHead>}
-            {columnVisibility.quality && <TableHead className="w-[150px]">Quality</TableHead>}
+            {columnVisibility.platform && (
+              <TableHead className={COLUMN_WIDTHS.platform}>Platform</TableHead>
+            )}
+            {columnVisibility.location && (
+              <TableHead className={COLUMN_WIDTHS.location}>Location</TableHead>
+            )}
+            {columnVisibility.ip && <TableHead className={COLUMN_WIDTHS.ip}>IP Address</TableHead>}
+            {columnVisibility.quality && (
+              <TableHead className={COLUMN_WIDTHS.quality}>Quality</TableHead>
+            )}
             {columnVisibility.duration && (
-              <TableHead className="w-[100px]">
-                <SortableHeader
-                  column="durationMs"
-                  label="Duration"
-                  currentSortBy={sortBy}
-                  currentSortDir={sortDir}
-                  onSortChange={onSortChange}
-                />
-              </TableHead>
+              <SortableTableHead
+                className={COLUMN_WIDTHS.duration}
+                field="durationMs"
+                sortBy={sortBy}
+                sortOrder={sortDir}
+                onSort={(next) => onSortChange?.(next)}
+              >
+                Duration
+              </SortableTableHead>
             )}
-            {columnVisibility.progress && <TableHead className="w-[100px]">Progress</TableHead>}
+            {columnVisibility.progress && (
+              <TableHead className={COLUMN_WIDTHS.progress}>Progress</TableHead>
+            )}
           </tr>
         </thead>
         <tbody
