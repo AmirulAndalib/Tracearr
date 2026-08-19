@@ -403,7 +403,7 @@ export function Users() {
       {isOwner && <MergeSuggestionsBanner onReview={handleReviewSuggestion} />}
 
       <Card>
-        <CardContent className="pt-6">
+        <CardContent>
           {selectedCount > 0 && !selectAllMode && total > selectedCount && (
             <div className="mb-4 flex justify-end">
               <Button variant="link" size="sm" onClick={selectAll} className="text-sm">
