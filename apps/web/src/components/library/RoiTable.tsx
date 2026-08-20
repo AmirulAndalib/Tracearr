@@ -1,8 +1,9 @@
-import { Film, Tv, Music, BarChart } from 'lucide-react';
+import { BarChart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { RoiResponse } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { DataTablePager } from '@/components/ui/data-table';
 import {
   Select,
   SelectContent,
@@ -20,7 +21,9 @@ import {
 } from '@/components/ui/table';
 import { useServerColorMap } from '@/hooks/useServerColorMap';
 import { ServerColumnCell } from '@/components/server';
-import { ValueCategoryBadge, EmptyState } from '@/components/library';
+import { ValueCategoryBadge } from '@/components/library';
+import { EmptyState } from '@/components/ui/empty-state';
+import { MediaTypeBadge } from './badges';
 import {
   SortableTableHead,
   nextSortOrder,
@@ -29,37 +32,6 @@ import {
 
 type SortBy = 'watch_hours_per_gb' | 'value_score' | 'file_size' | 'title';
 type MediaTypeFilter = 'all' | 'movie' | 'show' | 'artist';
-
-/**
- * Badge component for media type (Movie, TV, Music)
- */
-function MediaTypeBadge({ mediaType }: { mediaType: string }) {
-  switch (mediaType) {
-    case 'movie':
-      return (
-        <Badge variant="secondary" className="gap-1">
-          <Film className="h-3 w-3" />
-          Movie
-        </Badge>
-      );
-    case 'show':
-      return (
-        <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-500">
-          <Tv className="h-3 w-3" />
-          TV
-        </Badge>
-      );
-    case 'artist':
-      return (
-        <Badge variant="secondary" className="gap-1 bg-purple-500/10 text-purple-500">
-          <Music className="h-3 w-3" />
-          Music
-        </Badge>
-      );
-    default:
-      return null;
-  }
-}
 
 interface RoiTableProps {
   data: RoiResponse | undefined;
@@ -92,6 +64,8 @@ export function RoiTable({
   isMultiServer = false,
   selectedServers = [],
 }: RoiTableProps) {
+  const { t } = useTranslation('common');
+
   const colorMap = useServerColorMap();
 
   const handleSort = (field: SortBy) => {
@@ -219,32 +193,21 @@ export function RoiTable({
         </TableBody>
       </Table>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <span className="text-muted-foreground text-sm">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <DataTablePager
+        page={page}
+        pageCount={totalPages}
+        canPrevious={page > 1}
+        canNext={page < totalPages}
+        onPrevious={() => onPageChange(page - 1)}
+        onNext={() => onPageChange(page + 1)}
+        labels={{
+          navigation: t('table.pagination'),
+          status: t('table.pageOf', { page, total: totalPages }),
+          previous: t('actions.previous'),
+          next: t('actions.next'),
+        }}
+        className="px-2"
+      />
     </div>
   );
 }

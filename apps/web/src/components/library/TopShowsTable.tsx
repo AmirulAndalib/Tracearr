@@ -1,8 +1,9 @@
 import { Tv, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { TopShowsResponse } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { DataTablePager } from '@/components/ui/data-table';
 import {
   Table,
   TableBody,
@@ -12,7 +13,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ServerBadge } from '@/components/server';
-import { EmptyState } from '@/components/library';
+import { EmptyState } from '@/components/ui/empty-state';
+import { getBingeScoreBadge, getCompletionBadge } from './badges';
 import {
   SortableTableHead,
   nextSortOrder,
@@ -34,26 +36,6 @@ interface TopShowsTableProps {
 }
 
 /**
- * Get binge score badge based on score thresholds.
- */
-function getBingeScoreBadge(score: number) {
-  if (score >= 80) return <Badge variant="danger">Highly Addictive</Badge>;
-  if (score >= 60) return <Badge variant="warning">Addictive</Badge>;
-  if (score >= 40) return <Badge variant="secondary">Bingeable</Badge>;
-  return <Badge variant="outline">Casual Watch</Badge>;
-}
-
-/**
- * Get completion rate badge based on percentage.
- */
-function getCompletionBadge(rate: number) {
-  if (rate >= 80) return <Badge variant="success">{rate.toFixed(0)}%</Badge>;
-  if (rate >= 50) return <Badge variant="secondary">{rate.toFixed(0)}%</Badge>;
-  if (rate >= 20) return <Badge variant="warning">{rate.toFixed(0)}%</Badge>;
-  return <Badge variant="outline">{rate.toFixed(0)}%</Badge>;
-}
-
-/**
  * Table component for displaying top TV shows by engagement metrics.
  * Server-side sortable by episode views, watch hours, viewers, completion rate, and binge score.
  * In multi-server mode renders per-title color dots for each server that owns the show.
@@ -69,6 +51,8 @@ export function TopShowsTable({
   selectedServers = [],
   isMultiServer = false,
 }: TopShowsTableProps) {
+  const { t } = useTranslation('common');
+
   const handleSort = (field: ShowSortBy) => {
     onSortChange(field, nextSortOrder(field, sortBy, sortOrder, 'desc'));
   };
@@ -180,32 +164,21 @@ export function TopShowsTable({
         </TableBody>
       </Table>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
-          <span className="text-muted-foreground text-sm">
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      )}
+      <DataTablePager
+        page={page}
+        pageCount={totalPages}
+        canPrevious={page > 1}
+        canNext={page < totalPages}
+        onPrevious={() => onPageChange(page - 1)}
+        onNext={() => onPageChange(page + 1)}
+        labels={{
+          navigation: t('table.pagination'),
+          status: t('table.pageOf', { page, total: totalPages }),
+          previous: t('actions.previous'),
+          next: t('actions.next'),
+        }}
+        className="px-2"
+      />
     </div>
   );
 }
