@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Save, Loader2 } from 'lucide-react';
 import type {
+  AutomationKind,
   ConditionGroup as ConditionGroupType,
   RuleConditions,
   RuleActions,
@@ -10,11 +11,18 @@ import type {
   CreateAutomationInput,
   RulesFilterOptions,
 } from '@tracearr/shared';
-import { INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
+import { AUTOMATION_KINDS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -22,10 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ConditionGroup } from './ConditionGroup';
 import { ActionRow } from './ActionRow';
 import { RuleScopeField } from './RuleScopeField';
 import {
+  defaultActionTypeForKind,
   FIELD_DEFINITIONS,
   getDefaultOperatorForField,
   getDefaultValueForField,
@@ -37,12 +47,14 @@ import {
   scopeToPayload,
   type RuleScope,
 } from '@/lib/rules';
+import { cn } from '@/lib/utils';
 
 export interface RuleBuilderInput {
   id: string;
   name: string;
   description?: string | null;
-  severity?: ViolationSeverity;
+  kind?: AutomationKind;
+  severity?: ViolationSeverity | null;
   isActive: boolean;
   serverId?: string | null;
   serverUserId?: string | null;
@@ -81,7 +93,7 @@ function extractConditions(rule?: RuleBuilderInput): RuleConditions {
 
 function extractActions(rule?: RuleBuilderInput): RuleActions {
   if (rule?.actions && 'actions' in rule.actions) return rule.actions;
-  return { actions: [createDefaultAction('log_only')] };
+  return { actions: [] };
 }
 
 export function RuleBuilder({
@@ -95,6 +107,8 @@ export function RuleBuilder({
 
   const [name, setName] = useState(initialRule?.name ?? '');
   const [description, setDescription] = useState(initialRule?.description ?? '');
+  const [kind, setKind] = useState<AutomationKind>(initialRule?.kind ?? 'policy');
+  // Kept across a switch to notification so switching back restores the picked severity.
   const [severity, setSeverity] = useState<ViolationSeverity>(initialRule?.severity ?? 'warning');
   const [isActive, setIsActive] = useState(initialRule?.isActive ?? true);
   const [conditions, setConditions] = useState<RuleConditions>(() =>
@@ -122,6 +136,15 @@ export function RuleBuilder({
 
   const canEnforce = useMemo(() => scopeAllowsCrossServer(scope, conditions), [scope, conditions]);
 
+  // A notification automation exists to send something, so an empty list starts with `send`.
+  // A list the user has already built is never rewritten by a kind switch.
+  const handleKindChange = (next: AutomationKind) => {
+    setKind(next);
+    if (next === 'notification' && actions.actions.length === 0) {
+      setActions({ actions: [createDefaultAction('send')] });
+    }
+  };
+
   const validate = (): boolean => {
     const found: string[] = [];
 
@@ -146,8 +169,8 @@ export function RuleBuilder({
     await onSave({
       name: name.trim(),
       description: description.trim() || null,
-      kind: 'policy',
-      severity,
+      kind,
+      severity: kind === 'policy' ? severity : null,
       isActive,
       conditions,
       actions,
@@ -190,7 +213,39 @@ export function RuleBuilder({
       )}
 
       <FieldGroup className="gap-4">
-        <div className="grid gap-4 @2xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto] @2xl:items-end">
+        <FieldSet>
+          <FieldLegend variant="label">{t('pages:automations.kindColumn')}</FieldLegend>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={kind}
+            onValueChange={(next) => {
+              if (next) handleKindChange(next as AutomationKind);
+            }}
+            className="flex-wrap"
+          >
+            {AUTOMATION_KINDS.map((option) => (
+              <ToggleGroupItem
+                key={option}
+                value={option}
+                className="data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
+              >
+                {t(`pages:automations.kind.${option}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          <FieldDescription>{t(`pages:automations.kind.${kind}Description`)}</FieldDescription>
+        </FieldSet>
+
+        <div
+          className={cn(
+            'grid gap-4 @2xl:items-end',
+            kind === 'policy'
+              ? '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto]'
+              : '@2xl:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto]'
+          )}
+        >
           <Field>
             <FieldLabel htmlFor="rule-name">{t('pages:rules.ruleName')}</FieldLabel>
             <Input
@@ -214,23 +269,25 @@ export function RuleBuilder({
             />
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="rule-severity">
-              {t('pages:rules.builder.severityLabel')}
-            </FieldLabel>
-            <Select value={severity} onValueChange={(v) => setSeverity(v as ViolationSeverity)}>
-              <SelectTrigger id="rule-severity">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SEVERITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {kind === 'policy' && (
+            <Field>
+              <FieldLabel htmlFor="rule-severity">
+                {t('pages:rules.builder.severityLabel')}
+              </FieldLabel>
+              <Select value={severity} onValueChange={(v) => setSeverity(v as ViolationSeverity)}>
+                <SelectTrigger id="rule-severity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEVERITY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           <Field className="@2xl:w-auto">
             <FieldLabel htmlFor="rule-active">{t('pages:rules.builder.activeLabel')}</FieldLabel>
@@ -309,6 +366,7 @@ export function RuleBuilder({
               <ActionRow
                 key={index}
                 action={action}
+                kind={kind}
                 onChange={(a) => updateAction(index, a)}
                 onRemove={() =>
                   setActions({ actions: actions.actions.filter((_, i) => i !== index) })
@@ -323,7 +381,9 @@ export function RuleBuilder({
           type="button"
           variant="outline"
           onClick={() =>
-            setActions({ actions: [...actions.actions, createDefaultAction('log_only')] })
+            setActions({
+              actions: [...actions.actions, createDefaultAction(defaultActionTypeForKind(kind))],
+            })
           }
         >
           <Plus />

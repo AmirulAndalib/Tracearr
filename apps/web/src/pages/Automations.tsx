@@ -1,6 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Pencil, Plus, Settings2, Shield, Sparkles, Trash2, User } from 'lucide-react';
+import {
+  ChevronDown,
+  Pencil,
+  Plus,
+  Power,
+  PowerOff,
+  Settings2,
+  Shield,
+  Sparkles,
+  Trash2,
+  User,
+} from 'lucide-react';
 import type {
   Automation,
   AutomationKind,
@@ -83,13 +94,13 @@ const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
   notification: 'outline',
 };
 
-/** The builder still speaks the rule shape; severity is required there and nullable here. */
 function toBuilderInput(automation: Automation): RuleBuilderInput {
   return {
     id: automation.id,
     name: automation.name,
     description: automation.description,
-    severity: automation.severity ?? undefined,
+    kind: automation.kind,
+    severity: automation.severity,
     isActive: automation.isActive,
     serverId: automation.serverId,
     serverUserId: automation.serverUserId,
@@ -425,7 +436,7 @@ export function Automations() {
     {
       key: 'enable',
       label: t('pages:automations.enable'),
-      icon: <Shield className="h-4 w-4" />,
+      icon: <Power className="h-4 w-4" />,
       variant: 'default',
       onClick: () => handleBulkToggle(true),
       isLoading: bulkToggle.isPending,
@@ -433,7 +444,7 @@ export function Automations() {
     {
       key: 'disable',
       label: t('pages:automations.disable'),
-      icon: <Shield className="h-4 w-4" />,
+      icon: <PowerOff className="h-4 w-4" />,
       variant: 'secondary',
       onClick: () => handleBulkToggle(false),
       isLoading: bulkToggle.isPending,
@@ -567,7 +578,7 @@ export function Automations() {
         onOpenChange={(open) => {
           if (!open) setDeleteConfirmId(null);
         }}
-        title={t('pages:automations.deleteAutomation')}
+        title={t('pages:automations.deleteAutomation', { count: 1 })}
         description={t('pages:automations.deleteAutomationConfirm')}
         confirmLabel={t('common:actions.delete')}
         onConfirm={() => {

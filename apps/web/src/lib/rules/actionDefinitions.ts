@@ -5,7 +5,13 @@
  * All action-related components reference this registry.
  */
 
-import type { ActionType, ViolationSeverity, Action, TrustAction } from '@tracearr/shared';
+import type {
+  ActionType,
+  AutomationKind,
+  ViolationSeverity,
+  Action,
+  TrustAction,
+} from '@tracearr/shared';
 
 // Config field types for rendering action configuration
 export type ConfigFieldType = 'number' | 'text' | 'select' | 'slider' | 'destinations';
@@ -200,7 +206,7 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
         min: -100,
         max: 100,
         step: 1,
-        description: 'Adjust mode only. Positive to increase, negative to decrease.',
+        description: 'Positive to increase, negative to decrease',
       },
       {
         name: 'value',
@@ -209,7 +215,6 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
         min: 0,
         max: 100,
         step: 1,
-        description: 'Set mode only.',
       },
     ],
   },
@@ -305,6 +310,14 @@ export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>
   reset: {},
 };
 
+/** Trust carries one parameter per mode, so a row shows only that mode's field. */
+export function visibleConfigFields(action: Action): ConfigField[] {
+  const { configFields } = ACTION_DEFINITIONS[action.type];
+  if (action.type !== 'trust') return configFields;
+  const params = Object.keys(TRUST_MODE_PARAMS[action.mode]);
+  return configFields.filter((field) => field.name === 'mode' || params.includes(field.name));
+}
+
 /** Switching trust mode swaps the parameter set wholesale, keeping only the cooldown. */
 export function applyActionFieldChange(action: Action, name: string, value: unknown): Action {
   if (action.type === 'trust' && name === 'mode') {
@@ -318,11 +331,32 @@ export function applyActionFieldChange(action: Action, name: string, value: unkn
   return { ...action, [name]: value };
 }
 
+/** Catalog order for the builder's picker; the legacy trust spellings render but are not offered. */
+const OFFERED_ACTION_TYPES = [
+  'log_only',
+  'send',
+  'trust',
+  'kill_stream',
+  'message_client',
+] as const satisfies readonly ActionType[];
+
+/** The action type a freshly added row starts on. */
+export function defaultActionTypeForKind(kind: AutomationKind): ActionType {
+  return kind === 'notification' ? 'send' : OFFERED_ACTION_TYPES[0];
+}
+
 /**
  * Get all action types
  */
 export function getAllActionTypes(): ActionType[] {
-  return Object.keys(ACTION_DEFINITIONS) as ActionType[];
+  return [...OFFERED_ACTION_TYPES];
+}
+
+/** Both kinds may use every action; a notification automation just leads with `send`. */
+export function actionTypesForKind(kind: AutomationKind): ActionType[] {
+  const types = getAllActionTypes();
+  if (kind !== 'notification') return types;
+  return ['send', ...types.filter((type) => type !== 'send')];
 }
 
 /**
@@ -346,7 +380,5 @@ export function createDefaultAction(type: ActionType): Action {
       return { type: 'kill_stream' };
     case 'message_client':
       return { type: 'message_client', message: '' };
-    default:
-      return { type: 'log_only' };
   }
 }

@@ -12,7 +12,7 @@ import {
   MessageSquare,
   HelpCircle,
 } from 'lucide-react';
-import type { Action, ActionType } from '@tracearr/shared';
+import type { Action, ActionType, AutomationKind } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import {
@@ -25,9 +25,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ACTION_DEFINITIONS,
+  actionTypesForKind,
   applyActionFieldChange,
-  getAllActionTypes,
   createDefaultAction,
+  visibleConfigFields,
   type ConfigField,
 } from '@/lib/rules';
 import { cn } from '@/lib/utils';
@@ -47,15 +48,20 @@ const ACTION_ICONS: Record<ActionType, React.ComponentType<{ className?: string 
 
 interface ActionRowProps {
   action: Action;
+  kind: AutomationKind;
   onChange: (action: Action) => void;
   onRemove: () => void;
   showRemove?: boolean;
 }
 
-export function ActionRow({ action, onChange, onRemove, showRemove = true }: ActionRowProps) {
+export function ActionRow({ action, kind, onChange, onRemove, showRemove = true }: ActionRowProps) {
   const { t } = useTranslation('pages');
   const typeId = useId();
   const def = ACTION_DEFINITIONS[action.type];
+
+  // A stored row can hold a type the picker no longer offers; keep it selectable as the current value.
+  const offered = actionTypesForKind(kind);
+  const typeOptions = offered.includes(action.type) ? offered : [action.type, ...offered];
 
   const readValue = (name: string) => (action as unknown as Record<string, unknown>)[name];
 
@@ -93,7 +99,7 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
               <SelectValue placeholder={t('rules.builder.actions.typePlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              {getAllActionTypes().map((type) => {
+              {typeOptions.map((type) => {
                 const ActionIcon = ACTION_ICONS[type];
                 return (
                   <SelectItem key={type} value={type}>
@@ -109,7 +115,7 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
           <FieldDescription>{def.description}</FieldDescription>
         </Field>
 
-        {def.configFields.map((field) => (
+        {visibleConfigFields(action).map((field) => (
           <ActionConfigField
             key={field.name}
             field={field}

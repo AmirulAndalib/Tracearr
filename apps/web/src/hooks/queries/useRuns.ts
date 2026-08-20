@@ -3,7 +3,6 @@ import { api, type RunListParams } from '@/lib/api';
 
 export const RUNS_KEY = ['runs'];
 
-/** Per-automation runs live under the automation, so one automation's push invalidates only its list. */
 export const automationRunsKey = (automationId: string) => [
   ...RUNS_KEY,
   'automation',

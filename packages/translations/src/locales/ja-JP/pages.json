@@ -30,7 +30,6 @@
     "chooseTemplateDesc": "Select a pre-configured automation to get started quickly.",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
     "custom": "Custom Automation",
-    "deleteAutomation": "Delete Automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomation_one": "Delete {{count}} Automation",
     "deleteAutomation_other": "Delete {{count}} Automations",
@@ -41,7 +40,9 @@
     "fromTemplate": "From a Template",
     "kind": {
       "notification": "Notification",
-      "policy": "Policy"
+      "notificationDescription": "Housekeeping. Runs are recorded and never become violations.",
+      "policy": "Policy",
+      "policyDescription": "Runs are violations: they carry a severity and wait to be acknowledged."
     },
     "kindColumn": "Kind",
     "noAutomationsConfigured": "No automations configured",
@@ -688,9 +689,9 @@
     "builder": {
       "actions": {
         "add": "Add action",
-        "description": "Optional side-effects when conditions are met. A violation is always created automatically.",
+        "description": "Optional side effects when the conditions match. The run is recorded either way.",
         "remove": "Remove action",
-        "title": "Additional Actions",
+        "title": "Actions",
         "typeLabel": "Action",
         "typePlaceholder": "Select action"
       },
@@ -701,7 +702,7 @@
         "addGroup": "Add AND condition group",
         "allCountries": "All countries",
         "allDeviceTypes": "All device types",
-        "description": "Define when this rule should trigger. Groups are combined with AND logic.",
+        "description": "Define when this automation runs. Groups are combined with AND logic.",
         "deviceTypesHint": "Only count streams from the selected device types. Leave empty to count every device.",
         "fieldPlaceholder": "Select field",
         "groupHint": "conditions match with OR logic",
@@ -726,7 +727,7 @@
       "errors": {
         "conditionRequired": "Each condition group must have at least one condition",
         "groupRequired": "At least one condition group is required",
-        "nameRequired": "Rule name is required",
+        "nameRequired": "Automation name is required",
         "scopeIncomplete": "Pick a target for the selected scope",
         "sendNeedsDestination": "Pick at least one destination",
         "title": "Please fix the following errors:"
@@ -739,7 +740,7 @@
         "accountLabel": "Account",
         "accountPlaceholder": "Select account",
         "enforceAcrossServers": "Enforce across servers",
-        "enforceAcrossServersDescription": "When on, this rule can act on a person's sessions on any of their servers, not just the one that triggered it. Off by default.",
+        "enforceAcrossServersDescription": "Acts on the person's sessions on any of their servers, not only the one that triggered it. Off by default.",
         "global": "Global",
         "label": "Scope",
         "noServers": "No servers connected yet.",
@@ -755,15 +756,15 @@
       "selectedCount": "{{count}} selected",
       "severityLabel": "Severity"
     },
-    "createDescription": "メディアサーバーの新しい検出ルールを設定します。",
-    "createRule": "ルールを作成",
+    "createDescription": "Set up a new automation for your media servers.",
+    "createRule": "Create Automation",
     "customRule": "カスタムルール",
-    "editRule": "ルールの編集",
-    "ruleName": "ルール名",
+    "editRule": "Edit Automation",
+    "ruleName": "Automation Name",
     "ruleNamePlaceholder": "例えば、同時配信制限",
-    "title": "ルール",
-    "updateDescription": "以下のルール設定を更新します。",
-    "updateRule": "ルールを更新"
+    "title": "Automations",
+    "updateDescription": "Update this automation below.",
+    "updateRule": "Update Automation"
   },
   "settings": {
     "destinations": {

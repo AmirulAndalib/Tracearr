@@ -57,11 +57,11 @@ function renderBuilder(to: string[], scope: Partial<RuleBuilderInput> = {}) {
           id: 'rule-1',
           name: 'Too many streams',
           isActive: true,
-          ...scope,
           conditions: {
             groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 3 }] }],
           },
           actions: { actions: [{ type: 'send', to }] },
+          ...scope,
         }}
         onSave={onSave}
         onCancel={onCancel}
@@ -69,6 +69,11 @@ function renderBuilder(to: string[], scope: Partial<RuleBuilderInput> = {}) {
     </TooltipProvider>
   );
 }
+
+const save = (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+
+const severityLabel = () => screen.queryByText('pages:rules.builder.severityLabel');
 
 beforeEach(() => {
   onSave.mockReset();
@@ -100,6 +105,114 @@ describe('RuleBuilder validation', () => {
       screen.queryByText('pages:rules.builder.errors.sendNeedsDestination')
     ).not.toBeInTheDocument();
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('RuleBuilder kind', () => {
+  it('hides severity and nulls it in the payload once the kind is notification', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['dest-discord']);
+
+    expect(severityLabel()).toBeInTheDocument();
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+    expect(severityLabel()).not.toBeInTheDocument();
+
+    await save(user);
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'notification', severity: null })
+    );
+  });
+
+  it('restores the picked severity when the kind goes back to policy', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['dest-discord'], { severity: 'high' });
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+    await user.click(screen.getByText('pages:automations.kind.policy'));
+
+    expect(severityLabel()).toBeInTheDocument();
+    await save(user);
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'policy', severity: 'high' })
+    );
+  });
+
+  it('round-trips a stored notification automation', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['dest-discord'], { kind: 'notification', severity: null });
+
+    expect(severityLabel()).not.toBeInTheDocument();
+
+    await save(user);
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'notification', severity: null })
+    );
+  });
+});
+
+describe('RuleBuilder kind steering', () => {
+  it('pre-adds a send action when a new automation turns into a notification', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+
+    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
+    expect(screen.getByText('Send Notification')).toBeInTheDocument();
+  });
+
+  it('leaves a new policy automation with no actions', () => {
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+  });
+
+  it('keeps configured actions across a kind switch', async () => {
+    const user = userEvent.setup();
+    renderBuilder(['dest-discord'], { actions: { actions: [{ type: 'kill_stream' }] } });
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+    await save(user);
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'notification',
+        actions: { actions: [{ type: 'kill_stream' }] },
+      })
+    );
+  });
+});
+
+describe('RuleBuilder actions', () => {
+  it('saves an automation that has no actions at all', async () => {
+    const user = userEvent.setup();
+    renderBuilder([], { actions: { actions: [] } });
+
+    await save(user);
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ actions: { actions: [] } }));
+  });
+
+  it('starts a new automation with no actions', () => {
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
   });
 });
 
