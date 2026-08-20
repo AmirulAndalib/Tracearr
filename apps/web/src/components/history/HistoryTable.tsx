@@ -23,7 +23,7 @@ import {
   Clapperboard,
 } from 'lucide-react';
 import { TableCell, TableHead, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
+import { DATA_TABLE_VIEWPORT_MAX_HEIGHT } from '@/components/ui/data-table';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -140,14 +140,6 @@ interface Props {
   sortDir?: SortDirection;
   onSortChange?: (column: SortableColumn) => void;
   isMultiServer?: boolean;
-  // Selection props
-  selectable?: boolean;
-  selectedIds?: Set<string>;
-  selectAllMode?: boolean;
-  onRowSelect?: (session: SessionWithDetails) => void;
-  onSelectAllVisible?: () => void;
-  isAllVisibleSelected?: boolean;
-  isAllVisibleIndeterminate?: boolean;
 }
 
 // State icon component
@@ -206,9 +198,6 @@ interface HistoryTableRowProps {
   onClick?: () => void;
   columnVisibility: ColumnVisibility;
   isMultiServer?: boolean;
-  selectable?: boolean;
-  isSelected?: boolean;
-  onSelect?: () => void;
   style?: React.CSSProperties;
   'data-index'?: number;
 }
@@ -217,17 +206,7 @@ interface HistoryTableRowProps {
 export const HistoryTableRow = memo(
   forwardRef<HTMLTableRowElement, HistoryTableRowProps>(
     (
-      {
-        session,
-        onClick,
-        columnVisibility,
-        isMultiServer = false,
-        selectable,
-        isSelected,
-        onSelect,
-        style,
-        'data-index': dataIndex,
-      },
+      { session, onClick, columnVisibility, isMultiServer = false, style, 'data-index': dataIndex },
       ref
     ) => {
       const { title: primary, subtitle: secondary } = getMediaDisplay(session);
@@ -243,25 +222,9 @@ export const HistoryTableRow = memo(
           ref={ref}
           data-index={dataIndex}
           style={accentStyle}
-          className={cn(
-            'cursor-pointer transition-colors',
-            onClick && 'hover:bg-muted/50',
-            isSelected && 'bg-muted/50'
-          )}
+          className={cn('cursor-pointer transition-colors', onClick && 'hover:bg-muted/50')}
           onClick={onClick}
         >
-          {/* Selection checkbox */}
-          {selectable && (
-            <TableCell className={COLUMN_WIDTHS.select}>
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={onSelect}
-                onClick={(e) => e.stopPropagation()}
-                aria-label={`Select session`}
-              />
-            </TableCell>
-          )}
-
           {/* Date/Time with State */}
           {columnVisibility.date && (
             <TableCell className={COLUMN_WIDTHS.date}>
@@ -503,19 +466,12 @@ HistoryTableRow.displayName = 'HistoryTableRow';
 function SkeletonRow({
   columnVisibility,
   isMultiServer = false,
-  selectable = false,
 }: {
   columnVisibility: ColumnVisibility;
   isMultiServer?: boolean;
-  selectable?: boolean;
 }) {
   return (
     <TableRow style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}>
-      {selectable && (
-        <TableCell className={COLUMN_WIDTHS.select}>
-          <Skeleton className="h-4 w-4" />
-        </TableCell>
-      )}
       {columnVisibility.date && (
         <TableCell>
           <div className="flex items-center gap-2">
@@ -590,7 +546,6 @@ function SkeletonRow({
 
 // Count visible columns for empty state colspan
 const COLUMN_WIDTHS = {
-  select: 'w-10',
   date: 'w-[140px]',
   user: 'w-[150px]',
   // an explicit share, or fixed layout hands this column every spare pixel
@@ -624,16 +579,8 @@ export function HistoryTable({
   sortDir,
   onSortChange,
   isMultiServer = false,
-  selectable = false,
-  selectedIds,
-  selectAllMode = false,
-  onRowSelect,
-  onSelectAllVisible,
-  isAllVisibleSelected = false,
-  isAllVisibleIndeterminate: _isAllVisibleIndeterminate = false,
 }: Props) {
-  const visibleColumnCount =
-    getVisibleColumnCount(columnVisibility, isMultiServer) + (selectable ? 1 : 0);
+  const visibleColumnCount = getVisibleColumnCount(columnVisibility, isMultiServer);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -665,7 +612,7 @@ export function HistoryTable({
     return (
       <div
         className="relative scrollbar-thin overflow-auto"
-        style={{ maxHeight: 'clamp(400px, 70vh, calc(100vh - 200px))' }}
+        style={{ maxHeight: DATA_TABLE_VIEWPORT_MAX_HEIGHT }}
       >
         <table className="w-full caption-bottom text-sm">
           <thead
@@ -673,7 +620,6 @@ export function HistoryTable({
             style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}
           >
             <tr>
-              {selectable && <TableHead className={COLUMN_WIDTHS.select} />}
               {columnVisibility.date && <TableHead className={COLUMN_WIDTHS.date}>Date</TableHead>}
               {columnVisibility.user && <TableHead className={COLUMN_WIDTHS.user}>User</TableHead>}
               {columnVisibility.content && (
@@ -708,7 +654,6 @@ export function HistoryTable({
                 key={i}
                 columnVisibility={columnVisibility}
                 isMultiServer={isMultiServer}
-                selectable={selectable}
               />
             ))}
           </tbody>
@@ -722,7 +667,7 @@ export function HistoryTable({
     return (
       <div
         className="relative scrollbar-thin overflow-auto"
-        style={{ maxHeight: 'clamp(400px, 70vh, calc(100vh - 200px))' }}
+        style={{ maxHeight: DATA_TABLE_VIEWPORT_MAX_HEIGHT }}
       >
         <table className="w-full caption-bottom text-sm">
           <thead
@@ -730,7 +675,6 @@ export function HistoryTable({
             style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}
           >
             <tr>
-              {selectable && <TableHead className={COLUMN_WIDTHS.select} />}
               {columnVisibility.date && <TableHead className={COLUMN_WIDTHS.date}>Date</TableHead>}
               {columnVisibility.user && <TableHead className={COLUMN_WIDTHS.user}>User</TableHead>}
               {columnVisibility.content && (
@@ -782,7 +726,7 @@ export function HistoryTable({
         'relative scrollbar-thin overflow-auto transition-opacity',
         isFetching && !isLoading && 'opacity-60'
       )}
-      style={{ maxHeight: 'clamp(400px, 70vh, calc(100vh - 200px))' }}
+      style={{ maxHeight: DATA_TABLE_VIEWPORT_MAX_HEIGHT }}
     >
       <table className="w-full caption-bottom text-sm">
         <thead
@@ -790,15 +734,6 @@ export function HistoryTable({
           style={{ display: 'table', width: '100%', tableLayout: 'fixed' }}
         >
           <tr>
-            {selectable && (
-              <TableHead className={COLUMN_WIDTHS.select}>
-                <Checkbox
-                  checked={selectAllMode || isAllVisibleSelected}
-                  onCheckedChange={onSelectAllVisible}
-                  aria-label="Select all visible"
-                />
-              </TableHead>
-            )}
             {columnVisibility.date && (
               <SortableTableHead
                 className={COLUMN_WIDTHS.date}
@@ -879,9 +814,6 @@ export function HistoryTable({
                 onClick={onSessionClick ? () => onSessionClick(session) : undefined}
                 columnVisibility={columnVisibility}
                 isMultiServer={isMultiServer}
-                selectable={selectable}
-                isSelected={selectAllMode || (selectedIds?.has(session.id) ?? false)}
-                onSelect={onRowSelect ? () => onRowSelect(session) : undefined}
               />
             );
           })}
@@ -897,7 +829,6 @@ export function HistoryTable({
                 key={`loading-${i}`}
                 columnVisibility={columnVisibility}
                 isMultiServer={isMultiServer}
-                selectable={selectable}
               />
             ))}
           </tbody>
