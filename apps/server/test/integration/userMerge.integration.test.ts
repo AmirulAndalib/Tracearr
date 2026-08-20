@@ -1511,7 +1511,7 @@ describe('identity trust rollup stays current outside merge/split', () => {
     });
     await db
       .update(automations)
-      .set({ actions: { actions: [{ type: 'adjust_trust', amount: -20 }] } })
+      .set({ actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -20 }] } })
       .where(eq(automations.id, rule.id));
 
     const session = await createTestSession({ serverId: serverB.id, serverUserId: suB.id });

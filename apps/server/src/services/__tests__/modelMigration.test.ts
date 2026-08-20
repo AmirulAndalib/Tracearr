@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Action, RuleActions, RuleConditions } from '@tracearr/shared';
+import type { StoredAction } from '../automations/modelMigration.js';
 
 const infos: string[] = [];
 vi.mock('../../utils/logger.js', () => ({
@@ -51,7 +52,7 @@ interface LegacyRow {
 interface UntriggeredRow {
   id: string;
   conditions: RuleConditions | null;
-  actions: RuleActions | null;
+  actions: { actions: StoredAction[] } | null;
 }
 
 interface VersionlessRow {
@@ -159,7 +160,7 @@ const idle: Counts = { legacy: 0, missing_triggers: 0, missing_version: 0, stale
 const conditionsWith = (field: string): RuleConditions =>
   ({ groups: [{ conditions: [{ field, operator: 'gt', value: 1 }] }] }) as RuleConditions;
 
-const actionsOf = (...actions: Action[]): RuleActions => ({ actions });
+const actionsOf = (...actions: StoredAction[]): { actions: StoredAction[] } => ({ actions });
 
 describe('runAutomationModelMigration', () => {
   beforeEach(() => {
@@ -274,7 +275,7 @@ describe('runAutomationModelMigration', () => {
   });
 
   it('keeps a cooldown a legacy trust row carried', async () => {
-    const trusted = { type: 'adjust_trust', amount: 5, cooldown_minutes: 60 } as Action;
+    const trusted: StoredAction = { type: 'adjust_trust', amount: 5, cooldown_minutes: 60 };
     const harness = await run({
       counts: { ...idle, missing_triggers: 1 },
       untriggeredRows: [{ id: 'a3', conditions: null, actions: actionsOf(trusted) }],
@@ -352,7 +353,7 @@ describe('runAutomationModelMigration', () => {
           severity: 'high',
           triggers: [{ id: 't1', type: 'session.paused', enabled: true }],
           conditions: conditionsWith('current_pause_minutes'),
-          actions: actionsOf({ type: 'trust', mode: 'reset' }),
+          actions: { actions: [{ type: 'trust', mode: 'reset' }] },
           serverId: 'srv-1',
           serverUserId: null,
           userId: null,

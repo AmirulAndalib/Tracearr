@@ -124,9 +124,9 @@ describe('DestinationsField', () => {
     expect(toggle.className).toContain('opacity-60');
 
     await user.hover(toggle);
-    expect(await screen.findAllByText('pages:rules.builder.destinationDisabled')).not.toHaveLength(
-      0
-    );
+    expect(
+      await screen.findAllByText('pages:automations.builder.destinationDisabled')
+    ).not.toHaveLength(0);
 
     await user.click(toggle);
     expect(onChange).toHaveBeenCalledWith(['dest-discord']);
@@ -153,7 +153,7 @@ describe('DestinationsField', () => {
     setDestinations([]);
     render(<DestinationsField value={[]} onChange={onChange} label="Destinations" />);
 
-    expect(screen.getByText('pages:rules.builder.noDestinations')).toBeInTheDocument();
+    expect(screen.getByText('pages:automations.builder.noDestinations')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'pages:settings.destinations.add' }));
     await user.click(screen.getByRole('button', { name: 'simulate created' }));
     expect(onChange).toHaveBeenCalledWith(['dest-new']);

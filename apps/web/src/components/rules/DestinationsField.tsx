@@ -61,7 +61,7 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
 
       {rows.length === 0 && (
         <span className="text-muted-foreground text-sm">
-          {t('pages:rules.builder.noDestinations')}
+          {t('pages:automations.builder.noDestinations')}
         </span>
       )}
 
@@ -98,7 +98,9 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
               return (
                 <Tooltip key={row.id}>
                   <TooltipTrigger asChild>{item}</TooltipTrigger>
-                  <TooltipContent>{t('pages:rules.builder.destinationDisabled')}</TooltipContent>
+                  <TooltipContent>
+                    {t('pages:automations.builder.destinationDisabled')}
+                  </TooltipContent>
                 </Tooltip>
               );
             })}

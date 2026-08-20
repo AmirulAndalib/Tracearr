@@ -1,11 +1,12 @@
 /** The builder's action metadata registry: labels, config fields and per-type defaults. */
 
-import type {
-  ActionType,
-  AutomationKind,
-  ViolationSeverity,
-  Action,
-  TrustAction,
+import {
+  actionTypeSchema,
+  type Action,
+  type ActionType,
+  type AutomationKind,
+  type TrustAction,
+  type ViolationSeverity,
 } from '@tracearr/shared';
 
 // Config field types for rendering action configuration
@@ -85,23 +86,6 @@ export const SESSION_TARGET_OPTIONS: ConfigFieldOption[] = [
 
 // The main action definitions registry
 export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
-  log_only: {
-    type: 'log_only',
-    label: 'Log Only',
-    description: 'Log the event without taking action',
-    icon: 'FileText',
-    color: 'default',
-    configFields: [
-      {
-        name: 'message',
-        label: 'Log Message',
-        type: 'text',
-        placeholder: 'Optional custom message',
-        description: 'Custom message to include in the log',
-      },
-    ],
-  },
-
   send: {
     type: 'send',
     label: 'Send Notification',
@@ -126,54 +110,6 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
         description: 'Minimum time between notifications',
       },
     ],
-  },
-
-  adjust_trust: {
-    type: 'adjust_trust',
-    label: 'Adjust Trust Score',
-    description: 'Increase or decrease trust score',
-    icon: 'TrendingUp',
-    color: 'default',
-    configFields: [
-      {
-        name: 'amount',
-        label: 'Amount',
-        type: 'number',
-        required: true,
-        min: -100,
-        max: 100,
-        step: 1,
-        description: 'Positive to increase, negative to decrease',
-      },
-    ],
-  },
-
-  set_trust: {
-    type: 'set_trust',
-    label: 'Set Trust Score',
-    description: 'Set trust score to specific value',
-    icon: 'Target',
-    color: 'default',
-    configFields: [
-      {
-        name: 'value',
-        label: 'Value',
-        type: 'slider',
-        required: true,
-        min: 0,
-        max: 100,
-        step: 1,
-      },
-    ],
-  },
-
-  reset_trust: {
-    type: 'reset_trust',
-    label: 'Reset Trust Score',
-    description: 'Reset trust score to default (100)',
-    icon: 'RotateCcw',
-    color: 'default',
-    configFields: [],
   },
 
   trust: {
@@ -289,6 +225,14 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
   },
 };
 
+// Short action labels for one-line summaries
+export const COMPACT_ACTION_LABELS: Record<ActionType, string> = {
+  send: 'Send',
+  trust: 'Trust score',
+  kill_stream: 'Kill stream',
+  message_client: 'Message',
+};
+
 /** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */
 export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>> = {
   adjust: { amount: -10 },
@@ -318,14 +262,8 @@ export function applyActionFieldChange(action: Action, name: string, value: unkn
   return { ...action, [name]: value };
 }
 
-/** Catalog order for the builder's picker; the legacy trust spellings render but are not offered. */
-const OFFERED_ACTION_TYPES = [
-  'log_only',
-  'send',
-  'trust',
-  'kill_stream',
-  'message_client',
-] as const satisfies readonly ActionType[];
+/** The picker offers whatever the contract declares, so a new action type cannot go unoffered. */
+const OFFERED_ACTION_TYPES: readonly ActionType[] = actionTypeSchema.options;
 
 /** The action type a freshly added row starts on, for either kind. */
 export const DEFAULT_ACTION_TYPE: ActionType = 'send';
@@ -340,16 +278,8 @@ export function actionTypesForKind(kind: AutomationKind): ActionType[] {
 /** Create a default action of a given type. */
 export function createDefaultAction(type: ActionType): Action {
   switch (type) {
-    case 'log_only':
-      return { type: 'log_only' };
     case 'send':
       return { type: 'send', to: [] };
-    case 'adjust_trust':
-      return { type: 'adjust_trust', amount: -10 };
-    case 'set_trust':
-      return { type: 'set_trust', value: 50 };
-    case 'reset_trust':
-      return { type: 'reset_trust' };
     case 'trust':
       return { type: 'trust', mode: 'adjust', ...TRUST_MODE_PARAMS.adjust };
     case 'kill_stream':

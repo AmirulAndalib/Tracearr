@@ -3,11 +3,8 @@
  */
 import type { AutomationKind, AutomationRunSummary, TriggerNode } from './automations.js';
 import type { NotificationToast } from './destinations.js';
-import type { sessionTargetSchema, statPeriodSchema } from './schemas.js';
+import type { RuleActions, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
-
-// Re-export SessionTarget for use in action interfaces
-type SessionTarget = z.infer<typeof sessionTargetSchema>;
 
 // User role - combined permission level and account status
 // Can log in: owner, admin, viewer
@@ -695,86 +692,6 @@ export interface ConditionGroup {
 // Rule conditions (AND logic between groups)
 export interface RuleConditions {
   groups: ConditionGroup[];
-}
-
-// Action types
-export type ActionType =
-  | 'log_only'
-  | 'send'
-  | 'adjust_trust'
-  | 'set_trust'
-  | 'reset_trust'
-  | 'trust'
-  | 'kill_stream'
-  | 'message_client';
-
-// Action definitions
-export interface LogOnlyAction extends NodeFields {
-  type: 'log_only';
-  message?: string;
-}
-
-export interface SendAction extends NodeFields {
-  type: 'send';
-  /** destination ids; validated against the destinations table on rule save */
-  to: string[];
-  cooldown_minutes?: number;
-}
-
-export interface AdjustTrustAction extends NodeFields {
-  type: 'adjust_trust';
-  amount: number; // positive or negative
-}
-
-export interface SetTrustAction extends NodeFields {
-  type: 'set_trust';
-  value: number;
-}
-
-export interface ResetTrustAction extends NodeFields {
-  type: 'reset_trust';
-}
-
-export interface TrustAction extends NodeFields {
-  type: 'trust';
-  mode: 'adjust' | 'set' | 'reset';
-  /** adjust only: positive or negative */
-  amount?: number;
-  /** set only */
-  value?: number;
-  cooldown_minutes?: number;
-}
-
-export interface KillStreamAction extends NodeFields {
-  type: 'kill_stream';
-  /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
-  delay_seconds?: number;
-  require_confirmation?: boolean;
-  cooldown_minutes?: number;
-  /** Message to display to user before termination. If omitted, terminates silently. */
-  message?: string;
-  target?: SessionTarget;
-}
-
-export interface MessageClientAction extends NodeFields {
-  type: 'message_client';
-  message: string;
-  target?: SessionTarget;
-}
-
-export type Action =
-  | LogOnlyAction
-  | SendAction
-  | AdjustTrustAction
-  | SetTrustAction
-  | ResetTrustAction
-  | TrustAction
-  | KillStreamAction
-  | MessageClientAction;
-
-// Rule actions container
-export interface RuleActions {
-  actions: Action[];
 }
 
 // New Rule interface (V2)

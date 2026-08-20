@@ -126,8 +126,8 @@ export function ConditionRow({
     filterOptions,
     conversion.unit,
     {
-      recentlySeen: t('rules.builder.conditions.recentlySeen'),
-      allCountries: t('rules.builder.conditions.allCountries'),
+      recentlySeen: t('automations.builder.conditions.recentlySeen'),
+      allCountries: t('automations.builder.conditions.allCountries'),
     }
   );
 
@@ -136,9 +136,9 @@ export function ConditionRow({
       <Select value={condition.field} onValueChange={handleFieldChange}>
         <SelectTrigger
           className="w-full @sm:w-52"
-          aria-label={t('rules.builder.conditions.fieldPlaceholder')}
+          aria-label={t('automations.builder.conditions.fieldPlaceholder')}
         >
-          <SelectValue placeholder={t('rules.builder.conditions.fieldPlaceholder')} />
+          <SelectValue placeholder={t('automations.builder.conditions.fieldPlaceholder')} />
         </SelectTrigger>
         <SelectContent className="min-w-60">
           {(Object.keys(fieldsByCategory) as FieldCategory[]).map((category) => {
@@ -166,9 +166,9 @@ export function ConditionRow({
       <Select value={condition.operator} onValueChange={handleOperatorChange}>
         <SelectTrigger
           className="w-full @sm:w-40"
-          aria-label={t('rules.builder.conditions.operatorPlaceholder')}
+          aria-label={t('automations.builder.conditions.operatorPlaceholder')}
         >
-          <SelectValue placeholder={t('rules.builder.conditions.operatorPlaceholder')} />
+          <SelectValue placeholder={t('automations.builder.conditions.operatorPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
           {fieldDef.operators.map((op) => (
@@ -191,26 +191,26 @@ export function ConditionRow({
       {fieldDef.hasWindowHours && (
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground text-sm whitespace-nowrap">
-            {t('rules.builder.conditions.windowPrefix')}
+            {t('automations.builder.conditions.windowPrefix')}
           </span>
           <NumericInput
             className="w-16"
-            aria-label={t('rules.builder.conditions.windowUnit')}
+            aria-label={t('automations.builder.conditions.windowUnit')}
             min={1}
             max={168}
             value={condition.params?.window_hours ?? 24}
             onChange={(window_hours) => updateParams({ window_hours })}
           />
           <span className="text-muted-foreground text-sm">
-            {t('rules.builder.conditions.windowUnit')}
+            {t('automations.builder.conditions.windowUnit')}
           </span>
         </div>
       )}
 
       {fieldDef.hasExcludeSameDevice && (
         <ConditionToggle
-          label={t('rules.builder.conditions.uniqueDevices')}
-          hint={t('rules.builder.conditions.uniqueDevicesHint')}
+          label={t('automations.builder.conditions.uniqueDevices')}
+          hint={t('automations.builder.conditions.uniqueDevicesHint')}
           checked={condition.params?.exclude_same_device ?? true}
           onChange={(exclude_same_device) => updateParams({ exclude_same_device })}
         />
@@ -218,8 +218,8 @@ export function ConditionRow({
 
       {fieldDef.hasExcludeSameIp && (
         <ConditionToggle
-          label={t('rules.builder.conditions.uniqueIps')}
-          hint={t('rules.builder.conditions.uniqueIpsHint')}
+          label={t('automations.builder.conditions.uniqueIps')}
+          hint={t('automations.builder.conditions.uniqueIpsHint')}
           checked={condition.params?.exclude_same_ip ?? false}
           onChange={(exclude_same_ip) => updateParams({ exclude_same_ip })}
         />
@@ -234,7 +234,7 @@ export function ConditionRow({
                 spec={{
                   kind: 'multiSelect',
                   options: DEVICE_TYPE_OPTIONS,
-                  placeholder: t('rules.builder.conditions.allDeviceTypes'),
+                  placeholder: t('automations.builder.conditions.allDeviceTypes'),
                 }}
                 value={condition.params?.count_device_types ?? []}
                 onChange={(types) => handleCountDeviceTypesChange(types as string[])}
@@ -242,7 +242,7 @@ export function ConditionRow({
             </div>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-60">
-            {t('rules.builder.conditions.deviceTypesHint')}
+            {t('automations.builder.conditions.deviceTypesHint')}
           </TooltipContent>
         </Tooltip>
       )}
@@ -252,7 +252,7 @@ export function ConditionRow({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={t('rules.builder.conditions.removeCondition')}
+          aria-label={t('automations.builder.conditions.removeCondition')}
           className="text-muted-foreground hover:text-destructive shrink-0"
           onClick={onRemove}
         >

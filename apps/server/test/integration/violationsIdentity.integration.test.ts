@@ -268,7 +268,7 @@ describe('DELETE /violations/bulk - person filter', () => {
     const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
     await db
       .update(automations)
-      .set({ actions: { actions: [{ type: 'adjust_trust', amount: -20 }] } })
+      .set({ actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -20 }] } })
       .where(eq(automations.id, rule.id));
 
     const sessionA = await createTestSession({ serverId: serverA.id, serverUserId: targetSu.id });

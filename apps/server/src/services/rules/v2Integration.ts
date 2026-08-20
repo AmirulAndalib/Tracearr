@@ -76,20 +76,6 @@ export async function armCooldown(redis: Redis, key: string, minutes: number): P
 export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
   return {
     /**
-     * Log audit entry using the rules logger.
-     */
-    logAudit: async (params) => {
-      rulesLogger.info(`Rule audit: ${params.ruleName}`, {
-        sessionId: params.sessionId,
-        serverUserId: params.serverUserId,
-        serverId: params.serverId,
-        ruleId: params.ruleId,
-        message: params.message,
-        ...params.details,
-      });
-    },
-
-    /**
      * Fan the rule's event out to its destinations.
      * Uses dynamic import to avoid circular dependency.
      */
@@ -288,18 +274,6 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         targetId,
         key,
       });
-    },
-
-    /**
-     * Queue action for manual confirmation.
-     * This is a deferred feature - currently a no-op.
-     */
-    queueForConfirmation: async (params) => {
-      rulesLogger.debug('Confirmation queue not implemented', {
-        ruleId: params.ruleId,
-        action: params.action.type,
-      });
-      // Future: Store pending actions in a queue table for admin approval
     },
   };
 }

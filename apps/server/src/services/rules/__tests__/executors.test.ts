@@ -6,12 +6,9 @@ import type {
   Server,
   ServerUser,
   SendAction,
-  AdjustTrustAction,
-  SetTrustAction,
   TrustAction,
   KillStreamAction,
   MessageClientAction,
-  LogOnlyAction,
 } from '@tracearr/shared';
 import { rulesLogger } from '../../../utils/logger.js';
 import { synthesizeTriggers } from '../../automations/triggers.js';
@@ -179,7 +176,6 @@ function createMockContext(
 
 function createMockDeps(): ActionExecutorDeps {
   return {
-    logAudit: vi.fn().mockResolvedValue(undefined),
     enqueueRuleNotification: vi.fn().mockResolvedValue(1),
     adjustUserTrust: vi.fn().mockResolvedValue(undefined),
     setUserTrust: vi.fn().mockResolvedValue(undefined),
@@ -188,7 +184,6 @@ function createMockDeps(): ActionExecutorDeps {
     sendClientMessage: vi.fn().mockResolvedValue(undefined),
     checkCooldown: vi.fn().mockResolvedValue(false),
     setCooldown: vi.fn().mockResolvedValue(undefined),
-    queueForConfirmation: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -202,7 +197,7 @@ describe('Action Executor Registry', () => {
       const deps = getActionExecutorDeps();
       expect(deps).toBeDefined();
       // Default deps should not throw
-      expect(async () => await deps.logAudit({} as never)).not.toThrow();
+      expect(async () => await deps.resetUserTrust('user-1')).not.toThrow();
     });
 
     it('should allow setting custom dependencies', () => {
@@ -221,15 +216,7 @@ describe('Action Executor Registry', () => {
 
   describe('Executor Registry', () => {
     it('should have executors for all action types', () => {
-      const expectedTypes = [
-        'log_only',
-        'send',
-        'adjust_trust',
-        'set_trust',
-        'reset_trust',
-        'kill_stream',
-        'message_client',
-      ];
+      const expectedTypes = ['send', 'trust', 'kill_stream', 'message_client'];
 
       for (const type of expectedTypes) {
         expect(executorRegistry[type as keyof typeof executorRegistry]).toBeDefined();
@@ -258,26 +245,6 @@ describe('Action Executor Registry', () => {
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Unknown action type');
-    });
-
-    describe('log_only', () => {
-      it('should log audit with context data', async () => {
-        const context = createMockContext();
-        const action: LogOnlyAction = { type: 'log_only', message: 'Test log message' };
-
-        const result = await executeAction(context, action);
-
-        expect(result.success).toBe(true);
-        expect(mockDeps.logAudit).toHaveBeenCalledWith({
-          sessionId: context.session.id,
-          serverUserId: context.serverUser.id,
-          serverId: context.server.id,
-          ruleId: context.rule.id,
-          ruleName: context.rule.name,
-          message: 'Test log message',
-          details: expect.any(Object),
-        });
-      });
     });
 
     describe('send', () => {
@@ -367,51 +334,6 @@ describe('Action Executor Registry', () => {
           expect.objectContaining({ ruleId: context.rule.id, to: ['d1'] })
         );
         info.mockRestore();
-      });
-    });
-
-    describe('adjust_trust', () => {
-      it('should adjust user trust by amount', async () => {
-        const context = createMockContext();
-        const action: AdjustTrustAction = { type: 'adjust_trust', amount: -10 };
-
-        const result = await executeAction(context, action);
-
-        expect(result.success).toBe(true);
-        expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
-      });
-
-      it('should not adjust if amount is 0', async () => {
-        const context = createMockContext();
-        const action: AdjustTrustAction = { type: 'adjust_trust', amount: 0 };
-
-        await executeAction(context, action);
-
-        expect(mockDeps.adjustUserTrust).not.toHaveBeenCalled();
-      });
-    });
-
-    describe('set_trust', () => {
-      it('should set user trust to specific value', async () => {
-        const context = createMockContext();
-        const action: SetTrustAction = { type: 'set_trust', value: 50 };
-
-        const result = await executeAction(context, action);
-
-        expect(result.success).toBe(true);
-        expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 50);
-      });
-    });
-
-    describe('reset_trust', () => {
-      it('should reset user trust to baseline', async () => {
-        const context = createMockContext();
-        const action: Action = { type: 'reset_trust' };
-
-        const result = await executeAction(context, action);
-
-        expect(result.success).toBe(true);
-        expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
       });
     });
 
@@ -951,28 +873,6 @@ describe('Action Executor Registry', () => {
       });
     });
 
-    describe('Confirmation Handling', () => {
-      it('should queue for confirmation if require_confirmation is true', async () => {
-        const context = createMockContext();
-        const action: KillStreamAction = { type: 'kill_stream', require_confirmation: true };
-
-        const result = await executeAction(context, action);
-
-        expect(result.success).toBe(true);
-        expect(result.skipped).toBe(true);
-        expect(result.skipReason).toContain('confirmation');
-        expect(mockDeps.queueForConfirmation).toHaveBeenCalledWith({
-          ruleId: context.rule.id,
-          ruleName: context.rule.name,
-          sessionId: context.session.id,
-          serverUserId: context.serverUser.id,
-          serverId: context.server.id,
-          action,
-        });
-        expect(mockDeps.terminateSession).not.toHaveBeenCalled();
-      });
-    });
-
     describe('Error Handling', () => {
       it('should return error result if executor throws', async () => {
         (mockDeps.enqueueRuleNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
@@ -1004,8 +904,8 @@ describe('Action Executor Registry', () => {
     it('should execute all actions in sequence', async () => {
       const context = createMockContext();
       const actions: Action[] = [
-        { type: 'log_only', message: 'Test' },
-        { type: 'adjust_trust', amount: -10 },
+        { type: 'message_client', message: 'Test' },
+        { type: 'trust', mode: 'adjust', amount: -10 },
         { type: 'send', to: ['d1'] },
       ];
 
@@ -1013,16 +913,18 @@ describe('Action Executor Registry', () => {
 
       expect(results).toHaveLength(3);
       expect(results.every((r) => r.success)).toBe(true);
-      expect(mockDeps.logAudit).toHaveBeenCalled();
+      expect(mockDeps.sendClientMessage).toHaveBeenCalled();
       expect(mockDeps.adjustUserTrust).toHaveBeenCalled();
       expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
     });
 
     it('should continue executing after an action fails', async () => {
-      (mockDeps.logAudit as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Audit error'));
+      (mockDeps.adjustUserTrust as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('trust write failed')
+      );
       const context = createMockContext();
       const actions: Action[] = [
-        { type: 'log_only', message: 'Test' },
+        { type: 'trust', mode: 'adjust', amount: -10 },
         { type: 'send', to: ['d1'] },
       ];
 
@@ -1138,7 +1040,7 @@ describe('Action Executor Registry', () => {
       );
       const actions: Action[] = [
         { type: 'send', to: ['d1'], cooldown_minutes: 60 },
-        { type: 'adjust_trust', amount: -10 },
+        { type: 'trust', mode: 'adjust', amount: -10 },
       ];
 
       const results = await executeActions(context, actions);
@@ -1151,7 +1053,7 @@ describe('Action Executor Registry', () => {
       expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
       expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
       expect(results[0]).toMatchObject({ skipped: true, skipReason: 'On cooldown (60 minutes)' });
-      expect(results[1]).toMatchObject({ success: true, message: 'Executed adjust_trust' });
+      expect(results[1]).toMatchObject({ success: true, message: 'Executed trust' });
     });
 
     it('arms the cooldown with the action-type key after executing', async () => {
@@ -1168,15 +1070,14 @@ describe('Action Executor Registry', () => {
       );
     });
 
-    it('runs trust and log actions against the account', async () => {
+    it('runs every trust mode against the account', async () => {
       const context = createAccountContext(
         createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })
       );
       const actions: Action[] = [
-        { type: 'adjust_trust', amount: -5 },
-        { type: 'set_trust', value: 20 },
-        { type: 'reset_trust' },
-        { type: 'log_only', message: 'dormant account seen' },
+        { type: 'trust', mode: 'adjust', amount: -5 },
+        { type: 'trust', mode: 'set', value: 20 },
+        { type: 'trust', mode: 'reset' },
       ];
 
       await executeActions(context, actions);
@@ -1184,15 +1085,6 @@ describe('Action Executor Registry', () => {
       expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
       expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 20);
       expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
-      expect(mockDeps.logAudit).toHaveBeenCalledWith({
-        sessionId: null,
-        serverUserId: context.serverUser.id,
-        serverId: context.server.id,
-        ruleId: context.rule.id,
-        ruleName: context.rule.name,
-        message: 'dormant account seen',
-        details: { lastActivityAt: fortyFiveDaysAgo },
-      });
     });
 
     it('records a failure without aborting later actions', async () => {
@@ -1204,7 +1096,7 @@ describe('Action Executor Registry', () => {
       );
       const actions: Action[] = [
         { type: 'send', to: ['d1'] },
-        { type: 'adjust_trust', amount: -5 },
+        { type: 'trust', mode: 'adjust', amount: -5 },
       ];
 
       const results = await executeActions(context, actions);
@@ -1223,7 +1115,7 @@ describe('Action Executor Registry', () => {
 
       expect(results).toEqual([]);
       expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
-      expect(mockDeps.logAudit).not.toHaveBeenCalled();
+      expect(mockDeps.adjustUserTrust).not.toHaveBeenCalled();
     });
   });
 });

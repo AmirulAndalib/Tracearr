@@ -19,7 +19,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
-import { and } from 'drizzle-orm';
+import { and, type SQL } from 'drizzle-orm';
 import type { AuthUser, ViolationRosterFilters, ViolationSeverity } from '@tracearr/shared';
 import { queryChain, renderCall, renderSql } from '../../test/helpers.js';
 
@@ -826,15 +826,10 @@ describe('Violation Routes', () => {
       expect(mockRecalculateAggregateTrustScore).toHaveBeenCalledWith(userId, txMock);
     });
 
-    it.each([
-      { label: 'an adjust_trust action', action: { type: 'adjust_trust', amount: -20 } },
-      {
-        label: 'a trust action in adjust mode',
-        action: { type: 'trust', mode: 'adjust', amount: -20 },
-      },
-    ])('reverses trust score when dismissing a violation with $label', async ({ action }) => {
+    it('reverses trust score when dismissing a violation with a trust action', async () => {
       // Dismiss reverses any trust changes made by explicit rule actions.
       // This treats dismiss as "false positive, undo everything".
+      const action = { type: 'trust', mode: 'adjust', amount: -20 };
       const ownerUser = createOwnerUser();
       app = await buildTestApp(ownerUser);
 
@@ -845,7 +840,7 @@ describe('Violation Routes', () => {
       const serverId = ownerUser.serverIds[0];
 
       // First select: violation exists check
-      // Second select: the rule's stored trust action, worth -20 either way
+      // Second select: the rule's stored trust action, worth -20
       let selectCallCount = 0;
       mockDb.select.mockImplementation(() => {
         selectCallCount++;
@@ -903,11 +898,13 @@ describe('Violation Routes', () => {
       expect(deleteMock).not.toHaveBeenCalled();
       expect(setMock).toHaveBeenCalledTimes(2);
       expect(setMock.mock.calls[0]?.[0]).toEqual({ dismissedAt: expect.any(Date) });
-      // Trust reversal update carries the score expression and timestamp
-      expect(setMock.mock.calls[1]?.[0]).toEqual(
-        expect.objectContaining({ updatedAt: expect.any(Date) })
-      );
-      expect(setMock.mock.calls[1]?.[0]).toHaveProperty('trustScore');
+      // The stored -20 is subtracted, handing the user back 20 points, clamped to 0..100
+      const reversal = setMock.mock.calls[1]?.[0] as { trustScore: SQL; updatedAt: unknown };
+      expect(reversal.updatedAt).toBeInstanceOf(Date);
+      expect(renderSql(reversal.trustScore)).toMatchObject({
+        sql: 'LEAST(100, GREATEST(0, server_users.trust_score - $1))',
+        params: [-20],
+      });
       // Verify the identity's overall trust rollup was recomputed for the reversal
       expect(mockRecalculateAggregateTrustScore).toHaveBeenCalledWith(userId, txMock);
     });

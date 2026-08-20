@@ -49,7 +49,9 @@ export function RuleFieldControl({
         <div className={cn('flex h-9 items-center gap-2', className)}>
           <Switch id={id} checked={checked} onCheckedChange={onChange} />
           <span className="text-muted-foreground text-sm">
-            {checked ? t('rules.builder.conditions.yes') : t('rules.builder.conditions.no')}
+            {checked
+              ? t('automations.builder.conditions.yes')
+              : t('automations.builder.conditions.no')}
           </span>
         </div>
       );
@@ -101,7 +103,9 @@ export function RuleFieldControl({
       return (
         <Select value={typeof value === 'string' ? value : ''} onValueChange={onChange}>
           <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} className={className}>
-            <SelectValue placeholder={spec.placeholder ?? t('rules.builder.selectPlaceholder')} />
+            <SelectValue
+              placeholder={spec.placeholder ?? t('automations.builder.selectPlaceholder')}
+            />
           </SelectTrigger>
           <SelectContent>
             {spec.options.map((option) => (
@@ -122,11 +126,11 @@ export function RuleFieldControl({
           options={spec.options}
           value={Array.isArray(value) ? value.map(String) : []}
           onChange={onChange}
-          placeholder={spec.placeholder ?? t('rules.builder.selectPlaceholder')}
-          searchPlaceholder={t('rules.builder.searchPlaceholder')}
-          emptyMessage={t('rules.builder.noMatches')}
-          clearLabel={t('rules.builder.clearSelection')}
-          countLabel={(count) => t('rules.builder.selectedCount', { count })}
+          placeholder={spec.placeholder ?? t('automations.builder.selectPlaceholder')}
+          searchPlaceholder={t('automations.builder.searchPlaceholder')}
+          emptyMessage={t('automations.builder.noMatches')}
+          clearLabel={t('automations.builder.clearSelection')}
+          countLabel={(count) => t('automations.builder.selectedCount', { count })}
         />
       );
 

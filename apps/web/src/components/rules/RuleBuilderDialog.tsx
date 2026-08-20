@@ -40,10 +40,10 @@ export function RuleBuilderDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(56rem,calc(100%-2rem))]">
         <DialogHeader className="sm:text-center">
           <DialogTitle className="text-xl">
-            {isEditing ? t('rules.editRule') : t('rules.createRule')}
+            {isEditing ? t('automations.editRule') : t('automations.createRule')}
           </DialogTitle>
           <DialogDescription>
-            {isEditing ? t('rules.updateDescription') : t('rules.createDescription')}
+            {isEditing ? t('automations.updateDescription') : t('automations.createDescription')}
           </DialogDescription>
         </DialogHeader>
         <RuleBuilder

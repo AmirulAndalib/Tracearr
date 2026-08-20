@@ -68,13 +68,9 @@ function collectIdentityUserIds(userId: string | undefined, userIds: string[] | 
 
 /**
  * The trust delta a stored action applied, or null when it applied none.
- * Stored rows carry either the legacy adjust_trust or the trust action, and
- * neither is revalidated on read, so the amount has to be checked at runtime.
+ * Stored rows are not revalidated on read, so the amount is checked at runtime.
  */
 function trustAdjustment(action: Action): number | null {
-  if (action.type === 'adjust_trust' && typeof action.amount === 'number') {
-    return action.amount;
-  }
   if (action.type === 'trust' && action.mode === 'adjust' && typeof action.amount === 'number') {
     return action.amount;
   }

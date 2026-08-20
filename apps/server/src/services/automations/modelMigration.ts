@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
-import type { Action, RuleActions } from '@tracearr/shared';
+import type { Action, KillStreamAction, RuleActions } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
@@ -59,14 +59,23 @@ async function countPendingWork(executor: Executor): Promise<PendingWork> {
   };
 }
 
+/** What a stored row can hold: the live union plus the shapes the contract dropped. */
+export type StoredAction =
+  | Exclude<Action, KillStreamAction>
+  | (KillStreamAction & { require_confirmation?: boolean })
+  | { type: 'log_only'; message?: string }
+  | { type: 'adjust_trust'; amount: number; cooldown_minutes?: number }
+  | { type: 'set_trust'; value: number; cooldown_minutes?: number }
+  | { type: 'reset_trust'; cooldown_minutes?: number };
+
 /** Legacy trust rows can carry a cooldown the typed trio never declared. */
-function cooldownOf(action: Action): { cooldown_minutes?: number } {
+function cooldownOf(action: StoredAction): { cooldown_minutes?: number } {
   const minutes = 'cooldown_minutes' in action ? action.cooldown_minutes : undefined;
   return typeof minutes === 'number' ? { cooldown_minutes: minutes } : {};
 }
 
 /** The trust trio collapses into one action with a mode; log_only becomes nothing at all. */
-function rewriteAction(action: Action): Action | null {
+function rewriteAction(action: StoredAction): Action | null {
   switch (action.type) {
     case 'log_only':
       return null;
@@ -85,7 +94,7 @@ function rewriteAction(action: Action): Action | null {
   }
 }
 
-function rewriteActions(actions: RuleActions | null): RuleActions {
+function rewriteActions(actions: { actions: StoredAction[] } | null): RuleActions {
   const nodes: Action[] = [];
   for (const action of actions?.actions ?? []) {
     const rewritten = rewriteAction(action);

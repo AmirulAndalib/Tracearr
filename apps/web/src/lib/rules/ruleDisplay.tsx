@@ -8,9 +8,7 @@ import type { ReactNode } from 'react';
 import type {
   Condition,
   Action,
-  ActionType,
   ConditionField,
-  Operator,
   RuleActions,
   RuleConditions,
   RulesFilterOptions,
@@ -29,7 +27,13 @@ import {
   Settings2,
   Pause,
 } from 'lucide-react';
-import { DEVICE_TYPE_OPTIONS, FIELD_DEFINITIONS } from './conditionFields';
+import { COMPACT_ACTION_LABELS } from './actionDefinitions';
+import {
+  COMPACT_FIELD_LABELS,
+  DEVICE_TYPE_OPTIONS,
+  FIELD_DEFINITIONS,
+  OPERATOR_SYMBOLS,
+} from './conditionFields';
 
 // Condition field → icon mapping
 const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, ReactNode>> = {
@@ -62,44 +66,6 @@ const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, ReactNode>> = {
 
 // Fallback icon for unknown fields
 const DEFAULT_ICON = <Settings2 className="h-5 w-5" />;
-
-// Compact operator symbols for display
-const OPERATOR_SYMBOLS: Record<Operator, string> = {
-  eq: '=',
-  neq: '≠',
-  gt: '>',
-  gte: '≥',
-  lt: '<',
-  lte: '≤',
-  in: 'in',
-  not_in: 'not in',
-  contains: 'contains',
-  not_contains: 'excludes',
-};
-
-// Compact field labels for summary display
-const COMPACT_FIELD_LABELS: Partial<Record<ConditionField, string>> = {
-  inactive_days: 'Inactive',
-  current_pause_minutes: 'Paused',
-  total_pause_minutes: 'Total paused',
-  concurrent_streams: 'Streams',
-  travel_speed_kmh: 'Travel speed',
-  active_session_distance_km: 'Session distance',
-  unique_ips_in_window: 'Unique IPs',
-  unique_devices_in_window: 'Unique devices',
-  trust_score: 'Trust',
-  account_age_days: 'Account age',
-  source_resolution: 'Resolution',
-  output_resolution: 'Output',
-  is_transcoding: 'Transcoding',
-  is_transcode_downgrade: 'Downgrade',
-  source_bitrate_mbps: 'Bitrate',
-  country: 'Country',
-  is_local_network: 'Local network',
-  device_type: 'Device',
-  client_name: 'Client',
-  platform: 'Platform',
-};
 
 /** The conditions/actions pair both `Rule` and `Automation` carry. */
 export interface RuleDisplayInput {
@@ -279,18 +245,6 @@ function formatConditionValue(
 
   return String(value);
 }
-
-// Compact action labels for summary display (design spec)
-const COMPACT_ACTION_LABELS: Record<ActionType, string> = {
-  send: 'Send',
-  log_only: 'Log',
-  adjust_trust: 'Adjust trust',
-  set_trust: 'Set trust',
-  reset_trust: 'Reset trust',
-  trust: 'Trust score',
-  kill_stream: 'Kill stream',
-  message_client: 'Message',
-};
 
 function formatAction(action: Action): string {
   return COMPACT_ACTION_LABELS[action.type];

@@ -52,16 +52,16 @@ describe('ActionRow trust fields', () => {
 });
 
 describe('ActionRow type picker', () => {
-  it('leaves the legacy trust spellings out of the options', async () => {
+  it('offers one trust action', async () => {
     const user = userEvent.setup();
     renderRow({ type: 'send', to: [] });
 
     await user.click(screen.getByRole('combobox', { name: /typeLabel/ }));
 
-    expect(screen.getByRole('option', { name: /Trust Score/ })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Adjust Trust Score/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Set Trust Score/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Reset Trust Score/ })).not.toBeInTheDocument();
+    const trustOptions = screen
+      .getAllByRole('option')
+      .filter((option) => option.textContent?.includes('Trust'));
+    expect(trustOptions.map((option) => option.textContent)).toEqual(['Trust Score']);
   });
 
   it('leads with send for a notification automation', async () => {
@@ -73,14 +73,5 @@ describe('ActionRow type picker', () => {
     const options = screen.getAllByRole('option').map((option) => option.textContent);
     expect(options[0]).toBe('Send Notification');
     expect(options).toContain('Kill Stream');
-  });
-
-  it('keeps a stored legacy spelling selectable as the current value', async () => {
-    const user = userEvent.setup();
-    renderRow({ type: 'adjust_trust', amount: -5 });
-
-    await user.click(screen.getByRole('combobox', { name: /typeLabel/ }));
-
-    expect(screen.getByRole('option', { name: /Adjust Trust Score/ })).toBeInTheDocument();
   });
 });

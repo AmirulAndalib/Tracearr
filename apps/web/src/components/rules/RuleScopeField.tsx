@@ -77,7 +77,7 @@ export function RuleScopeField({
 
   return (
     <FieldSet>
-      <FieldLegend variant="label">{t('rules.builder.scope.label')}</FieldLegend>
+      <FieldLegend variant="label">{t('automations.builder.scope.label')}</FieldLegend>
 
       <ToggleGroup
         type="single"
@@ -93,7 +93,7 @@ export function RuleScopeField({
             value={mode}
             className="data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
           >
-            {t(`rules.builder.scope.${mode}`)}
+            {t(`automations.builder.scope.${mode}`)}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -101,19 +101,19 @@ export function RuleScopeField({
       {scope.mode !== 'global' && (
         <FieldGroup>
           {servers.length === 0 && scope.mode !== 'person' ? (
-            <FieldDescription>{t('rules.builder.scope.noServers')}</FieldDescription>
+            <FieldDescription>{t('automations.builder.scope.noServers')}</FieldDescription>
           ) : (
             <div className="grid gap-4 @md:grid-cols-2">
               {asksForServer && 'serverId' in scope && (
                 <Field>
                   <FieldLabel htmlFor={`${fieldId}-server`}>
-                    {t('rules.builder.scope.serverLabel')}
+                    {t('automations.builder.scope.serverLabel')}
                   </FieldLabel>
                   <ServerSelect
                     id={`${fieldId}-server`}
                     servers={servers}
                     value={scope.serverId}
-                    placeholder={t('rules.builder.scope.serverPlaceholder')}
+                    placeholder={t('automations.builder.scope.serverPlaceholder')}
                     onChange={(serverId) =>
                       onChange(
                         scope.mode === 'account'
@@ -128,7 +128,7 @@ export function RuleScopeField({
               {scope.mode === 'account' && scopeServerId && (
                 <Field>
                   <FieldLabel htmlFor={`${fieldId}-account`}>
-                    {t('rules.builder.scope.accountLabel')}
+                    {t('automations.builder.scope.accountLabel')}
                   </FieldLabel>
                   <Select
                     value={scope.serverUserId}
@@ -137,7 +137,9 @@ export function RuleScopeField({
                     }
                   >
                     <SelectTrigger id={`${fieldId}-account`}>
-                      <SelectValue placeholder={t('rules.builder.scope.accountPlaceholder')} />
+                      <SelectValue
+                        placeholder={t('automations.builder.scope.accountPlaceholder')}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {accounts.map((account) => (
@@ -153,14 +155,14 @@ export function RuleScopeField({
               {scope.mode === 'person' && (
                 <Field>
                   <FieldLabel htmlFor={`${fieldId}-person`}>
-                    {t('rules.builder.scope.personLabel')}
+                    {t('automations.builder.scope.personLabel')}
                   </FieldLabel>
                   <Select
                     value={scope.userId}
                     onValueChange={(userId) => onChange({ mode: 'person', userId })}
                   >
                     <SelectTrigger id={`${fieldId}-person`}>
-                      <SelectValue placeholder={t('rules.builder.scope.personPlaceholder')} />
+                      <SelectValue placeholder={t('automations.builder.scope.personPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {identities.map((identity) => (
@@ -175,7 +177,7 @@ export function RuleScopeField({
             </div>
           )}
 
-          {incomplete && <FieldError>{t('rules.builder.errors.scopeIncomplete')}</FieldError>}
+          {incomplete && <FieldError>{t('automations.builder.errors.scopeIncomplete')}</FieldError>}
         </FieldGroup>
       )}
 
@@ -188,10 +190,10 @@ export function RuleScopeField({
           />
           <FieldContent>
             <FieldLabel htmlFor={`${fieldId}-enforce`}>
-              {t('rules.builder.scope.enforceAcrossServers')}
+              {t('automations.builder.scope.enforceAcrossServers')}
             </FieldLabel>
             <FieldDescription className="max-w-prose">
-              {t('rules.builder.scope.enforceAcrossServersDescription')}
+              {t('automations.builder.scope.enforceAcrossServersDescription')}
             </FieldDescription>
           </FieldContent>
         </Field>

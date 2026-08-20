@@ -7,12 +7,13 @@ import {
   paginationSchema,
   ruleActionsSchema,
   ruleConditionsSchema,
+  type RuleActions,
   scopeAllowsCrossServerEnforcement,
   scopeRefinement,
   uuidSchema,
   violationSeveritySchema,
 } from './schemas.js';
-import type { RuleActions, RuleConditions, ViolationSeverity } from './types.js';
+import type { RuleConditions, ViolationSeverity } from './types.js';
 
 export const AUTOMATION_KINDS = ['policy', 'notification'] as const;
 export type AutomationKind = (typeof AUTOMATION_KINDS)[number];

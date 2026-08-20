@@ -37,10 +37,10 @@ describe('trust action', () => {
     );
   });
 
-  it('joins the action union alongside the trio', () => {
+  it('is the only trust member of the action union', () => {
     expect(actionTypeSchema.safeParse('trust').success).toBe(true);
     expect(actionSchema.safeParse({ type: 'trust', mode: 'reset' }).success).toBe(true);
-    expect(actionSchema.safeParse({ type: 'adjust_trust', amount: -10 }).success).toBe(true);
+    expect(actionSchema.safeParse({ type: 'adjust_trust', amount: -10 }).success).toBe(false);
   });
 
   it('the union rejects a mismatched mode and parameter', () => {
@@ -69,14 +69,16 @@ describe('node ids', () => {
       conditionSchema.safeParse({ id: 'nope', field: 'trust_score', operator: 'lt', value: 1 })
         .success
     ).toBe(false);
-    expect(actionSchema.safeParse({ id: 'nope', type: 'reset_trust' }).success).toBe(false);
+    expect(actionSchema.safeParse({ id: 'nope', type: 'trust', mode: 'reset' }).success).toBe(
+      false
+    );
   });
 
   it('a node without the fields still parses', () => {
     expect(
       conditionSchema.safeParse({ field: 'trust_score', operator: 'lt', value: 1 }).success
     ).toBe(true);
-    expect(actionSchema.safeParse({ type: 'reset_trust' }).success).toBe(true);
+    expect(actionSchema.safeParse({ type: 'trust', mode: 'reset' }).success).toBe(true);
   });
 });
 

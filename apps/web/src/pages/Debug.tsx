@@ -474,7 +474,7 @@ export function Debug() {
                 <Scale className="text-muted-foreground h-8 w-8" />
                 <div>
                   <p className="text-2xl font-bold">{stats.data?.counts.rules ?? '-'}</p>
-                  <p className="text-muted-foreground text-xs">{t('rules.title')}</p>
+                  <p className="text-muted-foreground text-xs">{t('automations.title')}</p>
                 </div>
               </CardContent>
             </Card>

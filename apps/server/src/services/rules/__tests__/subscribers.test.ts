@@ -1294,11 +1294,13 @@ describe('runRulePipeline', () => {
         ruleName: 'Deferred',
         matched: true,
         matchedGroups: [0],
-        actions: [{ type: 'log_only' }],
+        actions: [{ type: 'trust', mode: 'reset' }],
       },
     ]);
     mockRecordRun.mockResolvedValue({ id: 'v1' });
-    mockExecuteActions.mockResolvedValue([{ action: { type: 'log_only' }, success: true }]);
+    mockExecuteActions.mockResolvedValue([
+      { action: { type: 'trust', mode: 'reset' }, success: true },
+    ]);
 
     const input = createTranscodeInput({
       activeRulesV2: [createTranscodeRule({ id: 'r1', name: 'Deferred' })],

@@ -2,10 +2,7 @@ import { TIME_MS } from '@tracearr/shared';
 import type {
   Action,
   ActionType,
-  LogOnlyAction,
   SendAction,
-  AdjustTrustAction,
-  SetTrustAction,
   TrustAction,
   KillStreamAction,
   MessageClientAction,
@@ -35,16 +32,6 @@ export interface ActionResult {
  * These are injected to allow for testing and avoid circular dependencies.
  */
 export interface ActionExecutorDeps {
-  logAudit: (params: {
-    /** null for violations with no session, e.g. account inactivity */
-    sessionId: string | null;
-    serverUserId: string;
-    serverId: string;
-    ruleId: string;
-    ruleName: string;
-    message?: string;
-    details: Record<string, unknown>;
-  }) => Promise<void>;
   /** Resolves the destination ids and returns how many jobs were enqueued. */
   enqueueRuleNotification: (params: {
     to: string[];
@@ -78,21 +65,10 @@ export interface ActionExecutorDeps {
   sendClientMessage: (sessionId: string, message: string) => Promise<void>;
   checkCooldown: (ruleId: string, targetId: string, cooldownMinutes: number) => Promise<boolean>;
   setCooldown: (ruleId: string, targetId: string, cooldownMinutes: number) => Promise<void>;
-  queueForConfirmation: (params: {
-    ruleId: string;
-    ruleName: string;
-    sessionId: string | null;
-    serverUserId: string;
-    serverId: string;
-    action: Action;
-  }) => Promise<void>;
 }
 
 // Default no-op dependencies for testing
 const noopDeps: ActionExecutorDeps = {
-  logAudit: async () => {
-    /* no-op */
-  },
   enqueueRuleNotification: async () => 0,
   adjustUserTrust: async () => {
     /* no-op */
@@ -109,9 +85,6 @@ const noopDeps: ActionExecutorDeps = {
   },
   checkCooldown: async () => false,
   setCooldown: async () => {
-    /* no-op */
-  },
-  queueForConfirmation: async () => {
     /* no-op */
   },
 };
@@ -152,13 +125,6 @@ function hasCooldown(action: Action): action is Action & { cooldown_minutes?: nu
 }
 
 /**
- * Check if an action has require_confirmation property.
- */
-function hasConfirmation(action: Action): action is Action & { require_confirmation?: boolean } {
-  return 'require_confirmation' in action;
-}
-
-/**
  * Get cooldown minutes from action if it exists.
  */
 function getCooldownMinutes(action: Action): number | undefined {
@@ -168,46 +134,9 @@ function getCooldownMinutes(action: Action): number | undefined {
   return undefined;
 }
 
-/**
- * Check if action requires confirmation.
- */
-function requiresConfirmation(action: Action): boolean {
-  if (hasConfirmation(action)) {
-    return action.require_confirmation === true;
-  }
-  return false;
-}
-
 // ============================================================================
 // Action Executors
 // ============================================================================
-
-/**
- * Log to audit log without creating a violation.
- */
-const executeLogOnly: ActionExecutor = async (
-  context: EvaluationContext,
-  action: Action
-): Promise<void> => {
-  const { session, serverUser, server, rule } = context;
-  const typedAction = action as LogOnlyAction;
-
-  await currentDeps.logAudit({
-    sessionId: session?.id ?? null,
-    serverUserId: serverUser.id,
-    serverId: server.id,
-    ruleId: rule.id,
-    ruleName: rule.name,
-    message: typedAction.message,
-    details: session
-      ? {
-          sessionKey: session.sessionKey,
-          mediaTitle: session.mediaTitle,
-          ipAddress: session.ipAddress,
-        }
-      : { lastActivityAt: serverUser.lastActivityAt },
-  });
-};
 
 function accountInactivityMessage(serverUser: ServerUser): string {
   if (!serverUser.lastActivityAt) return `Account "${serverUser.username}" has never been active`;
@@ -276,43 +205,6 @@ const executeSend: ActionExecutor = async (
   if (enqueued === 0) {
     rulesLogger.info('send resolved no enabled destination', { ruleId: rule.id, to });
   }
-};
-
-/**
- * Adjust user trust score by adding/subtracting points.
- */
-const executeAdjustTrust: ActionExecutor = async (
-  context: EvaluationContext,
-  action: Action
-): Promise<void> => {
-  const { serverUser } = context;
-  const typedAction = action as AdjustTrustAction;
-  const amount = typedAction.amount;
-
-  if (amount !== 0) {
-    await currentDeps.adjustUserTrust(serverUser.id, amount);
-  }
-};
-
-/**
- * Set user trust score to a specific value.
- */
-const executeSetTrust: ActionExecutor = async (
-  context: EvaluationContext,
-  action: Action
-): Promise<void> => {
-  const { serverUser } = context;
-  const typedAction = action as SetTrustAction;
-
-  await currentDeps.setUserTrust(serverUser.id, typedAction.value);
-};
-
-/**
- * Reset user trust score to baseline (100).
- */
-const executeResetTrust: ActionExecutor = async (context: EvaluationContext): Promise<void> => {
-  const { serverUser } = context;
-  await currentDeps.resetUserTrust(serverUser.id);
 };
 
 /**
@@ -466,11 +358,7 @@ const executeMessageClient: ActionExecutor = async (
 // ============================================================================
 
 export const executorRegistry: Record<ActionType, ActionExecutor> = {
-  log_only: executeLogOnly,
   send: executeSend,
-  adjust_trust: executeAdjustTrust,
-  set_trust: executeSetTrust,
-  reset_trust: executeResetTrust,
   trust: executeTrust,
   kill_stream: executeKillStream,
   message_client: executeMessageClient,
@@ -495,7 +383,7 @@ export function cooldownTargetId(
 }
 
 /**
- * Execute a single action, handling cooldowns and confirmation requirements.
+ * Execute a single action, handling cooldowns.
  */
 export async function executeAction(
   context: EvaluationContext,
@@ -535,25 +423,6 @@ export async function executeAction(
         skipReason: `On cooldown (${cooldownMinutes} minutes)`,
       };
     }
-  }
-
-  // Check if confirmation required
-  if (requiresConfirmation(action)) {
-    await currentDeps.queueForConfirmation({
-      ruleId: rule.id,
-      ruleName: rule.name,
-      sessionId: context.session?.id ?? null,
-      serverUserId: serverUser.id,
-      serverId: context.server.id,
-      action,
-    });
-
-    return {
-      action,
-      success: true,
-      skipped: true,
-      skipReason: 'Queued for manual confirmation',
-    };
   }
 
   // Execute the action

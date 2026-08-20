@@ -235,7 +235,7 @@ describe('planDestinationsMigration', () => {
           id: 'r5',
           name: 'no notify',
           isActive: true,
-          actions: { actions: [{ type: 'log_only' }] },
+          actions: { actions: [{ type: 'kill_stream' }] },
         },
       ],
     });

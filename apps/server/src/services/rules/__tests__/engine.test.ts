@@ -184,7 +184,7 @@ describe('evaluateRuleAsync', () => {
     it('matches when rule has no conditions', async () => {
       const rule = createMockRule({
         conditions: { groups: [] },
-        actions: { actions: [{ type: 'log_only' }] },
+        actions: { actions: [{ type: 'trust', mode: 'reset' }] },
       });
       const ctx = createTestContext(rule);
 
@@ -192,7 +192,7 @@ describe('evaluateRuleAsync', () => {
 
       expect(result.matched).toBe(true);
       expect(result.matchedGroups).toEqual([]);
-      expect(result.actions).toEqual([{ type: 'log_only' }]);
+      expect(result.actions).toEqual([{ type: 'trust', mode: 'reset' }]);
       expect(result.evidence).toEqual([]);
     });
 
@@ -715,7 +715,7 @@ describe('evaluateRulesAsync', () => {
         conditions: {
           groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
         },
-        actions: { actions: [{ type: 'log_only' }] },
+        actions: { actions: [{ type: 'trust', mode: 'reset' }] },
       }),
       createMockRule({
         id: 'rule-2',

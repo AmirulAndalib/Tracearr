@@ -81,9 +81,9 @@ function renderBuilder(to: string[], scope: Partial<RuleBuilderInput> = {}) {
 }
 
 const save = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+  user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
 
-const severityLabel = () => screen.queryByText('pages:rules.builder.severityLabel');
+const severityLabel = () => screen.queryByText('pages:automations.builder.severityLabel');
 
 const kindOption = (kind: string) =>
   screen.getByRole('radio', { name: new RegExp(`automations.kind.${kind}Description`) });
@@ -103,9 +103,11 @@ describe('RuleBuilder validation', () => {
     const user = userEvent.setup();
     renderBuilder([]);
 
-    await user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
 
-    expect(screen.getByText('pages:rules.builder.errors.sendNeedsDestination')).toBeInTheDocument();
+    expect(
+      screen.getByText('pages:automations.builder.errors.sendNeedsDestination')
+    ).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -113,10 +115,10 @@ describe('RuleBuilder validation', () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord']);
 
-    await user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
 
     expect(
-      screen.queryByText('pages:rules.builder.errors.sendNeedsDestination')
+      screen.queryByText('pages:automations.builder.errors.sendNeedsDestination')
     ).not.toBeInTheDocument();
     expect(onSave).toHaveBeenCalledTimes(1);
   });
@@ -193,11 +195,11 @@ describe('RuleBuilder kind steering', () => {
       </TooltipProvider>
     );
 
-    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.actions.typeLabel')).not.toBeInTheDocument();
 
     await user.click(screen.getByText('pages:automations.kind.notification'));
 
-    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.actions.typeLabel')).toBeInTheDocument();
     expect(screen.getByText('Send Notification')).toBeInTheDocument();
   });
 
@@ -208,7 +210,7 @@ describe('RuleBuilder kind steering', () => {
       </TooltipProvider>
     );
 
-    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.actions.typeLabel')).not.toBeInTheDocument();
   });
 
   it('takes the pre-added send row back when the kind returns to policy', async () => {
@@ -220,11 +222,11 @@ describe('RuleBuilder kind steering', () => {
     );
 
     await user.click(screen.getByText('pages:automations.kind.notification'));
-    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.actions.typeLabel')).toBeInTheDocument();
 
     await user.click(screen.getByText('pages:automations.kind.policy'));
 
-    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.actions.typeLabel')).not.toBeInTheDocument();
   });
 
   it('keeps a pre-added send row the user has already edited', async () => {
@@ -239,7 +241,7 @@ describe('RuleBuilder kind steering', () => {
     await user.type(screen.getByLabelText('Cooldown'), '15');
     await user.click(screen.getByText('pages:automations.kind.policy'));
 
-    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.actions.typeLabel')).toBeInTheDocument();
   });
 
   it('keeps configured actions across a kind switch', async () => {
@@ -276,7 +278,7 @@ describe('RuleBuilder actions', () => {
       </TooltipProvider>
     );
 
-    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.actions.typeLabel')).not.toBeInTheDocument();
   });
 
   it('adds a send row on a policy automation, whatever the catalog order is', async () => {
@@ -287,7 +289,7 @@ describe('RuleBuilder actions', () => {
       </TooltipProvider>
     );
 
-    await user.click(screen.getByRole('button', { name: /rules.builder.actions.add/ }));
+    await user.click(screen.getByRole('button', { name: /automations.builder.actions.add/ }));
 
     expect(screen.getByText('Send Notification')).toBeInTheDocument();
   });
@@ -298,7 +300,7 @@ describe('RuleBuilder scope', () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord'], { userId: 'usr-3' });
 
-    await user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith(
@@ -310,10 +312,12 @@ describe('RuleBuilder scope', () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord'], { serverId: 'srv-1' });
 
-    await user.click(screen.getByText('rules.builder.scope.person'));
-    await user.click(screen.getByRole('button', { name: /rules.updateRule/ }));
+    await user.click(screen.getByText('automations.builder.scope.person'));
+    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
 
-    expect(screen.getByText('pages:rules.builder.errors.scopeIncomplete')).toBeInTheDocument();
+    expect(
+      screen.getByText('pages:automations.builder.errors.scopeIncomplete')
+    ).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
   });
 
@@ -321,17 +325,17 @@ describe('RuleBuilder scope', () => {
     mockServers(1);
     renderBuilder(['dest-discord']);
 
-    expect(screen.getByText('rules.builder.scope.global')).toBeInTheDocument();
-    expect(screen.getByText('rules.builder.scope.account')).toBeInTheDocument();
-    expect(screen.queryByText('rules.builder.scope.server')).not.toBeInTheDocument();
-    expect(screen.queryByText('rules.builder.scope.person')).not.toBeInTheDocument();
+    expect(screen.getByText('automations.builder.scope.global')).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.scope.account')).toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.scope.server')).not.toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.scope.person')).not.toBeInTheDocument();
   });
 
   it('offers all four modes once a second server exists', () => {
     renderBuilder(['dest-discord']);
 
     for (const mode of ['global', 'server', 'account', 'person']) {
-      expect(screen.getByText(`rules.builder.scope.${mode}`)).toBeInTheDocument();
+      expect(screen.getByText(`automations.builder.scope.${mode}`)).toBeInTheDocument();
     }
   });
 
@@ -339,7 +343,7 @@ describe('RuleBuilder scope', () => {
     mockServers(1);
     renderBuilder(['dest-discord'], { serverId: 'srv-1' });
 
-    expect(screen.getByRole('radio', { name: 'rules.builder.scope.server' })).toHaveAttribute(
+    expect(screen.getByRole('radio', { name: 'automations.builder.scope.server' })).toHaveAttribute(
       'data-state',
       'on'
     );
@@ -350,9 +354,9 @@ describe('RuleBuilder scope', () => {
     mockServers(1);
     renderBuilder(['dest-discord']);
 
-    await user.click(screen.getByText('rules.builder.scope.account'));
+    await user.click(screen.getByText('automations.builder.scope.account'));
 
-    expect(screen.queryByText('rules.builder.scope.serverLabel')).not.toBeInTheDocument();
-    expect(screen.getByText('rules.builder.scope.accountLabel')).toBeInTheDocument();
+    expect(screen.queryByText('automations.builder.scope.serverLabel')).not.toBeInTheDocument();
+    expect(screen.getByText('automations.builder.scope.accountLabel')).toBeInTheDocument();
   });
 });

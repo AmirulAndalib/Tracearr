@@ -45,6 +45,20 @@ export const OPERATOR_LABELS: Record<Operator, string> = {
   not_contains: 'does not contain',
 };
 
+// Operator symbols for one-line summaries
+export const OPERATOR_SYMBOLS: Record<Operator, string> = {
+  eq: '=',
+  neq: '≠',
+  gt: '>',
+  gte: '≥',
+  lt: '<',
+  lte: '≤',
+  in: 'in',
+  not_in: 'not in',
+  contains: 'contains',
+  not_contains: 'excludes',
+};
+
 // Shared option definitions
 export const DEVICE_TYPE_OPTIONS: { value: DeviceType; label: string }[] = [
   { value: 'mobile', label: 'Mobile' },
@@ -379,6 +393,30 @@ export const FIELD_DEFINITIONS: Record<ConditionField, FieldDefinition> = {
     valueType: 'multi-select',
     options: MEDIA_TYPE_OPTIONS,
   },
+};
+
+// Short field labels for one-line summaries; anything missing falls back to the full label
+export const COMPACT_FIELD_LABELS: Partial<Record<ConditionField, string>> = {
+  inactive_days: 'Inactive',
+  current_pause_minutes: 'Paused',
+  total_pause_minutes: 'Total paused',
+  concurrent_streams: 'Streams',
+  travel_speed_kmh: 'Travel speed',
+  active_session_distance_km: 'Session distance',
+  unique_ips_in_window: 'Unique IPs',
+  unique_devices_in_window: 'Unique devices',
+  trust_score: 'Trust',
+  account_age_days: 'Account age',
+  source_resolution: 'Resolution',
+  output_resolution: 'Output',
+  is_transcoding: 'Transcoding',
+  is_transcode_downgrade: 'Downgrade',
+  source_bitrate_mbps: 'Bitrate',
+  country: 'Country',
+  is_local_network: 'Local network',
+  device_type: 'Device',
+  client_name: 'Client',
+  platform: 'Platform',
 };
 
 // Helper functions

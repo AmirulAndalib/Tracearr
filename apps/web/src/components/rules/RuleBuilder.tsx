@@ -150,14 +150,15 @@ export function RuleBuilder({
   const validate = (): boolean => {
     const found: string[] = [];
 
-    if (!name.trim()) found.push(t('pages:rules.builder.errors.nameRequired'));
-    if (!isScopeComplete(scope)) found.push(t('pages:rules.builder.errors.scopeIncomplete'));
-    if (conditions.groups.length === 0) found.push(t('pages:rules.builder.errors.groupRequired'));
+    if (!name.trim()) found.push(t('pages:automations.builder.errors.nameRequired'));
+    if (!isScopeComplete(scope)) found.push(t('pages:automations.builder.errors.scopeIncomplete'));
+    if (conditions.groups.length === 0)
+      found.push(t('pages:automations.builder.errors.groupRequired'));
     if (conditions.groups.some((group) => group.conditions.length === 0)) {
-      found.push(t('pages:rules.builder.errors.conditionRequired'));
+      found.push(t('pages:automations.builder.errors.conditionRequired'));
     }
     if (actions.actions.some((a) => a.type === 'send' && a.to.length === 0)) {
-      found.push(t('pages:rules.builder.errors.sendNeedsDestination'));
+      found.push(t('pages:automations.builder.errors.sendNeedsDestination'));
     }
 
     setErrors(found);
@@ -205,7 +206,9 @@ export function RuleBuilder({
     <div className="@container min-w-0 space-y-6">
       {errors.length > 0 && (
         <div className="border-destructive/50 bg-destructive/5 rounded-lg border p-4" role="alert">
-          <p className="text-destructive font-medium">{t('pages:rules.builder.errors.title')}</p>
+          <p className="text-destructive font-medium">
+            {t('pages:automations.builder.errors.title')}
+          </p>
           <ul className="text-destructive mt-2 list-inside list-disc text-sm">
             {errors.map((error) => (
               <li key={error}>{error}</li>
@@ -254,10 +257,10 @@ export function RuleBuilder({
           )}
         >
           <Field>
-            <FieldLabel htmlFor="rule-name">{t('pages:rules.ruleName')}</FieldLabel>
+            <FieldLabel htmlFor="rule-name">{t('pages:automations.ruleName')}</FieldLabel>
             <Input
               id="rule-name"
-              placeholder={t('pages:rules.ruleNamePlaceholder')}
+              placeholder={t('pages:automations.ruleNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-invalid={submitted && !name.trim()}
@@ -266,11 +269,11 @@ export function RuleBuilder({
 
           <Field>
             <FieldLabel htmlFor="rule-description">
-              {t('pages:rules.builder.descriptionLabel')}
+              {t('pages:automations.builder.descriptionLabel')}
             </FieldLabel>
             <Input
               id="rule-description"
-              placeholder={t('pages:rules.builder.descriptionPlaceholder')}
+              placeholder={t('pages:automations.builder.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -279,7 +282,7 @@ export function RuleBuilder({
           {kind === 'policy' && (
             <Field>
               <FieldLabel htmlFor="rule-severity">
-                {t('pages:rules.builder.severityLabel')}
+                {t('pages:automations.builder.severityLabel')}
               </FieldLabel>
               <Select value={severity} onValueChange={(v) => setSeverity(v as ViolationSeverity)}>
                 <SelectTrigger id="rule-severity">
@@ -297,7 +300,9 @@ export function RuleBuilder({
           )}
 
           <Field className="@2xl:w-auto">
-            <FieldLabel htmlFor="rule-active">{t('pages:rules.builder.activeLabel')}</FieldLabel>
+            <FieldLabel htmlFor="rule-active">
+              {t('pages:automations.builder.activeLabel')}
+            </FieldLabel>
             <div className="flex h-9 items-center">
               <Switch id="rule-active" checked={isActive} onCheckedChange={setIsActive} />
             </div>
@@ -316,9 +321,11 @@ export function RuleBuilder({
 
       <section className="bg-muted/30 space-y-4 rounded-lg border p-4">
         <header className="border-b pb-3">
-          <h3 className="text-base font-semibold">{t('pages:rules.builder.conditions.title')}</h3>
+          <h3 className="text-base font-semibold">
+            {t('pages:automations.builder.conditions.title')}
+          </h3>
           <p className="text-muted-foreground text-sm">
-            {t('pages:rules.builder.conditions.description')}
+            {t('pages:automations.builder.conditions.description')}
           </p>
         </header>
 
@@ -355,15 +362,17 @@ export function RuleBuilder({
           }
         >
           <Plus />
-          {t('pages:rules.builder.conditions.addGroup')}
+          {t('pages:automations.builder.conditions.addGroup')}
         </Button>
       </section>
 
       <section className="bg-muted/30 space-y-4 rounded-lg border p-4">
         <header className="border-b pb-3">
-          <h3 className="text-base font-semibold">{t('pages:rules.builder.actions.title')}</h3>
+          <h3 className="text-base font-semibold">
+            {t('pages:automations.builder.actions.title')}
+          </h3>
           <p className="text-muted-foreground text-sm">
-            {t('pages:rules.builder.actions.description')}
+            {t('pages:automations.builder.actions.description')}
           </p>
         </header>
 
@@ -394,7 +403,7 @@ export function RuleBuilder({
           }
         >
           <Plus />
-          {t('pages:rules.builder.actions.add')}
+          {t('pages:automations.builder.actions.add')}
         </Button>
       </section>
 
@@ -406,12 +415,12 @@ export function RuleBuilder({
           {isLoading ? (
             <>
               <Loader2 className="animate-spin" />
-              {t('pages:rules.builder.saving')}
+              {t('pages:automations.builder.saving')}
             </>
           ) : (
             <>
               <Save />
-              {initialRule ? t('pages:rules.updateRule') : t('pages:rules.createRule')}
+              {initialRule ? t('pages:automations.updateRule') : t('pages:automations.createRule')}
             </>
           )}
         </Button>

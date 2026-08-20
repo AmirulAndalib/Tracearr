@@ -58,9 +58,9 @@ export function ConditionGroup({
     <div className="border-border bg-card rounded-lg border p-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-muted-foreground text-sm font-medium">
-          {t('rules.builder.conditions.groupLabel', { number: groupIndex + 1 })}
+          {t('automations.builder.conditions.groupLabel', { number: groupIndex + 1 })}
           <span className="ml-2 text-xs opacity-60">
-            ({t('rules.builder.conditions.groupHint')})
+            ({t('automations.builder.conditions.groupHint')})
           </span>
         </span>
         {showRemove && (
@@ -71,7 +71,7 @@ export function ConditionGroup({
             className="text-muted-foreground hover:text-destructive"
             onClick={onRemove}
           >
-            {t('rules.builder.conditions.removeGroup')}
+            {t('automations.builder.conditions.removeGroup')}
           </Button>
         )}
       </div>
@@ -106,7 +106,7 @@ export function ConditionGroup({
         onClick={addCondition}
       >
         <Plus />
-        {t('rules.builder.conditions.addCondition')}
+        {t('automations.builder.conditions.addCondition')}
       </Button>
     </div>
   );

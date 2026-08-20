@@ -561,46 +561,14 @@ export const ruleConditionsSchema = z
   });
 
 // Action types
-export const actionTypeSchema = z.enum([
-  'log_only',
-  'send',
-  'adjust_trust',
-  'set_trust',
-  'reset_trust',
-  'trust',
-  'kill_stream',
-  'message_client',
-]);
+export const actionTypeSchema = z.enum(['send', 'trust', 'kill_stream', 'message_client']);
 
 // Individual action schemas
-export const logOnlyActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('log_only'),
-  message: z.string().max(500).optional(),
-});
-
 export const sendActionSchema = z.object({
   ...nodeFieldsShape,
   type: z.literal('send'),
   to: z.array(z.uuid()).min(1),
   cooldown_minutes: z.number().int().nonnegative().optional(),
-});
-
-export const adjustTrustActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('adjust_trust'),
-  amount: z.number().int().min(-100).max(100),
-});
-
-export const setTrustActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('set_trust'),
-  value: z.number().int().min(0).max(100),
-});
-
-export const resetTrustActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('reset_trust'),
 });
 
 export const trustActionSchema = z
@@ -645,7 +613,6 @@ export const killStreamActionSchema = z.object({
   type: z.literal('kill_stream'),
   /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
   delay_seconds: z.number().int().min(0).max(300).optional(),
-  require_confirmation: z.boolean().optional(),
   cooldown_minutes: z.number().int().nonnegative().optional(),
   /** Message to display to user before termination. If omitted, terminates silently. */
   message: z.string().min(1).max(500).optional(),
@@ -661,11 +628,7 @@ export const messageClientActionSchema = z.object({
 
 // Union of all actions
 export const actionSchema = z.discriminatedUnion('type', [
-  logOnlyActionSchema,
   sendActionSchema,
-  adjustTrustActionSchema,
-  setTrustActionSchema,
-  resetTrustActionSchema,
   trustActionSchema,
   killStreamActionSchema,
   messageClientActionSchema,
@@ -1351,10 +1314,7 @@ export type Condition = z.infer<typeof conditionSchema>;
 export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
 export type RuleConditions = z.infer<typeof ruleConditionsSchema>;
 export type ActionType = z.infer<typeof actionTypeSchema>;
-export type LogOnlyAction = z.infer<typeof logOnlyActionSchema>;
-export type AdjustTrustAction = z.infer<typeof adjustTrustActionSchema>;
-export type SetTrustAction = z.infer<typeof setTrustActionSchema>;
-export type ResetTrustAction = z.infer<typeof resetTrustActionSchema>;
+export type SendAction = z.infer<typeof sendActionSchema>;
 export type TrustAction = z.infer<typeof trustActionSchema>;
 export type KillStreamAction = z.infer<typeof killStreamActionSchema>;
 export type MessageClientAction = z.infer<typeof messageClientActionSchema>;

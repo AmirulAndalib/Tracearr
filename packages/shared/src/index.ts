@@ -57,17 +57,6 @@ export type {
   Condition,
   ConditionGroup,
   RuleConditions,
-  ActionType,
-  Action,
-  LogOnlyAction,
-  SendAction,
-  AdjustTrustAction,
-  SetTrustAction,
-  ResetTrustAction,
-  TrustAction,
-  KillStreamAction,
-  MessageClientAction,
-  RuleActions,
   RuleV2,
   ActionResult,
   VideoResolution,
@@ -547,6 +536,14 @@ export type {
   ShelvesQueryInput,
   // Session target type
   SessionTarget,
+  // Rule V2 action family
+  ActionType,
+  Action,
+  SendAction,
+  TrustAction,
+  KillStreamAction,
+  MessageClientAction,
+  RuleActions,
 } from './schemas.js';
 
 // Constant exports

@@ -157,7 +157,9 @@ describe('dispatch', () => {
   });
 
   it('returns deferred actions as one closure and does not run them', async () => {
-    const ranA = vi.fn(async () => [{ action: { type: 'log_only' }, success: true } as never]);
+    const ranA = vi.fn(async () => [
+      { action: { type: 'trust', mode: 'reset' }, success: true } as never,
+    ]);
     const ranB = vi.fn(async () => [{ action: { type: 'send' }, success: true } as never]);
     subscribe('session.stopped', 'a', async () => ({ violations: [], deferredActions: ranA }));
     subscribe('session.stopped', 'b', async () => ({ violations: [], deferredActions: ranB }));
@@ -169,7 +171,7 @@ describe('dispatch', () => {
     const results = await result.deferredActions!();
     expect(ranA).toHaveBeenCalledTimes(1);
     expect(ranB).toHaveBeenCalledTimes(1);
-    expect(results.map((r) => r.action.type)).toEqual(['log_only', 'send']);
+    expect(results.map((r) => r.action.type)).toEqual(['trust', 'send']);
   });
 
   it('passes inputs by reference', async () => {

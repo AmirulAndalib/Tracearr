@@ -113,7 +113,7 @@ describe('stampNodes', () => {
           },
         ],
       },
-      actions: { actions: [{ type: 'reset_trust', id: existing, enabled: false }] },
+      actions: { actions: [{ type: 'trust', mode: 'reset', id: existing, enabled: false }] },
     });
 
     expect(stamped.conditions?.groups[0]?.conditions[0]).toMatchObject({
@@ -131,7 +131,12 @@ describe('stampNodes', () => {
           { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
         ],
       },
-      actions: { actions: [{ type: 'reset_trust' }, { type: 'message_client', message: 'hi' }] },
+      actions: {
+        actions: [
+          { type: 'trust', mode: 'reset' },
+          { type: 'message_client', message: 'hi' },
+        ],
+      },
     });
 
     const nodes = [
@@ -156,7 +161,7 @@ describe('stampNodes', () => {
     const conditions: RuleConditions = {
       groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
     };
-    stampNodes({ conditions, actions: { actions: [{ type: 'reset_trust' }] } });
+    stampNodes({ conditions, actions: { actions: [{ type: 'trust', mode: 'reset' }] } });
     expect(conditions.groups[0]?.conditions[0]).toEqual({
       field: 'trust_score',
       operator: 'lt',

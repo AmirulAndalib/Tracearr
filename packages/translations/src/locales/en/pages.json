@@ -334,16 +334,30 @@
       "relatedSessions_other": "{{count}} related sessions"
     }
   },
-  "rules": {
-    "title": "Automations",
-    "createRule": "Create Automation",
-    "editRule": "Edit Automation",
-    "updateDescription": "Update this automation below.",
-    "createDescription": "Set up a new automation for your media servers.",
-    "ruleName": "Automation Name",
-    "ruleNamePlaceholder": "e.g., Concurrent Stream Limit",
-    "updateRule": "Update Automation",
-    "customRule": "Custom Rule",
+  "automations": {
+    "activity": {
+      "title": "Activity",
+      "description": "Every evaluation that reached a run, newest first.",
+      "outcome": "Outcome",
+      "summary": "Summary",
+      "started": "Started",
+      "finished": "Finished",
+      "noSummary": "No notes",
+      "outcomes": {
+        "completed": "Completed",
+        "stopped_by_condition": "Stopped by a condition",
+        "error": "Error"
+      },
+      "empty": "No runs yet",
+      "emptyDescription": "Runs show up here once a trigger matches this automation.",
+      "runTitle": "Run",
+      "runLoading": "Loading the run",
+      "triggeredBy": "Triggered by {{trigger}}",
+      "unknownStep": "Unrecognized step"
+    },
+    "addAutomation": "Add Automation",
+    "allKinds": "All kinds",
+    "allStatuses": "All statuses",
     "builder": {
       "destinationDisabled": "Disabled destination",
       "noDestinations": "No destinations yet. Add one to send notifications.",
@@ -413,67 +427,25 @@
         "typePlaceholder": "Select action",
         "typeLabel": "Action"
       }
-    }
-  },
-  "automations": {
-    "title": "Automations",
-    "description": "Automations watch your servers and act when their conditions match",
-    "addAutomation": "Add Automation",
-    "fromTemplate": "From a Template",
-    "custom": "Custom Automation",
+    },
     "chooseTemplate": "Choose a Template",
     "chooseTemplateDesc": "Select a pre-configured automation to get started quickly.",
-    "searchPlaceholder": "Search automations...",
-    "kindColumn": "Kind",
-    "allKinds": "All kinds",
-    "kind": {
-      "policy": "Policy",
-      "notification": "Notification",
-      "policyDescription": "Runs are recorded as violations, with a severity you acknowledge.",
-      "notificationDescription": "Housekeeping and alerts. Runs are recorded but never become violations."
-    },
-    "allStatuses": "All statuses",
-    "enable": "Enable",
-    "disable": "Disable",
-    "toggleAutomation": "Turn {{name}} on or off",
-    "recordsOnly": "Records runs only",
-    "scope": {
-      "global": "Global",
-      "person": "Person",
-      "account": "Account",
-      "crossServer": "Cross-server"
-    },
-    "noAutomationsConfigured": "No automations configured",
+    "createDescription": "Set up a new automation for your media servers.",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
-    "noAutomationsFound": "No automations found",
-    "tryAdjustingFilters": "Try adjusting your filters.",
+    "createRule": "Create Automation",
+    "custom": "Custom Automation",
+    "customRule": "Custom Rule",
+    "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomation_one": "Delete Automation",
     "deleteAutomation_other": "Delete {{count}} Automations",
-    "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomationsConfirm": "Are you sure you want to delete? This action cannot be undone.",
+    "description": "Automations watch your servers and act when their conditions match",
     "detail": {
       "notFound": "Automation not found"
     },
-    "activity": {
-      "title": "Activity",
-      "description": "Every evaluation that reached a run, newest first.",
-      "outcome": "Outcome",
-      "summary": "Summary",
-      "started": "Started",
-      "finished": "Finished",
-      "noSummary": "No notes",
-      "outcomes": {
-        "completed": "Completed",
-        "stopped_by_condition": "Stopped by a condition",
-        "error": "Error"
-      },
-      "empty": "No runs yet",
-      "emptyDescription": "Runs show up here once a trigger matches this automation.",
-      "runTitle": "Run",
-      "runLoading": "Loading the run",
-      "triggeredBy": "Triggered by {{trigger}}",
-      "unknownStep": "Unrecognized step"
-    },
+    "disable": "Disable",
+    "editRule": "Edit Automation",
+    "enable": "Enable",
     "evaluations": {
       "title": "Recent evaluations",
       "description": "Trigger matches that recorded no run.",
@@ -485,6 +457,26 @@
         "gate_blocked": "An open run already covers this"
       }
     },
+    "fromTemplate": "From a Template",
+    "kind": {
+      "policy": "Policy",
+      "notification": "Notification",
+      "policyDescription": "Runs are recorded as violations, with a severity you acknowledge.",
+      "notificationDescription": "Housekeeping and alerts. Runs are recorded but never become violations."
+    },
+    "kindColumn": "Kind",
+    "noAutomationsConfigured": "No automations configured",
+    "noAutomationsFound": "No automations found",
+    "recordsOnly": "Records runs only",
+    "ruleName": "Automation Name",
+    "ruleNamePlaceholder": "e.g., Concurrent Stream Limit",
+    "scope": {
+      "global": "Global",
+      "person": "Person",
+      "account": "Account",
+      "crossServer": "Cross-server"
+    },
+    "searchPlaceholder": "Search automations...",
     "settings": {
       "title": "Settings",
       "description": "How long this automation keeps its runs, and how often it may fire.",
@@ -494,7 +486,12 @@
       "cooldownLabel": "Cooldown (minutes)",
       "cooldownHint": "Leave empty to fire on every match.",
       "cooldownInvalid": "Enter a whole number of minutes, 0 or more, or leave it empty."
-    }
+    },
+    "title": "Automations",
+    "toggleAutomation": "Turn {{name}} on or off",
+    "tryAdjustingFilters": "Try adjusting your filters.",
+    "updateDescription": "Update this automation below.",
+    "updateRule": "Update Automation"
   },
   "terminateStream": {
     "title": "Terminate Stream",

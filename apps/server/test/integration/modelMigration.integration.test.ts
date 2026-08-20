@@ -22,7 +22,10 @@ import {
 import type { Action, RuleActions, RuleConditions, TriggerNode } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, automationVersions } from '../../src/db/schema.js';
-import { runAutomationModelMigration } from '../../src/services/automations/modelMigration.js';
+import {
+  runAutomationModelMigration,
+  type StoredAction,
+} from '../../src/services/automations/modelMigration.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -36,7 +39,7 @@ const conditions = (...fields: Array<[string, string, unknown]>): RuleConditions
 async function insertV2(overrides: {
   name: string;
   conditions: RuleConditions;
-  actions?: RuleActions;
+  actions?: { actions: StoredAction[] };
 }) {
   const [row] = await db
     .insert(automations)
@@ -45,7 +48,8 @@ async function insertV2(overrides: {
       severity: 'warning',
       isActive: true,
       conditions: overrides.conditions,
-      actions: overrides.actions ?? { actions: [] },
+      // The corpus deliberately seeds shapes the contract dropped; the column is jsonb either way.
+      actions: (overrides.actions ?? { actions: [] }) as RuleActions,
     })
     .returning();
   if (!row) throw new Error(`failed to insert ${overrides.name}`);

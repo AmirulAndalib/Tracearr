@@ -3,11 +3,8 @@ import { useTranslation } from 'react-i18next';
 import {
   X,
   AlertTriangle,
-  FileText,
   Bell,
   TrendingUp,
-  Target,
-  RotateCcw,
   XCircle,
   MessageSquare,
   HelpCircle,
@@ -36,11 +33,7 @@ import { DestinationsField } from './DestinationsField';
 import { RuleFieldControl, type RuleControlSpec, type RuleControlValue } from './fields';
 
 const ACTION_ICONS: Record<ActionType, React.ComponentType<{ className?: string }>> = {
-  log_only: FileText,
   send: Bell,
-  adjust_trust: TrendingUp,
-  set_trust: Target,
-  reset_trust: RotateCcw,
   trust: TrendingUp,
   kill_stream: XCircle,
   message_client: MessageSquare,
@@ -59,9 +52,7 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
   const typeId = useId();
   const def = ACTION_DEFINITIONS[action.type];
 
-  // A stored row can hold a type the picker no longer offers; keep it selectable as the current value.
-  const offered = actionTypesForKind(kind);
-  const typeOptions = offered.includes(action.type) ? offered : [action.type, ...offered];
+  const typeOptions = actionTypesForKind(kind);
 
   const readValue = (name: string) => (action as unknown as Record<string, unknown>)[name];
 
@@ -80,7 +71,7 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={t('rules.builder.actions.remove')}
+          aria-label={t('automations.builder.actions.remove')}
           className="text-muted-foreground hover:text-destructive absolute top-3 right-3"
           onClick={onRemove}
         >
@@ -90,13 +81,13 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
 
       <div className="grid gap-4 @md:grid-cols-2 @3xl:grid-cols-3">
         <Field>
-          <FieldLabel htmlFor={typeId}>{t('rules.builder.actions.typeLabel')}</FieldLabel>
+          <FieldLabel htmlFor={typeId}>{t('automations.builder.actions.typeLabel')}</FieldLabel>
           <Select
             value={action.type}
             onValueChange={(type) => onChange(createDefaultAction(type as ActionType))}
           >
             <SelectTrigger id={typeId}>
-              <SelectValue placeholder={t('rules.builder.actions.typePlaceholder')} />
+              <SelectValue placeholder={t('automations.builder.actions.typePlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {typeOptions.map((type) => {
