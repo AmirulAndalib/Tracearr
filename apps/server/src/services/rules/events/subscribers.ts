@@ -1,15 +1,16 @@
-import type { RuleV2 } from '@tracearr/shared';
+import type { ConditionField, RuleV2 } from '@tracearr/shared';
 import {
   appendRunSteps,
   automationCoolingDown,
-  markRunFailed,
+  noteRunFailure,
   recordNearMiss,
   recordRun,
   subjectKeyOf,
   type AutomationRunRow,
   type RunScope,
 } from '../../automations/runRecorder.js';
-import { evaluateRulesAsync } from '../engine.js';
+import { rulesLogger } from '../../../utils/logger.js';
+import { evaluateRulesAsync, PAUSE_CONDITION_FIELDS } from '../engine.js';
 import { executeActions, type ActionResult } from '../executors/index.js';
 import { storeActionResults } from '../v2Integration.js';
 import { subscribe } from './dispatcher.js';
@@ -39,7 +40,11 @@ function actionStep(result: ActionResult): Record<string, unknown> {
   };
 }
 
-async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
+/**
+ * Inside a caller transaction the throw is the retry signal, so it propagates and the
+ * remaining runs come back with it. Off that path one broken run must not mute its siblings.
+ */
+async function runActs(pending: PendingAct[], rethrow: boolean): Promise<ActionResult[]> {
   const all: ActionResult[] = [];
   for (const { context, result, rule, run } of pending) {
     try {
@@ -48,17 +53,23 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
       await appendRunSteps(run.id, results.map(actionStep));
       all.push(...results);
     } catch (error) {
-      await markRunFailed({
+      await noteRunFailure({
         run,
-        automationName: rule.name,
         serverId: context.server.id,
         message: error instanceof Error ? error.message : String(error),
       });
-      throw error;
+      if (rethrow) throw error;
+      rulesLogger.error('Automation actions failed', {
+        automation: rule.id,
+        run: run.id,
+        error,
+      });
     }
   }
   return all;
 }
+
+const INACTIVE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set(['inactive_days']);
 
 /** What makes this firing a distinct edge for the notification gate. */
 function edgeKeyOf(event: EvaluatingEvent, automation: RuleV2): string | null {
@@ -70,16 +81,25 @@ function edgeKeyOf(event: EvaluatingEvent, automation: RuleV2): string | null {
     case 'session.paused':
       return event.pauseData.lastPausedAt?.toISOString() ?? null;
     case 'session.held_for':
-      return String(Math.floor(event.heldMinutes));
+      return conditionThreshold(automation, PAUSE_CONDITION_FIELDS);
     case 'account.inactive_for':
-      return inactiveDaysThreshold(automation);
+      return conditionThreshold(automation, INACTIVE_CONDITION_FIELDS);
   }
 }
 
-function inactiveDaysThreshold(automation: RuleV2): string | null {
+/**
+ * Level-triggered edges key on the threshold the automation crossed, never on the
+ * elapsed value: a rehydrated wake replays the same crossing with a larger number.
+ */
+function conditionThreshold(
+  automation: RuleV2,
+  fields: ReadonlySet<ConditionField>
+): string | null {
   for (const group of automation.conditions?.groups ?? []) {
     for (const condition of group.conditions) {
-      if (condition.field === 'inactive_days') return String(condition.value);
+      if (fields.has(condition.field) && typeof condition.value === 'number') {
+        return String(condition.value);
+      }
     }
   }
   return null;
@@ -101,6 +121,7 @@ export async function runRulePipeline(
   const subjectKey = subjectKeyOf(scope);
   const violations: ViolationInsertResult[] = [];
   const pending: PendingAct[] = [];
+  const effects: Array<() => Promise<void>> = [];
 
   const evaluable: RuleV2[] = [];
   for (const rule of rules) {
@@ -133,9 +154,11 @@ export async function runRulePipeline(
         type: event.type,
         nodeId: triggerNodeFor(rule, event.type)?.id ?? null,
         edgeKey: edgeKeyOf(event, rule),
+        at: event.at,
       },
       marker,
       tx: opts.tx,
+      defer: (effect) => effects.push(effect),
     });
     if (!run || !result.matched) continue;
 
@@ -151,11 +174,17 @@ export async function runRulePipeline(
       run,
     };
     if (opts.deferActions) pending.push(act);
-    else await runActs([act]);
+    else await runActs([act], opts.tx !== undefined);
   }
 
-  if (opts.deferActions && pending.length > 0) {
-    return { violations, deferredActions: () => runActs(pending) };
+  if (effects.length > 0 || (opts.deferActions && pending.length > 0)) {
+    return {
+      violations,
+      deferredActions: async () => {
+        for (const effect of effects) await effect();
+        return runActs(pending, opts.tx !== undefined);
+      },
+    };
   }
   return { violations };
 }

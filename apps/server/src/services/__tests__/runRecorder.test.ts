@@ -100,7 +100,7 @@ import {
   appendRunSteps,
   automationCoolingDown,
   buildRunValues,
-  markRunFailed,
+  noteRunFailure,
   recordNearMiss,
   recordRun,
   toRunSummary,
@@ -182,7 +182,8 @@ const inserted = {
   dismissedAt: null,
 };
 
-const trigger = { type: 'session.started' as const, nodeId: 'node-1', edgeKey: null };
+const eventAt = new Date('2026-08-20T09:59:00Z');
+const trigger = { type: 'session.started' as const, nodeId: 'node-1', edgeKey: null, at: eventAt };
 
 function args(overrides: Partial<RecordRunArgs> = {}): RecordRunArgs {
   return {
@@ -244,6 +245,7 @@ describe('recordRun', () => {
 
       expect(run).toBeNull();
       expect(mockInsertReturning).not.toHaveBeenCalled();
+      expect(mockUpdateSet).not.toHaveBeenCalled();
       expect(mockRecompute).not.toHaveBeenCalled();
       expect(mockLpush).toHaveBeenCalledTimes(1);
       const [key, entry] = mockLpush.mock.calls[0] as [string, string];
@@ -255,13 +257,15 @@ describe('recordRun', () => {
       });
     });
 
-    it('returns null and skips aggregates when onConflictDoNothing inserts nothing', async () => {
+    it('returns null and records a near miss when onConflictDoNothing inserts nothing', async () => {
       mockInsertReturning.mockResolvedValue([]);
 
       const run = await recordRun(args());
 
       expect(run).toBeNull();
       expect(mockRecompute).not.toHaveBeenCalled();
+      const [, entry] = mockLpush.mock.calls[0] as [string, string];
+      expect(JSON.parse(entry)).toMatchObject({ reason: 'gate_blocked', subjectKey: 's1' });
     });
 
     it('with fresh: true skips the lock and the gate and uses the caller tx', async () => {
@@ -322,6 +326,7 @@ describe('recordRun', () => {
       type: 'session.paused' as const,
       nodeId: 'node-2',
       edgeKey: '2026-08-20T10:00:00.000Z',
+      at: eventAt,
     };
 
     it('gates on the automation, subject, trigger node and edge key', async () => {
@@ -461,7 +466,7 @@ describe('recordRun', () => {
     it('arms the subject key on a completed run when the automation sets minutes', async () => {
       await recordRun(args({ automation: { ...automation, cooldownMinutes: 15 } }));
 
-      expect(mockRedisSetex).toHaveBeenCalledWith(expect.stringContaining('r1:s1'), 900, '1');
+      expect(mockRedisSetex).toHaveBeenCalledWith('tracearr:automation:cooldown:r1:s1', 900, '1');
     });
 
     it('arms nothing when the automation has no cooldown', async () => {
@@ -604,7 +609,6 @@ describe('buildRunValues', () => {
 describe('run finalization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPublish.mockResolvedValue(undefined);
   });
 
   it('appends action steps to the stored array', async () => {
@@ -623,21 +627,35 @@ describe('run finalization', () => {
     expect(mockUpdateSet).not.toHaveBeenCalled();
   });
 
-  it('flips a failed run to error and publishes it', async () => {
-    await markRunFailed({
-      run: inserted as never,
-      automationName: 'Rule',
-      serverId: 'srv1',
-      message: 'kill queue down',
-    });
+  it('records a bookkeeping failure in steps and summary without touching the outcome', async () => {
+    await noteRunFailure({ run: inserted as never, serverId: 'srv1', message: 'kill queue down' });
 
-    const [values] = mockUpdateSet.mock.calls[0] as [{ outcome: string; humanSummary: string }];
-    expect(values.outcome).toBe('error');
-    expect(values.humanSummary).toBe('kill queue down');
-    expect(mockPublish).toHaveBeenCalledWith(
-      'run:finished',
-      expect.objectContaining({ outcome: 'error' })
-    );
+    const [values] = mockUpdateSet.mock.calls[0] as [Record<string, unknown>];
+    expect(values).not.toHaveProperty('outcome');
+    expect(values).not.toHaveProperty('status');
+    expect(values).not.toHaveProperty('acknowledgedAt');
+    expect(values).not.toHaveProperty('dismissedAt');
+    expect(values.humanSummary).toBe('Action bookkeeping failed: kill queue down');
+    const steps = render(values.steps);
+    expect(steps.sql).toContain(`coalesce("automation_runs"."steps", '[]'::jsonb) ||`);
+    expect(JSON.parse(String(steps.params[0]))).toEqual([
+      {
+        failure: 'action_bookkeeping',
+        runId: 'v1',
+        serverId: 'srv1',
+        message: 'kill queue down',
+      },
+    ]);
+    expect(render(capturedUpdateWhere).params).toEqual(['v1']);
+  });
+
+  it('truncates the failure message so a raw driver error cannot dump its parameters', async () => {
+    await noteRunFailure({ run: inserted as never, serverId: 'srv1', message: 'x'.repeat(500) });
+
+    const [values] = mockUpdateSet.mock.calls[0] as [{ humanSummary: string; steps: unknown }];
+    expect(values.humanSummary).toBe(`Action bookkeeping failed: ${'x'.repeat(200)}`);
+    const entry = JSON.parse(String(render(values.steps).params[0])) as Array<{ message: string }>;
+    expect(entry[0]?.message).toHaveLength(200);
   });
 });
 
@@ -678,7 +696,7 @@ describe('near misses and cooldown', () => {
     expect(mockRedisExists).not.toHaveBeenCalled();
 
     expect(await automationCoolingDown({ ...automation, cooldownMinutes: 5 }, 's1')).toBe(true);
-    expect(mockRedisExists).toHaveBeenCalledTimes(1);
+    expect(mockRedisExists).toHaveBeenCalledExactlyOnceWith('tracearr:automation:cooldown:r1:s1');
   });
 });
 

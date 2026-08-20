@@ -31,6 +31,8 @@ export interface RunTrigger {
   nodeId: string | null;
   /** What makes this firing distinct from the last; null when the subject alone is the edge. */
   edgeKey: string | null;
+  /** The event's own timestamp, so the run's duration covers the evaluation. */
+  at: Date;
 }
 
 export interface RecordRunArgs {
@@ -101,7 +103,7 @@ function stoppedDetail(stoppedBy: GroupEvidence): Record<string, unknown> {
 }
 
 function triggerStep(args: RecordRunArgs): Record<string, unknown> {
-  const { trigger, scope, serverId, serverUserId } = args;
+  const { trigger, scope, serverId, serverUserId, result } = args;
   return {
     trigger: { id: trigger.nodeId, type: trigger.type, edgeKey: trigger.edgeKey },
     sessionId: scope.kind === 'session' ? scope.sessionId : null,
@@ -123,9 +125,10 @@ export function buildRunValues(args: RecordRunArgs): typeof automationRuns.$infe
     status: 'finished',
     outcome: result.matched ? 'completed' : 'stopped_by_condition',
     humanSummary: result.matched ? null : stoppedSummary(result.stoppedBy),
-    startedAt: now,
+    startedAt: trigger.at,
     finishedAt: now,
-    severity: automation.severity ?? 'warning',
+    // Severity is a violation triage field; notification runs have none to triage.
+    severity: automation.kind === 'notification' ? null : (automation.severity ?? 'warning'),
     ruleType: null,
     steps: [triggerStep(args)],
     data: {
@@ -196,7 +199,7 @@ type WriteOutcome = AutomationRunRow | 'blocked' | null;
  * or a cooled-down subject said no.
  */
 export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow | null> {
-  const { automation, result, serverUserId, scope, trigger, serverId, tx } = args;
+  const { automation, result, serverUserId, scope, trigger, serverId, tx, defer } = args;
   const values = buildRunValues(args);
   const subjectKey = subjectKeyOf(scope);
   const guarded = result.matched && !(scope.kind === 'session' && scope.fresh);
@@ -285,19 +288,32 @@ export async function appendRunSteps(runId: string, entries: unknown[]): Promise
     .where(eq(automationRuns.id, runId));
 }
 
-export async function markRunFailed(args: {
+const FAILURE_DETAIL_LIMIT = 200;
+
+/**
+ * The run already happened and its outcome is written; a failure to record the
+ * action results is evidence on the row, never a demotion that would re-open the gate.
+ */
+export async function noteRunFailure(args: {
   run: AutomationRunRow;
-  automationName: string;
   serverId: string;
   message: string;
 }): Promise<void> {
-  const rows = await db
+  // Driver errors can carry the statement's parameter values, so only the head is stored.
+  const message = args.message.slice(0, FAILURE_DETAIL_LIMIT);
+  const entry = {
+    failure: 'action_bookkeeping',
+    runId: args.run.id,
+    serverId: args.serverId,
+    message,
+  };
+  await db
     .update(automationRuns)
-    .set({ outcome: 'error', humanSummary: args.message, finishedAt: new Date() })
-    .where(eq(automationRuns.id, args.run.id))
-    .returning();
-  const row = rows[0];
-  if (row) await publishRunFinished(toRunSummary(row, args.automationName, args.serverId));
+    .set({
+      humanSummary: `Action bookkeeping failed: ${message}`,
+      steps: sql`coalesce(${automationRuns.steps}, '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb`,
+    })
+    .where(eq(automationRuns.id, args.run.id));
 }
 
 export async function automationCoolingDown(

@@ -7,6 +7,7 @@ import {
   evaluateRulesAsync,
   hasInactivityCondition,
   hasPauseConditions,
+  ruleAppliesTo,
 } from '../engine.js';
 
 // Mock geoipService
@@ -347,6 +348,52 @@ describe('evaluateRuleAsync', () => {
       const result = await evaluateRuleAsync(ctx);
 
       expect(result.matched).toBe(false);
+    });
+  });
+
+  describe('stoppedBy', () => {
+    it('reports the group that ended the walk and nothing after it', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
+            { conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }] },
+            { conditions: [{ field: 'trust_score', operator: 'lt', value: 10 }] },
+          ],
+        },
+      });
+
+      const ctx = createTestContext(rule, {
+        session: createMockSession({
+          isTranscode: true,
+          sourceVideoWidth: 1920,
+          sourceVideoHeight: 1080,
+        }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(false);
+      expect(result.stoppedBy?.groupIndex).toBe(1);
+      expect(result.stoppedBy?.matched).toBe(false);
+      expect(result.stoppedBy?.conditions).toEqual([
+        expect.objectContaining({ field: 'source_resolution', threshold: '4K', matched: false }),
+      ]);
+    });
+
+    it('is absent on a match', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
+        },
+      });
+
+      const result = await evaluateRuleAsync(
+        createTestContext(rule, { session: createMockSession({ isTranscode: true }) })
+      );
+
+      expect(result.matched).toBe(true);
+      expect(result).not.toHaveProperty('stoppedBy');
     });
   });
 
@@ -832,6 +879,48 @@ describe('evaluateRulesAsync', () => {
     expect(resultsB.map((r) => r.ruleId)).toEqual(['rule-person-a']);
   });
 
+  it('returns the unmatched results too under includeUnmatched', async () => {
+    const rules: RuleV2[] = [
+      createMockRule({
+        id: 'rule-hit',
+        conditions: {
+          groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
+        },
+      }),
+      createMockRule({
+        id: 'rule-miss',
+        conditions: {
+          groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: false }] }],
+        },
+      }),
+      createMockRule({ id: 'rule-out-of-scope', serverId: 'server-2', conditions: { groups: [] } }),
+    ];
+
+    const server = createMockServer({ id: 'server-1' });
+    const serverUser = createMockServerUser({ serverId: server.id });
+    const session = createMockSession({
+      serverId: server.id,
+      serverUserId: serverUser.id,
+      isTranscode: true,
+    });
+    const context = {
+      session,
+      serverUser,
+      server,
+      activeSessions: [session],
+      recentSessions: [session],
+    };
+
+    const included = await evaluateRulesAsync(context, rules, { includeUnmatched: true });
+    const excluded = await evaluateRulesAsync(context, rules);
+
+    expect(included.map((r) => [r.ruleId, r.matched])).toEqual([
+      ['rule-hit', true],
+      ['rule-miss', false],
+    ]);
+    expect(excluded.map((r) => r.ruleId)).toEqual(['rule-hit']);
+  });
+
   it('respects account scope', async () => {
     const server = createMockServer();
     const targetAccount = createMockServerUser({
@@ -867,6 +956,35 @@ describe('evaluateRulesAsync', () => {
     expect((await evaluateFor(targetAccount)).map((r) => r.ruleId)).toEqual(['rule-account']);
     expect(await evaluateFor(siblingAccount)).toHaveLength(0);
     expect(await evaluateFor(unrelatedAccount)).toHaveLength(0);
+  });
+});
+
+describe('ruleAppliesTo', () => {
+  const baseContext = () => {
+    const server = createMockServer({ id: 'server-1' });
+    const serverUser = createMockServerUser({ id: 'su-1', serverId: server.id, userId: 'ident-1' });
+    const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
+    return { session, serverUser, server, activeSessions: [session], recentSessions: [session] };
+  };
+
+  it('rejects an inactive rule', () => {
+    expect(ruleAppliesTo(createMockRule({ isActive: false }), baseContext())).toBe(false);
+    expect(ruleAppliesTo(createMockRule({ isActive: true }), baseContext())).toBe(true);
+  });
+
+  it('rejects another server', () => {
+    expect(ruleAppliesTo(createMockRule({ serverId: 'server-2' }), baseContext())).toBe(false);
+    expect(ruleAppliesTo(createMockRule({ serverId: 'server-1' }), baseContext())).toBe(true);
+  });
+
+  it('rejects another account', () => {
+    expect(ruleAppliesTo(createMockRule({ serverUserId: 'su-2' }), baseContext())).toBe(false);
+    expect(ruleAppliesTo(createMockRule({ serverUserId: 'su-1' }), baseContext())).toBe(true);
+  });
+
+  it('rejects another identity', () => {
+    expect(ruleAppliesTo(createMockRule({ userId: 'ident-2' }), baseContext())).toBe(false);
+    expect(ruleAppliesTo(createMockRule({ userId: 'ident-1' }), baseContext())).toBe(true);
   });
 });
 

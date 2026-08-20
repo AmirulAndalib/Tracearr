@@ -33,6 +33,8 @@ export type TriggerNode = z.infer<typeof triggerNodeSchema>;
 
 export const RUN_STATUSES = ['running', 'finished'] as const;
 export type RunStatus = (typeof RUN_STATUSES)[number];
+// 'error' belongs to a run that failed before its terminal write; a bookkeeping failure
+// after that write notes itself in steps rather than demoting the row.
 export const RUN_OUTCOMES = ['completed', 'stopped_by_condition', 'error'] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
 

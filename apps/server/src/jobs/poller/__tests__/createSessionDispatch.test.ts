@@ -132,7 +132,7 @@ const mockRecordRun = vi.fn();
 vi.mock('../../../services/automations/runRecorder.js', () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
   appendRunSteps: vi.fn(),
-  markRunFailed: vi.fn(),
+  noteRunFailure: vi.fn(),
   recordNearMiss: vi.fn(),
   automationCoolingDown: vi.fn().mockResolvedValue(false),
   subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>

@@ -35,13 +35,13 @@ vi.mock('../engine.js', async (importOriginal) => ({
 }));
 const mockRecordRun = vi.fn();
 const mockAppendRunSteps = vi.fn();
-const mockMarkRunFailed = vi.fn();
+const mockNoteRunFailure = vi.fn();
 const mockRecordNearMiss = vi.fn();
 const mockCoolingDown = vi.fn();
 vi.mock('../../automations/runRecorder.js', () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
   appendRunSteps: (...args: unknown[]) => mockAppendRunSteps(...args),
-  markRunFailed: (...args: unknown[]) => mockMarkRunFailed(...args),
+  noteRunFailure: (...args: unknown[]) => mockNoteRunFailure(...args),
   recordNearMiss: (...args: unknown[]) => mockRecordNearMiss(...args),
   automationCoolingDown: (...args: unknown[]) => mockCoolingDown(...args),
   subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
@@ -514,6 +514,21 @@ function runPause(input: PauseTriggerInput) {
   );
 }
 
+function runHeldFor(input: PauseTriggerInput, heldMinutes: number) {
+  return runRulePipeline(
+    { ...heldForEvent(input), heldMinutes },
+    inputsOf(input),
+    {},
+    { kind: 'session', sessionId: input.existingSession.id },
+    { heldFor: true }
+  );
+}
+
+const recordedEdgeKeys = () =>
+  mockRecordRun.mock.calls.map(
+    (call) => (call[0] as { trigger: { edgeKey: string | null } }).trigger.edgeKey
+  );
+
 const transcodeViolation = {
   id: 'violation-1',
   ruleId: 'rule-transcode-1',
@@ -543,7 +558,7 @@ beforeEach(() => {
   mockExecuteActions.mockResolvedValue([]);
   mockStoreActionResults.mockResolvedValue(undefined);
   mockAppendRunSteps.mockResolvedValue(undefined);
-  mockMarkRunFailed.mockResolvedValue(undefined);
+  mockNoteRunFailure.mockResolvedValue(undefined);
   mockRecordNearMiss.mockResolvedValue(undefined);
   mockCoolingDown.mockResolvedValue(false);
 });
@@ -1298,6 +1313,36 @@ describe('runRulePipeline', () => {
     expect(results).toHaveLength(1);
   });
 
+  it('drains the recorder deferred effects in the post-commit phase', async () => {
+    const effect = vi.fn().mockResolvedValue(undefined);
+    mockRecordRun.mockImplementation(async (call: { defer?: (e: () => Promise<void>) => void }) => {
+      call.defer?.(effect);
+      return { id: 'run-1' };
+    });
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+
+    const input = createTranscodeInput();
+    const res = await runRulePipeline(
+      transcodeEvent(input),
+      inputsOf(input),
+      { tx: {} as never, deferActions: true },
+      { kind: 'session', sessionId: 'session-1', fresh: true }
+    );
+
+    expect(effect).not.toHaveBeenCalled();
+    if (!res.deferredActions) throw new Error('expected deferredActions');
+    await res.deferredActions();
+    expect(effect).toHaveBeenCalledTimes(1);
+  });
+
   it('records then acts per rule, not record-all-then-act-all', async () => {
     mockEvaluateRulesAsync.mockResolvedValue([
       {
@@ -1424,7 +1469,87 @@ describe('runRulePipeline', () => {
     expect(args.trigger.edgeKey).toBe(pausedAt.toISOString());
   });
 
-  it('appends action results to the run steps and marks a thrown action as an error', async () => {
+  it('keys a held_for edge on the pause threshold so a rehydrated wake replays it', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-total-pause-1',
+        ruleName: 'Warn After 30min Total Pause',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    const input = createPauseInput({ activeRulesV2: [createTotalPauseRule()] });
+
+    await runHeldFor(input, 30.4);
+    await runHeldFor(input, 47.9);
+
+    expect(recordedEdgeKeys()).toEqual(['30', '30']);
+  });
+
+  it('takes the first numeric threshold and leaves a non-numeric one null', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-pause-1',
+        ruleName: 'Kill After 15min Pause',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    const laterGroup = createPauseRule({
+      conditions: {
+        groups: [
+          { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
+          { conditions: [{ field: 'total_pause_minutes', operator: 'gte', value: 45 }] },
+        ],
+      },
+    });
+    const nonNumeric = createPauseRule({
+      conditions: {
+        groups: [
+          { conditions: [{ field: 'current_pause_minutes', operator: 'in', value: [15, 30] }] },
+        ],
+      },
+    });
+
+    await runHeldFor(createPauseInput({ activeRulesV2: [laterGroup] }), 60);
+    await runHeldFor(createPauseInput({ activeRulesV2: [nonNumeric] }), 60);
+
+    expect(recordedEdgeKeys()).toEqual(['45', null]);
+  });
+
+  it('keys an account.inactive_for edge on the numeric inactive_days threshold', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-inactive-1',
+        ruleName: 'Dormant 30 Days',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    const inputs: EvaluationInputs = {
+      activeRulesV2: [createInactivityRule()],
+      activeSessions: [],
+      recentSessions: [],
+      identityServerUserIds: serverUser.identityServerUserIds,
+    };
+
+    await runRulePipeline(
+      accountInactiveEvent(),
+      inputs,
+      {},
+      {
+        kind: 'account',
+        serverUserId: 'user-1',
+      }
+    );
+
+    expect(recordedEdgeKeys()).toEqual(['30']);
+  });
+
+  it('appends action results to the run steps', async () => {
     mockEvaluateRulesAsync.mockResolvedValue([
       {
         ruleId: 'rule-transcode-1',
@@ -1444,16 +1569,69 @@ describe('runRulePipeline', () => {
     expect(mockAppendRunSteps).toHaveBeenCalledWith('run-1', [
       { action: 'kill_stream', success: true, skipped: true, skipReason: 'queued' },
     ]);
+  });
 
+  it('notes a bookkeeping failure and still acts on the sibling runs', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'r1',
+        ruleName: 'First',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+      {
+        ruleId: 'r2',
+        ruleName: 'Second',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+    ]);
+    mockRecordRun.mockResolvedValueOnce({ id: 'run-1' }).mockResolvedValueOnce({ id: 'run-2' });
     mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
 
-    await expect(runTranscode(createTranscodeInput())).rejects.toThrow('results table gone');
-    expect(mockMarkRunFailed).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'results table gone',
-        automationName: 'Block 4K Transcoding',
-      })
+    const input = createTranscodeInput({
+      activeRulesV2: [
+        createTranscodeRule({ id: 'r1', name: 'First' }),
+        createTranscodeRule({ id: 'r2', name: 'Second' }),
+      ],
+    });
+    await runTranscode(input);
+
+    expect(mockNoteRunFailure).toHaveBeenCalledWith({
+      run: { id: 'run-1' },
+      serverId: 'server-1',
+      message: 'results table gone',
+    });
+    expect(mockExecuteActions).toHaveBeenCalledTimes(2);
+    expect(mockStoreActionResults).toHaveBeenCalledTimes(2);
+  });
+
+  it('rethrows a bookkeeping failure inside a caller transaction', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+    ]);
+    mockRecordRun.mockResolvedValue({ id: 'run-1' });
+    mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
+
+    const input = createTranscodeInput();
+    const res = await runRulePipeline(
+      transcodeEvent(input),
+      inputsOf(input),
+      { tx: {} as never, deferActions: true },
+      { kind: 'session', sessionId: 'session-1', fresh: true }
     );
+
+    if (!res.deferredActions) throw new Error('expected deferredActions');
+    await expect(res.deferredActions()).rejects.toThrow('results table gone');
+    expect(mockNoteRunFailure).toHaveBeenCalledTimes(1);
   });
 });
 

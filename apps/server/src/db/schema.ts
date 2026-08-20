@@ -561,6 +561,10 @@ export const automationRuns = pgTable(
     ),
     // The retention purge scans by kind and age.
     index('automation_runs_retention_idx').on(table.kind, table.finishedAt),
+    // The notification gate reads (automation, subject) and filters the edge out of data.
+    index('automation_runs_notification_gate_idx')
+      .on(table.automationId, table.subjectKey)
+      .where(sql`kind = 'notification' AND outcome = 'completed'`),
   ]
 );
 
