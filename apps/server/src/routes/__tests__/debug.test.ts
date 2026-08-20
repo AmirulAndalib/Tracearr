@@ -19,6 +19,7 @@ import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
 import type { AuthUser } from '@tracearr/shared';
 import type { Redis } from 'ioredis';
+import { queryChain, renderCall } from '../../test/helpers.js';
 
 // Mock the database module
 vi.mock('../../db/client.js', () => ({
@@ -106,16 +107,18 @@ function createViewerUser(): AuthUser {
 }
 
 /**
- * Create a mock for db.select() with count queries (Promise.all pattern)
+ * Create a mock for db.select() with count queries (Promise.all pattern).
+ * Returns the chains in call order so a test can render the WHERE one was handed.
  */
-function mockDbSelectCounts(counts: number[]) {
+function mockDbSelectCounts(counts: number[]): any[] {
+  const chains: any[] = [];
   let callIndex = 0;
   vi.mocked(db.select).mockImplementation(() => {
-    const count = counts[callIndex++] ?? 0;
-    return {
-      from: vi.fn().mockReturnValue(Promise.resolve([{ count }])),
-    } as never;
+    const chain = queryChain(vi.fn, [{ count: counts[callIndex++] ?? 0 }]);
+    chains.push(chain);
+    return chain as never;
   });
+  return chains;
 }
 
 /**
@@ -275,6 +278,21 @@ describe('Debug Routes', () => {
       expect(body.database.tables).toHaveLength(2);
     });
 
+    it('counts only completed policy runs under violations', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const chains = mockDbSelectCounts([0, 0, 0, 0, 0, 0, 0, 0]);
+      mockDbExecute([{ rows: [{ size: '8 KB' }] }, { rows: [] }]);
+
+      await app.inject({ method: 'GET', url: '/debug/stats' });
+
+      const where = renderCall(chains[1]);
+      expect(where.text).toContain('automation_runs.kind =');
+      expect(where.text).toContain('automation_runs.outcome =');
+      expect(where.params).toContain('policy');
+      expect(where.params).toContain('completed');
+    });
+
     it('handles empty database', async () => {
       app = await buildTestApp(ownerUser);
 
@@ -299,11 +317,7 @@ describe('Debug Routes', () => {
       app = await buildTestApp(ownerUser);
 
       // Mock count queries returning empty arrays (undefined count)
-      vi.mocked(db.select).mockImplementation(() => {
-        return {
-          from: vi.fn().mockReturnValue(Promise.resolve([])), // Empty array, no count property
-        } as never;
-      });
+      vi.mocked(db.select).mockImplementation(() => queryChain(vi.fn, []) as never);
 
       mockDbExecute([{ rows: [{ size: '8 KB' }] }, { rows: [] }]);
 

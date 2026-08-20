@@ -19,9 +19,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
-import { and, type SQL } from 'drizzle-orm';
+import { and } from 'drizzle-orm';
 import type { AuthUser, ViolationRosterFilters, ViolationSeverity } from '@tracearr/shared';
-import { renderSql } from '../../test/helpers.js';
+import { queryChain, renderCall, renderSql } from '../../test/helpers.js';
 
 // Mock the database module before importing routes
 vi.mock('../../db/client.js', () => ({
@@ -51,48 +51,15 @@ function normalize(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Chainable Drizzle stub that records every builder argument, so assertions can
- * render the WHERE and ORDER BY the handler actually passed rather than only
- * proving a mock was reached.
- */
-function queryChain(result: unknown): any {
-  const chain: Record<string, unknown> = {};
-  for (const method of [
-    'from',
-    'innerJoin',
-    'leftJoin',
-    'where',
-    'orderBy',
-    'limit',
-    'offset',
-    'groupBy',
-    'set',
-    'returning',
-  ]) {
-    chain[method] = vi.fn(() => chain);
-  }
-  chain.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
-    Promise.resolve(result).then(resolve, reject);
-  return chain;
-}
-
 /** GET / issues the page query, then the count, then enrichment lookups. */
 function setupListMocks(rows: unknown[], total: number) {
-  const pageChain = queryChain(rows);
-  const countChain = queryChain([{ total }]);
+  const pageChain = queryChain(vi.fn, rows);
+  const countChain = queryChain(vi.fn, [{ total }]);
   vi.mocked((db as any).select)
     .mockReturnValueOnce(pageChain)
     .mockReturnValueOnce(countChain)
-    .mockReturnValue(queryChain([]));
+    .mockReturnValue(queryChain(vi.fn, []));
   return { pageChain, countChain };
-}
-
-function renderCall(chain: any, method: 'where' | 'orderBy', index = 0) {
-  const arg = chain[method].mock.calls[index]?.[0] as SQL | undefined;
-  if (!arg) throw new Error(`${method} was never called`);
-  const rendered = renderSql(arg);
-  return { text: normalize(rendered.sql), params: rendered.params };
 }
 
 /**
@@ -1129,7 +1096,7 @@ describe('violation roster conditions', () => {
   });
 
   it('reports empty when an identity resolves to no accessible account', async () => {
-    vi.mocked((db as any).select).mockReturnValue(queryChain([]));
+    vi.mocked((db as any).select).mockReturnValue(queryChain(vi.fn, []));
 
     const result = await buildViolationRosterConditions(
       rosterFilters({ userIds: [randomUUID()] }),
@@ -1275,11 +1242,11 @@ describe('bulk selectAll scope', () => {
     const violationId = randomUUID();
     const serverId = randomUUID();
 
-    const seedChain = queryChain([{ id: violationId }]);
+    const seedChain = queryChain(vi.fn, [{ id: violationId }]);
     vi.mocked((db as any).select)
       .mockReturnValueOnce(seedChain)
-      .mockReturnValueOnce(queryChain([{ id: violationId, serverId }]));
-    vi.mocked((db as any).update).mockReturnValue(queryChain([]));
+      .mockReturnValueOnce(queryChain(vi.fn, [{ id: violationId, serverId }]));
+    vi.mocked((db as any).update).mockReturnValue(queryChain(vi.fn, []));
 
     const response = await app.inject({
       method: 'POST',
@@ -1309,15 +1276,15 @@ describe('bulk selectAll scope', () => {
     const userId = randomUUID();
     const serverUserId = randomUUID();
 
-    const seedChain = queryChain([{ id: violationId }]);
+    const seedChain = queryChain(vi.fn, [{ id: violationId }]);
     vi.mocked((db as any).select)
       .mockReturnValueOnce(seedChain)
       .mockReturnValueOnce(
-        queryChain([{ id: violationId, ruleId, serverUserId, serverId, userId }])
+        queryChain(vi.fn, [{ id: violationId, ruleId, serverUserId, serverId, userId }])
       )
-      .mockReturnValueOnce(queryChain([{ id: ruleId, actions: { actions: [] } }]));
+      .mockReturnValueOnce(queryChain(vi.fn, [{ id: ruleId, actions: { actions: [] } }]));
     vi.mocked((db as any).transaction).mockImplementation(async (callback: any) =>
-      callback({ update: () => queryChain([{ id: violationId }]) })
+      callback({ update: () => queryChain(vi.fn, [{ id: violationId }]) })
     );
 
     const response = await app.inject({
@@ -1342,7 +1309,7 @@ describe('bulk selectAll scope', () => {
     ['DELETE', '/violations/bulk'],
   ])('%s %s narrows on acknowledged === true', async (method, url) => {
     app = await buildTestApp(createOwnerUser());
-    const seedChain = queryChain([]);
+    const seedChain = queryChain(vi.fn, []);
     vi.mocked((db as any).select).mockReturnValue(seedChain);
 
     const response = await app.inject({
@@ -1361,7 +1328,7 @@ describe('bulk selectAll scope', () => {
     ['DELETE', '/violations/bulk'],
   ])('%s %s narrows on acknowledged === false', async (method, url) => {
     app = await buildTestApp(createOwnerUser());
-    const seedChain = queryChain([]);
+    const seedChain = queryChain(vi.fn, []);
     vi.mocked((db as any).select).mockReturnValue(seedChain);
 
     const response = await app.inject({
@@ -1399,5 +1366,95 @@ describe('bulk selectAll scope', () => {
 
     expect(shared.text).toBe(listWhere.text);
     expect(shared.params).toEqual(listWhere.params);
+  });
+});
+
+// ============================================================================
+// The alias: /violations serves completed policy runs that have a user.
+// automation_runs also holds notification runs, runs stopped by a condition,
+// runs that errored, and policy runs with no server_user_id. Every route below
+// has to reject all four.
+// ============================================================================
+
+/** The predicates that leave only the run flavor this surface calls a violation. */
+function expectAliasFilter(where: { text: string; params: unknown[] }) {
+  // notification runs
+  expect(where.text).toContain('automation_runs.kind =');
+  expect(where.params).toContain('policy');
+  // stopped_by_condition and error runs
+  expect(where.text).toContain('automation_runs.outcome =');
+  expect(where.params).toContain('completed');
+  // runs with no account behind them
+  expect(where.text).toContain('automation_runs.server_user_id is not null');
+}
+
+describe('violations alias filter', () => {
+  let app: FastifyInstance;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('the roster carries it, so the list, its count and both bulk paths inherit', async () => {
+    const roster = await rosterSql(rosterFilters(), createOwnerUser());
+
+    expect(roster.empty).toBe(false);
+    expectAliasFilter(roster);
+  });
+
+  it('GET /:id looks the run up under it and 404s a run outside', async () => {
+    app = await buildTestApp(createOwnerUser());
+    const chain = queryChain(vi.fn, []);
+    vi.mocked((db as any).select).mockReturnValue(chain);
+
+    const response = await app.inject({ method: 'GET', url: `/violations/${randomUUID()}` });
+
+    expect(response.statusCode).toBe(404);
+    expectAliasFilter(renderCall(chain, 'where'));
+  });
+
+  it('PATCH /:id looks the run up under it and 404s a run outside', async () => {
+    app = await buildTestApp(createOwnerUser());
+    const chain = queryChain(vi.fn, []);
+    vi.mocked((db as any).select).mockReturnValue(chain);
+
+    const response = await app.inject({ method: 'PATCH', url: `/violations/${randomUUID()}` });
+
+    expect(response.statusCode).toBe(404);
+    expectAliasFilter(renderCall(chain, 'where'));
+  });
+
+  it('DELETE /:id looks the run up under it and 404s a run outside', async () => {
+    app = await buildTestApp(createOwnerUser());
+    const chain = queryChain(vi.fn, []);
+    vi.mocked((db as any).select).mockReturnValue(chain);
+
+    const response = await app.inject({ method: 'DELETE', url: `/violations/${randomUUID()}` });
+
+    expect(response.statusCode).toBe(404);
+    expectAliasFilter(renderCall(chain, 'where'));
+  });
+
+  it.each([
+    ['POST', '/violations/bulk/acknowledge', { acknowledged: 0 }],
+    ['DELETE', '/violations/bulk', { dismissed: 0 }],
+  ])('%s %s drops explicitly named ids that are outside it', async (method, url, tally) => {
+    app = await buildTestApp(createOwnerUser());
+    const chain = queryChain(vi.fn, []);
+    vi.mocked((db as any).select).mockReturnValue(chain);
+
+    const response = await app.inject({
+      method: method as 'POST' | 'DELETE',
+      url,
+      payload: { ids: [randomUUID()] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ success: true, ...tally });
+    expectAliasFilter(renderCall(chain, 'where'));
   });
 });

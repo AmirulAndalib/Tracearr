@@ -7,6 +7,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import type { SQL } from 'drizzle-orm';
+import { renderSql } from '../../test/helpers.js';
 
 // Mock the database
 vi.mock('../../db/client.js', () => ({
@@ -36,6 +38,7 @@ import {
   getServerUsersByServer,
   batchSyncUsersFromMediaServer,
   getServerUserDisplayNames,
+  recomputeIdentityAggregates,
   UserNotFoundError,
   ServerUserNotFoundError,
 } from '../userService.js';
@@ -738,5 +741,38 @@ describe('getServerUserDisplayNames', () => {
 
     expect(db.select).toHaveBeenCalledTimes(1);
     expect(chain.where).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('recomputeIdentityAggregates', () => {
+  /** Chainable stub that records its builder arguments and resolves to `rows`. */
+  function recordingChain(rows: unknown[]) {
+    const chain: Record<string, unknown> = {
+      then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+        Promise.resolve(rows).then(resolve, reject),
+    };
+    for (const method of ['from', 'innerJoin', 'where']) {
+      chain[method] = vi.fn(() => chain);
+    }
+    return chain as { where: ReturnType<typeof vi.fn> } & Record<string, unknown>;
+  }
+
+  it('counts only completed policy runs into total_violations', async () => {
+    const accountChain = recordingChain([{ trust: 80, firstJoinedAt: null, lastActivityAt: null }]);
+    const violationChain = recordingChain([{ count: 2 }]);
+    vi.mocked(db.select)
+      .mockReturnValueOnce(accountChain as never)
+      .mockReturnValueOnce(violationChain as never);
+    const setSpy = vi.fn(() => ({ where: vi.fn(async () => undefined) }));
+    vi.mocked(db.update).mockReturnValue({ set: setSpy } as never);
+
+    await recomputeIdentityAggregates(randomUUID());
+
+    const where = violationChain.where.mock.calls[0]?.[0] as SQL;
+    const text = renderSql(where).sql.replace(/\s+/g, ' ').trim();
+    expect(text).toContain('automation_runs.kind =');
+    expect(text).toContain('automation_runs.outcome =');
+    expect(text).toContain('automation_runs.dismissed_at is null');
+    expect(setSpy).toHaveBeenCalledWith(expect.objectContaining({ totalViolations: 2 }));
   });
 });

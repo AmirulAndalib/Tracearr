@@ -17,6 +17,7 @@ import {
   uniqueUsersSince,
 } from '../db/prepared.js';
 import { buildMultiServerCondition, buildMultiServerFragment } from '../utils/serverFiltering.js';
+import { VIOLATION_ALIAS_SQL } from './automations/aliasFilter.js';
 import { getCacheService } from './cache.js';
 import { getStartOfDayInTimezone, getStartOfNextDayInTimezone } from '../routes/stats/utils.js';
 import { PRIMARY_MEDIA_TYPES, MEDIA_TYPE_SQL_FILTER } from '../constants/index.js';
@@ -174,6 +175,7 @@ async function computeDashboardStats(
           INNER JOIN server_users su ON su.id = v.server_user_id
           WHERE v.created_at >= ${last24h}
           AND v.dismissed_at IS NULL
+          AND ${VIOLATION_ALIAS_SQL}
           ${violationServerFilter}
         `
         )

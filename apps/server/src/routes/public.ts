@@ -33,7 +33,7 @@ import {
   type SubtitleInfo,
   type TranscodeInfo,
 } from '@tracearr/shared';
-import { and, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, sql, type SQL } from 'drizzle-orm';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { PLAY_COUNT } from '../constants/index.js';
@@ -46,6 +46,7 @@ import {
   users,
   automationRuns,
 } from '../db/schema.js';
+import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { getCacheService } from '../services/cache.js';
 import { getDashboardStats } from '../services/dashboardStats.js';
 import { buildAvatarUrl, buildPosterUrl } from '../services/imageProxy.js';
@@ -304,13 +305,12 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
       .from(automationRuns)
       .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id));
 
-    const violationFilter = serverId
-      ? and(
-          eq(serverUsers.serverId, serverId),
-          gte(automationRuns.createdAt, sevenDaysAgo),
-          isNull(automationRuns.dismissedAt)
-        )
-      : and(gte(automationRuns.createdAt, sevenDaysAgo), isNull(automationRuns.dismissedAt));
+    const violationFilter = and(
+      ...(serverId ? [eq(serverUsers.serverId, serverId)] : []),
+      gte(automationRuns.createdAt, sevenDaysAgo),
+      isNull(automationRuns.dismissedAt),
+      ...violationAliasConditions()
+    );
 
     const [violationCountResult] = await violationQuery.where(violationFilter);
 
@@ -578,7 +578,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     const offset = (page - 1) * pageSize;
 
     // Build where conditions - join with serverUsers to get serverId
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: SQL[] = violationAliasConditions({ requireUser: true });
     if (serverId) conditions.push(eq(serverUsers.serverId, serverId));
     if (severity) conditions.push(eq(automationRuns.severity, severity));
     if (acknowledged !== undefined) {

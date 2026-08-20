@@ -754,13 +754,9 @@ async function createPartialIndexes(): Promise<void> {
     WHERE stopped_at IS NULL
   `);
 
-  // Partial index for the daily violation retention purge: dismissed rows
-  // only, so the steady-state run never seq-scans the whole table
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_automation_runs_dismissed_partial
-    ON automation_runs (dismissed_at)
-    WHERE dismissed_at IS NOT NULL
-  `);
+  // The dismissed-only index served a retention purge keyed on dismissed_at;
+  // run retention filters on kind and finished_at, and no other read wants it
+  await db.execute(sql`DROP INDEX IF EXISTS idx_automation_runs_dismissed_partial`);
 
   // Partial index for transcoded sessions (quality analysis)
   await db.execute(sql`

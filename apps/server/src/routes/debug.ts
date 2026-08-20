@@ -10,7 +10,7 @@ import { promises as fs, createReadStream, createWriteStream } from 'node:fs';
 import os from 'node:os';
 import { join } from 'node:path';
 import { ZipArchive } from 'archiver';
-import { sql } from 'drizzle-orm';
+import { and, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { getActiveAggregateNames } from '../db/timescale.js';
 import {
@@ -38,6 +38,7 @@ import {
   publishDestinationsChanged,
 } from '../services/notifications/destinationStore.js';
 import { seedBuiltinDestinations } from '../services/notifications/destinationsMigration.js';
+import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { getAllServices } from '../services/serviceTracker.js';
 import { getAuth } from '../lib/auth.js';
 import { revokeMobileDeviceSession } from './mobile.js';
@@ -350,7 +351,10 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
       plexAccountCount,
     ] = await Promise.all([
       db.select({ count: sql<number>`count(*)::int` }).from(sessions),
-      db.select({ count: sql<number>`count(*)::int` }).from(automationRuns),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(automationRuns)
+        .where(and(...violationAliasConditions())),
       db.select({ count: sql<number>`count(*)::int` }).from(users),
       db.select({ count: sql<number>`count(*)::int` }).from(servers),
       db.select({ count: sql<number>`count(*)::int` }).from(automations),

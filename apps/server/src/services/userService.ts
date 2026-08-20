@@ -17,6 +17,7 @@ import type { UserRole } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { users, serverUsers, servers, sessions, automationRuns } from '../db/schema.js';
 import { NotFoundError } from '../utils/errors.js';
+import { violationAliasConditions } from './automations/aliasFilter.js';
 
 // Type for user identity table row
 export type User = typeof users.$inferSelect;
@@ -897,7 +898,13 @@ export async function recomputeIdentityAggregates(
     .select({ count: sql<number>`count(*)::int` })
     .from(automationRuns)
     .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
-    .where(and(eq(serverUsers.userId, userId), isNull(automationRuns.dismissedAt)));
+    .where(
+      and(
+        eq(serverUsers.userId, userId),
+        isNull(automationRuns.dismissedAt),
+        ...violationAliasConditions()
+      )
+    );
 
   const accounts = accountResult[0];
 

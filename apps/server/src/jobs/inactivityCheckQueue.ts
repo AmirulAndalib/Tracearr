@@ -146,9 +146,7 @@ export async function scheduleInactivityChecks(): Promise<void> {
   // Remove any existing job schedulers
   const schedulers = await inactivityQueue.getJobSchedulers();
   for (const scheduler of schedulers) {
-    if (scheduler.id) {
-      await inactivityQueue.removeJobScheduler(scheduler.id);
-    }
+    await inactivityQueue.removeJobScheduler(scheduler.key);
   }
 
   const activeRules = (await getActiveRulesV2()).filter((r) =>

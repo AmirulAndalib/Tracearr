@@ -35,8 +35,15 @@ vi.mock('../queueConnection.js', () => ({
   getBullPrefix: () => 'bull',
   queueConnectionOptions: () => ({}),
 }));
+const { queueRef } = vi.hoisted(() => ({ queueRef: { current: null as any } }));
 vi.mock('bullmq', () => {
   class QueueMock {
+    getJobSchedulers = vi.fn(async () => [] as { key: string }[]);
+    removeJobScheduler = vi.fn(async () => true);
+    add = vi.fn(async () => ({}));
+    constructor() {
+      queueRef.current = this;
+    }
     on(): this {
       return this;
     }
@@ -48,6 +55,7 @@ import { synthesizeTriggers } from '../../services/automations/triggers.js';
 import {
   initInactivityCheckQueue,
   processInactivityCheckForTests,
+  scheduleInactivityChecks,
 } from '../inactivityCheckQueue.js';
 
 function inactivityRule(id: string, scope: Partial<RuleV2> = {}): RuleV2 {
@@ -183,5 +191,23 @@ describe('processInactivityCheck', () => {
       .mockResolvedValueOnce({ violations: [], outcomes: [] });
     await processInactivityCheckForTests(job);
     expect(mockDispatch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('scheduleInactivityChecks', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    initInactivityCheckQueue('redis://x', {} as never, vi.fn());
+  });
+
+  it('clears existing schedulers by their key, which is what BullMQ reports', async () => {
+    queueRef.current.getJobSchedulers.mockResolvedValue([
+      { key: 'inactivity-check-repeatable', name: 'scheduled-check' },
+    ]);
+    mockGetActiveRulesV2.mockResolvedValue([]);
+
+    await scheduleInactivityChecks();
+
+    expect(queueRef.current.removeJobScheduler).toHaveBeenCalledWith('inactivity-check-repeatable');
   });
 });

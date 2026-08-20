@@ -28,6 +28,7 @@ import {
   automations,
   terminationLogs,
 } from '../../db/schema.js';
+import { violationAliasConditions } from '../../services/automations/aliasFilter.js';
 import { hasServerAccess, buildServerAccessCondition } from '../../utils/serverFiltering.js';
 import { PLAY_COUNT } from '../../constants/index.js';
 import { queryUserDevices, serverUserIdAnyFragment } from './queries.js';
@@ -336,7 +337,8 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
         .where(
           and(
             sql`${automationRuns.serverUserId} = ANY(${scopedIdArray})`,
-            isNull(automationRuns.dismissedAt)
+            isNull(automationRuns.dismissedAt),
+            ...violationAliasConditions()
           )
         )
         .orderBy(desc(automationRuns.createdAt))
@@ -349,7 +351,8 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
         .where(
           and(
             sql`${automationRuns.serverUserId} = ANY(${scopedIdArray})`,
-            isNull(automationRuns.dismissedAt)
+            isNull(automationRuns.dismissedAt),
+            ...violationAliasConditions()
           )
         );
 

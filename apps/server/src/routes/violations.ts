@@ -46,6 +46,7 @@ import {
   resolveServerIds,
   buildMultiServerCondition,
 } from '../utils/serverFiltering.js';
+import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { getServerUserDisplayNames, recomputeIdentityAggregates } from '../services/userService.js';
 import { resolveAccessibleServerUserIdsForIdentities } from './users/queries.js';
 import {
@@ -133,7 +134,7 @@ export async function buildViolationRosterConditions(
     return { empty: true, conditions: [] };
   }
 
-  const conditions: SQL[] = [];
+  const conditions: SQL[] = violationAliasConditions({ requireUser: true });
 
   const serverCondition = buildMultiServerCondition(resolvedIds, serverUsers.serverId);
   if (serverCondition) {
@@ -186,6 +187,18 @@ export async function buildViolationRosterConditions(
   }
 
   return { empty: false, conditions };
+}
+
+/**
+ * The by-id guard the roster's filters cannot supply: same alias, same dismissed
+ * exclusion, so a run this surface does not serve 404s instead of being acted on.
+ */
+function aliasedRunFilter(match: SQL) {
+  return and(
+    match,
+    isNull(automationRuns.dismissedAt),
+    ...violationAliasConditions({ requireUser: true })
+  );
 }
 
 /**
@@ -929,7 +942,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       .leftJoin(users, eq(serverUsers.userId, users.id))
       .innerJoin(servers, eq(serverUsers.serverId, servers.id))
       .leftJoin(sessions, eq(automationRuns.sessionId, sessions.id))
-      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
+      .where(aliasedRunFilter(eq(automationRuns.id, id)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -1003,7 +1016,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(automationRuns)
       .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
-      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
+      .where(aliasedRunFilter(eq(automationRuns.id, id)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -1075,7 +1088,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(automationRuns)
       .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
-      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
+      .where(aliasedRunFilter(eq(automationRuns.id, id)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -1182,7 +1195,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(automationRuns)
       .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
-      .where(and(inArray(automationRuns.id, violationIds), isNull(automationRuns.dismissedAt)));
+      .where(aliasedRunFilter(inArray(automationRuns.id, violationIds)));
 
     // Filter to only accessible violations
     const accessibleIds = accessibleViolations
@@ -1242,7 +1255,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(automationRuns)
       .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
-      .where(and(inArray(automationRuns.id, violationIds), isNull(automationRuns.dismissedAt)));
+      .where(aliasedRunFilter(inArray(automationRuns.id, violationIds)));
 
     // Filter to only accessible violations
     const accessibleViolations = violationDetails.filter((v) =>
