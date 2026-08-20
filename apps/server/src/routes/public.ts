@@ -38,7 +38,14 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { PLAY_COUNT } from '../constants/index.js';
 import { db } from '../db/client.js';
-import { rules, serverUsers, servers, sessions, users, violations } from '../db/schema.js';
+import {
+  automations,
+  serverUsers,
+  servers,
+  sessions,
+  users,
+  automationRuns,
+} from '../db/schema.js';
 import { getCacheService } from '../services/cache.js';
 import { getDashboardStats } from '../services/dashboardStats.js';
 import { buildAvatarUrl, buildPosterUrl } from '../services/imageProxy.js';
@@ -294,16 +301,16 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const violationQuery = db
       .select({ count: sql<number>`count(*)::int` })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id));
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id));
 
     const violationFilter = serverId
       ? and(
           eq(serverUsers.serverId, serverId),
-          gte(violations.createdAt, sevenDaysAgo),
-          isNull(violations.dismissedAt)
+          gte(automationRuns.createdAt, sevenDaysAgo),
+          isNull(automationRuns.dismissedAt)
         )
-      : and(gte(violations.createdAt, sevenDaysAgo), isNull(violations.dismissedAt));
+      : and(gte(automationRuns.createdAt, sevenDaysAgo), isNull(automationRuns.dismissedAt));
 
     const [violationCountResult] = await violationQuery.where(violationFilter);
 
@@ -573,38 +580,40 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     // Build where conditions - join with serverUsers to get serverId
     const conditions: ReturnType<typeof eq>[] = [];
     if (serverId) conditions.push(eq(serverUsers.serverId, serverId));
-    if (severity) conditions.push(eq(violations.severity, severity));
+    if (severity) conditions.push(eq(automationRuns.severity, severity));
     if (acknowledged !== undefined) {
       // Use acknowledgedAt timestamp: acknowledged=true means IS NOT NULL, false means IS NULL
       conditions.push(
-        acknowledged ? isNotNull(violations.acknowledgedAt) : isNull(violations.acknowledgedAt)
+        acknowledged
+          ? isNotNull(automationRuns.acknowledgedAt)
+          : isNull(automationRuns.acknowledgedAt)
       );
     }
-    conditions.push(isNull(violations.dismissedAt));
+    conditions.push(isNull(automationRuns.dismissedAt));
 
     const whereClause = and(...conditions);
 
     // Get total count with join
     const [countResult] = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
       .where(whereClause);
 
     // Get violations with joins (including servers and users to avoid N+1)
     const violationRows = await db
       .select({
-        id: violations.id,
+        id: automationRuns.id,
         serverId: serverUsers.serverId,
         serverName: servers.name,
-        severity: violations.severity,
-        acknowledgedAt: violations.acknowledgedAt,
-        data: violations.data,
-        createdAt: violations.createdAt,
+        severity: automationRuns.severity,
+        acknowledgedAt: automationRuns.acknowledgedAt,
+        data: automationRuns.data,
+        createdAt: automationRuns.createdAt,
         // Rule info
-        ruleId: rules.id,
-        ruleType: rules.type,
-        ruleName: rules.name,
+        ruleId: automations.id,
+        ruleType: automations.type,
+        ruleName: automations.name,
         // User info
         userId: serverUsers.userId,
         serverUsername: serverUsers.username,
@@ -612,13 +621,13 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
         userName: users.name,
         userUsername: users.username,
       })
-      .from(violations)
-      .innerJoin(rules, eq(violations.ruleId, rules.id))
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+      .from(automationRuns)
+      .innerJoin(automations, eq(automationRuns.automationId, automations.id))
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
       .innerJoin(servers, eq(serverUsers.serverId, servers.id))
       .innerJoin(users, eq(serverUsers.userId, users.id))
       .where(whereClause)
-      .orderBy(desc(violations.createdAt))
+      .orderBy(desc(automationRuns.createdAt))
       .limit(pageSize)
       .offset(offset);
 

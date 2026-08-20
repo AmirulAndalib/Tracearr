@@ -1,12 +1,12 @@
 import { and, eq, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import type { RuleV2, Session } from '@tracearr/shared';
 import { db } from '../../db/client.js';
-import { violations } from '../../db/schema.js';
+import { automationRuns } from '../../db/schema.js';
 import { recomputeIdentityAggregatesForServerUser } from '../userService.js';
 import type { DbTx } from './events/types.js';
 import type { EvaluationResult } from './types.js';
 
-export type ViolationRow = typeof violations.$inferSelect;
+export type ViolationRow = typeof automationRuns.$inferSelect;
 
 export type ViolationScope =
   /** fresh: the session id was created in this transaction; nothing can contend it, so no lock and no gate. */
@@ -34,12 +34,21 @@ function relatedSessionIdsOf(result: EvaluationResult): string[] {
   return Array.from(ids);
 }
 
-export function buildViolationValues(args: RecordViolationArgs): typeof violations.$inferInsert {
+const subjectKeyOf = (scope: ViolationScope): string =>
+  scope.kind === 'session' ? scope.sessionId : scope.serverUserId;
+
+export function buildViolationValues(
+  args: RecordViolationArgs
+): typeof automationRuns.$inferInsert {
   const { result, rule, serverUserId, scope, session, marker } = args;
+  const now = new Date();
   return {
-    ruleId: rule.id,
+    automationId: rule.id,
     serverUserId,
     sessionId: scope.kind === 'session' ? scope.sessionId : null,
+    subjectKey: subjectKeyOf(scope),
+    startedAt: now,
+    finishedAt: now,
     severity: rule.severity ?? 'warning',
     ruleType: null,
     data: {
@@ -61,16 +70,19 @@ export function buildViolationValues(args: RecordViolationArgs): typeof violatio
 
 function gateFor(scope: ViolationScope, ruleId: string) {
   if (scope.kind === 'session') {
-    // Acknowledged-and-not-dismissed re-arms; open or dismissed blocks. Dismissed rows
-    // leave the partial unique index, which is why the pre-check exists at all.
+    // Acknowledged-and-not-dismissed re-arms; open or dismissed blocks. The index alone
+    // cannot express the re-arm case, which is why the pre-check exists at all.
     return and(
-      eq(violations.ruleId, ruleId),
-      eq(violations.sessionId, scope.sessionId),
-      or(isNull(violations.acknowledgedAt), isNotNull(violations.dismissedAt))
+      eq(automationRuns.automationId, ruleId),
+      eq(automationRuns.sessionId, scope.sessionId),
+      or(isNull(automationRuns.acknowledgedAt), isNotNull(automationRuns.dismissedAt))
     );
   }
   // The hourly account path is level-triggered: any row for the pair blocks, forever.
-  return and(eq(violations.ruleId, ruleId), eq(violations.serverUserId, scope.serverUserId));
+  return and(
+    eq(automationRuns.automationId, ruleId),
+    eq(automationRuns.serverUserId, scope.serverUserId)
+  );
 }
 
 /** The single violation insert site. Returns the inserted row or null when the gate or the index said no. */
@@ -78,7 +90,7 @@ export async function recordViolation(args: RecordViolationArgs): Promise<Violat
   const { rule, serverUserId, scope, tx } = args;
   const values = buildViolationValues(args);
   const guarded = !(scope.kind === 'session' && scope.fresh);
-  const subjectKey = scope.kind === 'session' ? scope.sessionId : scope.serverUserId;
+  const subjectKey = subjectKeyOf(scope);
 
   const run = async (executor: DbTx): Promise<ViolationRow | null> => {
     if (guarded) {
@@ -86,13 +98,17 @@ export async function recordViolation(args: RecordViolationArgs): Promise<Violat
         sql`SELECT pg_advisory_xact_lock(hashtext(${subjectKey} || '::' || ${rule.id}))`
       );
       const existing = await executor
-        .select({ id: violations.id })
-        .from(violations)
+        .select({ id: automationRuns.id })
+        .from(automationRuns)
         .where(gateFor(scope, rule.id))
         .limit(1);
       if (existing[0]) return null;
     }
-    const rows = await executor.insert(violations).values(values).onConflictDoNothing().returning();
+    const rows = await executor
+      .insert(automationRuns)
+      .values(values)
+      .onConflictDoNothing()
+      .returning();
     const row = rows[0];
     if (!row) return null;
     await recomputeIdentityAggregatesForServerUser(serverUserId, executor);

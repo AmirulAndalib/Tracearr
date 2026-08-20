@@ -661,9 +661,10 @@ async function convertToHypertable(): Promise<void> {
   if (!pkColumns.includes('started_at')) {
     // Need to modify primary key for hypertable conversion
 
-    // Drop FK constraint from violations if it exists
+    // Drop FK constraint from automation_runs if it exists. The constraint keeps its
+    // pre-rename name: migrations 0000-0089 create it under that name on fresh installs.
     await db.execute(sql`
-      ALTER TABLE "violations" DROP CONSTRAINT IF EXISTS "violations_session_id_sessions_id_fk"
+      ALTER TABLE "automation_runs" DROP CONSTRAINT IF EXISTS "violations_session_id_sessions_id_fk"
     `);
 
     // Drop existing primary key
@@ -679,9 +680,9 @@ async function convertToHypertable(): Promise<void> {
       ALTER TABLE "sessions" ADD PRIMARY KEY ("id", "started_at")
     `);
 
-    // Add index for violations session lookup (since we can't have FK to hypertable)
+    // Add index for run session lookup (since we can't have FK to hypertable)
     await db.execute(sql`
-      CREATE INDEX IF NOT EXISTS "violations_session_lookup_idx" ON "violations" ("session_id")
+      CREATE INDEX IF NOT EXISTS "automation_runs_session_lookup_idx" ON "automation_runs" ("session_id")
     `);
   }
 
@@ -728,16 +729,16 @@ async function createPartialIndexes(): Promise<void> {
 
   // Partial index for unacknowledged violations by user (hot path for user-specific alerts)
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_violations_unacked_partial
-    ON violations (server_user_id, created_at DESC)
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_unacked_partial
+    ON automation_runs (server_user_id, created_at DESC)
     WHERE acknowledged_at IS NULL
   `);
 
   // Partial index for unacknowledged violations list (hot path for main violations list)
   // This index is optimized for the common query: ORDER BY created_at DESC WHERE acknowledged_at IS NULL
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_violations_unacked_list
-    ON violations (created_at DESC)
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_unacked_list
+    ON automation_runs (created_at DESC)
     WHERE acknowledged_at IS NULL
   `);
 
@@ -756,8 +757,8 @@ async function createPartialIndexes(): Promise<void> {
   // Partial index for the daily violation retention purge: dismissed rows
   // only, so the steady-state run never seq-scans the whole table
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_violations_dismissed_partial
-    ON violations (dismissed_at)
+    CREATE INDEX IF NOT EXISTS idx_automation_runs_dismissed_partial
+    ON automation_runs (dismissed_at)
     WHERE dismissed_at IS NOT NULL
   `);
 

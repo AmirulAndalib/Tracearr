@@ -33,7 +33,7 @@ import {
   users,
   serverUsers,
   sessions,
-  rules,
+  automations,
   authAccounts,
   authSessions,
   userMergeAudits,
@@ -223,10 +223,16 @@ describe('mergeUsers', () => {
     expect(combinedSu?.trustScore).toBe(95);
 
     // Rule overrides: conflicting name dropped, unique one repointed
-    const targetRules = await db.select().from(rules).where(eq(rules.serverUserId, targetSu.id));
+    const targetRules = await db
+      .select()
+      .from(automations)
+      .where(eq(automations.serverUserId, targetSu.id));
     const names = targetRules.map((r) => r.name).sort();
     expect(names).toEqual(['Geo lock', 'Max streams']);
-    const [movedGeoRule] = await db.select().from(rules).where(eq(rules.id, geoRule.id));
+    const [movedGeoRule] = await db
+      .select()
+      .from(automations)
+      .where(eq(automations.id, geoRule.id));
     expect(movedGeoRule?.serverUserId).toBe(targetSu.id);
     const maxStreamRules = targetRules.filter((r) => r.name === 'Max streams');
     expect(maxStreamRules).toHaveLength(1);
@@ -1469,9 +1475,9 @@ describe('identity trust rollup stays current outside merge/split', () => {
       params: { max_streams: 2 },
     });
     await db
-      .update(rules)
+      .update(automations)
       .set({ actions: { actions: [{ type: 'adjust_trust', amount: -20 }] } })
-      .where(eq(rules.id, rule.id));
+      .where(eq(automations.id, rule.id));
 
     const session = await createTestSession({ serverId: serverB.id, serverUserId: suB.id });
     const violation = await createTestViolation({

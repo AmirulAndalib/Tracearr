@@ -24,7 +24,7 @@ import {
   createTestSession,
 } from '@tracearr/test-utils/factories';
 import { db } from '../../src/db/client.js';
-import { rules, violations } from '../../src/db/schema.js';
+import { automations, automationRuns } from '../../src/db/schema.js';
 import { mergeUsers } from '../../src/services/mergeService.js';
 import { evaluateRulesAsync } from '../../src/services/rules/engine.js';
 import { getActiveRulesV2 } from '../../src/jobs/poller/database.js';
@@ -44,7 +44,7 @@ async function insertRule(overrides: {
   enforceAcrossServers?: boolean;
 }) {
   const [row] = await db
-    .insert(rules)
+    .insert(automations)
     .values({
       name: overrides.name,
       userId: overrides.userId ?? null,
@@ -205,9 +205,9 @@ describe('identity-scoped rules', () => {
       expect(results.some((r) => r.ruleId === rule.id)).toBe(true);
 
       const [insertedViolation] = await db
-        .insert(violations)
+        .insert(automationRuns)
         .values({
-          ruleId: rule.id,
+          automationId: rule.id,
           serverUserId: su.id,
           sessionId: session.id,
           severity: 'warning',
@@ -244,8 +244,8 @@ describe('identity-scoped rules', () => {
 
     const unrelatedViolations = await db
       .select()
-      .from(violations)
-      .where(eq(violations.serverUserId, unrelatedSu.id));
+      .from(automationRuns)
+      .where(eq(automationRuns.serverUserId, unrelatedSu.id));
     expect(unrelatedViolations).toHaveLength(0);
   });
 
@@ -261,7 +261,7 @@ describe('identity-scoped rules', () => {
 
     await mergeUsers(source.id, target.id, admin.id);
 
-    const [ruleAfterMerge] = await db.select().from(rules).where(eq(rules.id, rule.id));
+    const [ruleAfterMerge] = await db.select().from(automations).where(eq(automations.id, rule.id));
     expect(ruleAfterMerge?.userId).toBe(target.id);
 
     const activeRulesV2 = await getActiveRulesV2();
@@ -354,14 +354,23 @@ describe('identity-scoped rules', () => {
     expect(result.droppedRuleNames).toEqual(['Duplicate Rule']);
 
     // The source's conflicting rule was deleted, not duplicated.
-    const [droppedRow] = await db.select().from(rules).where(eq(rules.id, sourceDuplicate.id));
+    const [droppedRow] = await db
+      .select()
+      .from(automations)
+      .where(eq(automations.id, sourceDuplicate.id));
     expect(droppedRow).toBeUndefined();
 
-    const duplicateRows = await db.select().from(rules).where(eq(rules.name, 'Duplicate Rule'));
+    const duplicateRows = await db
+      .select()
+      .from(automations)
+      .where(eq(automations.name, 'Duplicate Rule'));
     expect(duplicateRows).toHaveLength(1);
 
     // The non-conflicting rule moved onto the combined (target) server user.
-    const [uniqueRow] = await db.select().from(rules).where(eq(rules.id, sourceUnique.id));
+    const [uniqueRow] = await db
+      .select()
+      .from(automations)
+      .where(eq(automations.id, sourceUnique.id));
     expect(uniqueRow?.serverUserId).toBe(targetSu.id);
   });
 });
@@ -435,9 +444,9 @@ describe('account-scoped rules', () => {
     expect(targetResults.some((r) => r.ruleId === rule.id)).toBe(true);
 
     const [insertedViolation] = await db
-      .insert(violations)
+      .insert(automationRuns)
       .values({
-        ruleId: rule.id,
+        automationId: rule.id,
         serverUserId: targetSu.id,
         sessionId: targetSession.id,
         severity: 'warning',
@@ -473,8 +482,8 @@ describe('account-scoped rules', () => {
 
     const otherViolations = await db
       .select()
-      .from(violations)
-      .where(eq(violations.serverUserId, otherSu.id));
+      .from(automationRuns)
+      .where(eq(automationRuns.serverUserId, otherSu.id));
     expect(otherViolations).toHaveLength(0);
   });
 });

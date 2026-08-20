@@ -13,15 +13,14 @@ import { createTestUser } from '@tracearr/test-utils/factories';
 import { resetTestDb, executeRawSql } from '@tracearr/test-utils/db';
 
 const ROOT_TABLES = [
-  'violations',
+  'automation_runs',
   'notification_preferences',
-  'notification_channel_routing',
   'mobile_sessions',
   'mobile_tokens',
   'sessions',
   'library_items',
   'media',
-  'rules',
+  'automations',
   'server_users',
   'servers',
   'users',

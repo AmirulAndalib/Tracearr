@@ -47,7 +47,7 @@
 
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { rules, sessions } from '../../db/schema.js';
+import { automations, sessions } from '../../db/schema.js';
 import { getCacheService } from '../cache.js';
 import {
   batchGetIdentityServerUserIds,
@@ -142,7 +142,7 @@ export async function reverifyKillCondition(
     return { outcome: 'skipped_already_stopped' };
   }
 
-  const [ruleRow] = await db.select().from(rules).where(eq(rules.id, ruleId)).limit(1);
+  const [ruleRow] = await db.select().from(automations).where(eq(automations.id, ruleId)).limit(1);
   if (!ruleRow || !ruleRow.isActive || !ruleRow.conditions) {
     return { outcome: 'skipped_rule_gone' };
   }

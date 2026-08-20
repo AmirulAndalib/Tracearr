@@ -16,7 +16,7 @@
 
 import { eq, gte, and, isNull, desc, sql, inArray } from 'drizzle-orm';
 import { db } from './client.js';
-import { sessions, violations, users, serverUsers, servers, rules } from './schema.js';
+import { sessions, automationRuns, users, serverUsers, servers, automations } from './schema.js';
 import { PRIMARY_MEDIA_TYPES } from '../constants/index.js';
 
 /**
@@ -75,9 +75,12 @@ function createStatements() {
       .select({
         count: sql<number>`count(*)::int`,
       })
-      .from(violations)
+      .from(automationRuns)
       .where(
-        and(gte(violations.createdAt, sql.placeholder('since')), isNull(violations.dismissedAt))
+        and(
+          gte(automationRuns.createdAt, sql.placeholder('since')),
+          isNull(automationRuns.dismissedAt)
+        )
       )
       .prepare('violations_count_since'),
 
@@ -111,8 +114,8 @@ function createStatements() {
       .select({
         count: sql<number>`count(*)::int`,
       })
-      .from(violations)
-      .where(and(isNull(violations.acknowledgedAt), isNull(violations.dismissedAt)))
+      .from(automationRuns)
+      .where(and(isNull(automationRuns.acknowledgedAt), isNull(automationRuns.dismissedAt)))
       .prepare('unacknowledged_violations_count'),
 
     // ========================================================================
@@ -287,8 +290,8 @@ function createStatements() {
      */
     getActiveRules: db
       .select()
-      .from(rules)
-      .where(eq(rules.isActive, true))
+      .from(automations)
+      .where(eq(automations.isActive, true))
       .prepare('get_active_rules'),
 
     /**
@@ -331,9 +334,9 @@ function createStatements() {
      */
     getUnackedViolations: db
       .select()
-      .from(violations)
-      .where(and(isNull(violations.acknowledgedAt), isNull(violations.dismissedAt)))
-      .orderBy(desc(violations.createdAt))
+      .from(automationRuns)
+      .where(and(isNull(automationRuns.acknowledgedAt), isNull(automationRuns.dismissedAt)))
+      .orderBy(desc(automationRuns.createdAt))
       .limit(sql.placeholder('limit'))
       .prepare('get_unacked_violations'),
 

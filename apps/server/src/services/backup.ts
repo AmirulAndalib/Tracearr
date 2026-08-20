@@ -30,7 +30,7 @@ import { Open } from 'unzipper';
 import type { BackupListItem, BackupMetadata, BackupType } from '@tracearr/shared';
 import { sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
-import { sessions, users, servers, rules, libraryItems } from '../db/schema.js';
+import { sessions, users, servers, automations, libraryItems } from '../db/schema.js';
 
 import {
   getCurrentVersion,
@@ -307,7 +307,7 @@ async function buildMetadata(pgEnv: Record<string, string>): Promise<BackupMetad
       db.select({ count: sql<number>`count(*)::int` }).from(sessions),
       db.select({ count: sql<number>`count(*)::int` }).from(users),
       db.select({ count: sql<number>`count(*)::int` }).from(servers),
-      db.select({ count: sql<number>`count(*)::int` }).from(rules),
+      db.select({ count: sql<number>`count(*)::int` }).from(automations),
       db.select({ count: sql<number>`count(*)::int` }).from(libraryItems),
     ]);
   const databaseSize = Number(dbSizeResult.rows[0]?.size ?? 0);

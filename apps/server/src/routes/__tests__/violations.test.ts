@@ -1059,22 +1059,22 @@ describe('violation roster conditions', () => {
   it('always excludes dismissed rows', async () => {
     const { text } = await rosterSql(rosterFilters(), createOwnerUser());
 
-    expect(text).toContain('violations.dismissed_at is null');
+    expect(text).toContain('automation_runs.dismissed_at is null');
   });
 
   it('narrows on acknowledged === true, not just false', async () => {
     const acknowledged = await rosterSql(rosterFilters({ acknowledged: true }), createOwnerUser());
     const pending = await rosterSql(rosterFilters({ acknowledged: false }), createOwnerUser());
 
-    expect(acknowledged.text).toContain('violations.acknowledged_at is not null');
-    expect(pending.text).toContain('violations.acknowledged_at is null');
-    expect(pending.text).not.toContain('violations.acknowledged_at is not null');
+    expect(acknowledged.text).toContain('automation_runs.acknowledged_at is not null');
+    expect(pending.text).toContain('automation_runs.acknowledged_at is null');
+    expect(pending.text).not.toContain('automation_runs.acknowledged_at is not null');
   });
 
   it('leaves acknowledgement unfiltered when the filter is absent', async () => {
     const { text } = await rosterSql(rosterFilters(), createOwnerUser());
 
-    expect(text).not.toContain('violations.acknowledged_at');
+    expect(text).not.toContain('automation_runs.acknowledged_at');
   });
 
   it('carries ruleId and serverUserId, which the bulk body used to drop', async () => {
@@ -1085,8 +1085,8 @@ describe('violation roster conditions', () => {
       createOwnerUser()
     );
 
-    expect(text).toContain('violations.rule_id =');
-    expect(text).toContain('violations.server_user_id =');
+    expect(text).toContain('automation_runs.rule_id =');
+    expect(text).toContain('automation_runs.server_user_id =');
     expect(params).toContain(ruleId);
     expect(params).toContain(serverUserId);
   });
@@ -1097,7 +1097,7 @@ describe('violation roster conditions', () => {
       createOwnerUser()
     );
 
-    expect(text).toContain('violations.created_at >=');
+    expect(text).toContain('automation_runs.created_at >=');
     expect(params).toContain('2024-03-15T00:00:00.000Z');
   });
 
@@ -1108,8 +1108,8 @@ describe('violation roster conditions', () => {
     );
 
     // An inclusive <= against midnight would drop everything on 2024-03-15.
-    expect(text).toContain('violations.created_at <');
-    expect(text).not.toContain('violations.created_at <=');
+    expect(text).toContain('automation_runs.created_at <');
+    expect(text).not.toContain('automation_runs.created_at <=');
     expect(params).toContain('2024-03-16T00:00:00.000Z');
   });
 
@@ -1164,36 +1164,36 @@ describe('GET /violations ORDER BY', () => {
   }
 
   it('defaults to newest first, tiebroken on the violation id', async () => {
-    expect(await orderClause('')).toBe('violations.created_at DESC, violations.id ASC');
+    expect(await orderClause('')).toBe('automation_runs.created_at DESC, automation_runs.id ASC');
   });
 
   it('tiebreaks the createdAt branch in both directions', async () => {
     expect(await orderClause('orderBy=createdAt&orderDir=asc')).toBe(
-      'violations.created_at ASC, violations.id ASC'
+      'automation_runs.created_at ASC, automation_runs.id ASC'
     );
   });
 
   it('ranks severity high-first on desc and tiebreaks on the id', async () => {
     expect(await orderClause('orderBy=severity&orderDir=desc')).toBe(
-      "CASE violations.severity WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END DESC, violations.id ASC"
+      "CASE automation_runs.severity WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END DESC, automation_runs.id ASC"
     );
   });
 
   it('ranks severity low-first on asc', async () => {
     expect(await orderClause('orderBy=severity&orderDir=asc')).toBe(
-      "CASE violations.severity WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END ASC, violations.id ASC"
+      "CASE automation_runs.severity WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END ASC, automation_runs.id ASC"
     );
   });
 
   it('tiebreaks the user branch on the id, not on created_at', async () => {
     expect(await orderClause('orderBy=user&orderDir=asc')).toBe(
-      'server_users.username ASC, violations.id ASC'
+      'server_users.username ASC, automation_runs.id ASC'
     );
   });
 
   it('tiebreaks the rule branch on the id, not on created_at', async () => {
     expect(await orderClause('orderBy=rule&orderDir=asc')).toBe(
-      'rules.name ASC, violations.id ASC'
+      'automations.name ASC, automation_runs.id ASC'
     );
   });
 });
@@ -1293,9 +1293,9 @@ describe('bulk selectAll scope', () => {
     // Without ruleId and the date bounds in the seed query, "select all" would
     // acknowledge every violation on the server instead of the filtered set.
     const seed = renderCall(seedChain, 'where');
-    expect(seed.text).toContain('violations.rule_id =');
-    expect(seed.text).toContain('violations.created_at >=');
-    expect(seed.text).toContain('violations.created_at <');
+    expect(seed.text).toContain('automation_runs.rule_id =');
+    expect(seed.text).toContain('automation_runs.created_at >=');
+    expect(seed.text).toContain('automation_runs.created_at <');
     expect(seed.params).toContain(ruleId);
     expect(seed.params).toContain('2024-03-01T00:00:00.000Z');
     expect(seed.params).toContain('2024-03-16T00:00:00.000Z');
@@ -1330,9 +1330,9 @@ describe('bulk selectAll scope', () => {
     expect(response.json()).toEqual({ success: true, dismissed: 1 });
 
     const seed = renderCall(seedChain, 'where');
-    expect(seed.text).toContain('violations.rule_id =');
-    expect(seed.text).toContain('violations.created_at >=');
-    expect(seed.text).toContain('violations.created_at <');
+    expect(seed.text).toContain('automation_runs.rule_id =');
+    expect(seed.text).toContain('automation_runs.created_at >=');
+    expect(seed.text).toContain('automation_runs.created_at <');
     expect(seed.params).toContain(ruleId);
     expect(seed.params).toContain('2024-03-16T00:00:00.000Z');
   });
@@ -1353,7 +1353,7 @@ describe('bulk selectAll scope', () => {
 
     expect(response.statusCode).toBe(200);
     const seed = renderCall(seedChain, 'where');
-    expect(seed.text).toContain('violations.acknowledged_at is not null');
+    expect(seed.text).toContain('automation_runs.acknowledged_at is not null');
   });
 
   it.each([
@@ -1372,8 +1372,8 @@ describe('bulk selectAll scope', () => {
 
     expect(response.statusCode).toBe(200);
     const seed = renderCall(seedChain, 'where');
-    expect(seed.text).toContain('violations.acknowledged_at is null');
-    expect(seed.text).not.toContain('violations.acknowledged_at is not null');
+    expect(seed.text).toContain('automation_runs.acknowledged_at is null');
+    expect(seed.text).not.toContain('automation_runs.acknowledged_at is not null');
   });
 
   it('resolves both bulk paths through the same conditions as the list', async () => {

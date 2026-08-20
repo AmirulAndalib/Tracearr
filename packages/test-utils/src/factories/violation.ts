@@ -57,7 +57,7 @@ export async function createTestViolation(data: ViolationData): Promise<CreatedV
   const fullData = buildViolation(data);
 
   const result = await executeRawSql(`
-    INSERT INTO violations (id, rule_id, server_user_id, session_id, severity, data, acknowledged_at)
+    INSERT INTO automation_runs (id, rule_id, server_user_id, session_id, severity, data, acknowledged_at)
     VALUES (
       '${fullData.id}',
       '${fullData.ruleId}',

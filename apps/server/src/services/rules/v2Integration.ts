@@ -9,7 +9,7 @@ import type { Redis } from 'ioredis';
 import { eq, sql, and, isNull, isNotNull } from 'drizzle-orm';
 import { REDIS_KEYS } from '@tracearr/shared';
 import { db } from '../../db/client.js';
-import { rules, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
+import { automations, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { rulesLogger } from '../../utils/logger.js';
 import { recomputeIdentityAggregates } from '../userService.js';
@@ -322,16 +322,16 @@ export async function runV1ToV2Migration(): Promise<{
   // Find rules that need migration
   const legacyRules = await db
     .select({
-      id: rules.id,
-      name: rules.name,
-      type: rules.type,
-      params: rules.params,
-      serverUserId: rules.serverUserId,
-      serverId: rules.serverId,
-      isActive: rules.isActive,
+      id: automations.id,
+      name: automations.name,
+      type: automations.type,
+      params: automations.params,
+      serverUserId: automations.serverUserId,
+      serverId: automations.serverId,
+      isActive: automations.isActive,
     })
-    .from(rules)
-    .where(and(isNotNull(rules.type), isNull(rules.conditions)));
+    .from(automations)
+    .where(and(isNotNull(automations.type), isNull(automations.conditions)));
 
   if (legacyRules.length === 0) {
     rulesLogger.info('No V1 rules found requiring migration');
@@ -360,7 +360,7 @@ export async function runV1ToV2Migration(): Promise<{
   for (const migratedRule of migrated) {
     try {
       await db
-        .update(rules)
+        .update(automations)
         .set({
           severity: migratedRule.severity,
           conditions: migratedRule.conditions,
@@ -370,7 +370,7 @@ export async function runV1ToV2Migration(): Promise<{
           params: null,
           updatedAt: new Date(),
         })
-        .where(eq(rules.id, migratedRule.id));
+        .where(eq(automations.id, migratedRule.id));
 
       migratedCount++;
       rulesLogger.debug(`Migrated rule ${migratedRule.id}`);

@@ -25,7 +25,7 @@ vi.mock('../notifications/destinationStore.js', () => ({
 }));
 
 import { db } from '../../db/client.js';
-import { destinations, rules, settings } from '../../db/schema.js';
+import { destinations, automations, settings } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import {
   initDestinationCrypto,
@@ -428,7 +428,7 @@ describe('runDestinationsMigration', () => {
     ]);
     expect(builtinPatches[1]?.patch.events).toEqual(['server_down', 'server_up']);
 
-    const ruleUpdate = harness.updates.find((u) => u.table === rules);
+    const ruleUpdate = harness.updates.find((u) => u.table === automations);
     expect(ruleUpdate?.patch.actions).toEqual({
       actions: [{ type: 'send', to: ['new-1', 'push-row'] }],
     });

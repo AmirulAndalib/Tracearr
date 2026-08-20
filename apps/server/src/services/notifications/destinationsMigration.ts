@@ -8,7 +8,7 @@ import {
   type RuleActions,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
-import { destinations, rules, settings } from '../../db/schema.js';
+import { destinations, automations, settings } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
 import { resetSettingsCache } from '../settings.js';
@@ -310,8 +310,13 @@ export async function runDestinationsMigration(): Promise<void> {
     }
 
     const ruleRows = await tx
-      .select({ id: rules.id, name: rules.name, isActive: rules.isActive, actions: rules.actions })
-      .from(rules);
+      .select({
+        id: automations.id,
+        name: automations.name,
+        isActive: automations.isActive,
+        actions: automations.actions,
+      })
+      .from(automations);
 
     const regclass = await tx.execute(
       sql`SELECT to_regclass('public.notification_channel_routing') AS r`
@@ -381,9 +386,9 @@ export async function runDestinationsMigration(): Promise<void> {
         a.type === 'send' ? { ...a, to: a.to.map((t) => ids.get(t) ?? t) } : a
       );
       await tx
-        .update(rules)
+        .update(automations)
         .set({ actions: { actions }, updatedAt: new Date() })
-        .where(eq(rules.id, update.id));
+        .where(eq(automations.id, update.id));
     }
 
     await tx.delete(settings).where(inArray(settings.name, [...SEVEN_KEYS]));

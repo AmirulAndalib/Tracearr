@@ -24,8 +24,8 @@ import {
   sessions,
   servers,
   users,
-  violations,
-  rules,
+  automationRuns,
+  automations,
   terminationLogs,
 } from '../../db/schema.js';
 import { hasServerAccess, buildServerAccessCondition } from '../../utils/serverFiltering.js';
@@ -314,42 +314,42 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
       // 6. Get violations (recent, limited)
       const violationData = await tx
         .select({
-          id: violations.id,
-          ruleId: violations.ruleId,
-          ruleName: rules.name,
-          ruleType: rules.type,
-          serverUserId: violations.serverUserId,
+          id: automationRuns.id,
+          ruleId: automationRuns.automationId,
+          ruleName: automations.name,
+          ruleType: automations.type,
+          serverUserId: automationRuns.serverUserId,
           serverId: serverUsers.serverId,
           serverName: servers.name,
-          sessionId: violations.sessionId,
+          sessionId: automationRuns.sessionId,
           mediaTitle: sessions.mediaTitle,
-          severity: violations.severity,
-          data: violations.data,
-          createdAt: violations.createdAt,
-          acknowledgedAt: violations.acknowledgedAt,
+          severity: automationRuns.severity,
+          data: automationRuns.data,
+          createdAt: automationRuns.createdAt,
+          acknowledgedAt: automationRuns.acknowledgedAt,
         })
-        .from(violations)
-        .innerJoin(rules, eq(violations.ruleId, rules.id))
-        .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+        .from(automationRuns)
+        .innerJoin(automations, eq(automationRuns.automationId, automations.id))
+        .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
         .innerJoin(servers, eq(serverUsers.serverId, servers.id))
-        .leftJoin(sessions, eq(violations.sessionId, sessions.id))
+        .leftJoin(sessions, eq(automationRuns.sessionId, sessions.id))
         .where(
           and(
-            sql`${violations.serverUserId} = ANY(${scopedIdArray})`,
-            isNull(violations.dismissedAt)
+            sql`${automationRuns.serverUserId} = ANY(${scopedIdArray})`,
+            isNull(automationRuns.dismissedAt)
           )
         )
-        .orderBy(desc(violations.createdAt))
+        .orderBy(desc(automationRuns.createdAt))
         .limit(violationsLimit);
 
       // Get violations count
       const violationsCountResult = await tx
         .select({ count: sql<number>`count(*)::int` })
-        .from(violations)
+        .from(automationRuns)
         .where(
           and(
-            sql`${violations.serverUserId} = ANY(${scopedIdArray})`,
-            isNull(violations.dismissedAt)
+            sql`${automationRuns.serverUserId} = ANY(${scopedIdArray})`,
+            isNull(automationRuns.dismissedAt)
           )
         );
 
@@ -367,7 +367,7 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
           triggeredByUserId: terminationLogs.triggeredByUserId,
           triggeredByUsername: users.username,
           ruleId: terminationLogs.ruleId,
-          ruleName: rules.name,
+          ruleName: automations.name,
           violationId: terminationLogs.violationId,
           reason: terminationLogs.reason,
           success: terminationLogs.success,
@@ -384,7 +384,7 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
         })
         .from(terminationLogs)
         .leftJoin(users, eq(terminationLogs.triggeredByUserId, users.id))
-        .leftJoin(rules, eq(terminationLogs.ruleId, rules.id))
+        .leftJoin(automations, eq(terminationLogs.ruleId, automations.id))
         .leftJoin(sessions, eq(terminationLogs.sessionId, sessions.id))
         .leftJoin(servers, eq(terminationLogs.serverId, servers.id))
         .where(sql`${terminationLogs.serverUserId} = ANY(${scopedIdArray})`)

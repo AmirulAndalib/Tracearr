@@ -23,7 +23,7 @@ import {
 } from '@tracearr/shared';
 import type { RuleConditions, RuleActions, ViolationSeverity, AuthUser } from '@tracearr/shared';
 import { db } from '../db/client.js';
-import { rules, serverUsers, violations, servers, users } from '../db/schema.js';
+import { automations, serverUsers, automationRuns, servers, users } from '../db/schema.js';
 import { hasServerAccess } from '../utils/serverFiltering.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
@@ -91,34 +91,37 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get all rules with server user, server, and identity information
     const ruleList = await db
       .select({
-        id: rules.id,
-        name: rules.name,
-        description: rules.description,
-        severity: rules.severity,
+        id: automations.id,
+        name: automations.name,
+        description: automations.description,
+        severity: automations.severity,
         // Legacy fields
-        type: rules.type,
-        params: rules.params,
+        type: automations.type,
+        params: automations.params,
         // V2 fields
-        conditions: rules.conditions,
-        actions: rules.actions,
+        conditions: automations.conditions,
+        actions: automations.actions,
         // Scope
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        userId: rules.userId,
-        enforceAcrossServers: rules.enforceAcrossServers,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        userId: automations.userId,
+        enforceAcrossServers: automations.enforceAcrossServers,
         identityName: users.name,
         username: serverUsers.username,
         serverUserServerId: serverUsers.serverId,
         serverName: servers.name,
-        isActive: rules.isActive,
-        createdAt: rules.createdAt,
-        updatedAt: rules.updatedAt,
+        isActive: automations.isActive,
+        createdAt: automations.createdAt,
+        updatedAt: automations.updatedAt,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .leftJoin(servers, or(eq(rules.serverId, servers.id), eq(serverUsers.serverId, servers.id)))
-      .leftJoin(users, eq(rules.userId, users.id))
-      .orderBy(rules.name);
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .leftJoin(
+        servers,
+        or(eq(automations.serverId, servers.id), eq(serverUsers.serverId, servers.id))
+      )
+      .leftJoin(users, eq(automations.userId, users.id))
+      .orderBy(automations.name);
 
     const personRuleUserIds = [
       ...new Set(ruleList.filter((r) => r.userId).map((r) => r.userId as string)),
@@ -191,7 +194,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     // Create rule
     const inserted = await db
-      .insert(rules)
+      .insert(automations)
       .values({
         name,
         type,
@@ -300,7 +303,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     // Create rule with V2 format
     const inserted = await db
-      .insert(rules)
+      .insert(automations)
       .values({
         name,
         description,
@@ -344,34 +347,37 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     const ruleRows = await db
       .select({
-        id: rules.id,
-        name: rules.name,
-        description: rules.description,
-        severity: rules.severity,
+        id: automations.id,
+        name: automations.name,
+        description: automations.description,
+        severity: automations.severity,
         // Legacy fields
-        type: rules.type,
-        params: rules.params,
+        type: automations.type,
+        params: automations.params,
         // V2 fields
-        conditions: rules.conditions,
-        actions: rules.actions,
+        conditions: automations.conditions,
+        actions: automations.actions,
         // Scope
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        userId: rules.userId,
-        enforceAcrossServers: rules.enforceAcrossServers,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        userId: automations.userId,
+        enforceAcrossServers: automations.enforceAcrossServers,
         identityName: users.name,
         username: serverUsers.username,
         serverUserServerId: serverUsers.serverId,
         serverName: servers.name,
-        isActive: rules.isActive,
-        createdAt: rules.createdAt,
-        updatedAt: rules.updatedAt,
+        isActive: automations.isActive,
+        createdAt: automations.createdAt,
+        updatedAt: automations.updatedAt,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .leftJoin(servers, or(eq(rules.serverId, servers.id), eq(serverUsers.serverId, servers.id)))
-      .leftJoin(users, eq(rules.userId, users.id))
-      .where(eq(rules.id, id))
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .leftJoin(
+        servers,
+        or(eq(automations.serverId, servers.id), eq(serverUsers.serverId, servers.id))
+      )
+      .leftJoin(users, eq(automations.userId, users.id))
+      .where(eq(automations.id, id))
       .limit(1);
 
     const rule = ruleRows[0];
@@ -394,8 +400,8 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get violation count for this rule
     const violationCount = await db
       .select({ count: sql<number>`count(*)::int` })
-      .from(violations)
-      .where(and(eq(violations.ruleId, id), isNull(violations.dismissedAt)));
+      .from(automationRuns)
+      .where(and(eq(automationRuns.automationId, id), isNull(automationRuns.dismissedAt)));
 
     return {
       ...rule,
@@ -430,13 +436,13 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Check rule exists and get server info
     const ruleRows = await db
       .select({
-        id: rules.id,
-        serverUserId: rules.serverUserId,
+        id: automations.id,
+        serverUserId: automations.serverUserId,
         serverId: serverUsers.serverId,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .where(eq(rules.id, id))
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .where(eq(automations.id, id))
       .limit(1);
 
     const existingRule = ruleRows[0];
@@ -476,7 +482,11 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Update rule
-    const updated = await db.update(rules).set(updateData).where(eq(rules.id, id)).returning();
+    const updated = await db
+      .update(automations)
+      .set(updateData)
+      .where(eq(automations.id, id))
+      .returning();
 
     const updatedRule = updated[0];
     if (!updatedRule) {
@@ -518,17 +528,17 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Check rule exists and get server info
     const ruleRows = await db
       .select({
-        id: rules.id,
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        userId: rules.userId,
+        id: automations.id,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        userId: automations.userId,
         serverUserServerId: serverUsers.serverId,
-        conditions: rules.conditions,
-        enforceAcrossServers: rules.enforceAcrossServers,
+        conditions: automations.conditions,
+        enforceAcrossServers: automations.enforceAcrossServers,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .where(eq(rules.id, id))
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .where(eq(automations.id, id))
       .limit(1);
 
     const existingRule = ruleRows[0];
@@ -646,7 +656,11 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Update rule
-    const updated = await db.update(rules).set(updateData).where(eq(rules.id, id)).returning();
+    const updated = await db
+      .update(automations)
+      .set(updateData)
+      .where(eq(automations.id, id))
+      .returning();
 
     const updatedRule = updated[0];
     if (!updatedRule) {
@@ -684,14 +698,14 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Check rule exists and get server info
     const ruleRows = await db
       .select({
-        id: rules.id,
-        conditions: rules.conditions,
-        serverUserId: rules.serverUserId,
+        id: automations.id,
+        conditions: automations.conditions,
+        serverUserId: automations.serverUserId,
         serverId: serverUsers.serverId,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .where(eq(rules.id, id))
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .where(eq(automations.id, id))
       .limit(1);
 
     const existingRule = ruleRows[0];
@@ -711,7 +725,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     const wasInactivityRule = hasInactivityCondition(existingRule);
 
     // Delete rule (cascade will handle violations)
-    await db.delete(rules).where(eq(rules.id, id));
+    await db.delete(automations).where(eq(automations.id, id));
 
     invalidateRulesCache();
 
@@ -744,13 +758,13 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get all requested rules with server info
     const ruleDetails = await db
       .select({
-        id: rules.id,
-        serverUserId: rules.serverUserId,
+        id: automations.id,
+        serverUserId: automations.serverUserId,
         serverId: serverUsers.serverId,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .where(inArray(rules.id, ids));
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .where(inArray(automations.id, ids));
 
     // Filter to only accessible rules
     // Global rules (serverUserId = null) are accessible to all owners
@@ -769,12 +783,12 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     // Bulk update isActive
     await db
-      .update(rules)
+      .update(automations)
       .set({
         isActive,
         updatedAt: new Date(),
       })
-      .where(inArray(rules.id, accessibleIds));
+      .where(inArray(automations.id, accessibleIds));
 
     invalidateRulesCache();
 
@@ -802,13 +816,13 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get all requested rules with server info
     const ruleDetails = await db
       .select({
-        id: rules.id,
-        serverUserId: rules.serverUserId,
+        id: automations.id,
+        serverUserId: automations.serverUserId,
         serverId: serverUsers.serverId,
       })
-      .from(rules)
-      .leftJoin(serverUsers, eq(rules.serverUserId, serverUsers.id))
-      .where(inArray(rules.id, deleteIds));
+      .from(automations)
+      .leftJoin(serverUsers, eq(automations.serverUserId, serverUsers.id))
+      .where(inArray(automations.id, deleteIds));
 
     // Filter to only accessible rules
     const accessibleIds = ruleDetails
@@ -824,7 +838,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Bulk delete (cascade will handle violations)
-    await db.delete(rules).where(inArray(rules.id, accessibleIds));
+    await db.delete(automations).where(inArray(automations.id, accessibleIds));
 
     invalidateRulesCache();
 
@@ -846,20 +860,20 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get all legacy rules that need migration
     const legacyRules = await db
       .select({
-        id: rules.id,
-        name: rules.name,
-        type: rules.type,
-        params: rules.params,
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        isActive: rules.isActive,
+        id: automations.id,
+        name: automations.name,
+        type: automations.type,
+        params: automations.params,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        isActive: automations.isActive,
       })
-      .from(rules)
+      .from(automations)
       .where(
         and(
-          isNotNull(rules.type),
-          isNotNull(rules.params),
-          or(isNull(rules.conditions), isNull(rules.actions))
+          isNotNull(automations.type),
+          isNotNull(automations.params),
+          or(isNull(automations.conditions), isNull(automations.actions))
         )
       );
 
@@ -928,24 +942,26 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     // Build WHERE conditions for legacy rules
     const baseCondition = and(
-      isNotNull(rules.type),
-      isNotNull(rules.params),
-      or(isNull(rules.conditions), isNull(rules.actions))
+      isNotNull(automations.type),
+      isNotNull(automations.params),
+      or(isNull(automations.conditions), isNull(automations.actions))
     );
 
     // Get legacy rules that need migration
     const legacyRules = await db
       .select({
-        id: rules.id,
-        name: rules.name,
-        type: rules.type,
-        params: rules.params,
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        isActive: rules.isActive,
+        id: automations.id,
+        name: automations.name,
+        type: automations.type,
+        params: automations.params,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        isActive: automations.isActive,
       })
-      .from(rules)
-      .where(specificIds ? and(baseCondition, inArray(rules.id, specificIds)) : baseCondition);
+      .from(automations)
+      .where(
+        specificIds ? and(baseCondition, inArray(automations.id, specificIds)) : baseCondition
+      );
 
     // Filter by server access
     const rulesWithAccess = await Promise.all(
@@ -984,7 +1000,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
       let count = 0;
       for (const migrated of result.migrated) {
         await tx
-          .update(rules)
+          .update(automations)
           .set({
             severity: migrated.severity,
             conditions: migrated.conditions,
@@ -993,7 +1009,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
             params: null,
             updatedAt: new Date(),
           })
-          .where(eq(rules.id, migrated.id));
+          .where(eq(automations.id, migrated.id));
         count++;
       }
       return count;
@@ -1031,18 +1047,18 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
     // Get the rule
     const ruleRows = await db
       .select({
-        id: rules.id,
-        name: rules.name,
-        type: rules.type,
-        params: rules.params,
-        conditions: rules.conditions,
-        actions: rules.actions,
-        serverId: rules.serverId,
-        serverUserId: rules.serverUserId,
-        isActive: rules.isActive,
+        id: automations.id,
+        name: automations.name,
+        type: automations.type,
+        params: automations.params,
+        conditions: automations.conditions,
+        actions: automations.actions,
+        serverId: automations.serverId,
+        serverUserId: automations.serverUserId,
+        isActive: automations.isActive,
       })
-      .from(rules)
-      .where(eq(rules.id, id))
+      .from(automations)
+      .where(eq(automations.id, id))
       .limit(1);
 
     const rule = ruleRows[0];
@@ -1089,7 +1105,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     // Update rule in database
     const updated = await db
-      .update(rules)
+      .update(automations)
       .set({
         severity: migrated.severity,
         conditions: migrated.conditions,
@@ -1098,7 +1114,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
         params: null,
         updatedAt: new Date(),
       })
-      .where(eq(rules.id, id))
+      .where(eq(automations.id, id))
       .returning();
 
     invalidateRulesCache();

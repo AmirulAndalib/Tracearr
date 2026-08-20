@@ -18,7 +18,7 @@ import {
 import { db } from '../../db/client.js';
 import {
   sessions,
-  rules,
+  automations,
   servers,
   serverUsers,
   terminationLogs,
@@ -392,7 +392,7 @@ export async function getCachedServers(): Promise<(typeof servers.$inferSelect)[
  * Shared by getActiveRulesV2 and the kill-queue reverify path so both build
  * an identical RuleV2 from the same row.
  */
-export function mapRuleRowToRuleV2(r: typeof rules.$inferSelect): RuleV2 {
+export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
   return {
     id: r.id,
     name: r.name,
@@ -418,8 +418,8 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
 
   const activeRules = await db
     .select()
-    .from(rules)
-    .where(and(eq(rules.isActive, true), isNotNull(rules.conditions)));
+    .from(automations)
+    .where(and(eq(automations.isActive, true), isNotNull(automations.conditions)));
 
   const mapped = activeRules.map(mapRuleRowToRuleV2);
 

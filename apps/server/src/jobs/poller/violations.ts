@@ -9,7 +9,7 @@ import type { Rule, ViolationWithDetails, RuleType } from '@tracearr/shared';
 import { WS_EVENTS } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { servers, serverUsers, sessions, users } from '../../db/schema.js';
-import type { violations } from '../../db/schema.js';
+import type { automationRuns } from '../../db/schema.js';
 import type { PubSubService } from '../../services/cache.js';
 import { enqueueNotification } from '../notificationQueue.js';
 
@@ -32,7 +32,7 @@ export interface ViolationRuleInfo {
  * Contains data needed for post-transaction broadcasting.
  */
 export interface ViolationInsertResult {
-  violation: typeof violations.$inferSelect;
+  violation: typeof automationRuns.$inferSelect;
   rule: Rule | ViolationRuleInfo;
 }
 
@@ -86,10 +86,11 @@ export async function broadcastViolations(
 
     const violationWithDetails: ViolationWithDetails = {
       id: violation.id,
-      ruleId: violation.ruleId,
-      serverUserId: violation.serverUserId,
+      ruleId: violation.automationId,
+      // Policy runs always carry both; details.userId is the same server user.
+      serverUserId: violation.serverUserId ?? details.userId,
       sessionId: violation.sessionId,
-      severity: violation.severity,
+      severity: violation.severity ?? 'warning',
       data: violation.data,
       acknowledgedAt: violation.acknowledgedAt,
       createdAt: violation.createdAt,

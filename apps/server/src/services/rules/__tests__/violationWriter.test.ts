@@ -119,7 +119,7 @@ describe('recordViolation', () => {
       expect(lock.params).toEqual(['s1', 'r1']);
       const gate = render(capturedWhere);
       expect(gate.sql).toBe(
-        '("violations"."rule_id" = $1 and "violations"."session_id" = $2 and ("violations"."acknowledged_at" is null or "violations"."dismissed_at" is not null))'
+        '("automation_runs"."rule_id" = $1 and "automation_runs"."session_id" = $2 and ("automation_runs"."acknowledged_at" is null or "automation_runs"."dismissed_at" is not null))'
       );
       expect(gate.params).toEqual(['r1', 's1']);
       expect(mockRecompute).toHaveBeenCalledWith('su1', expect.anything());
@@ -187,7 +187,9 @@ describe('recordViolation', () => {
       const lock = render(capturedLockSql);
       expect(lock.params).toEqual(['su1', 'r1']);
       const gate = render(capturedWhere);
-      expect(gate.sql).toBe('("violations"."rule_id" = $1 and "violations"."server_user_id" = $2)');
+      expect(gate.sql).toBe(
+        '("automation_runs"."rule_id" = $1 and "automation_runs"."server_user_id" = $2)'
+      );
       expect(gate.params).toEqual(['r1', 'su1']);
       expect(v).toEqual(inserted);
     });
@@ -218,9 +220,12 @@ describe('buildViolationValues', () => {
       marker: { pauseReEval: true },
     });
     expect(values).toEqual({
-      ruleId: 'r1',
+      automationId: 'r1',
       serverUserId: 'su1',
       sessionId: 's1',
+      subjectKey: 's1',
+      startedAt: expect.any(Date),
+      finishedAt: expect.any(Date),
       severity: 'high',
       ruleType: null,
       data: {
@@ -245,6 +250,7 @@ describe('buildViolationValues', () => {
       session: null,
     });
     expect(values.sessionId).toBeNull();
+    expect(values.subjectKey).toBe('su1');
     expect(values.ruleType).toBeNull();
     expect(values.data).not.toHaveProperty('sessionKey');
     expect(values.data).not.toHaveProperty('mediaTitle');

@@ -145,7 +145,7 @@ export async function seedViolationScenario(): Promise<
 
   // Create concurrent streams rule
   const ruleResult = await executeRawSql(`
-    INSERT INTO rules (name, type, params, is_active)
+    INSERT INTO automations (name, type, params, is_active)
     VALUES (
       'Max 2 Streams',
       'concurrent_streams',

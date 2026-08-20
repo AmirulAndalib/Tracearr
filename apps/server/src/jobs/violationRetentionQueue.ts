@@ -166,9 +166,9 @@ async function deleteBatched(where: ReturnType<typeof sql>): Promise<number> {
   let total = 0;
   for (;;) {
     const result = await db.execute(sql`
-      DELETE FROM violations
+      DELETE FROM automation_runs
       WHERE id IN (
-        SELECT id FROM violations
+        SELECT id FROM automation_runs
         WHERE ${where}
         LIMIT ${DELETE_BATCH_SIZE}
       )

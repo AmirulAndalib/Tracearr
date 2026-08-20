@@ -25,7 +25,7 @@ import {
 } from '@tracearr/test-utils/factories';
 import { db } from '../../src/db/client.js';
 import { violationRoutes } from '../../src/routes/violations.js';
-import { users, serverUsers, violations, rules } from '../../src/db/schema.js';
+import { users, serverUsers, automationRuns, automations } from '../../src/db/schema.js';
 import { mergeUsers } from '../../src/services/mergeService.js';
 import * as userService from '../../src/services/userService.js';
 
@@ -112,9 +112,18 @@ describe('POST /violations/bulk/acknowledge - person filter', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ success: true, acknowledged: 2 });
 
-    const [rowA1] = await db.select().from(violations).where(eq(violations.id, violationA1.id));
-    const [rowA2] = await db.select().from(violations).where(eq(violations.id, violationA2.id));
-    const [rowB] = await db.select().from(violations).where(eq(violations.id, violationB.id));
+    const [rowA1] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationA1.id));
+    const [rowA2] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationA2.id));
+    const [rowB] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationB.id));
 
     expect(rowA1?.acknowledgedAt).not.toBeNull();
     expect(rowA2?.acknowledgedAt).not.toBeNull();
@@ -149,7 +158,7 @@ describe('POST /violations/bulk/acknowledge - person filter', () => {
     await app.close();
 
     expect(response.statusCode).toBe(403);
-    const [row] = await db.select().from(violations).where(eq(violations.id, violation.id));
+    const [row] = await db.select().from(automationRuns).where(eq(automationRuns.id, violation.id));
     expect(row?.acknowledgedAt).toBeNull();
   });
 });
@@ -222,7 +231,7 @@ describe('DELETE /violations/bulk - person filter', () => {
 
     // Dismiss is a soft delete: rows survive with dismissedAt stamped so
     // dedup keeps blocking re-creation.
-    const rows = await db.select().from(violations);
+    const rows = await db.select().from(automationRuns);
     const dismissedById = new Map(rows.map((v) => [v.id, v.dismissedAt]));
     expect(dismissedById.get(violationA1.id)).toBeInstanceOf(Date);
     expect(dismissedById.get(violationA2.id)).toBeInstanceOf(Date);
@@ -258,9 +267,9 @@ describe('DELETE /violations/bulk - person filter', () => {
 
     const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
     await db
-      .update(rules)
+      .update(automations)
       .set({ actions: { actions: [{ type: 'adjust_trust', amount: -20 }] } })
-      .where(eq(rules.id, rule.id));
+      .where(eq(automations.id, rule.id));
 
     const sessionA = await createTestSession({ serverId: serverA.id, serverUserId: targetSu.id });
     const sessionB = await createTestSession({ serverId: serverB.id, serverUserId: sourceSu.id });
@@ -403,9 +412,18 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ success: true, acknowledged: 2 });
 
-    const [rowA] = await db.select().from(violations).where(eq(violations.id, violationA.id));
-    const [rowB] = await db.select().from(violations).where(eq(violations.id, violationB.id));
-    const [rowC] = await db.select().from(violations).where(eq(violations.id, violationC.id));
+    const [rowA] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationA.id));
+    const [rowB] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationB.id));
+    const [rowC] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, violationC.id));
 
     expect(rowA?.acknowledgedAt).not.toBeNull();
     expect(rowB?.acknowledgedAt).not.toBeNull();
@@ -432,7 +450,7 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ success: true, dismissed: 2 });
 
-    const rows = await db.select().from(violations);
+    const rows = await db.select().from(automationRuns);
     const dismissedById = new Map(rows.map((v) => [v.id, v.dismissedAt]));
     expect(dismissedById.get(violationA.id)).toBeInstanceOf(Date);
     expect(dismissedById.get(violationB.id)).toBeInstanceOf(Date);
@@ -490,7 +508,7 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
 
     expect(response.statusCode).toBe(400);
     for (const id of [violationA.id, violationB.id, violationC.id]) {
-      const [row] = await db.select().from(violations).where(eq(violations.id, id));
+      const [row] = await db.select().from(automationRuns).where(eq(automationRuns.id, id));
       expect(row?.acknowledgedAt).toBeNull();
     }
   });
@@ -512,7 +530,7 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
     await app.close();
 
     expect(response.statusCode).toBe(400);
-    const remaining = await db.select().from(violations);
+    const remaining = await db.select().from(automationRuns);
     const remainingIds = remaining.map((v) => v.id);
     expect(remainingIds).toEqual(
       expect.arrayContaining([violationA.id, violationB.id, violationC.id])

@@ -33,8 +33,8 @@ import {
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import {
-  violations,
-  rules,
+  automationRuns,
+  automations,
   serverUsers,
   sessions,
   servers,
@@ -89,14 +89,19 @@ function trustAdjustment(action: Action): number | null {
  * what the column header's descending state has always shown.
  */
 const VIOLATION_SORT_KEYS: Record<ViolationSortField, SortKey> = {
-  createdAt: { key: sql`${violations.createdAt}`, defaultDir: 'desc' },
+  createdAt: { key: sql`${automationRuns.createdAt}`, defaultDir: 'desc' },
   severity: {
-    key: sql`CASE ${violations.severity} WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END`,
+    key: sql`CASE ${automationRuns.severity} WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END`,
     defaultDir: 'desc',
   },
   user: { key: sql`${serverUsers.username}`, defaultDir: 'desc' },
-  rule: { key: sql`${rules.name}`, defaultDir: 'desc' },
+  rule: { key: sql`${automations.name}`, defaultDir: 'desc' },
 };
+
+/** The run column is nullable; every row this route serves has one, and the wire shape requires it. */
+const ROSTER_SEVERITY = sql<
+  'low' | 'warning' | 'high'
+>`coalesce(${automationRuns.severity}, 'warning')`;
 
 interface ViolationRosterConditions {
   /** Nothing can match, so callers skip the query and answer with an empty set. */
@@ -136,7 +141,7 @@ export async function buildViolationRosterConditions(
   }
 
   if (filters.serverUserId) {
-    conditions.push(eq(violations.serverUserId, filters.serverUserId));
+    conditions.push(eq(automationRuns.serverUserId, filters.serverUserId));
   }
 
   // An identity with no accessible account contributes nothing, and a set that
@@ -152,32 +157,32 @@ export async function buildViolationRosterConditions(
     if (identityServerUserIds.length === 0) {
       return { empty: true, conditions: [] };
     }
-    conditions.push(inArray(violations.serverUserId, identityServerUserIds));
+    conditions.push(inArray(automationRuns.serverUserId, identityServerUserIds));
   }
 
   if (filters.ruleId) {
-    conditions.push(eq(violations.ruleId, filters.ruleId));
+    conditions.push(eq(automationRuns.automationId, filters.ruleId));
   }
 
   if (filters.severity) {
-    conditions.push(eq(violations.severity, filters.severity));
+    conditions.push(eq(automationRuns.severity, filters.severity));
   }
 
   if (filters.acknowledged === true) {
-    conditions.push(isNotNull(violations.acknowledgedAt));
+    conditions.push(isNotNull(automationRuns.acknowledgedAt));
   } else if (filters.acknowledged === false) {
-    conditions.push(isNull(violations.acknowledgedAt));
+    conditions.push(isNull(automationRuns.acknowledgedAt));
   }
 
-  conditions.push(isNull(violations.dismissedAt));
+  conditions.push(isNull(automationRuns.dismissedAt));
 
   const startDate = utcDayStart(filters.startDate);
   if (startDate) {
-    conditions.push(gte(violations.createdAt, startDate));
+    conditions.push(gte(automationRuns.createdAt, startDate));
   }
   const endDate = utcDayEnd(filters.endDate);
   if (endDate) {
-    conditions.push(lt(violations.createdAt, endDate));
+    conditions.push(lt(automationRuns.createdAt, endDate));
   }
 
   return { empty: false, conditions };
@@ -205,9 +210,9 @@ async function resolveBulkViolationIds(
   }
 
   const matching = await db
-    .select({ id: violations.id })
-    .from(violations)
-    .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+    .select({ id: automationRuns.id })
+    .from(automationRuns)
+    .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
     .where(and(...roster.conditions));
 
   return matching.map((row) => row.id);
@@ -761,18 +766,18 @@ function buildViolationPageQuery(params: {
 
   return db
     .select({
-      id: violations.id,
-      ruleId: violations.ruleId,
-      ruleName: rules.name,
-      ruleType: rules.type,
-      serverUserId: violations.serverUserId,
+      id: automationRuns.id,
+      ruleId: automationRuns.automationId,
+      ruleName: automations.name,
+      ruleType: automations.type,
+      serverUserId: serverUsers.id,
       username: serverUsers.username,
       userThumb: serverUsers.thumbUrl,
       identityName: users.name,
       identityUserId: serverUsers.userId,
       serverId: serverUsers.serverId,
       serverName: servers.name,
-      sessionId: violations.sessionId,
+      sessionId: automationRuns.sessionId,
       // Session details for context
       mediaTitle: sessions.mediaTitle,
       mediaType: sessions.mediaType,
@@ -795,19 +800,19 @@ function buildViolationPageQuery(params: {
       product: sessions.product,
       quality: sessions.quality,
       startedAt: sessions.startedAt,
-      severity: violations.severity,
-      data: violations.data,
-      createdAt: violations.createdAt,
-      acknowledgedAt: violations.acknowledgedAt,
+      severity: ROSTER_SEVERITY,
+      data: automationRuns.data,
+      createdAt: automationRuns.createdAt,
+      acknowledgedAt: automationRuns.acknowledgedAt,
     })
-    .from(violations)
-    .innerJoin(rules, eq(violations.ruleId, rules.id))
-    .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+    .from(automationRuns)
+    .innerJoin(automations, eq(automationRuns.automationId, automations.id))
+    .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
     .leftJoin(users, eq(serverUsers.userId, users.id))
     .innerJoin(servers, eq(serverUsers.serverId, servers.id))
-    .leftJoin(sessions, eq(violations.sessionId, sessions.id))
+    .leftJoin(sessions, eq(automationRuns.sessionId, sessions.id))
     .where(where)
-    .orderBy(buildOrderBy(VIOLATION_SORT_KEYS, orderBy, orderDir, sql`${violations.id}`))
+    .orderBy(buildOrderBy(VIOLATION_SORT_KEYS, orderBy, orderDir, sql`${automationRuns.id}`))
     .limit(pageSize)
     .offset(offset);
 }
@@ -852,8 +857,8 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // disagree with the page it was counting.
     const countRows = await db
       .select({ total: count() })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
       .where(where);
     const total = countRows[0]?.total ?? 0;
 
@@ -880,18 +885,18 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // Query with server info for access check, including all session fields
     const violationRows = await db
       .select({
-        id: violations.id,
-        ruleId: violations.ruleId,
-        ruleName: rules.name,
-        ruleType: rules.type,
-        serverUserId: violations.serverUserId,
+        id: automationRuns.id,
+        ruleId: automationRuns.automationId,
+        ruleName: automations.name,
+        ruleType: automations.type,
+        serverUserId: serverUsers.id,
         username: serverUsers.username,
         userThumb: serverUsers.thumbUrl,
         identityName: users.name,
         identityUserId: serverUsers.userId,
         serverId: serverUsers.serverId,
         serverName: servers.name,
-        sessionId: violations.sessionId,
+        sessionId: automationRuns.sessionId,
         mediaTitle: sessions.mediaTitle,
         mediaType: sessions.mediaType,
         grandparentTitle: sessions.grandparentTitle,
@@ -913,18 +918,18 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
         product: sessions.product,
         quality: sessions.quality,
         startedAt: sessions.startedAt,
-        severity: violations.severity,
-        data: violations.data,
-        createdAt: violations.createdAt,
-        acknowledgedAt: violations.acknowledgedAt,
+        severity: ROSTER_SEVERITY,
+        data: automationRuns.data,
+        createdAt: automationRuns.createdAt,
+        acknowledgedAt: automationRuns.acknowledgedAt,
       })
-      .from(violations)
-      .innerJoin(rules, eq(violations.ruleId, rules.id))
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
+      .from(automationRuns)
+      .innerJoin(automations, eq(automationRuns.automationId, automations.id))
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
       .leftJoin(users, eq(serverUsers.userId, users.id))
       .innerJoin(servers, eq(serverUsers.serverId, servers.id))
-      .leftJoin(sessions, eq(violations.sessionId, sessions.id))
-      .where(and(eq(violations.id, id), isNull(violations.dismissedAt)))
+      .leftJoin(sessions, eq(automationRuns.sessionId, sessions.id))
+      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -993,12 +998,12 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // Check violation exists and get server info for access check
     const violationRows = await db
       .select({
-        id: violations.id,
+        id: automationRuns.id,
         serverId: serverUsers.serverId,
       })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-      .where(and(eq(violations.id, id), isNull(violations.dismissedAt)))
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
+      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -1013,14 +1018,14 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
 
     // Update acknowledgment
     const updated = await db
-      .update(violations)
+      .update(automationRuns)
       .set({
         acknowledgedAt: new Date(),
       })
-      .where(and(eq(violations.id, id), isNull(violations.dismissedAt)))
+      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
       .returning({
-        id: violations.id,
-        acknowledgedAt: violations.acknowledgedAt,
+        id: automationRuns.id,
+        acknowledgedAt: automationRuns.acknowledgedAt,
       });
 
     const updatedViolation = updated[0];
@@ -1062,15 +1067,15 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // dismissed violation 404s so trust can never be reversed twice.
     const violationRows = await db
       .select({
-        id: violations.id,
-        ruleId: violations.ruleId,
-        serverUserId: violations.serverUserId,
+        id: automationRuns.id,
+        ruleId: automationRuns.automationId,
+        serverUserId: serverUsers.id,
         serverId: serverUsers.serverId,
         userId: serverUsers.userId,
       })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-      .where(and(eq(violations.id, id), isNull(violations.dismissedAt)))
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
+      .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
       .limit(1);
 
     const violation = violationRows[0];
@@ -1086,9 +1091,9 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // Calculate trust adjustment to reverse from rule's actions
     let trustAdjustmentToReverse = 0;
     const ruleRows = await db
-      .select({ actions: rules.actions })
-      .from(rules)
-      .where(eq(rules.id, violation.ruleId))
+      .select({ actions: automations.actions })
+      .from(automations)
+      .where(eq(automations.id, violation.ruleId))
       .limit(1);
 
     const rule = ruleRows[0];
@@ -1106,10 +1111,10 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // race cleanly instead of reversing trust twice.
     const dismissed = await db.transaction(async (tx) => {
       const stamped = await tx
-        .update(violations)
+        .update(automationRuns)
         .set({ dismissedAt: new Date() })
-        .where(and(eq(violations.id, id), isNull(violations.dismissedAt)))
-        .returning({ id: violations.id });
+        .where(and(eq(automationRuns.id, id), isNull(automationRuns.dismissedAt)))
+        .returning({ id: automationRuns.id });
 
       if (stamped.length === 0) {
         return false;
@@ -1172,12 +1177,12 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // them out of accessibleIds so the acknowledged count stays honest.
     const accessibleViolations = await db
       .select({
-        id: violations.id,
+        id: automationRuns.id,
         serverId: serverUsers.serverId,
       })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-      .where(and(inArray(violations.id, violationIds), isNull(violations.dismissedAt)));
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
+      .where(and(inArray(automationRuns.id, violationIds), isNull(automationRuns.dismissedAt)));
 
     // Filter to only accessible violations
     const accessibleIds = accessibleViolations
@@ -1190,9 +1195,9 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
 
     // Bulk update
     await db
-      .update(violations)
+      .update(automationRuns)
       .set({ acknowledgedAt: new Date() })
-      .where(and(inArray(violations.id, accessibleIds), isNull(violations.dismissedAt)));
+      .where(and(inArray(automationRuns.id, accessibleIds), isNull(automationRuns.dismissedAt)));
 
     return { success: true, acknowledged: accessibleIds.length };
   });
@@ -1229,15 +1234,15 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // rows are excluded so re-sending their ids cannot re-reverse trust.
     const violationDetails = await db
       .select({
-        id: violations.id,
-        ruleId: violations.ruleId,
-        serverUserId: violations.serverUserId,
+        id: automationRuns.id,
+        ruleId: automationRuns.automationId,
+        serverUserId: serverUsers.id,
         serverId: serverUsers.serverId,
         userId: serverUsers.userId,
       })
-      .from(violations)
-      .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-      .where(and(inArray(violations.id, violationIds), isNull(violations.dismissedAt)));
+      .from(automationRuns)
+      .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
+      .where(and(inArray(automationRuns.id, violationIds), isNull(automationRuns.dismissedAt)));
 
     // Filter to only accessible violations
     const accessibleViolations = violationDetails.filter((v) =>
@@ -1251,9 +1256,9 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // Get unique rule IDs to fetch their actions
     const uniqueRuleIds = [...new Set(accessibleViolations.map((v) => v.ruleId))];
     const ruleRows = await db
-      .select({ id: rules.id, actions: rules.actions })
-      .from(rules)
-      .where(inArray(rules.id, uniqueRuleIds));
+      .select({ id: automations.id, actions: automations.actions })
+      .from(automations)
+      .where(inArray(automations.id, uniqueRuleIds));
 
     // Build map of ruleId -> trust adjustment amount
     const ruleAdjustments = new Map<string, number>();
@@ -1276,10 +1281,10 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // dismiss racing the same ids cannot reverse trust twice.
     const dismissedCount = await db.transaction(async (tx) => {
       const stamped = await tx
-        .update(violations)
+        .update(automationRuns)
         .set({ dismissedAt: new Date() })
-        .where(and(inArray(violations.id, accessibleIds), isNull(violations.dismissedAt)))
-        .returning({ id: violations.id });
+        .where(and(inArray(automationRuns.id, accessibleIds), isNull(automationRuns.dismissedAt)))
+        .returning({ id: automationRuns.id });
       const stampedIds = new Set(stamped.map((row) => row.id));
       const stampedViolations = accessibleViolations.filter((v) => stampedIds.has(v.id));
 

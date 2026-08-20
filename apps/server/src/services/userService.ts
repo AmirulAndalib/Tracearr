@@ -15,7 +15,7 @@ import { eq, and, sql, inArray, isNull } from 'drizzle-orm';
 import type { MediaUser } from './mediaServer/index.js';
 import type { UserRole } from '@tracearr/shared';
 import { db } from '../db/client.js';
-import { users, serverUsers, servers, sessions, violations } from '../db/schema.js';
+import { users, serverUsers, servers, sessions, automationRuns } from '../db/schema.js';
 import { NotFoundError } from '../utils/errors.js';
 
 // Type for user identity table row
@@ -895,9 +895,9 @@ export async function recomputeIdentityAggregates(
 
   const violationResult = await executor
     .select({ count: sql<number>`count(*)::int` })
-    .from(violations)
-    .innerJoin(serverUsers, eq(violations.serverUserId, serverUsers.id))
-    .where(and(eq(serverUsers.userId, userId), isNull(violations.dismissedAt)));
+    .from(automationRuns)
+    .innerJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
+    .where(and(eq(serverUsers.userId, userId), isNull(automationRuns.dismissedAt)));
 
   const accounts = accountResult[0];
 

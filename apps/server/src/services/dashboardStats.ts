@@ -170,7 +170,7 @@ async function computeDashboardStats(
         .execute(
           sql`
           SELECT count(*)::int as count
-          FROM violations v
+          FROM automation_runs v
           INNER JOIN server_users su ON su.id = v.server_user_id
           WHERE v.created_at >= ${last24h}
           AND v.dismissed_at IS NULL

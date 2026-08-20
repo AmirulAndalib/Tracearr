@@ -111,7 +111,7 @@ export async function createTestRule(data: RuleData): Promise<CreatedRule> {
   const fullData = buildRule(data);
 
   const result = await executeRawSql(`
-    INSERT INTO rules (id, name, type, params, server_user_id, is_active)
+    INSERT INTO automations (id, name, type, params, server_user_id, is_active)
     VALUES (
       '${fullData.id}',
       '${fullData.name}',

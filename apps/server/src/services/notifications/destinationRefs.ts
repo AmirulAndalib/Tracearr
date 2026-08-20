@@ -1,6 +1,6 @@
 import { isNotNull } from 'drizzle-orm';
 import { db } from '../../db/client.js';
-import { rules } from '../../db/schema.js';
+import { automations } from '../../db/schema.js';
 
 export interface DestinationRef {
   ruleId: string;
@@ -11,9 +11,14 @@ export interface DestinationRef {
 /** Every rule, active or not; getActiveRulesV2 is cached and filters inactive rows, which must still block a delete. */
 export async function rulesReferencingDestinations(): Promise<Map<string, DestinationRef[]>> {
   const rows = await db
-    .select({ id: rules.id, name: rules.name, isActive: rules.isActive, actions: rules.actions })
-    .from(rules)
-    .where(isNotNull(rules.actions));
+    .select({
+      id: automations.id,
+      name: automations.name,
+      isActive: automations.isActive,
+      actions: automations.actions,
+    })
+    .from(automations)
+    .where(isNotNull(automations.actions));
 
   const refs = new Map<string, DestinationRef[]>();
   for (const row of rows) {
