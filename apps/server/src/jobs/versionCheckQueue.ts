@@ -166,12 +166,10 @@ export async function scheduleVersionChecks(): Promise<void> {
     return;
   }
 
-  // Remove any existing job schedulers (repeatable jobs)
+  // Remove any existing job schedulers; BullMQ reports them by key, not id.
   const schedulers = await versionQueue.getJobSchedulers();
   for (const scheduler of schedulers) {
-    if (scheduler.id) {
-      await versionQueue.removeJobScheduler(scheduler.id);
-    }
+    await versionQueue.removeJobScheduler(scheduler.key);
   }
 
   // Schedule a check every 6 hours (4 times per day)

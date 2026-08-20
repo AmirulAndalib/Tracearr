@@ -23,18 +23,30 @@ import {
   GitHubRateLimitError,
   processVersionCheck,
   initVersionCheckQueue,
+  scheduleVersionChecks,
   type GitHubRelease,
 } from '../versionCheckQueue.js';
 
 // ---- module-level mocks needed for processVersionCheck tests ----
 
+interface QueueMockShape {
+  add: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+  getJobSchedulers: ReturnType<typeof vi.fn>;
+  removeJobScheduler: ReturnType<typeof vi.fn>;
+  on: ReturnType<typeof vi.fn>;
+}
+const { queueRef } = vi.hoisted(() => ({
+  queueRef: { current: null as QueueMockShape | null },
+}));
 vi.mock('bullmq', () => {
-  function MockQueue(this: Record<string, unknown>) {
+  function MockQueue(this: QueueMockShape) {
     this.add = vi.fn();
     this.close = vi.fn();
     this.getJobSchedulers = vi.fn().mockResolvedValue([]);
     this.removeJobScheduler = vi.fn();
     this.on = vi.fn();
+    queueRef.current = this;
   }
   function MockWorker(this: Record<string, unknown>) {
     this.on = vi.fn();
@@ -599,5 +611,19 @@ describe('processVersionCheck', () => {
     mockFetch.mockResolvedValue(mockRateLimitResponse({}, 500));
     await expect(processVersionCheck(makeJob(false))).rejects.toThrow();
     expect(sharedRedis.set).not.toHaveBeenCalled();
+  });
+});
+
+describe('scheduleVersionChecks', () => {
+  it('clears existing schedulers by their key, which is what BullMQ reports', async () => {
+    const queue = queueRef.current;
+    if (!queue) throw new Error('queue mock not constructed');
+    queue.getJobSchedulers.mockResolvedValue([
+      { key: 'version-check-repeatable', name: 'scheduled-check' },
+    ]);
+
+    await scheduleVersionChecks();
+
+    expect(queue.removeJobScheduler).toHaveBeenCalledWith('version-check-repeatable');
   });
 });
