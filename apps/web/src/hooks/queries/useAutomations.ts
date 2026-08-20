@@ -1,0 +1,157 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import type {
+  Automation,
+  CreateAutomationInput,
+  ListResponse,
+  UpdateAutomationInput,
+} from '@tracearr/shared';
+import { toast } from 'sonner';
+import { api, type AutomationListParams } from '@/lib/api';
+
+export const AUTOMATIONS_KEY = ['automations'];
+
+export function useAutomations(params: AutomationListParams = {}) {
+  return useQuery({
+    queryKey: [...AUTOMATIONS_KEY, 'list', params],
+    queryFn: () => api.automations.list(params),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
+export function useAutomation(id: string | undefined) {
+  return useQuery({
+    queryKey: [...AUTOMATIONS_KEY, 'detail', id],
+    queryFn: () => api.automations.get(id ?? ''),
+    enabled: id !== undefined,
+  });
+}
+
+export function useCreateAutomation() {
+  const { t } = useTranslation('notifications');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: CreateAutomationInput) => api.automations.create(data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('toast.success.ruleCreated.title'), {
+        description: t('toast.success.ruleCreated.message'),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('toast.error.ruleCreateFailed'), { description: error.message });
+    },
+  });
+}
+
+export function useUpdateAutomation() {
+  const { t } = useTranslation('notifications');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateAutomationInput }) =>
+      api.automations.update(id, data),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('toast.success.ruleUpdated.title'), {
+        description: t('toast.success.ruleUpdated.message'),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('toast.error.ruleUpdateFailed'), { description: error.message });
+    },
+  });
+}
+
+/** Optimistic across every cached list page, so the switch never lags the click. */
+export function useToggleAutomation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      api.automations.update(id, { isActive }),
+    onMutate: async ({ id, isActive }) => {
+      await queryClient.cancelQueries({ queryKey: AUTOMATIONS_KEY });
+      const previous = queryClient.getQueriesData<ListResponse<Automation>>({
+        queryKey: AUTOMATIONS_KEY,
+      });
+
+      queryClient.setQueriesData<ListResponse<Automation>>({ queryKey: AUTOMATIONS_KEY }, (old) => {
+        if (!old?.data) return old;
+        return {
+          ...old,
+          data: old.data.map((automation) =>
+            automation.id === id ? { ...automation, isActive } : automation
+          ),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      for (const [key, data] of context?.previous ?? []) {
+        queryClient.setQueryData(key, data);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+    },
+  });
+}
+
+export function useDeleteAutomation() {
+  const { t } = useTranslation('notifications');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.automations.delete(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('toast.success.ruleDeleted.title'), {
+        description: t('toast.success.ruleDeleted.message'),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('toast.error.ruleDeleteFailed'), { description: error.message });
+    },
+  });
+}
+
+export function useBulkToggleAutomations() {
+  const { t } = useTranslation(['notifications', 'pages', 'common']);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ ids, isActive }: { ids: string[]; isActive: boolean }) =>
+      api.automations.bulkUpdate(ids, isActive),
+    onSuccess: (data, { isActive }) => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      const action = isActive ? t('pages:automations.enable') : t('pages:automations.disable');
+      toast.success(action, {
+        description: t('common:count.automation', { count: data.updated }),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('notifications:toast.error.ruleUpdateFailed'), { description: error.message });
+    },
+  });
+}
+
+export function useBulkDeleteAutomations() {
+  const { t } = useTranslation(['notifications', 'common']);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (ids: string[]) => api.automations.bulkDelete(ids),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('notifications:toast.success.ruleDeleted.title'), {
+        description: t('common:count.automation', { count: data.deleted }),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('notifications:toast.error.ruleDeleteFailed'), { description: error.message });
+    },
+  });
+}

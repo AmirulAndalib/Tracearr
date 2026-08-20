@@ -37,10 +37,10 @@ import { ruleIcons } from '@/components/violations/ruleIcons';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import {
   useAcknowledgeViolation,
+  useAutomations,
   useBulkAcknowledgeViolations,
   useBulkDismissViolations,
   useDismissViolation,
-  useRules,
   useUsers,
   useViolations,
 } from '@/hooks/queries';
@@ -56,6 +56,8 @@ import {
 const PAGE_SIZE = 10;
 
 const PERSON_OPTIONS_PAGE_SIZE = 100;
+
+const RULE_OPTIONS_PAGE_SIZE = 100;
 
 /** Rendered inline by the page itself, so FilterBar never gets a descriptor for it. */
 const PEOPLE_FILTER_KEY = 'people';
@@ -85,10 +87,12 @@ export function Violations() {
   const [dismissId, setDismissId] = useState<string | null>(null);
   const [bulkDismissConfirmOpen, setBulkDismissConfirmOpen] = useState(false);
 
-  const { data: rules } = useRules();
+  // One page covers the dropdown: the filter names an automation, it does not
+  // page through them.
+  const { data: automations } = useAutomations({ pageSize: RULE_OPTIONS_PAGE_SIZE });
   const ruleOptions = useMemo(
-    () => rules?.map((rule) => ({ value: rule.id, label: rule.name })),
-    [rules]
+    () => automations?.data.map((automation) => ({ value: automation.id, label: automation.name })),
+    [automations]
   );
 
   const descriptors = useMemo<FilterDescriptor[]>(

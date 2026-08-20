@@ -402,31 +402,6 @@ export const ruleParamsSchema = z.union([
   accountInactivityParamsSchema,
 ]);
 
-export const createRuleSchema = z.object({
-  name: z.string().min(1).max(100),
-  type: z.enum([
-    'impossible_travel',
-    'simultaneous_locations',
-    'device_velocity',
-    'concurrent_streams',
-    'geo_restriction',
-    'account_inactivity',
-  ]),
-  params: z.record(z.string(), z.unknown()),
-  serverUserId: uuidSchema.nullable().default(null),
-  isActive: z.boolean().default(true),
-});
-
-export const updateRuleSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  params: z.record(z.string(), z.unknown()).optional(),
-  isActive: z.boolean().optional(),
-});
-
-export const ruleIdParamSchema = z.object({
-  id: uuidSchema,
-});
-
 // ============================================
 // Rules Builder V2 - Validation Schemas
 // ============================================
@@ -735,40 +710,6 @@ export const crossServerEnforcementRefinement = {
   message: RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
 } as const;
 
-// Create rule V2 schema
-export const createRuleV2Schema = z
-  .object({
-    name: z.string().min(1).max(100),
-    description: z.string().max(500).nullable().optional(),
-    serverId: uuidSchema.nullable().optional(),
-    serverUserId: uuidSchema.nullable().optional(),
-    userId: uuidSchema.nullable().optional(),
-    enforceAcrossServers: z.boolean().optional().default(false),
-    isActive: z.boolean().default(true),
-    severity: violationSeveritySchema.default('warning'),
-    conditions: ruleConditionsSchema,
-    actions: ruleActionsSchema,
-  })
-  .refine(hasAtMostOneScope, scopeRefinement)
-  .refine(scopeAllowsCrossServerEnforcement, crossServerEnforcementRefinement);
-
-// Update rule V2 schema
-export const updateRuleV2Schema = z
-  .object({
-    name: z.string().min(1).max(100).optional(),
-    description: z.string().max(500).nullable().optional(),
-    serverId: uuidSchema.nullable().optional(),
-    serverUserId: uuidSchema.nullable().optional(),
-    userId: uuidSchema.nullable().optional(),
-    enforceAcrossServers: z.boolean().optional(),
-    isActive: z.boolean().optional(),
-    severity: violationSeveritySchema.optional(),
-    conditions: ruleConditionsSchema.optional(),
-    actions: ruleActionsSchema.optional(),
-  })
-  .refine(hasAtMostOneScope, scopeRefinement)
-  .refine(scopeAllowsCrossServerEnforcement, crossServerEnforcementRefinement);
-
 // Bulk operations schemas
 export const bulkUpdateRulesSchema = z.object({
   ids: z.array(uuidSchema).min(1, 'At least one rule ID is required'),
@@ -777,10 +718,6 @@ export const bulkUpdateRulesSchema = z.object({
 
 export const bulkDeleteRulesSchema = z.object({
   ids: z.array(uuidSchema).min(1, 'At least one rule ID is required'),
-});
-
-export const bulkMigrateRulesSchema = z.object({
-  ids: z.array(uuidSchema).optional(),
 });
 
 // ============================================================================
@@ -1392,8 +1329,6 @@ export type SessionQueryInput = z.infer<typeof sessionQuerySchema>;
 export type HistoryQueryInput = z.infer<typeof historyQuerySchema>;
 export type HistoryAggregatesQueryInput = z.infer<typeof historyAggregatesQuerySchema>;
 export type FilterOptionsQueryInput = z.infer<typeof filterOptionsQuerySchema>;
-export type CreateRuleInput = z.infer<typeof createRuleSchema>;
-export type UpdateRuleInput = z.infer<typeof updateRuleSchema>;
 
 // Rules Builder V2 types
 export type ComparisonOperator = z.infer<typeof comparisonOperatorSchema>;
@@ -1425,11 +1360,8 @@ export type KillStreamAction = z.infer<typeof killStreamActionSchema>;
 export type MessageClientAction = z.infer<typeof messageClientActionSchema>;
 export type Action = z.infer<typeof actionSchema>;
 export type RuleActions = z.infer<typeof ruleActionsSchema>;
-export type CreateRuleV2Input = z.infer<typeof createRuleV2Schema>;
-export type UpdateRuleV2Input = z.infer<typeof updateRuleV2Schema>;
 export type BulkUpdateRulesInput = z.infer<typeof bulkUpdateRulesSchema>;
 export type BulkDeleteRulesInput = z.infer<typeof bulkDeleteRulesSchema>;
-export type BulkMigrateRulesInput = z.infer<typeof bulkMigrateRulesSchema>;
 
 export type ServerIdFilterInput = z.infer<typeof serverIdFilterSchema>;
 export type DashboardQueryInput = z.infer<typeof dashboardQuerySchema>;

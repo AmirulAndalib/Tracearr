@@ -64,6 +64,8 @@
   "count": {
     "alert_one": "{{count}} alert",
     "alert_other": "{{count}} alerts",
+    "automation_one": "{{count}} automation",
+    "automation_other": "{{count}} automations",
     "device_one": "{{count}} device",
     "device_other": "{{count}} devices",
     "error_one": "{{count}} σφάλμα",

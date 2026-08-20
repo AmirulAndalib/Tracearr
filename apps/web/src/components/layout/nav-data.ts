@@ -68,7 +68,7 @@ export const navigation: NavSection[] = [
     labelKey: 'manage',
     items: [
       { nameKey: 'users', href: '/users', icon: Users },
-      { nameKey: 'rules', href: '/rules', icon: Shield },
+      { nameKey: 'automations', href: '/automations', icon: Shield },
       { nameKey: 'violations', href: '/violations', icon: AlertTriangle },
       { nameKey: 'settings', href: '/settings', icon: Settings },
     ],

@@ -55,7 +55,6 @@ import { serverRoutes } from './routes/servers.js';
 import { userRoutes } from './routes/users/index.js';
 import { serverUserRoutes } from './routes/serverUsers.js';
 import { sessionRoutes } from './routes/sessions.js';
-import { ruleRoutes } from './routes/rules.js';
 import { automationRoutes } from './routes/automations.js';
 import { runRoutes } from './routes/runs.js';
 import { violationRoutes } from './routes/violations.js';
@@ -480,7 +479,6 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
   await app.register(userRoutes, { prefix: `${API_BASE_PATH}/users` });
   await app.register(serverUserRoutes, { prefix: `${API_BASE_PATH}/server-users` });
   await app.register(sessionRoutes, { prefix: `${API_BASE_PATH}/sessions` });
-  await app.register(ruleRoutes, { prefix: `${API_BASE_PATH}/rules` });
   await app.register(automationRoutes, { prefix: `${API_BASE_PATH}/automations` });
   await app.register(runRoutes, { prefix: `${API_BASE_PATH}/runs` });
   await app.register(violationRoutes, { prefix: `${API_BASE_PATH}/violations` });

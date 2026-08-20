@@ -23,10 +23,10 @@ test.describe('Page Navigation', () => {
     await expect(page.getByRole('heading', { name: 'Users', level: 1 })).toBeVisible();
   });
 
-  test('can navigate to rules page', async ({ page }) => {
+  test('can navigate to automations page', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Rules' }).click();
-    await expect(page.getByRole('heading', { name: 'Rules', level: 1 })).toBeVisible();
+    await page.getByRole('link', { name: 'Automations' }).click();
+    await expect(page.getByRole('heading', { name: 'Automations', level: 1 })).toBeVisible();
   });
 
   test('can navigate to violations page', async ({ page }) => {

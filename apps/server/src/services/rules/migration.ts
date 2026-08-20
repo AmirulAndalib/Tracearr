@@ -43,13 +43,6 @@ export interface MigratedRule {
   actions: RuleActions;
 }
 
-export interface MigrationResult {
-  success: boolean;
-  migratedCount: number;
-  skippedCount: number;
-  errors: Array<{ ruleId: string; ruleName: string; error: string }>;
-}
-
 /**
  * Convert legacy impossible_travel rule to V2 format.
  *
@@ -339,56 +332,4 @@ export function convertLegacyRule(rule: LegacyRule): MigratedRule | null {
     logger.error(`Error converting rule ${rule.id}`, { ruleId: rule.id, error });
     return null;
   }
-}
-
-/**
- * Check if a rule needs migration (has legacy fields but no V2 fields).
- */
-export function needsMigration(rule: {
-  type?: string | null;
-  params?: Record<string, unknown> | null;
-  conditions?: RuleConditions | null;
-  actions?: RuleActions | null;
-}): boolean {
-  // Has legacy fields
-  const hasLegacyFields = rule.type != null && rule.params != null;
-  // Missing V2 fields
-  const missingV2Fields = rule.conditions == null || rule.actions == null;
-
-  return hasLegacyFields && missingV2Fields;
-}
-
-/**
- * Migrate multiple legacy rules to V2 format.
- * Returns migration results without modifying the database.
- */
-export function migrateRules(rules: LegacyRule[]): {
-  migrated: MigratedRule[];
-  errors: Array<{ ruleId: string; ruleName: string; error: string }>;
-} {
-  const migrated: MigratedRule[] = [];
-  const errors: Array<{ ruleId: string; ruleName: string; error: string }> = [];
-
-  for (const rule of rules) {
-    try {
-      const result = convertLegacyRule(rule);
-      if (result) {
-        migrated.push(result);
-      } else {
-        errors.push({
-          ruleId: rule.id,
-          ruleName: rule.name,
-          error: `Unknown rule type: ${rule.type}`,
-        });
-      }
-    } catch (error) {
-      errors.push({
-        ruleId: rule.id,
-        ruleName: rule.name,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
-  return { migrated, errors };
 }

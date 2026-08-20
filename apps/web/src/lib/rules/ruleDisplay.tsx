@@ -6,12 +6,13 @@
 
 import type { ReactNode } from 'react';
 import type {
-  Rule,
   Condition,
   Action,
   ActionType,
   ConditionField,
   Operator,
+  RuleActions,
+  RuleConditions,
   RulesFilterOptions,
 } from '@tracearr/shared';
 import { type UnitSystem, formatConditionFieldValue } from '@tracearr/shared';
@@ -100,10 +101,16 @@ const COMPACT_FIELD_LABELS: Partial<Record<ConditionField, string>> = {
   platform: 'Platform',
 };
 
+/** The conditions/actions pair both `Rule` and `Automation` carry. */
+export interface RuleDisplayInput {
+  conditions?: RuleConditions | null;
+  actions?: RuleActions | null;
+}
+
 /**
  * Get the icon for a V2 rule based on its first condition field.
  */
-export function getRuleIcon(rule: Rule): ReactNode {
+export function getRuleIcon(rule: RuleDisplayInput): ReactNode {
   const firstCondition = getFirstCondition(rule);
   if (!firstCondition) return DEFAULT_ICON;
 
@@ -113,7 +120,7 @@ export function getRuleIcon(rule: Rule): ReactNode {
 /**
  * Get the first condition from a V2 rule.
  */
-function getFirstCondition(rule: Rule): Condition | null {
+function getFirstCondition(rule: RuleDisplayInput): Condition | null {
   if (!rule.conditions?.groups?.length) return null;
 
   const firstGroup = rule.conditions.groups[0];
@@ -125,7 +132,7 @@ function getFirstCondition(rule: Rule): Condition | null {
 /**
  * Count total conditions across all groups.
  */
-function countTotalConditions(rule: Rule): number {
+function countTotalConditions(rule: RuleDisplayInput): number {
   if (!rule.conditions?.groups) return 0;
 
   return rule.conditions.groups.reduce((total, group) => {
@@ -318,7 +325,7 @@ function formatActions(actions: Action[]): string {
  * Format: "Inactive > 180 days (+2 conditions) → Warning"
  */
 export function getRuleSummary(
-  rule: Rule,
+  rule: RuleDisplayInput,
   filterOptions?: RulesFilterOptions,
   unitSystem?: UnitSystem
 ): string {

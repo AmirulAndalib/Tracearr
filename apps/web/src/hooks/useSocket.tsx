@@ -16,6 +16,7 @@ import type {
   ServerToClientEvents,
   ClientToServerEvents,
   ActiveSession,
+  AutomationRunSummary,
   ViolationWithDetails,
   DashboardStats,
   NotificationEventType,
@@ -33,6 +34,7 @@ import { useMaintenanceMode } from './useMaintenanceMode';
 import { toast } from 'sonner';
 import { useDestinations } from './queries';
 import { DESTINATIONS_KEY } from './queries/useDestinations';
+import { automationRunsKey, RUNS_KEY } from './queries/useRuns';
 import { api } from '@/lib/api';
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -246,6 +248,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           }
         );
       }
+    });
+
+    newSocket.on(WS_EVENTS.RUN_FINISHED, (run: AutomationRunSummary) => {
+      void queryClient.invalidateQueries({ queryKey: RUNS_KEY });
+      void queryClient.invalidateQueries({ queryKey: automationRunsKey(run.automationId) });
     });
 
     newSocket.on(WS_EVENTS.STATS_UPDATED, (_stats: DashboardStats) => {

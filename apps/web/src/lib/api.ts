@@ -8,7 +8,15 @@ import type {
   Session,
   SessionWithDetails,
   ActiveSession,
-  Rule,
+  Automation,
+  AutomationListQuery,
+  AutomationRun,
+  AutomationRunSummary,
+  AutomationSortField,
+  CreateAutomationInput,
+  RunListQuery,
+  RunSortField,
+  UpdateAutomationInput,
   ViolationWithDetails,
   ViolationRosterFilters,
   ViolationSortField,
@@ -73,9 +81,6 @@ import type {
   LibraryResolutionResponse,
   RunningTasksResponse,
   TailscaleInfo,
-  // Rules V2 types
-  CreateRuleV2Input,
-  UpdateRuleV2Input,
   // Backup & Restore types
   BackupMetadata,
   BackupListItem,
@@ -136,6 +141,43 @@ export type ViolationListParams = Partial<ViolationRosterFilters> & {
   orderBy?: ViolationSortField;
   orderDir?: 'asc' | 'desc';
 };
+
+/** Automation query params: the server's own filter schema plus paging and sort. */
+export type AutomationListParams = Partial<
+  Pick<AutomationListQuery, 'kind' | 'enabled' | 'search'>
+> & {
+  page?: number;
+  pageSize?: number;
+  orderBy?: AutomationSortField;
+  orderDir?: 'asc' | 'desc';
+};
+
+/** Run query params: the server's own filter schema plus paging and sort. */
+export type RunListParams = Partial<
+  Pick<RunListQuery, 'kind' | 'outcome' | 'automationId' | 'startDate' | 'endDate'>
+> & {
+  page?: number;
+  pageSize?: number;
+  orderBy?: RunSortField;
+  orderDir?: 'asc' | 'desc';
+};
+
+/**
+ * Query string for a list endpoint. `undefined` and `''` drop out; `false` stays,
+ * because a false is a filter value (`acknowledged=false` is "pending only").
+ */
+function listSearchParams(params: Record<string, unknown>): string {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === '') continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) searchParams.append(key, String(entry));
+    } else {
+      searchParams.set(key, String(value));
+    }
+  }
+  return searchParams.toString();
+}
 
 export interface BulkViolationParams {
   ids?: string[];
@@ -818,52 +860,50 @@ class ApiClient {
       }),
   };
 
-  // Rules
-  rules = {
-    list: async () => {
-      const response = await this.request<{ data: Rule[] }>('/rules');
-      return response.data;
-    },
-    update: (id: string, data: Partial<Rule>) =>
-      this.request<Rule>(`/rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    delete: (id: string) => this.request<void>(`/rules/${id}`, { method: 'DELETE' }),
+  // Automations
+  automations = {
+    list: (params: AutomationListParams = {}) =>
+      this.request<ListResponse<Automation>>(`/automations?${listSearchParams(params)}`),
+    get: (id: string) => this.request<Automation>(`/automations/${id}`),
+    create: (data: CreateAutomationInput) =>
+      this.request<Automation>('/automations', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: UpdateAutomationInput) =>
+      this.request<Automation>(`/automations/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) => this.request<void>(`/automations/${id}`, { method: 'DELETE' }),
     bulkUpdate: (ids: string[], isActive: boolean) =>
-      this.request<{ success: boolean; updated: number }>('/rules/bulk', {
+      this.request<{ success: boolean; updated: number }>('/automations/bulk', {
         method: 'PATCH',
         body: JSON.stringify({ ids, isActive }),
       }),
     bulkDelete: (ids: string[]) =>
-      this.request<{ success: boolean; deleted: number }>('/rules/bulk', {
+      this.request<{ success: boolean; deleted: number }>('/automations/bulk', {
         method: 'DELETE',
         body: JSON.stringify({ ids }),
       }),
+  };
 
-    // V2 Rules API
-    createV2: (data: CreateRuleV2Input) =>
-      this.request<Rule>('/rules/v2', { method: 'POST', body: JSON.stringify(data) }),
-    updateV2: (id: string, data: UpdateRuleV2Input) =>
-      this.request<Rule>(`/rules/${id}/v2`, { method: 'PATCH', body: JSON.stringify(data) }),
+  // Automation runs
+  runs = {
+    list: (params: RunListParams = {}) =>
+      this.request<ListResponse<AutomationRunSummary>>(`/runs?${listSearchParams(params)}`),
+    get: (id: string) => this.request<AutomationRun>(`/runs/${id}`),
+    listForAutomation: (automationId: string, params: RunListParams = {}) =>
+      this.request<ListResponse<AutomationRunSummary>>(
+        `/automations/${automationId}/runs?${listSearchParams(params)}`
+      ),
+    /** The capped near-miss ring: entries the recorder wrote, shape not pinned. */
+    evaluations: (automationId: string) =>
+      this.request<{ data: unknown[] }>(`/automations/${automationId}/evaluations`),
   };
 
   // Violations
   violations = {
     get: (id: string) => this.request<ViolationWithDetails>(`/violations/${id}`),
-    list: (params: ViolationListParams = {}) => {
-      const searchParams = new URLSearchParams();
-      for (const [key, value] of Object.entries(params)) {
-        // `acknowledged: false` is the "pending only" filter, so unlike the
-        // roster list a false here must survive onto the wire.
-        if (value === undefined || value === '') continue;
-        if (Array.isArray(value)) {
-          for (const entry of value) searchParams.append(key, entry);
-        } else {
-          searchParams.set(key, String(value));
-        }
-      }
-      return this.request<ListResponse<ViolationWithDetails>>(
-        `/violations?${searchParams.toString()}`
-      );
-    },
+    list: (params: ViolationListParams = {}) =>
+      this.request<ListResponse<ViolationWithDetails>>(`/violations?${listSearchParams(params)}`),
     acknowledge: (id: string) =>
       this.request<{ success: boolean; acknowledgedAt: Date | null }>(`/violations/${id}`, {
         method: 'PATCH',

@@ -59,17 +59,28 @@ export {
   useSplitServerUser,
 } from './useUsers';
 
-// Rule hooks
+// Automation hooks
 export {
-  useRules,
-  useDeleteRule,
-  useToggleRule,
-  useBulkToggleRules,
-  useBulkDeleteRules,
-} from './useRules';
+  AUTOMATIONS_KEY,
+  useAutomation,
+  useAutomations,
+  useBulkDeleteAutomations,
+  useBulkToggleAutomations,
+  useCreateAutomation,
+  useDeleteAutomation,
+  useToggleAutomation,
+  useUpdateAutomation,
+} from './useAutomations';
 
-// Rule V2 hooks
-export { useCreateRuleV2, useUpdateRuleV2, isRuleV2 } from './useRulesV2';
+// Automation run hooks
+export {
+  RUNS_KEY,
+  automationRunsKey,
+  useAutomationEvaluations,
+  useAutomationRuns,
+  useRun,
+  useRuns,
+} from './useRuns';
 
 // Violation hooks
 export {

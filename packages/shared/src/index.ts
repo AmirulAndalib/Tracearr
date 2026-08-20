@@ -409,12 +409,7 @@ export {
   geoRestrictionParamsSchema,
   accountInactivityParamsSchema,
   ruleParamsSchema,
-  createRuleSchema,
-  updateRuleSchema,
-  ruleIdParamSchema,
   // Rule V2
-  createRuleV2Schema,
-  updateRuleV2Schema,
   ruleConditionsSchema,
   actionTypeSchema,
   actionSchema,
@@ -428,7 +423,6 @@ export {
   // Bulk operations
   bulkUpdateRulesSchema,
   bulkDeleteRulesSchema,
-  bulkMigrateRulesSchema,
   // Violation
   VIOLATION_SORT_FIELDS,
   violationRosterFilterSchema,
@@ -507,15 +501,9 @@ export type {
   HistoryQueryInput,
   HistoryAggregatesQueryInput,
   FilterOptionsQueryInput,
-  CreateRuleInput,
-  UpdateRuleInput,
-  // Rule V2 types
-  CreateRuleV2Input,
-  UpdateRuleV2Input,
   // Bulk operations types
   BulkUpdateRulesInput,
   BulkDeleteRulesInput,
-  BulkMigrateRulesInput,
   ViolationRosterFilters,
   ViolationBulkBody,
   ViolationSortField,

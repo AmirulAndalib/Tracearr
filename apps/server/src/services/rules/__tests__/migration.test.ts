@@ -1,49 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { convertLegacyRule, needsMigration, migrateRules, type LegacyRule } from '../migration.js';
+import { convertLegacyRule, type LegacyRule } from '../migration.js';
 
 describe('Rule Migration', () => {
-  describe('needsMigration', () => {
-    it('returns true for rule with legacy fields but no V2 fields', () => {
-      const rule = {
-        type: 'concurrent_streams',
-        params: { maxStreams: 3 },
-        conditions: null,
-        actions: null,
-      };
-      expect(needsMigration(rule)).toBe(true);
-    });
-
-    it('returns false for rule with V2 fields', () => {
-      const rule = {
-        type: 'concurrent_streams',
-        params: { maxStreams: 3 },
-        conditions: { groups: [] },
-        actions: { actions: [] },
-      };
-      expect(needsMigration(rule)).toBe(false);
-    });
-
-    it('returns false for rule with no legacy fields', () => {
-      const rule = {
-        type: null,
-        params: null,
-        conditions: { groups: [] },
-        actions: { actions: [] },
-      };
-      expect(needsMigration(rule)).toBe(false);
-    });
-
-    it('returns false for rule with only type but no params', () => {
-      const rule = {
-        type: 'concurrent_streams',
-        params: null,
-        conditions: null,
-        actions: null,
-      };
-      expect(needsMigration(rule)).toBe(false);
-    });
-  });
-
   describe('convertLegacyRule', () => {
     describe('concurrent_streams', () => {
       it('converts basic concurrent streams rule', () => {
@@ -476,74 +434,6 @@ describe('Rule Migration', () => {
       const result = convertLegacyRule(legacyRule);
 
       expect(result).toBeNull();
-    });
-  });
-
-  describe('migrateRules', () => {
-    it('migrates multiple rules', () => {
-      const rules: LegacyRule[] = [
-        {
-          id: 'rule-1',
-          name: 'Rule 1',
-          type: 'concurrent_streams',
-          params: { maxStreams: 3 },
-          serverUserId: null,
-          serverId: null,
-          isActive: true,
-        },
-        {
-          id: 'rule-2',
-          name: 'Rule 2',
-          type: 'geo_restriction',
-          params: { mode: 'blocklist', countries: ['CN'] },
-          serverUserId: null,
-          serverId: null,
-          isActive: true,
-        },
-      ];
-
-      const result = migrateRules(rules);
-
-      expect(result.migrated).toHaveLength(2);
-      expect(result.errors).toHaveLength(0);
-      expect(result.migrated[0]?.id).toBe('rule-1');
-      expect(result.migrated[1]?.id).toBe('rule-2');
-    });
-
-    it('collects errors for failed migrations', () => {
-      const rules: LegacyRule[] = [
-        {
-          id: 'rule-1',
-          name: 'Rule 1',
-          type: 'concurrent_streams',
-          params: { maxStreams: 3 },
-          serverUserId: null,
-          serverId: null,
-          isActive: true,
-        },
-        {
-          id: 'rule-2',
-          name: 'Unknown Rule',
-          type: 'unknown_type' as never,
-          params: {},
-          serverUserId: null,
-          serverId: null,
-          isActive: true,
-        },
-      ];
-
-      const result = migrateRules(rules);
-
-      expect(result.migrated).toHaveLength(1);
-      expect(result.errors).toHaveLength(1);
-      expect(result.errors[0]?.ruleId).toBe('rule-2');
-    });
-
-    it('returns empty arrays for empty input', () => {
-      const result = migrateRules([]);
-
-      expect(result.migrated).toHaveLength(0);
-      expect(result.errors).toHaveLength(0);
     });
   });
 });

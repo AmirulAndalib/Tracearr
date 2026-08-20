@@ -7,8 +7,7 @@ import type {
   RuleActions,
   Action,
   ViolationSeverity,
-  CreateRuleV2Input,
-  UpdateRuleV2Input,
+  CreateAutomationInput,
   RulesFilterOptions,
 } from '@tracearr/shared';
 import { INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
@@ -55,7 +54,7 @@ export interface RuleBuilderInput {
 
 interface RuleBuilderProps {
   initialRule?: RuleBuilderInput;
-  onSave: (data: CreateRuleV2Input | UpdateRuleV2Input) => Promise<void>;
+  onSave: (data: CreateAutomationInput) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
   filterOptions?: RulesFilterOptions;
@@ -147,6 +146,7 @@ export function RuleBuilder({
     await onSave({
       name: name.trim(),
       description: description.trim() || null,
+      kind: 'policy',
       severity,
       isActive,
       conditions,

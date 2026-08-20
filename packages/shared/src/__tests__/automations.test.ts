@@ -148,5 +148,15 @@ describe('automation payloads', () => {
     expect(
       createAutomationSchema.safeParse({ ...base, serverId, enforceAcrossServers: false }).success
     ).toBe(true);
+    expect(
+      createAutomationSchema.safeParse({
+        ...base,
+        userId: '5a1d9b2c-7e3f-4a8b-9c0d-1e2f3a4b5c6d',
+        enforceAcrossServers: true,
+      }).success
+    ).toBe(true);
+    expect(updateAutomationSchema.safeParse({ serverId, enforceAcrossServers: true }).success).toBe(
+      false
+    );
   });
 });

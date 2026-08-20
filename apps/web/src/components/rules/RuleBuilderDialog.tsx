@@ -7,13 +7,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { RuleBuilder, type RuleBuilderInput } from './RuleBuilder';
-import type { CreateRuleV2Input, UpdateRuleV2Input, RulesFilterOptions } from '@tracearr/shared';
+import type { CreateAutomationInput, RulesFilterOptions } from '@tracearr/shared';
 
 interface RuleBuilderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rule?: RuleBuilderInput;
-  onSave: (data: CreateRuleV2Input | UpdateRuleV2Input) => Promise<void>;
+  onSave: (data: CreateAutomationInput) => Promise<void>;
   isLoading?: boolean;
   filterOptions?: RulesFilterOptions;
 }
@@ -29,7 +29,7 @@ export function RuleBuilderDialog({
   const { t } = useTranslation('pages');
   const isEditing = !!rule;
 
-  const handleSave = async (data: CreateRuleV2Input | UpdateRuleV2Input) => {
+  const handleSave = async (data: CreateAutomationInput) => {
     await onSave(data);
     onOpenChange(false);
   };

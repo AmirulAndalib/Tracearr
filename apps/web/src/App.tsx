@@ -18,7 +18,7 @@ import { MediaGenres } from '@/pages/media/Genres';
 import { MediaDetail } from '@/pages/media/Detail';
 import { Users } from '@/pages/Users';
 import { UserDetail } from '@/pages/UserDetail';
-import { Rules } from '@/pages/Rules';
+import { Automations } from '@/pages/Automations';
 import { Violations } from '@/pages/Violations';
 import { ViolationDetail } from '@/pages/ViolationDetail';
 import { History } from '@/pages/History';
@@ -88,7 +88,7 @@ export function App() {
           <Route path="history/:sessionId?" element={<History />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
-          <Route path="rules" element={<Rules />} />
+          <Route path="automations" element={<Automations />} />
           <Route path="violations" element={<Violations />} />
           <Route path="violations/:id" element={<ViolationDetail />} />
           <Route path="settings/*" element={<Settings />} />

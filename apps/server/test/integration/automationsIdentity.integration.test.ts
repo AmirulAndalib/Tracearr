@@ -1,13 +1,13 @@
 /**
- * Identity-scoped rules integration tests
+ * Identity-scoped automation integration tests
  *
- * Exercises person-scoped rules (rules.userId), opt-in cross-server
- * enforcement (rules.enforceAcrossServers), and the same-server combine
+ * Exercises person-scoped automations (automations.userId), opt-in cross-server
+ * enforcement (automations.enforceAcrossServers), and the same-server combine
  * conflict warning against a real database: applicability across a merged
  * identity's accounts, scope repoint on merge, targeting with/without
  * enforceAcrossServers, and the scope mutual-exclusivity check.
  *
- * Run with: pnpm --filter @tracearr/server test:integration -- rulesIdentity
+ * Run with: pnpm --filter @tracearr/server test:integration -- automationsIdentity
  */
 
 import { randomUUID } from 'node:crypto';
@@ -16,7 +16,7 @@ import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import sensible from '@fastify/sensible';
 import type { RuleConditions, Server, ServerUser, Session } from '@tracearr/shared';
-import { createRuleV2Schema, DEFAULT_STREAM_DETAILS } from '@tracearr/shared';
+import { createAutomationSchema, DEFAULT_STREAM_DETAILS } from '@tracearr/shared';
 import {
   createTestUser,
   createTestServer,
@@ -29,7 +29,7 @@ import { mergeUsers } from '../../src/services/mergeService.js';
 import { evaluateRulesAsync } from '../../src/services/rules/engine.js';
 import { getActiveRulesV2 } from '../../src/jobs/poller/database.js';
 import { resolveTargetSessions } from '../../src/services/rules/executors/targeting.js';
-import { ruleRoutes } from '../../src/routes/rules.js';
+import { automationRoutes } from '../../src/routes/automations.js';
 
 // A condition that always matches, so tests exercise scope filtering only.
 const ALWAYS_MATCH_CONDITIONS: RuleConditions = {
@@ -158,7 +158,7 @@ function toEvaluationSession(row: {
   };
 }
 
-describe('identity-scoped rules', () => {
+describe('identity-scoped automations', () => {
   it('applies to both accounts of a merged person and not to an unrelated person', async () => {
     const admin = await createTestUser({ role: 'owner' });
     const serverA = await createTestServer({ type: 'plex' });
@@ -375,7 +375,7 @@ describe('identity-scoped rules', () => {
   });
 });
 
-describe('account-scoped rules', () => {
+describe('account-scoped automations', () => {
   it('applies only to the specific account it is scoped to, not a sibling account, via the real create route', async () => {
     const admin = await createTestUser({ role: 'owner' });
     const server = await createTestServer({ type: 'plex' });
@@ -387,21 +387,27 @@ describe('account-scoped rules', () => {
 
     const app = Fastify({ logger: false });
     await app.register(sensible);
+    const ownerUser = {
+      userId: admin.id,
+      username: 'admin',
+      role: 'owner',
+      serverIds: [server.id],
+    };
     app.decorate('authenticate', async (request: any) => {
-      request.user = {
-        userId: admin.id,
-        username: 'admin',
-        role: 'owner',
-        serverIds: [server.id],
-      };
+      request.user = ownerUser;
     });
-    await app.register(ruleRoutes, { prefix: '/rules' });
+    app.decorate('requireOwner', async (request: any) => {
+      request.user = ownerUser;
+    });
+    await app.register(automationRoutes, { prefix: '/automations' });
 
     const response = await app.inject({
       method: 'POST',
-      url: '/rules/v2',
+      url: '/automations',
       payload: {
         name: 'Account rule',
+        kind: 'policy',
+        severity: 'warning',
         serverUserId: targetSu.id,
         conditions: ALWAYS_MATCH_CONDITIONS,
         actions: { actions: [] },
@@ -488,10 +494,12 @@ describe('account-scoped rules', () => {
   });
 });
 
-describe('rule scope validation', () => {
+describe('automation scope validation', () => {
   it('rejects a rule with more than one scope set', () => {
-    const result = createRuleV2Schema.safeParse({
+    const result = createAutomationSchema.safeParse({
       name: 'Bad scope rule',
+      kind: 'policy',
+      severity: 'warning',
       serverId: randomUUID(),
       userId: randomUUID(),
       conditions: ALWAYS_MATCH_CONDITIONS,
@@ -501,8 +509,10 @@ describe('rule scope validation', () => {
   });
 
   it('accepts a rule scoped to exactly one of server, account, or person', () => {
-    const result = createRuleV2Schema.safeParse({
+    const result = createAutomationSchema.safeParse({
       name: 'Good scope rule',
+      kind: 'policy',
+      severity: 'warning',
       userId: randomUUID(),
       conditions: ALWAYS_MATCH_CONDITIONS,
       actions: { actions: [] },
@@ -511,7 +521,7 @@ describe('rule scope validation', () => {
   });
 });
 
-describe('GET /rules person-scoped visibility', () => {
+describe('GET /automations person-scoped visibility', () => {
   it('hides a person-scoped rule from a viewer with access to none of the identity servers, fail-closed', async () => {
     const admin = await createTestUser({ role: 'owner' });
     const serverA = await createTestServer({ type: 'plex' });
@@ -530,17 +540,22 @@ describe('GET /rules person-scoped visibility', () => {
     await app.register(sensible);
     // Viewer's only accessible server (otherServer) is neither of the
     // merged identity's servers (serverA, serverB).
+    const viewer = {
+      userId: randomUUID(),
+      username: 'viewer',
+      role: 'viewer',
+      serverIds: [otherServer.id],
+    };
     app.decorate('authenticate', async (request: any) => {
-      request.user = {
-        userId: randomUUID(),
-        username: 'viewer',
-        role: 'viewer',
-        serverIds: [otherServer.id],
-      };
+      request.user = viewer;
     });
-    await app.register(ruleRoutes, { prefix: '/rules' });
+    app.decorate('requireOwner', async (request: any, reply: any) => {
+      request.user = viewer;
+      await reply.forbidden('Owner access required');
+    });
+    await app.register(automationRoutes, { prefix: '/automations' });
 
-    const response = await app.inject({ method: 'GET', url: '/rules' });
+    const response = await app.inject({ method: 'GET', url: '/automations' });
     await app.close();
 
     expect(response.statusCode).toBe(200);
@@ -565,17 +580,22 @@ describe('GET /rules person-scoped visibility', () => {
     await app.register(sensible);
     // Viewer only has access to serverB (the merged-in sibling's server),
     // which is still enough since the rule targets the whole identity.
+    const viewer = {
+      userId: randomUUID(),
+      username: 'viewer',
+      role: 'viewer',
+      serverIds: [serverB.id],
+    };
     app.decorate('authenticate', async (request: any) => {
-      request.user = {
-        userId: randomUUID(),
-        username: 'viewer',
-        role: 'viewer',
-        serverIds: [serverB.id],
-      };
+      request.user = viewer;
     });
-    await app.register(ruleRoutes, { prefix: '/rules' });
+    app.decorate('requireOwner', async (request: any, reply: any) => {
+      request.user = viewer;
+      await reply.forbidden('Owner access required');
+    });
+    await app.register(automationRoutes, { prefix: '/automations' });
 
-    const response = await app.inject({ method: 'GET', url: '/rules' });
+    const response = await app.inject({ method: 'GET', url: '/automations' });
     await app.close();
 
     expect(response.statusCode).toBe(200);

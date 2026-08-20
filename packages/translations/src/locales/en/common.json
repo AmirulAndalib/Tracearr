@@ -261,6 +261,8 @@
     "server_other": "{{count}} servers",
     "rule_one": "{{count}} rule",
     "rule_other": "{{count}} rules",
+    "automation_one": "{{count}} automation",
+    "automation_other": "{{count}} automations",
     "violation_one": "{{count}} violation",
     "violation_other": "{{count}} violations",
     "item_one": "{{count}} item",
