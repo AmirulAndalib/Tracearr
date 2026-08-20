@@ -519,8 +519,15 @@ export const conditionValueSchema = z.union([
   z.array(z.number()),
 ]);
 
+// Condition and action nodes carry these; zod would strip them from a saved rule otherwise.
+const nodeFieldsShape = {
+  id: uuidSchema.optional(),
+  enabled: z.boolean().optional(),
+};
+
 // Single condition
 export const conditionSchema = z.object({
+  ...nodeFieldsShape,
   field: conditionFieldSchema,
   operator: operatorSchema,
   value: conditionValueSchema,
@@ -592,32 +599,38 @@ export const actionTypeSchema = z.enum([
 
 // Individual action schemas
 export const logOnlyActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('log_only'),
   message: z.string().max(500).optional(),
 });
 
 export const sendActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('send'),
   to: z.array(z.uuid()).min(1),
   cooldown_minutes: z.number().int().nonnegative().optional(),
 });
 
 export const adjustTrustActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('adjust_trust'),
   amount: z.number().int().min(-100).max(100),
 });
 
 export const setTrustActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('set_trust'),
   value: z.number().int().min(0).max(100),
 });
 
 export const resetTrustActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('reset_trust'),
 });
 
 export const trustActionSchema = z
   .object({
+    ...nodeFieldsShape,
     type: z.literal('trust'),
     mode: z.enum(['adjust', 'set', 'reset']),
     amount: z.number().int().min(-100).max(100).optional(),
@@ -653,6 +666,7 @@ export const sessionTargetSchema = z.enum([
 export type SessionTarget = z.infer<typeof sessionTargetSchema>;
 
 export const killStreamActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('kill_stream'),
   /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
   delay_seconds: z.number().int().min(0).max(300).optional(),
@@ -664,6 +678,7 @@ export const killStreamActionSchema = z.object({
 });
 
 export const messageClientActionSchema = z.object({
+  ...nodeFieldsShape,
   type: z.literal('message_client'),
   message: z.string().min(1).max(500),
   target: sessionTargetSchema.optional(),

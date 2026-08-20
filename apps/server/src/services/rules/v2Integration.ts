@@ -6,11 +6,10 @@
  */
 
 import type { Redis } from 'ioredis';
-import { eq, sql, and, isNull, isNotNull } from 'drizzle-orm';
-import { REDIS_KEYS } from '@tracearr/shared';
-import { db } from '../../db/client.js';
+import { eq, sql } from 'drizzle-orm';
+import { REDIS_KEYS, type RuleType } from '@tracearr/shared';
+import { db, type Executor } from '../../db/client.js';
 import { automations, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { rulesLogger } from '../../utils/logger.js';
 import { recomputeIdentityAggregates } from '../userService.js';
 import {
@@ -18,7 +17,7 @@ import {
   type ActionExecutorDeps,
   type ActionResult,
 } from './executors/index.js';
-import { migrateRules, type LegacyRule } from './migration.js';
+import { convertLegacyRule } from './migration.js';
 
 // ============================================================================
 // Action Result Storage
@@ -299,101 +298,47 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
 // V1 to V2 Migration
 // ============================================================================
 
+/** A row with a legacy `type` and no `conditions`, as written by the retired V1 create route. */
+export interface LegacyAutomationRow {
+  id: string;
+  name: string;
+  type: RuleType;
+  params: Record<string, unknown> | null;
+  serverUserId: string | null;
+  serverId: string | null;
+  isActive: boolean;
+}
+
 /**
- * Migrate legacy V1 rules to V2 format.
- *
- * V1 rules have:
- * - type: RuleType (e.g., 'concurrent_streams', 'geo_restriction')
- * - params: JSONB with rule-specific parameters
- *
- * V2 rules have:
- * - conditions: Structured condition groups
- * - actions: Array of action definitions
- *
- * This function:
- * 1. Queries rules where type is set but conditions is null
- * 2. Converts each using the migration utilities
- * 3. Updates the rule with V2 format and clears legacy fields
+ * Rewrite one legacy row as V2 conditions and actions, clearing the legacy fields.
+ * Throws on an unconvertible type so the caller's transaction rolls back whole.
  */
-export async function runV1ToV2Migration(): Promise<{
-  migratedCount: number;
-  errors: Array<{ ruleId: string; ruleName: string; error: string }>;
-}> {
-  // Find rules that need migration
-  const legacyRules = await db
-    .select({
-      id: automations.id,
-      name: automations.name,
-      type: automations.type,
-      params: automations.params,
-      serverUserId: automations.serverUserId,
-      serverId: automations.serverId,
-      isActive: automations.isActive,
+export async function convertV1Rule(executor: Executor, row: LegacyAutomationRow): Promise<void> {
+  const converted = convertLegacyRule({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    params: row.params ?? {},
+    serverUserId: row.serverUserId,
+    serverId: row.serverId,
+    isActive: row.isActive,
+  });
+
+  if (!converted) {
+    throw new Error(`Cannot convert rule ${row.id}: unknown V1 type "${row.type}"`);
+  }
+
+  await executor
+    .update(automations)
+    .set({
+      severity: converted.severity,
+      conditions: converted.conditions,
+      actions: converted.actions,
+      type: null,
+      params: null,
+      updatedAt: new Date(),
     })
-    .from(automations)
-    .where(and(isNotNull(automations.type), isNull(automations.conditions)));
-
-  if (legacyRules.length === 0) {
-    rulesLogger.info('No V1 rules found requiring migration');
-    return { migratedCount: 0, errors: [] };
-  }
-
-  rulesLogger.info(`Found ${legacyRules.length} V1 rules to migrate`);
-
-  // Convert using migration utilities
-  const { migrated, errors } = migrateRules(
-    legacyRules
-      .filter((r): r is LegacyRule & { type: NonNullable<typeof r.type> } => r.type !== null)
-      .map((r) => ({
-        id: r.id,
-        name: r.name,
-        type: r.type,
-        params: r.params ?? {},
-        serverUserId: r.serverUserId,
-        serverId: r.serverId,
-        isActive: r.isActive,
-      }))
-  );
-
-  // Apply migrations to database
-  let migratedCount = 0;
-  for (const migratedRule of migrated) {
-    try {
-      await db
-        .update(automations)
-        .set({
-          severity: migratedRule.severity,
-          conditions: migratedRule.conditions,
-          actions: migratedRule.actions,
-          // Clear legacy fields after migration
-          type: null,
-          params: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(automations.id, migratedRule.id));
-
-      migratedCount++;
-      rulesLogger.debug(`Migrated rule ${migratedRule.id}`);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      errors.push({
-        ruleId: migratedRule.id,
-        ruleName: legacyRules.find((r) => r.id === migratedRule.id)?.name ?? 'Unknown',
-        error: errorMsg,
-      });
-      rulesLogger.error(`Failed to migrate rule ${migratedRule.id}`, { error: errorMsg });
-    }
-  }
-
-  rulesLogger.info(
-    `V1 to V2 migration complete: ${migratedCount} migrated, ${errors.length} errors`
-  );
-
-  if (migratedCount > 0) {
-    invalidateRulesCache();
-  }
-
-  return { migratedCount, errors };
+    .where(eq(automations.id, row.id));
 }
 
 // ============================================================================
@@ -401,11 +346,8 @@ export async function runV1ToV2Migration(): Promise<{
 // ============================================================================
 
 /**
- * Initialize V2 rules system.
- *
- * This should be called during server startup to:
- * 1. Wire real implementations into action executors
- * 2. Run migration for any remaining V1 rules
+ * Initialize V2 rules system: wire real implementations into the action executors.
+ * Legacy row conversion belongs to the boot model migration.
  *
  * @param redis - Redis client for cooldown tracking
  */
@@ -416,17 +358,6 @@ export async function initializeV2Rules(redis: Redis): Promise<void> {
   const deps = createActionExecutorDeps(redis);
   setActionExecutorDeps(deps);
   rulesLogger.debug('Action executor dependencies wired');
-
-  // Run migration for any legacy rules
-  const { migratedCount, errors } = await runV1ToV2Migration();
-
-  if (migratedCount > 0) {
-    rulesLogger.info(`Migrated ${migratedCount} V1 rules to V2 format`);
-  }
-
-  if (errors.length > 0) {
-    rulesLogger.warn(`${errors.length} rules failed to migrate`, { errors });
-  }
 
   rulesLogger.info('V2 rules system initialized');
 }

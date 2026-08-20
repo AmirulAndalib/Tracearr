@@ -103,6 +103,7 @@ import {
   startNotificationWorker,
   shutdownNotificationQueue,
 } from './jobs/notificationQueue.js';
+import { runAutomationModelMigration } from './services/automations/modelMigration.js';
 import { initDestinationCrypto } from './services/notifications/destinationCrypto.js';
 import { invalidateDestinationsCache } from './services/notifications/destinationStore.js';
 import {
@@ -787,7 +788,7 @@ async function initializeServices(app: FastifyInstance) {
     app.log.warn('GeoASN database not available - ASN data disabled');
   }
 
-  // Initialize V2 rules system (wire dependencies, run migration)
+  // Initialize V2 rules system (wire action executor dependencies)
   try {
     await initializeV2Rules(app.redis);
     app.log.info('V2 rules system initialized');
@@ -811,6 +812,10 @@ async function initializeServices(app: FastifyInstance) {
   // Unwrapped on purpose: a half-applied migration must reach the boot recovery loop, not leave
   // rules pointing at destinations that were never inserted.
   await runDestinationsMigration();
+
+  // Runs after the destinations rewrite so node ids land on the final action set, and unwrapped
+  // for the same reason: a half-migrated automation model must not survive into serving.
+  await runAutomationModelMigration();
 
   try {
     await sweepDestinationConfigs();

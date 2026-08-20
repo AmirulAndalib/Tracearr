@@ -662,8 +662,14 @@ export interface GroupEvidence {
   conditions: ConditionEvidence[];
 }
 
+/** Every condition and action node carries these once the builder has stamped it. */
+export interface NodeFields {
+  id?: string;
+  enabled?: boolean;
+}
+
 // Single condition
-export interface Condition {
+export interface Condition extends NodeFields {
   field: ConditionField;
   operator: Operator;
   value: ConditionValue;
@@ -703,33 +709,33 @@ export type ActionType =
   | 'message_client';
 
 // Action definitions
-export interface LogOnlyAction {
+export interface LogOnlyAction extends NodeFields {
   type: 'log_only';
   message?: string;
 }
 
-export interface SendAction {
+export interface SendAction extends NodeFields {
   type: 'send';
   /** destination ids; validated against the destinations table on rule save */
   to: string[];
   cooldown_minutes?: number;
 }
 
-export interface AdjustTrustAction {
+export interface AdjustTrustAction extends NodeFields {
   type: 'adjust_trust';
   amount: number; // positive or negative
 }
 
-export interface SetTrustAction {
+export interface SetTrustAction extends NodeFields {
   type: 'set_trust';
   value: number;
 }
 
-export interface ResetTrustAction {
+export interface ResetTrustAction extends NodeFields {
   type: 'reset_trust';
 }
 
-export interface TrustAction {
+export interface TrustAction extends NodeFields {
   type: 'trust';
   mode: 'adjust' | 'set' | 'reset';
   /** adjust only: positive or negative */
@@ -739,7 +745,7 @@ export interface TrustAction {
   cooldown_minutes?: number;
 }
 
-export interface KillStreamAction {
+export interface KillStreamAction extends NodeFields {
   type: 'kill_stream';
   /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
   delay_seconds?: number;
@@ -750,7 +756,7 @@ export interface KillStreamAction {
   target?: SessionTarget;
 }
 
-export interface MessageClientAction {
+export interface MessageClientAction extends NodeFields {
   type: 'message_client';
   message: string;
   target?: SessionTarget;

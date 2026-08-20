@@ -445,7 +445,10 @@ export const automations = pgTable(
     kind: text('kind').notNull().default('policy').$type<AutomationKind>(),
     // Null until the boot migration synthesizes them from conditions.
     triggers: jsonb('triggers').$type<TriggerNode[]>(),
-    severity: varchar('severity', { length: 20 }).notNull().default('warning'),
+    severity: varchar('severity', { length: 20 })
+      .notNull()
+      .default('warning')
+      .$type<(typeof violationSeverityEnum)[number]>(),
     // Scope - at most one of serverId, serverUserId, userId is ever set
     // (enforced in the Zod schema/route validation, not a DB constraint - this
     // table has no other CHECK constraints today).

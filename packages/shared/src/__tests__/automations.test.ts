@@ -9,6 +9,7 @@ import {
   trustActionSchema,
   updateAutomationSchema,
 } from '../index.js';
+import { conditionSchema } from '../schemas.js';
 
 const conditions = {
   groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
@@ -45,6 +46,37 @@ describe('trust action', () => {
   it('the union rejects a mismatched mode and parameter', () => {
     expect(actionSchema.safeParse({ type: 'trust', mode: 'set', amount: 5 }).success).toBe(false);
     expect(actionSchema.safeParse({ type: 'trust', mode: 'adjust' }).success).toBe(false);
+  });
+});
+
+describe('node ids', () => {
+  const id = '3f2c8f0e-1c4d-4c1a-9c2e-6f0b6f5c9a11';
+
+  it('a condition keeps its id and enabled flag through a parse', () => {
+    const condition = { id, enabled: false, field: 'trust_score', operator: 'lt', value: 50 };
+    expect(conditionSchema.parse(condition)).toEqual(condition);
+  });
+
+  it('an action keeps its id and enabled flag through a parse', () => {
+    const action = { id, enabled: false, type: 'kill_stream', delay_seconds: 10 };
+    expect(actionSchema.parse(action)).toEqual(action);
+    const trust = { id, enabled: true, type: 'trust', mode: 'set', value: 20 };
+    expect(actionSchema.parse(trust)).toEqual(trust);
+  });
+
+  it('rejects an id that is not a uuid', () => {
+    expect(
+      conditionSchema.safeParse({ id: 'nope', field: 'trust_score', operator: 'lt', value: 1 })
+        .success
+    ).toBe(false);
+    expect(actionSchema.safeParse({ id: 'nope', type: 'reset_trust' }).success).toBe(false);
+  });
+
+  it('a node without the fields still parses', () => {
+    expect(
+      conditionSchema.safeParse({ field: 'trust_score', operator: 'lt', value: 1 }).success
+    ).toBe(true);
+    expect(actionSchema.safeParse({ type: 'reset_trust' }).success).toBe(true);
   });
 });
 

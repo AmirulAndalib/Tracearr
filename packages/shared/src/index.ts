@@ -53,6 +53,7 @@ export type {
   Operator,
   ConditionField,
   ConditionValue,
+  NodeFields,
   Condition,
   ConditionGroup,
   RuleConditions,

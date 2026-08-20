@@ -7,7 +7,7 @@ import {
   type NotificationEventType,
   type RuleActions,
 } from '@tracearr/shared';
-import { db } from '../../db/client.js';
+import { db, type Executor } from '../../db/client.js';
 import { destinations, automations, settings } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
@@ -37,9 +37,6 @@ export type SevenKey = (typeof SEVEN_KEYS)[number];
 
 /** Distinct from the schema runner's 875_100_002 and timescale's backfill 875_100_001. */
 const LOCK_KEY = 875_100_003;
-
-/** Transaction handle, or the plain client when there is no surrounding transaction. */
-type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0] | typeof db;
 
 type WebhookKind = 'json_webhook' | 'ntfy' | 'gotify' | 'apprise';
 const WEBHOOK_NAMES: Record<WebhookKind, string> = {
