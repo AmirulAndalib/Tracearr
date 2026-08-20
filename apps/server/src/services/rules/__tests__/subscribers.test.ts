@@ -56,6 +56,7 @@ vi.mock('../../geoip.js', () => ({
   },
 }));
 
+import { synthesizeTriggers } from '../../automations/triggers.js';
 import {
   registerRuleSubscribers,
   resetRuleSubscribersForTests,
@@ -213,120 +214,140 @@ function createPausedProcessedSession(overrides: Record<string, unknown> = {}): 
   });
 }
 
-function createTranscodeRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+/** Stamps the triggers the boot migration would synthesize, so fixtures route like stored rules. */
+function migrated(base: Omit<RuleV2, 'triggers'>, overrides: Partial<RuleV2> = {}): RuleV2 {
+  const merged = { ...base, ...overrides };
   return {
-    id: 'rule-transcode-1',
-    name: 'Block 4K Transcoding',
-    description: null,
-    serverId: null,
-    serverUserId: null,
-    userId: null,
-    enforceAcrossServers: false,
-    severity: 'high',
-    isActive: true,
-    conditions: {
-      groups: [
-        { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
-        { conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }] },
-      ],
-    },
-    actions: {
-      actions: [{ type: 'kill_stream' }],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
+    ...merged,
+    triggers:
+      overrides.triggers !== undefined ? overrides.triggers : synthesizeTriggers(merged.conditions),
   };
+}
+
+function createTranscodeRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+  return migrated(
+    {
+      id: 'rule-transcode-1',
+      name: 'Block 4K Transcoding',
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      severity: 'high',
+      isActive: true,
+      conditions: {
+        groups: [
+          { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
+          { conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }] },
+        ],
+      },
+      actions: {
+        actions: [{ type: 'kill_stream' }],
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    overrides
+  );
 }
 
 function createConcurrentStreamsRule(overrides: Partial<RuleV2> = {}): RuleV2 {
-  return {
-    id: 'rule-concurrent-1',
-    name: 'Max 2 Concurrent Streams',
-    description: null,
-    serverId: null,
-    serverUserId: null,
-    userId: null,
-    enforceAcrossServers: false,
-    severity: 'warning',
-    isActive: true,
-    conditions: {
-      groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 2 }] }],
+  return migrated(
+    {
+      id: 'rule-concurrent-1',
+      name: 'Max 2 Concurrent Streams',
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      severity: 'warning',
+      isActive: true,
+      conditions: {
+        groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 2 }] }],
+      },
+      actions: {
+        actions: [],
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
-    actions: {
-      actions: [],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
+    overrides
+  );
 }
 
 function createPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
-  return {
-    id: 'rule-pause-1',
-    name: 'Kill After 15min Pause',
-    description: null,
-    serverId: null,
-    serverUserId: null,
-    userId: null,
-    enforceAcrossServers: false,
-    severity: 'warning',
-    isActive: true,
-    conditions: {
-      groups: [{ conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }] }],
+  return migrated(
+    {
+      id: 'rule-pause-1',
+      name: 'Kill After 15min Pause',
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      severity: 'warning',
+      isActive: true,
+      conditions: {
+        groups: [{ conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }] }],
+      },
+      actions: {
+        actions: [{ type: 'kill_stream' }],
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
-    actions: {
-      actions: [{ type: 'kill_stream' }],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
+    overrides
+  );
 }
 
 function createTotalPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
-  return {
-    id: 'rule-total-pause-1',
-    name: 'Warn After 30min Total Pause',
-    description: null,
-    serverId: null,
-    serverUserId: null,
-    userId: null,
-    enforceAcrossServers: false,
-    severity: 'warning',
-    isActive: true,
-    conditions: {
-      groups: [{ conditions: [{ field: 'total_pause_minutes', operator: 'gte', value: 30 }] }],
+  return migrated(
+    {
+      id: 'rule-total-pause-1',
+      name: 'Warn After 30min Total Pause',
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      severity: 'warning',
+      isActive: true,
+      conditions: {
+        groups: [{ conditions: [{ field: 'total_pause_minutes', operator: 'gte', value: 30 }] }],
+      },
+      actions: {
+        actions: [],
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
-    actions: {
-      actions: [],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
+    overrides
+  );
 }
 
 function createInactivityRule(overrides: Partial<RuleV2> = {}): RuleV2 {
-  return {
-    id: 'rule-inactive-1',
-    name: 'Dormant 30 Days',
-    description: null,
-    serverId: null,
-    serverUserId: null,
-    userId: null,
-    enforceAcrossServers: false,
-    severity: 'warning',
-    isActive: true,
-    conditions: {
-      groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
+  return migrated(
+    {
+      id: 'rule-inactive-1',
+      name: 'Dormant 30 Days',
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      severity: 'warning',
+      isActive: true,
+      conditions: {
+        groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
+      },
+      actions: { actions: [] },
+      createdAt: new Date(),
+      updatedAt: new Date(),
     },
-    actions: { actions: [] },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...overrides,
-  };
+    overrides
+  );
 }
 
 const server: EvaluationServer = { id: 'server-1', name: 'Test Plex', type: 'plex' };
@@ -771,7 +792,7 @@ describe('session.transcode_changed pipeline', () => {
           createConcurrentStreamsRule(),
           createTranscodeRule(),
           // Another non-transcode rule
-          {
+          migrated({
             id: 'rule-geo-1',
             name: 'Geo Restriction',
             description: null,
@@ -791,7 +812,7 @@ describe('session.transcode_changed pipeline', () => {
             actions: { actions: [] },
             createdAt: new Date(),
             updatedAt: new Date(),
-          },
+          }),
         ],
       });
 
@@ -804,7 +825,7 @@ describe('session.transcode_changed pipeline', () => {
     });
 
     it('evaluates output_resolution rules (they depend on transcode state)', async () => {
-      const outputResRule: RuleV2 = {
+      const outputResRule = migrated({
         id: 'rule-output-res-1',
         name: 'Block Low Resolution Output',
         description: null,
@@ -820,7 +841,7 @@ describe('session.transcode_changed pipeline', () => {
         actions: { actions: [] },
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      });
 
       const input = createTranscodeInput({
         activeRulesV2: [outputResRule, createConcurrentStreamsRule()],
@@ -834,7 +855,7 @@ describe('session.transcode_changed pipeline', () => {
     });
 
     it('evaluates is_transcode_downgrade rules (they depend on transcode state)', async () => {
-      const downgradeRule: RuleV2 = {
+      const downgradeRule = migrated({
         id: 'rule-downgrade-1',
         name: 'Detect Transcode Downgrade',
         description: null,
@@ -852,7 +873,7 @@ describe('session.transcode_changed pipeline', () => {
         actions: { actions: [] },
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      });
 
       const input = createTranscodeInput({ activeRulesV2: [downgradeRule] });
 
@@ -1178,7 +1199,7 @@ describe('session.paused pipeline', () => {
     });
 
     it('evaluates rules with mixed pause + non-pause conditions', async () => {
-      const mixedRule: RuleV2 = {
+      const mixedRule = migrated({
         id: 'rule-mixed-1',
         name: 'Pause + Concurrent',
         description: null,
@@ -1197,7 +1218,7 @@ describe('session.paused pipeline', () => {
         actions: { actions: [] },
         createdAt: new Date(),
         updatedAt: new Date(),
-      };
+      });
 
       const input = createPauseInput({
         activeRulesV2: [mixedRule, createConcurrentStreamsRule()],

@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2, Session } from '@tracearr/shared';
+import type {
+  ConditionField,
+  RuleConditions,
+  RuleV2,
+  Session,
+  TriggerNode,
+} from '@tracearr/shared';
 import type {
   AccountInactiveForEvent,
   EvaluationInputs,
   SessionPausedEvent,
   SessionTranscodeChangedEvent,
+  TriggerType,
 } from '../events/types.js';
 
 const mockEvaluateRulesAsync = vi.fn();
@@ -16,16 +23,22 @@ vi.mock('../../../utils/logger.js', () => ({
   rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { evaluateTrigger, rulesForTrigger } from '../events/evaluate.js';
+import { synthesizeTriggers } from '../../automations/triggers.js';
+import { evaluateTrigger, matchesTrigger, rulesForTrigger } from '../events/evaluate.js';
 
-function rule(id: string, field: string): RuleV2 {
+/** A rule the boot migration would have produced from these conditions. */
+function rule(id: string, ...fields: ConditionField[]): RuleV2 {
+  const conditions: RuleConditions = {
+    groups: fields.map((field) => ({ conditions: [{ field, operator: 'gte', value: 1 }] })),
+  };
   return {
     id,
     name: id,
     isActive: true,
     severity: 'warning',
-    conditions: { groups: [{ conditions: [{ field, operator: 'gte', value: 1 }] }] },
+    conditions,
     actions: { actions: [] },
+    triggers: synthesizeTriggers(conditions),
   } as unknown as RuleV2;
 }
 
@@ -65,6 +78,78 @@ describe('rulesForTrigger', () => {
   });
   it('cancel-only triggers evaluate nothing', () => {
     expect(rulesForTrigger('session.stopped', all)).toEqual([]);
+  });
+
+  it('skips a disabled trigger node', () => {
+    const disabled = {
+      ...transcodeRule,
+      triggers: (transcodeRule.triggers ?? []).map((node) =>
+        node.type === 'session.transcode_changed' ? { ...node, enabled: false } : node
+      ),
+    };
+    expect(rulesForTrigger('session.transcode_changed', [disabled])).toEqual([]);
+    expect(rulesForTrigger('session.started', [disabled]).map((r) => r.id)).toEqual(['t']);
+  });
+
+  it('matches nothing for an empty trigger list', () => {
+    const empty = { ...transcodeRule, triggers: [] };
+    for (const trigger of [
+      'session.started',
+      'session.transcode_changed',
+      'session.paused',
+      'session.held_for',
+      'account.inactive_for',
+    ] as const) {
+      expect(rulesForTrigger(trigger, [empty])).toEqual([]);
+    }
+  });
+
+  it('ignores a stored node whose type is not the event', () => {
+    expect(matchesTrigger({ triggers: synthesizeTriggers(null) }, 'session.paused')).toBe(false);
+    expect(matchesTrigger({ triggers: synthesizeTriggers(null) }, 'session.started')).toBe(true);
+  });
+});
+
+/** Pins trigger matching against what synthesis stores for each corpus shape. */
+describe('stored triggers match the synthesized routing per corpus shape', () => {
+  const EVALUATING: TriggerType[] = [
+    'session.started',
+    'session.transcode_changed',
+    'session.paused',
+    'session.held_for',
+    'account.inactive_for',
+  ];
+
+  const corpus: { name: string; fields: ConditionField[]; expected: TriggerType[] }[] = [
+    {
+      name: 'transcode-only',
+      fields: ['is_transcoding'],
+      expected: ['session.started', 'session.transcode_changed'],
+    },
+    {
+      name: 'pause-only',
+      fields: ['total_pause_minutes'],
+      expected: ['session.started', 'session.paused', 'session.held_for'],
+    },
+    { name: 'inactive-only', fields: ['inactive_days'], expected: ['account.inactive_for'] },
+    {
+      name: 'mixed inactive and pause',
+      fields: ['inactive_days', 'current_pause_minutes'],
+      expected: ['session.paused', 'session.held_for', 'account.inactive_for'],
+    },
+    {
+      name: 'mixed inactive and transcode',
+      fields: ['inactive_days', 'output_resolution'],
+      expected: ['session.transcode_changed', 'account.inactive_for'],
+    },
+    { name: 'account-attribute-only', fields: ['trust_score'], expected: ['session.started'] },
+    { name: 'plain session rule', fields: ['concurrent_streams'], expected: ['session.started'] },
+  ];
+
+  it.each(corpus)('$name', ({ fields, expected }) => {
+    const migrated = rule('r', ...fields);
+    const matched = EVALUATING.filter((trigger) => rulesForTrigger(trigger, [migrated]).length > 0);
+    expect(matched).toEqual(EVALUATING.filter((trigger) => expected.includes(trigger)));
   });
 });
 
@@ -163,5 +248,17 @@ describe('evaluateTrigger', () => {
     expect(rules).toEqual([]);
     expect(results).toEqual([]);
     expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('trigger matching does not read conditions', () => {
+  it('a rule whose stored triggers disagree with its conditions follows the triggers', () => {
+    const handWritten: TriggerNode[] = [
+      { id: '0f5b8d4a-9c6e-4a2b-8d1f-3c7e5a9b1d20', type: 'session.paused', enabled: true },
+    ];
+    const mislabelled = { ...transcodeRule, triggers: handWritten };
+    expect(rulesForTrigger('session.paused', [mislabelled]).map((r) => r.id)).toEqual(['t']);
+    expect(rulesForTrigger('session.transcode_changed', [mislabelled])).toEqual([]);
+    expect(rulesForTrigger('session.started', [mislabelled])).toEqual([]);
   });
 });

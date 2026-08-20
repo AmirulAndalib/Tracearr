@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2 } from '@tracearr/shared';
+import type { RuleConditions, RuleV2 } from '@tracearr/shared';
 
 const mockGetActiveRulesV2 = vi.fn();
 const mockBatchIdentity = vi.fn();
@@ -44,25 +44,28 @@ vi.mock('bullmq', () => {
   return { Queue: QueueMock, Worker: QueueMock };
 });
 
+import { synthesizeTriggers } from '../../services/automations/triggers.js';
 import {
   initInactivityCheckQueue,
   processInactivityCheckForTests,
 } from '../inactivityCheckQueue.js';
 
 function inactivityRule(id: string, scope: Partial<RuleV2> = {}): RuleV2 {
+  const conditions: RuleConditions = {
+    groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
+  };
   return {
     id,
     name: id,
     isActive: true,
     severity: 'warning',
-    conditions: {
-      groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
-    },
+    conditions,
     actions: { actions: [] },
     serverId: null,
     serverUserId: null,
     userId: null,
     ...scope,
+    triggers: scope.triggers !== undefined ? scope.triggers : synthesizeTriggers(conditions),
   } as unknown as RuleV2;
 }
 const candidate = (id: string, userId = 'u1') => ({
@@ -129,14 +132,29 @@ describe('processInactivityCheck', () => {
     );
   });
 
-  it('does nothing when no active rule has an inactive_days condition', async () => {
+  it('does nothing when no active rule carries the account.inactive_for trigger', async () => {
+    const conditions: RuleConditions = {
+      groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
+    };
     mockGetActiveRulesV2.mockResolvedValue([
-      {
-        ...inactivityRule('x'),
-        conditions: {
-          groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
-        },
-      } as RuleV2,
+      { ...inactivityRule('x'), conditions, triggers: synthesizeTriggers(conditions) },
+    ]);
+    await processInactivityCheckForTests(job);
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('skips a rule whose triggers were never stamped', async () => {
+    mockGetActiveRulesV2.mockResolvedValue([inactivityRule('x', { triggers: [] })]);
+    await processInactivityCheckForTests(job);
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('skips a rule whose account.inactive_for node is disabled', async () => {
+    const disabled = inactivityRule('x');
+    mockGetActiveRulesV2.mockResolvedValue([
+      inactivityRule('x', {
+        triggers: (disabled.triggers ?? []).map((node) => ({ ...node, enabled: false })),
+      }),
     ]);
     await processInactivityCheckForTests(job);
     expect(mockDispatch).not.toHaveBeenCalled();

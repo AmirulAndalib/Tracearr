@@ -7,6 +7,7 @@
  * that violations are recorded inside the transaction and actions run after it.
  */
 
+import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleV2 } from '@tracearr/shared';
 import type { sessions } from '../../../db/schema.js';
@@ -217,6 +218,7 @@ const rule: RuleV2 = {
     groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 1 }] }],
   },
   actions: { actions: [{ type: 'kill_stream' }] },
+  triggers: [{ id: randomUUID(), type: 'session.started', enabled: true }],
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };

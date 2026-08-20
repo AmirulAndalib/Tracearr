@@ -1,7 +1,7 @@
 /**
  * Core type definitions for Tracearr
  */
-import type { AutomationRunSummary } from './automations.js';
+import type { AutomationRunSummary, TriggerNode } from './automations.js';
 import type { NotificationToast } from './destinations.js';
 import type { sessionTargetSchema, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
@@ -793,6 +793,8 @@ export interface RuleV2 {
   severity: ViolationSeverity;
   conditions: RuleConditions;
   actions: RuleActions;
+  // Which events evaluate this rule. Never null here: the cache mapper normalizes an unstamped row to [].
+  triggers: TriggerNode[];
   createdAt: Date;
   updatedAt: Date;
 }

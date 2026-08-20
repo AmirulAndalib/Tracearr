@@ -20,29 +20,6 @@ import { evaluatorRegistry } from './evaluators/index.js';
 import { rulesLogger as logger } from '../../utils/logger.js';
 
 /**
- * Condition fields whose evaluated value changes when transcode state changes mid-session.
- * Rules containing at least one of these fields are re-evaluated on transcode state transitions
- * (e.g., direct play -> transcode). Rules with only non-transcode fields (like concurrent_streams)
- * are skipped to avoid false positives since those conditions don't change mid-session.
- */
-const TRANSCODE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
-  'is_transcoding',
-  'is_transcode_downgrade',
-  'output_resolution',
-]);
-
-/**
- * Check if a rule contains any condition fields that depend on transcode state.
- * Used to filter which rules need re-evaluation when transcode state changes mid-session.
- */
-export function hasTranscodeConditions(rule: RuleV2): boolean {
-  if (!rule.conditions?.groups) return false;
-  return rule.conditions.groups.some((group) =>
-    group.conditions.some((condition) => TRANSCODE_CONDITION_FIELDS.has(condition.field))
-  );
-}
-
-/**
  * Condition fields whose evaluated value changes based on pause state/duration.
  * Rules containing these fields are re-evaluated on every poll cycle for paused sessions
  * because the pause duration grows over time even without state transitions.
@@ -63,7 +40,7 @@ export function hasPauseConditions(rule: RuleV2): boolean {
   );
 }
 
-/** Rules with an inactive_days condition run under account.inactive_for, never at session triggers. */
+/** True when any condition uses inactive_days; the V2 rule routes gate scheduling on it. */
 export function hasInactivityCondition(rule: {
   conditions: RuleConditions | null | undefined;
 }): boolean {

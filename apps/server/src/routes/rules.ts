@@ -21,12 +21,19 @@ import {
   bulkDeleteRulesSchema,
   bulkMigrateRulesSchema,
 } from '@tracearr/shared';
-import type { RuleConditions, RuleActions, ViolationSeverity, AuthUser } from '@tracearr/shared';
+import type {
+  RuleConditions,
+  RuleActions,
+  TriggerNode,
+  ViolationSeverity,
+  AuthUser,
+} from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { automations, serverUsers, automationRuns, servers, users } from '../db/schema.js';
 import { hasServerAccess } from '../utils/serverFiltering.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
+import { synthesizeTriggers } from '../services/automations/triggers.js';
 import { hasInactivityCondition } from '../services/rules/engine.js';
 import { needsMigration, convertLegacyRule, migrateRules } from '../services/rules/migration.js';
 import { listDestinations } from '../services/notifications/destinationStore.js';
@@ -315,6 +322,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
         severity,
         conditions,
         actions,
+        triggers: synthesizeTriggers(conditions),
       })
       .returning();
 
@@ -609,6 +617,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
       severity: ViolationSeverity;
       conditions: RuleConditions;
       actions: RuleActions;
+      triggers: TriggerNode[];
       isActive: boolean;
       updatedAt: Date;
     }> = {
@@ -645,6 +654,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
 
     if (body.data.conditions !== undefined) {
       updateData.conditions = body.data.conditions;
+      updateData.triggers = synthesizeTriggers(body.data.conditions);
     }
 
     if (body.data.actions !== undefined) {
@@ -1005,6 +1015,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
             severity: migrated.severity,
             conditions: migrated.conditions,
             actions: migrated.actions,
+            triggers: synthesizeTriggers(migrated.conditions),
             type: null,
             params: null,
             updatedAt: new Date(),
@@ -1110,6 +1121,7 @@ export const ruleRoutes: FastifyPluginAsync = async (app) => {
         severity: migrated.severity,
         conditions: migrated.conditions,
         actions: migrated.actions,
+        triggers: synthesizeTriggers(migrated.conditions),
         type: null,
         params: null,
         updatedAt: new Date(),

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
 import type { EvaluationContext } from '../types.js';
+import { synthesizeTriggers } from '../../automations/triggers.js';
 import {
   evaluateRuleAsync,
   evaluateRulesAsync,
   hasInactivityCondition,
-  hasTranscodeConditions,
   hasPauseConditions,
 } from '../engine.js';
 
@@ -135,6 +135,7 @@ function createMockServer(overrides: Partial<Server> = {}): Server {
 }
 
 function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+  const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',
     name: 'Test Rule',
@@ -145,11 +146,13 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
     enforceAcrossServers: false,
     isActive: true,
     severity: 'warning',
-    conditions: { groups: [] },
+    conditions,
     actions: { actions: [] },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+    triggers:
+      overrides.triggers !== undefined ? overrides.triggers : synthesizeTriggers(conditions),
   };
 }
 
@@ -862,92 +865,6 @@ describe('evaluateRulesAsync', () => {
     expect((await evaluateFor(targetAccount)).map((r) => r.ruleId)).toEqual(['rule-account']);
     expect(await evaluateFor(siblingAccount)).toHaveLength(0);
     expect(await evaluateFor(unrelatedAccount)).toHaveLength(0);
-  });
-});
-
-describe('hasTranscodeConditions', () => {
-  it('returns true for rule with is_transcoding condition', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(true);
-  });
-
-  it('returns true for rule with is_transcode_downgrade condition', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [
-          { conditions: [{ field: 'is_transcode_downgrade', operator: 'eq', value: true }] },
-        ],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(true);
-  });
-
-  it('returns true for rule with output_resolution condition', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [{ conditions: [{ field: 'output_resolution', operator: 'eq', value: '720p' }] }],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(true);
-  });
-
-  it('returns false for rule with only non-transcode conditions', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [
-          { conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 1 }] },
-          { conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] },
-        ],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(false);
-  });
-
-  it('returns true when transcode condition is mixed with non-transcode conditions', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [
-          { conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] },
-          { conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }] },
-        ],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(true);
-  });
-
-  it('returns false for rule with null conditions', () => {
-    const rule = createMockRule({
-      conditions: null as unknown as { groups: [] },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(false);
-  });
-
-  it('returns false for rule with empty groups', () => {
-    const rule = createMockRule({
-      conditions: { groups: [] },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(false);
-  });
-
-  it('returns false for source_resolution (not a transcode-dependent field)', () => {
-    const rule = createMockRule({
-      conditions: {
-        groups: [{ conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }] }],
-      },
-    });
-
-    expect(hasTranscodeConditions(rule)).toBe(false);
   });
 });
 

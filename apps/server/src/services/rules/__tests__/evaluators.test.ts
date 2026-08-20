@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Condition, Operator, Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
 import type { EvaluatorResult, SessionEvaluationContext } from '../types.js';
+import { synthesizeTriggers } from '../../automations/triggers.js';
 import {
   evaluatorRegistry,
   getResolution,
@@ -146,6 +147,7 @@ function createMockServer(overrides: Partial<Server> = {}): Server {
 
 // Helper to create a test rule
 function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+  const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',
     name: 'Test Rule',
@@ -156,11 +158,13 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
     enforceAcrossServers: false,
     isActive: true,
     severity: 'warning',
-    conditions: { groups: [] },
+    conditions,
     actions: { actions: [] },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+    triggers:
+      overrides.triggers !== undefined ? overrides.triggers : synthesizeTriggers(conditions),
   };
 }
 

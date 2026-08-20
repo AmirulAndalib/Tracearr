@@ -37,6 +37,18 @@ describe('synthesizeTriggers', () => {
     ]);
   });
 
+  it('keeps the transcode edge when a transcode field sits beside non-transcode ones', () => {
+    expect(types(conditionsFor('is_transcoding', 'source_resolution'))).toEqual([
+      'session.started',
+      'session.transcode_changed',
+    ]);
+  });
+
+  it('adds no edge for fields that do not move mid-session', () => {
+    expect(types(conditionsFor('source_resolution'))).toEqual(['session.started']);
+    expect(types(conditionsFor('concurrent_streams', 'trust_score'))).toEqual(['session.started']);
+  });
+
   it('adds both pause edges to a pause rule', () => {
     expect(types(conditionsFor('current_pause_minutes'))).toEqual([
       'session.started',

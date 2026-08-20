@@ -1,6 +1,6 @@
 /**
  * Inactivity Check Queue - hourly dispatch of account.inactive_for.
- * Rules carrying an inactive_days condition are evaluated, recorded and acted
+ * Rules carrying an account.inactive_for trigger are evaluated, recorded and acted
  * on by the shared rule pipeline; this file only finds the candidate accounts.
  */
 
@@ -11,7 +11,7 @@ import { TIME_MS } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { serverUsers, users, servers } from '../db/schema.js';
 import { dispatch } from '../services/rules/events/dispatcher.js';
-import { hasInactivityCondition } from '../services/rules/engine.js';
+import { matchesTrigger } from '../services/rules/events/evaluate.js';
 import { isMaintenance } from '../serverState.js';
 import { batchGetIdentityServerUserIds, getActiveRulesV2 } from './poller/database.js';
 import { broadcastViolations } from './poller/violations.js';
@@ -151,7 +151,9 @@ export async function scheduleInactivityChecks(): Promise<void> {
     }
   }
 
-  const activeRules = (await getActiveRulesV2()).filter(hasInactivityCondition);
+  const activeRules = (await getActiveRulesV2()).filter((r) =>
+    matchesTrigger(r, 'account.inactive_for')
+  );
 
   if (activeRules.length === 0) {
     console.log('[Inactivity] No active inactivity rules found');
@@ -205,7 +207,8 @@ async function processInactivityCheck(job: Job<InactivityCheckJobData>): Promise
   console.log(`[Inactivity] Processing check (job ${job.id})`);
 
   const activeRules = (await getActiveRulesV2()).filter(
-    (r) => hasInactivityCondition(r) && (!job.data.ruleId || r.id === job.data.ruleId)
+    (r) =>
+      matchesTrigger(r, 'account.inactive_for') && (!job.data.ruleId || r.id === job.data.ruleId)
   );
   if (activeRules.length === 0) {
     console.log('[Inactivity] No active inactivity rules to check');

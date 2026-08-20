@@ -399,6 +399,35 @@ describe('Rule Routes', () => {
       expect(response.statusCode).toBe(201);
       expect(mockDb.insert).toHaveBeenCalled();
     });
+
+    it('stamps triggers from the conditions on create', async () => {
+      const ownerUser = createOwnerUser();
+      app = await buildTestApp(ownerUser);
+
+      const valuesSpy = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: randomUUID(), name: 'Stamped' }]),
+      });
+      mockDb.insert.mockReturnValue({ values: valuesSpy });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/rules/v2',
+        payload: {
+          name: 'Stamped',
+          conditions: {
+            groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
+          },
+          actions: { actions: [] },
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const inserted = valuesSpy.mock.calls[0]?.[0] as { triggers?: { type: string }[] };
+      expect(inserted.triggers?.map((t) => t.type).sort()).toEqual([
+        'session.started',
+        'session.transcode_changed',
+      ]);
+    });
   });
 
   describe('GET /rules/:id', () => {
@@ -820,6 +849,42 @@ describe('Rule Routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    it('re-stamps triggers when conditions change and leaves them alone otherwise', async () => {
+      const ownerUser = createOwnerUser();
+      app = await buildTestApp(ownerUser);
+
+      const ruleId = randomUUID();
+      mockExistingRule(ruleId);
+      const setSpy = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: ruleId, conditions: null }]),
+        }),
+      });
+      mockDb.update.mockReturnValue({ set: setSpy });
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/rules/${ruleId}/v2`,
+        payload: {
+          conditions: {
+            groups: [{ conditions: [{ field: 'inactive_days', operator: 'gt', value: 30 }] }],
+          },
+        },
+      });
+      const withConditions = setSpy.mock.calls[0]?.[0] as { triggers?: { type: string }[] };
+      expect(withConditions.triggers?.map((t) => t.type)).toEqual(['account.inactive_for']);
+
+      setSpy.mockClear();
+      mockExistingRule(ruleId);
+      await app.inject({
+        method: 'PATCH',
+        url: `/rules/${ruleId}/v2`,
+        payload: { isActive: false },
+      });
+      const withoutConditions = setSpy.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(withoutConditions).not.toHaveProperty('triggers');
     });
   });
 

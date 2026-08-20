@@ -14,6 +14,7 @@ import type {
   LogOnlyAction,
 } from '@tracearr/shared';
 import { rulesLogger } from '../../../utils/logger.js';
+import { synthesizeTriggers } from '../../automations/triggers.js';
 import {
   setActionExecutorDeps,
   resetActionExecutorDeps,
@@ -137,6 +138,7 @@ function createMockServerUser(overrides: Partial<ServerUser> = {}): ServerUser {
 }
 
 function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+  const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',
     name: 'Test Rule',
@@ -147,11 +149,13 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
     enforceAcrossServers: false,
     isActive: true,
     severity: 'warning',
-    conditions: { groups: [] },
+    conditions,
     actions: { actions: [] },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+    triggers:
+      overrides.triggers !== undefined ? overrides.triggers : synthesizeTriggers(conditions),
   };
 }
 

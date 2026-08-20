@@ -20,10 +20,21 @@ vi.mock('../../../db/schema.js', async (importOriginal) => {
   return { ...actual };
 });
 
+const mockWarn = vi.fn();
+vi.mock('../../../utils/logger.js', () => ({
+  rulesLogger: {
+    info: vi.fn(),
+    warn: (...a: unknown[]) => mockWarn(...a),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 import {
   defaultRecentSessionWindowHours,
   getActiveRulesV2,
   invalidateRulesCache,
+  mapRuleRowToRuleV2,
   maxWindowHoursFromRules,
 } from '../database.js';
 import type { RuleV2 } from '@tracearr/shared';
@@ -41,6 +52,7 @@ function ruleRow(id: string, overrides: Record<string, unknown> = {}) {
     severity: 'warning',
     conditions: { all: [] },
     actions: [],
+    triggers: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -144,6 +156,43 @@ describe('getActiveRulesV2 cache', () => {
 
     invalidateRulesCache();
     expect(defaultRecentSessionWindowHours()).toBe(24);
+  });
+});
+
+describe('mapRuleRowToRuleV2 triggers', () => {
+  beforeEach(() => {
+    mockWarn.mockClear();
+  });
+
+  it('carries the stored trigger nodes through to the cached rule', () => {
+    const triggers = [
+      {
+        id: 'a1f0f0f0-0000-4000-8000-000000000001',
+        type: 'session.paused' as const,
+        enabled: true,
+      },
+    ];
+    const mapped = mapRuleRowToRuleV2(
+      ruleRow('r1', { triggers }) as unknown as Parameters<typeof mapRuleRowToRuleV2>[0]
+    );
+    expect(mapped.triggers).toEqual(triggers);
+    expect(mockWarn).not.toHaveBeenCalled();
+  });
+
+  it('treats a row the migration never stamped as inert and warns once per rule', () => {
+    const row = ruleRow('unmigrated', { triggers: null }) as unknown as Parameters<
+      typeof mapRuleRowToRuleV2
+    >[0];
+
+    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
+    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
+    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
+
+    expect(mockWarn).toHaveBeenCalledTimes(1);
+    expect(mockWarn).toHaveBeenCalledWith(expect.any(String), {
+      automationId: 'unmigrated',
+      name: 'rule-unmigrated',
+    });
   });
 });
 

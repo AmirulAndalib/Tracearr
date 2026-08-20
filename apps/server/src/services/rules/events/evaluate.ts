@@ -1,11 +1,6 @@
-import type { RuleV2 } from '@tracearr/shared';
+import { TRIGGER_TYPES, type RuleV2 } from '@tracearr/shared';
 import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
-import {
-  evaluateRulesAsync,
-  hasInactivityCondition,
-  hasPauseConditions,
-  hasTranscodeConditions,
-} from '../engine.js';
+import { evaluateRulesAsync } from '../engine.js';
 import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type {
@@ -23,21 +18,18 @@ export type SessionEvaluatingEvent =
 
 export type EvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
 
-/** Rules with an inactive_days condition run under account.inactive_for, never at session triggers. */
+// The seam declares more trigger types than automations can subscribe to; the extras
+// only cancel wakes and must never reach evaluation even if a stored node names one.
+const EVALUATING_TRIGGERS: ReadonlySet<string> = new Set(TRIGGER_TYPES);
+
+/** A rule runs for a trigger when its stored triggers hold an enabled node of that type. */
+export function matchesTrigger(rule: Pick<RuleV2, 'triggers'>, trigger: TriggerType): boolean {
+  return rule.triggers.some((node) => node.enabled && node.type === trigger);
+}
+
 export function rulesForTrigger(trigger: TriggerType, rules: RuleV2[]): RuleV2[] {
-  switch (trigger) {
-    case 'session.started':
-      return rules.filter((r) => !hasInactivityCondition(r));
-    case 'session.transcode_changed':
-      return rules.filter(hasTranscodeConditions);
-    case 'session.paused':
-    case 'session.held_for':
-      return rules.filter(hasPauseConditions);
-    case 'account.inactive_for':
-      return rules.filter(hasInactivityCondition);
-    default:
-      return [];
-  }
+  if (!EVALUATING_TRIGGERS.has(trigger)) return [];
+  return rules.filter((rule) => matchesTrigger(rule, trigger));
 }
 
 export interface TriggerEvaluation {

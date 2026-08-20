@@ -13,7 +13,6 @@ import {
   type RuleV2,
   type RuleConditions,
   type RuleActions,
-  type ViolationSeverity,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import {
@@ -25,6 +24,7 @@ import {
   libraryItems,
   media,
 } from '../../db/schema.js';
+import { rulesLogger } from '../../utils/logger.js';
 import { mapSessionRow } from './sessionMapper.js';
 
 /** Canonical media identity for a library item, stamped onto sessions at insert. */
@@ -375,6 +375,40 @@ export async function getCachedServers(): Promise<(typeof servers.$inferSelect)[
   return rows;
 }
 
+// A row the boot migration never stamped matches no trigger, so warn once per id rather than per tick.
+const warnedUntriggeredRuleIds = new Set<string>();
+
+/**
+ * Map a raw `rules` table row (V2 columns) to the shared RuleV2 shape.
+ * Shared by getActiveRulesV2 and the kill-queue reverify path so both build
+ * an identical RuleV2 from the same row.
+ */
+export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
+  if (!r.triggers && !warnedUntriggeredRuleIds.has(r.id)) {
+    warnedUntriggeredRuleIds.add(r.id);
+    rulesLogger.warn('Automation has no stored triggers and will never evaluate', {
+      automationId: r.id,
+      name: r.name,
+    });
+  }
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    serverId: r.serverId,
+    serverUserId: r.serverUserId,
+    userId: r.userId,
+    enforceAcrossServers: r.enforceAcrossServers,
+    isActive: r.isActive,
+    severity: r.severity,
+    conditions: r.conditions as RuleConditions,
+    actions: r.actions as RuleActions,
+    triggers: r.triggers ?? [],
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
 /**
  * Get all active V2 rules (rules with conditions/actions defined).
  *
@@ -387,29 +421,6 @@ export async function getCachedServers(): Promise<(typeof servers.$inferSelect)[
  * const rulesV2 = await getActiveRulesV2();
  * // Evaluate session events against these rules
  */
-/**
- * Map a raw `rules` table row (V2 columns) to the shared RuleV2 shape.
- * Shared by getActiveRulesV2 and the kill-queue reverify path so both build
- * an identical RuleV2 from the same row.
- */
-export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
-  return {
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    serverId: r.serverId,
-    serverUserId: r.serverUserId,
-    userId: r.userId,
-    enforceAcrossServers: r.enforceAcrossServers,
-    isActive: r.isActive,
-    severity: (r.severity ?? 'warning') as ViolationSeverity,
-    conditions: r.conditions as RuleConditions,
-    actions: r.actions as RuleActions,
-    createdAt: r.createdAt,
-    updatedAt: r.updatedAt,
-  };
-}
-
 export async function getActiveRulesV2(): Promise<RuleV2[]> {
   const now = Date.now();
   if (rulesCache && rulesCache.expiresAt > now) {
