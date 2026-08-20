@@ -1,8 +1,8 @@
-import { TRIGGER_TYPES, type RuleV2 } from '@tracearr/shared';
+import { TRIGGER_TYPES, type RuleV2, type TriggerNode } from '@tracearr/shared';
 import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
-import { evaluateRulesAsync } from '../engine.js';
+import { ruleAppliesTo } from '../engine.js';
 import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
-import type { EvaluationContext, EvaluationResult } from '../types.js';
+import type { EvaluationContext } from '../types.js';
 import type {
   AccountInactiveForEvent,
   EvaluationInputs,
@@ -22,9 +22,17 @@ export type EvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
 // only cancel wakes and must never reach evaluation even if a stored node names one.
 const EVALUATING_TRIGGERS: ReadonlySet<string> = new Set(TRIGGER_TYPES);
 
+/** The enabled stored node that makes this rule run for the trigger, if it has one. */
+export function triggerNodeFor(
+  rule: Pick<RuleV2, 'triggers'>,
+  trigger: TriggerType
+): TriggerNode | null {
+  return rule.triggers.find((node) => node.enabled && node.type === trigger) ?? null;
+}
+
 /** A rule runs for a trigger when its stored triggers hold an enabled node of that type. */
 export function matchesTrigger(rule: Pick<RuleV2, 'triggers'>, trigger: TriggerType): boolean {
-  return rule.triggers.some((node) => node.enabled && node.type === trigger);
+  return triggerNodeFor(rule, trigger) !== null;
 }
 
 export function rulesForTrigger(trigger: TriggerType, rules: RuleV2[]): RuleV2[] {
@@ -32,19 +40,17 @@ export function rulesForTrigger(trigger: TriggerType, rules: RuleV2[]): RuleV2[]
   return rules.filter((rule) => matchesTrigger(rule, trigger));
 }
 
-export interface TriggerEvaluation {
+export interface TriggerCandidates {
   rules: RuleV2[];
   baseContext: Omit<EvaluationContext, 'rule'>;
-  results: EvaluationResult[];
 }
 
-/** Rule subset for the trigger, the evaluator context, and the matched results. Touches no database. */
-export async function evaluateTrigger(
+/** The rules this event can evaluate and the context to evaluate them in. Touches no database. */
+export function triggerCandidates(
   event: EvaluatingEvent,
   inputs: EvaluationInputs
-): Promise<TriggerEvaluation> {
+): TriggerCandidates {
   const session = event.session;
-  const rules = rulesForTrigger(event.type, inputs.activeRulesV2);
   const baseContext: Omit<EvaluationContext, 'rule'> = {
     session,
     serverUser: toRuleServerUser(event.serverUser, event.server.id),
@@ -55,7 +61,8 @@ export async function evaluateTrigger(
     recentSessions: inputs.recentSessions,
     identityServerUserIds: inputs.identityServerUserIds ?? event.serverUser.identityServerUserIds,
   };
-  if (rules.length === 0) return { rules, baseContext, results: [] };
-  const results = await evaluateRulesAsync(baseContext, rules);
-  return { rules, baseContext, results };
+  const rules = rulesForTrigger(event.type, inputs.activeRulesV2).filter((rule) =>
+    ruleAppliesTo(rule, baseContext)
+  );
+  return { rules, baseContext };
 }

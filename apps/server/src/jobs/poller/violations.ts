@@ -10,6 +10,7 @@ import { WS_EVENTS } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { servers, serverUsers, sessions, users } from '../../db/schema.js';
 import type { automationRuns } from '../../db/schema.js';
+import { publishRunFinished, toRunSummary } from '../../services/automations/runRecorder.js';
 import type { PubSubService } from '../../services/cache.js';
 import { enqueueNotification } from '../notificationQueue.js';
 
@@ -53,6 +54,7 @@ export async function broadcastViolations(
 
   const detailFields = {
     userId: serverUsers.id,
+    identityUserId: users.id,
     username: serverUsers.username,
     thumbUrl: serverUsers.thumbUrl,
     identityName: users.name,
@@ -96,6 +98,7 @@ export async function broadcastViolations(
       createdAt: violation.createdAt,
       user: {
         id: details.userId,
+        userId: details.identityUserId,
         username: details.username,
         thumbUrl: details.thumbUrl,
         serverId: details.serverId,
@@ -114,6 +117,7 @@ export async function broadcastViolations(
     };
 
     await pubSubService.publish(WS_EVENTS.VIOLATION_NEW, violationWithDetails);
+    await publishRunFinished(toRunSummary(violation, rule.name, details.serverId), pubSubService);
     console.log(`[Poller] Violation broadcast: ${rule.name} for user ${details.username}`);
 
     // Enqueue notification for async dispatch (Discord, webhooks, push)

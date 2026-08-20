@@ -1,7 +1,7 @@
 /**
  * Core type definitions for Tracearr
  */
-import type { AutomationRunSummary, TriggerNode } from './automations.js';
+import type { AutomationKind, AutomationRunSummary, TriggerNode } from './automations.js';
 import type { NotificationToast } from './destinations.js';
 import type { sessionTargetSchema, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
@@ -791,10 +791,13 @@ export interface RuleV2 {
   enforceAcrossServers: boolean;
   isActive: boolean;
   severity: ViolationSeverity;
+  kind: AutomationKind;
   conditions: RuleConditions;
   actions: RuleActions;
   // Which events evaluate this rule. Never null here: the cache mapper normalizes an unstamped row to [].
   triggers: TriggerNode[];
+  /** Minutes a subject is suppressed after a completed run; null disables the cooldown. */
+  cooldownMinutes: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

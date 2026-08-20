@@ -300,6 +300,12 @@ export const REDIS_KEYS = {
   // Rule cooldowns
   RULE_COOLDOWN: (ruleId: string, targetId: string) =>
     `${_redisPrefix}tracearr:rule:cooldown:${ruleId}:${targetId}`,
+  // Automation-level cooldown, keyed on the run's subject
+  AUTOMATION_COOLDOWN: (automationId: string, subjectKey: string) =>
+    `${_redisPrefix}tracearr:automation:cooldown:${automationId}:${subjectKey}`,
+  // Capped ring of evaluations that matched a trigger but recorded no run
+  AUTOMATION_EVALS: (automationId: string) =>
+    `${_redisPrefix}tracearr:automation:evals:${automationId}`,
   // Session write retry queue (for failed DB writes)
   SESSION_WRITE_RETRY: (sessionId: string) =>
     `${_redisPrefix}tracearr:session:write-retry:${sessionId}`,

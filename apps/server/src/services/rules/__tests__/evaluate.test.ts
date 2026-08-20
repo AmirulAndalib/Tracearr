@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type {
   ConditionField,
   RuleConditions,
@@ -10,21 +10,17 @@ import type {
   AccountInactiveForEvent,
   EvaluationInputs,
   SessionPausedEvent,
+  SessionStartedEvent,
   SessionTranscodeChangedEvent,
   TriggerType,
 } from '../events/types.js';
 
-const mockEvaluateRulesAsync = vi.fn();
-vi.mock('../engine.js', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  evaluateRulesAsync: (...args: unknown[]) => mockEvaluateRulesAsync(...args),
-}));
 vi.mock('../../../utils/logger.js', () => ({
   rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import { synthesizeTriggers } from '../../automations/triggers.js';
-import { evaluateTrigger, matchesTrigger, rulesForTrigger } from '../events/evaluate.js';
+import { matchesTrigger, rulesForTrigger, triggerCandidates } from '../events/evaluate.js';
 
 /** A rule the boot migration would have produced from these conditions. */
 function rule(id: string, ...fields: ConditionField[]): RuleV2 {
@@ -153,13 +149,8 @@ describe('stored triggers match the synthesized routing per corpus shape', () =>
   });
 });
 
-describe('evaluateTrigger', () => {
-  beforeEach(() => {
-    mockEvaluateRulesAsync.mockReset();
-    mockEvaluateRulesAsync.mockResolvedValue([]);
-  });
-
-  it('builds the context around the event session and appends it to activeSessions by reference', async () => {
+describe('triggerCandidates', () => {
+  it('builds the context around the event session and appends it to activeSessions by reference', () => {
     const other = { id: 's2', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
     const inputs: EvaluationInputs = {
       activeRulesV2: all,
@@ -177,7 +168,7 @@ describe('evaluateTrigger', () => {
       next: { videoDecision: 'transcode', audioDecision: 'copy' },
     };
 
-    const { rules, baseContext } = await evaluateTrigger(event, inputs);
+    const { rules, baseContext } = triggerCandidates(event, inputs);
 
     expect(rules.map((r) => r.id)).toEqual(['t']);
     expect(baseContext.session).toBe(session);
@@ -186,10 +177,9 @@ describe('evaluateTrigger', () => {
     expect(baseContext.identityServerUserIds).toEqual(['su1', 'su2']);
     expect(baseContext.server).toMatchObject({ id: 'srv1', type: 'plex' });
     expect(baseContext.serverUser).toMatchObject({ id: 'su1', userId: 'u1' });
-    expect(mockEvaluateRulesAsync).toHaveBeenCalledWith(baseContext, [transcodeRule]);
   });
 
-  it('does not double-append when the session is already in activeSessions', async () => {
+  it('does not double-append when the session is already in activeSessions', () => {
     const inputs: EvaluationInputs = {
       activeRulesV2: all,
       activeSessions: [session],
@@ -203,11 +193,11 @@ describe('evaluateTrigger', () => {
       session,
       pauseData: { lastPausedAt: new Date(), pausedDurationMs: 0 },
     };
-    const { baseContext } = await evaluateTrigger(event, inputs);
+    const { baseContext } = triggerCandidates(event, inputs);
     expect(baseContext.activeSessions).toHaveLength(1);
   });
 
-  it('builds a session-less context for account.inactive_for and leaves activeSessions alone', async () => {
+  it('builds a session-less context for account.inactive_for and leaves activeSessions alone', () => {
     const other = { id: 's2', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
     const inputs: EvaluationInputs = {
       activeRulesV2: all,
@@ -222,15 +212,14 @@ describe('evaluateTrigger', () => {
       session: null,
     };
 
-    const { rules, baseContext } = await evaluateTrigger(event, inputs);
+    const { rules, baseContext } = triggerCandidates(event, inputs);
 
     expect(rules.map((r) => r.id)).toEqual(['i']);
     expect(baseContext.session).toBeNull();
     expect(baseContext.activeSessions).toBe(inputs.activeSessions);
-    expect(mockEvaluateRulesAsync).toHaveBeenCalledWith(baseContext, [inactivityRule]);
   });
 
-  it('returns early with no evaluation when no rule matches the trigger', async () => {
+  it('returns no candidates when no rule matches the trigger', () => {
     const inputs: EvaluationInputs = {
       activeRulesV2: [concurrentRule],
       activeSessions: [],
@@ -244,10 +233,30 @@ describe('evaluateTrigger', () => {
       session,
       pauseData: { lastPausedAt: new Date(), pausedDurationMs: 0 },
     };
-    const { rules, results } = await evaluateTrigger(event, inputs);
-    expect(rules).toEqual([]);
-    expect(results).toEqual([]);
-    expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
+    expect(triggerCandidates(event, inputs).rules).toEqual([]);
+  });
+
+  it('drops rules the scope filters exclude before anything is evaluated', () => {
+    const inputs: EvaluationInputs = {
+      activeRulesV2: [
+        { ...concurrentRule, id: 'inactive', isActive: false },
+        { ...concurrentRule, id: 'other-server', serverId: 'srv2' },
+        { ...concurrentRule, id: 'other-account', serverUserId: 'su9' },
+        { ...concurrentRule, id: 'other-identity', userId: 'u9' },
+        concurrentRule,
+      ],
+      activeSessions: [],
+      recentSessions: [],
+    };
+    const event: SessionStartedEvent = {
+      type: 'session.started',
+      at: new Date(),
+      server,
+      serverUser,
+      session,
+    };
+
+    expect(triggerCandidates(event, inputs).rules.map((r) => r.id)).toEqual(['c']);
   });
 });
 

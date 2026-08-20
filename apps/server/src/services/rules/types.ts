@@ -65,4 +65,6 @@ export interface EvaluationResult {
   matchedGroups: number[];
   actions: Action[];
   evidence?: GroupEvidence[];
+  /** The group that ended the walk, for the run record's summary. Set only when unmatched. */
+  stoppedBy?: GroupEvidence;
 }

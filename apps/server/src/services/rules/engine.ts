@@ -204,6 +204,7 @@ export async function evaluateRuleAsync(context: EvaluationContext): Promise<Eva
 
   const { matchedGroups, evidence } = await evaluateAllGroupsAsync(context, rule.conditions);
   const matched = matchedGroups !== null;
+  const stoppedBy = matched ? undefined : evidence[evidence.length - 1];
 
   return {
     ruleId: rule.id,
@@ -212,33 +213,33 @@ export async function evaluateRuleAsync(context: EvaluationContext): Promise<Eva
     matchedGroups: matchedGroups ?? [],
     actions: matched ? (rule.actions?.actions ?? []) : [],
     evidence: matched ? evidence : undefined,
+    ...(stoppedBy ? { stoppedBy } : {}),
   };
+}
+
+/** The scope filters that decide whether a rule is evaluated at all. */
+export function ruleAppliesTo(rule: RuleV2, baseContext: Omit<EvaluationContext, 'rule'>): boolean {
+  if (!rule.isActive) return false;
+  if (rule.serverId && rule.serverId !== baseContext.server.id) return false;
+  if (rule.serverUserId && rule.serverUserId !== baseContext.serverUser.id) return false;
+  if (rule.userId && rule.userId !== baseContext.serverUser.userId) return false;
+  return true;
 }
 
 /**
  * Evaluate multiple rules against the given session context.
- * Returns all matching rules with their actions.
+ * Returns matching rules with their actions, or every evaluated rule when the
+ * caller records a run per evaluation rather than per match.
  */
 export async function evaluateRulesAsync(
   baseContext: Omit<EvaluationContext, 'rule'>,
-  rules: RuleV2[]
+  rules: RuleV2[],
+  opts: { includeUnmatched?: boolean } = {}
 ): Promise<EvaluationResult[]> {
   const results: EvaluationResult[] = [];
 
   for (const rule of rules) {
-    if (!rule.isActive) {
-      continue;
-    }
-
-    if (rule.serverId && rule.serverId !== baseContext.server.id) {
-      continue;
-    }
-
-    if (rule.serverUserId && rule.serverUserId !== baseContext.serverUser.id) {
-      continue;
-    }
-
-    if (rule.userId && rule.userId !== baseContext.serverUser.userId) {
+    if (!ruleAppliesTo(rule, baseContext)) {
       continue;
     }
 
@@ -249,7 +250,7 @@ export async function evaluateRulesAsync(
 
     const result = await evaluateRuleAsync(context);
 
-    if (result.matched) {
+    if (result.matched || opts.includeUnmatched) {
       results.push(result);
     }
   }

@@ -401,9 +401,11 @@ export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
     enforceAcrossServers: r.enforceAcrossServers,
     isActive: r.isActive,
     severity: r.severity,
+    kind: r.kind,
     conditions: r.conditions as RuleConditions,
     actions: r.actions as RuleActions,
     triggers: r.triggers ?? [],
+    cooldownMinutes: r.cooldownMinutes,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };

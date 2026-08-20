@@ -128,9 +128,15 @@ vi.mock('../../../services/rules/engine.js', async (importOriginal) => ({
   evaluateRulesAsync: (...args: unknown[]) => mockEvaluateRulesAsync(...args),
 }));
 
-const mockRecordViolation = vi.fn();
-vi.mock('../../../services/rules/violationWriter.js', () => ({
-  recordViolation: (...args: unknown[]) => mockRecordViolation(...args),
+const mockRecordRun = vi.fn();
+vi.mock('../../../services/automations/runRecorder.js', () => ({
+  recordRun: (...args: unknown[]) => mockRecordRun(...args),
+  appendRunSteps: vi.fn(),
+  markRunFailed: vi.fn(),
+  recordNearMiss: vi.fn(),
+  automationCoolingDown: vi.fn().mockResolvedValue(false),
+  subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
+    scope.kind === 'session' ? scope.sessionId : scope.serverUserId,
 }));
 
 const mockExecuteActions = vi.fn();
@@ -214,6 +220,8 @@ const rule: RuleV2 = {
   enforceAcrossServers: false,
   severity: 'high',
   isActive: true,
+  kind: 'policy',
+  cooldownMinutes: null,
   conditions: {
     groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 1 }] }],
   },
@@ -269,7 +277,7 @@ beforeEach(() => {
       evidence: [],
     },
   ]);
-  mockRecordViolation.mockResolvedValue(violationRow);
+  mockRecordRun.mockResolvedValue(violationRow);
   mockExecuteActions.mockResolvedValue(killResults(['sess-1']));
   mockStoreActionResults.mockResolvedValue(undefined);
 });
@@ -278,8 +286,8 @@ describe('createSessionWithRulesAtomic dispatch contract', () => {
   it('records inside the transaction and defers actions until after commit', async () => {
     const result = await create();
 
-    expect(mockRecordViolation).toHaveBeenCalledTimes(1);
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         tx: fakeTx,
         scope: { kind: 'session', sessionId: 'sess-1', fresh: true },
@@ -318,7 +326,7 @@ describe('createSessionWithRulesAtomic dispatch contract', () => {
     const result = await create([]);
 
     expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
-    expect(mockRecordViolation).not.toHaveBeenCalled();
+    expect(mockRecordRun).not.toHaveBeenCalled();
     expect(mockExecuteActions).not.toHaveBeenCalled();
     expect(result.violationResults).toEqual([]);
     expect(result.wasTerminatedByRule).toBe(false);
@@ -332,7 +340,7 @@ describe('createSessionWithRulesAtomic dispatch contract', () => {
     await expect(create()).rejects.toThrow('could not serialize access');
 
     expect(mockTransaction).toHaveBeenCalledTimes(3);
-    expect(mockRecordViolation).not.toHaveBeenCalled();
+    expect(mockRecordRun).not.toHaveBeenCalled();
     expect(mockExecuteActions).not.toHaveBeenCalled();
   });
 });

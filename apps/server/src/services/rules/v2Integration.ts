@@ -51,6 +51,19 @@ export async function storeActionResults(
 }
 
 // ============================================================================
+// Cooldowns
+// ============================================================================
+
+/** Cooldown keys hold nothing but their TTL; presence is the whole answer. */
+export async function isCoolingDown(redis: Redis, key: string): Promise<boolean> {
+  return (await redis.exists(key)) === 1;
+}
+
+export async function armCooldown(redis: Redis, key: string, minutes: number): Promise<void> {
+  await redis.setex(key, minutes * 60, '1');
+}
+
+// ============================================================================
 // Dependency Factory
 // ============================================================================
 
@@ -260,9 +273,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
      * Check if a rule/target combination is on cooldown.
      */
     checkCooldown: async (ruleId, targetId, _cooldownMinutes) => {
-      const key = REDIS_KEYS.RULE_COOLDOWN(ruleId, targetId);
-      const exists = await redis.exists(key);
-      return exists === 1;
+      return isCoolingDown(redis, REDIS_KEYS.RULE_COOLDOWN(ruleId, targetId));
     },
 
     /**
@@ -270,8 +281,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
      */
     setCooldown: async (ruleId, targetId, cooldownMinutes) => {
       const key = REDIS_KEYS.RULE_COOLDOWN(ruleId, targetId);
-      const ttlSeconds = cooldownMinutes * 60;
-      await redis.setex(key, ttlSeconds, '1');
+      await armCooldown(redis, key, cooldownMinutes);
 
       rulesLogger.debug(`Set cooldown for ${cooldownMinutes} minutes`, {
         ruleId,

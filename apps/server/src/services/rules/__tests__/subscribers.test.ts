@@ -3,8 +3,8 @@
  *
  * Ports of the transcode/pause re-evaluation suites onto runRulePipeline:
  * - Only the trigger's rule subset is evaluated (no false positives)
- * - Violations are recorded through the single writer, with the trigger marker
- * - Actions are gated on a newly inserted violation (never on a deduped match)
+ * - Every evaluation records a run through the recorder, with the trigger marker
+ * - Actions are gated on a newly inserted run (never on a deduped match)
  * - The event's Session carries the fresh poll/SSE fields
  */
 
@@ -33,9 +33,19 @@ vi.mock('../engine.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   evaluateRulesAsync: (...args: unknown[]) => mockEvaluateRulesAsync(...args),
 }));
-const mockRecordViolation = vi.fn();
-vi.mock('../violationWriter.js', () => ({
-  recordViolation: (...args: unknown[]) => mockRecordViolation(...args),
+const mockRecordRun = vi.fn();
+const mockAppendRunSteps = vi.fn();
+const mockMarkRunFailed = vi.fn();
+const mockRecordNearMiss = vi.fn();
+const mockCoolingDown = vi.fn();
+vi.mock('../../automations/runRecorder.js', () => ({
+  recordRun: (...args: unknown[]) => mockRecordRun(...args),
+  appendRunSteps: (...args: unknown[]) => mockAppendRunSteps(...args),
+  markRunFailed: (...args: unknown[]) => mockMarkRunFailed(...args),
+  recordNearMiss: (...args: unknown[]) => mockRecordNearMiss(...args),
+  automationCoolingDown: (...args: unknown[]) => mockCoolingDown(...args),
+  subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
+    scope.kind === 'session' ? scope.sessionId : scope.serverUserId,
 }));
 const mockExecuteActions = vi.fn();
 vi.mock('../executors/index.js', () => ({
@@ -215,8 +225,11 @@ function createPausedProcessedSession(overrides: Record<string, unknown> = {}): 
 }
 
 /** Stamps the triggers the boot migration would synthesize, so fixtures route like stored rules. */
-function migrated(base: Omit<RuleV2, 'triggers'>, overrides: Partial<RuleV2> = {}): RuleV2 {
-  const merged = { ...base, ...overrides };
+function migrated(
+  base: Omit<RuleV2, 'triggers' | 'kind' | 'cooldownMinutes'>,
+  overrides: Partial<RuleV2> = {}
+): RuleV2 {
+  const merged = { kind: 'policy' as const, cooldownMinutes: null, ...base, ...overrides };
   return {
     ...merged,
     triggers:
@@ -526,9 +539,13 @@ const pauseViolation = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockEvaluateRulesAsync.mockResolvedValue([]);
-  mockRecordViolation.mockResolvedValue(transcodeViolation);
+  mockRecordRun.mockResolvedValue(transcodeViolation);
   mockExecuteActions.mockResolvedValue([]);
   mockStoreActionResults.mockResolvedValue(undefined);
+  mockAppendRunSteps.mockResolvedValue(undefined);
+  mockMarkRunFailed.mockResolvedValue(undefined);
+  mockRecordNearMiss.mockResolvedValue(undefined);
+  mockCoolingDown.mockResolvedValue(false);
 });
 
 describe('session.transcode_changed pipeline', () => {
@@ -584,7 +601,7 @@ describe('session.transcode_changed pipeline', () => {
         violation: transcodeViolation,
         rule: { id: 'rule-transcode-1', name: 'Block 4K Transcoding', type: null },
       });
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
     });
 
     it('includes transcodeReEval marker in violation data', async () => {
@@ -601,7 +618,7 @@ describe('session.transcode_changed pipeline', () => {
       const input = createTranscodeInput();
       await runTranscode(input);
 
-      expect(mockRecordViolation).toHaveBeenCalledWith(
+      expect(mockRecordRun).toHaveBeenCalledWith(
         expect.objectContaining({
           marker: { transcodeReEval: true },
           serverUserId: 'user-1',
@@ -624,8 +641,8 @@ describe('session.transcode_changed pipeline', () => {
         },
       ]);
 
-      // Simulate existing violation found (writer's dedup gate returns null)
-      mockRecordViolation.mockResolvedValue(null);
+      // Simulate an existing run found (the recorder's gate returns null)
+      mockRecordRun.mockResolvedValue(null);
 
       const { violations } = await runTranscode(createTranscodeInput());
 
@@ -644,7 +661,7 @@ describe('session.transcode_changed pipeline', () => {
       ]);
 
       // Simulate existing violation — kill_stream must NOT re-fire
-      mockRecordViolation.mockResolvedValue(null);
+      mockRecordRun.mockResolvedValue(null);
 
       const { violations } = await runTranscode(createTranscodeInput());
 
@@ -669,8 +686,8 @@ describe('session.transcode_changed pipeline', () => {
       await runTranscode(createTranscodeInput());
 
       // The guarded (non-fresh) session scope is what selects the lock + gate path;
-      // the lock/dedup ordering itself is pinned in violationWriter.test.ts.
-      const args = mockRecordViolation.mock.calls[0]?.[0] as { scope: unknown };
+      // the lock/dedup ordering itself is pinned in runRecorder.test.ts.
+      const args = mockRecordRun.mock.calls[0]?.[0] as { scope: unknown };
       expect(args.scope).toEqual({ kind: 'session', sessionId: 'session-1' });
     });
 
@@ -688,8 +705,8 @@ describe('session.transcode_changed pipeline', () => {
       await runTranscode(createTranscodeInput());
 
       // No caller transaction passed, so the writer opens its own around dedup + insert
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
-      const args = mockRecordViolation.mock.calls[0]?.[0] as { tx?: unknown };
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
+      const args = mockRecordRun.mock.calls[0]?.[0] as { tx?: unknown };
       expect(args.tx).toBeUndefined();
     });
   });
@@ -710,7 +727,7 @@ describe('session.transcode_changed pipeline', () => {
 
       // Recording the violation is the pipeline's only write; a rule with no
       // actions produces nothing else.
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
       expect(mockExecuteActions).not.toHaveBeenCalled();
       expect(mockStoreActionResults).not.toHaveBeenCalled();
     });
@@ -888,7 +905,7 @@ describe('session.transcode_changed pipeline', () => {
 
 describe('session.paused pipeline', () => {
   beforeEach(() => {
-    mockRecordViolation.mockResolvedValue(pauseViolation);
+    mockRecordRun.mockResolvedValue(pauseViolation);
   });
 
   describe('rule filtering', () => {
@@ -954,7 +971,7 @@ describe('session.paused pipeline', () => {
         violation: pauseViolation,
         rule: { id: 'rule-pause-1', name: 'Kill After 15min Pause', type: null },
       });
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
     });
 
     it('includes pauseReEval marker in violation data', async () => {
@@ -971,7 +988,7 @@ describe('session.paused pipeline', () => {
       const input = createPauseInput();
       await runPause(input);
 
-      expect(mockRecordViolation).toHaveBeenCalledWith(
+      expect(mockRecordRun).toHaveBeenCalledWith(
         expect.objectContaining({
           marker: { pauseReEval: true },
           serverUserId: 'user-1',
@@ -996,7 +1013,7 @@ describe('session.paused pipeline', () => {
       const rule = createPauseRule();
       await runPause(createPauseInput({ activeRulesV2: [rule, createConcurrentStreamsRule()] }));
 
-      expect(mockRecordViolation.mock.calls[0]?.[0]?.rule).toBe(rule);
+      expect(mockRecordRun.mock.calls[0]?.[0]?.automation).toBe(rule);
     });
   });
 
@@ -1012,8 +1029,8 @@ describe('session.paused pipeline', () => {
         },
       ]);
 
-      // Simulate existing violation found (writer's dedup gate returns null)
-      mockRecordViolation.mockResolvedValue(null);
+      // Simulate an existing run found (the recorder's gate returns null)
+      mockRecordRun.mockResolvedValue(null);
 
       const { violations } = await runPause(createPauseInput());
 
@@ -1034,7 +1051,7 @@ describe('session.paused pipeline', () => {
       ]);
 
       // Simulate existing violation — this is the critical dedup scenario.
-      mockRecordViolation.mockResolvedValue(null);
+      mockRecordRun.mockResolvedValue(null);
 
       await runPause(createPauseInput());
 
@@ -1059,7 +1076,7 @@ describe('session.paused pipeline', () => {
       await runPause(createPauseInput());
 
       // The guarded (non-fresh) session scope selects the lock + gate path in the writer.
-      const args = mockRecordViolation.mock.calls[0]?.[0] as { scope: unknown };
+      const args = mockRecordRun.mock.calls[0]?.[0] as { scope: unknown };
       expect(args.scope).toEqual({ kind: 'session', sessionId: 'session-1' });
     });
 
@@ -1076,8 +1093,8 @@ describe('session.paused pipeline', () => {
 
       await runPause(createPauseInput());
 
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
-      const args = mockRecordViolation.mock.calls[0]?.[0] as { tx?: unknown };
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
+      const args = mockRecordRun.mock.calls[0]?.[0] as { tx?: unknown };
       expect(args.tx).toBeUndefined();
     });
   });
@@ -1097,7 +1114,7 @@ describe('session.paused pipeline', () => {
       await runPause(createPauseInput());
 
       // Trust score is handled elsewhere; recording the violation is the only write
-      expect(mockRecordViolation).toHaveBeenCalledTimes(1);
+      expect(mockRecordRun).toHaveBeenCalledTimes(1);
       expect(mockExecuteActions).not.toHaveBeenCalled();
       expect(mockStoreActionResults).not.toHaveBeenCalled();
     });
@@ -1259,7 +1276,7 @@ describe('runRulePipeline', () => {
         actions: [{ type: 'log_only' }],
       },
     ]);
-    mockRecordViolation.mockResolvedValue({ id: 'v1' });
+    mockRecordRun.mockResolvedValue({ id: 'v1' });
     mockExecuteActions.mockResolvedValue([{ action: { type: 'log_only' }, success: true }]);
 
     const input = createTranscodeInput({
@@ -1272,7 +1289,7 @@ describe('runRulePipeline', () => {
       { kind: 'session', sessionId: 'session-1', fresh: true }
     );
 
-    expect(mockRecordViolation).toHaveBeenCalledTimes(1);
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
     expect(mockExecuteActions).not.toHaveBeenCalled();
     if (!res.deferredActions) throw new Error('expected deferredActions');
     const results = await res.deferredActions();
@@ -1298,7 +1315,7 @@ describe('runRulePipeline', () => {
         actions: [{ type: 'kill_stream' }],
       },
     ]);
-    mockRecordViolation.mockResolvedValueOnce({ id: 'v1' }).mockResolvedValueOnce({ id: 'v2' });
+    mockRecordRun.mockResolvedValueOnce({ id: 'v1' }).mockResolvedValueOnce({ id: 'v2' });
 
     const input = createTranscodeInput({
       activeRulesV2: [
@@ -1308,17 +1325,135 @@ describe('runRulePipeline', () => {
     });
     await runTranscode(input);
 
-    expect(mockRecordViolation).toHaveBeenCalledTimes(2);
+    expect(mockRecordRun).toHaveBeenCalledTimes(2);
     expect(mockExecuteActions).toHaveBeenCalledTimes(2);
 
-    const [recordFirst, recordSecond] = mockRecordViolation.mock.invocationCallOrder as [
-      number,
-      number,
-    ];
+    const [recordFirst, recordSecond] = mockRecordRun.mock.invocationCallOrder as [number, number];
     const [actFirst, actSecond] = mockExecuteActions.mock.invocationCallOrder as [number, number];
     expect(recordFirst).toBeLessThan(actFirst);
     expect(actFirst).toBeLessThan(recordSecond);
     expect(recordSecond).toBeLessThan(actSecond);
+  });
+
+  it('records the run of a rule whose conditions stopped it and runs no actions', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: false,
+        matchedGroups: [],
+        actions: [],
+        stoppedBy: { groupIndex: 0, matched: false, conditions: [] },
+      },
+    ]);
+
+    const { violations } = await runTranscode(createTranscodeInput());
+
+    expect(mockRecordRun).toHaveBeenCalledTimes(1);
+    expect(mockEvaluateRulesAsync).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      includeUnmatched: true,
+    });
+    expect(violations).toEqual([]);
+    expect(mockExecuteActions).not.toHaveBeenCalled();
+  });
+
+  it('a cooling-down automation is a near miss, not an evaluation', async () => {
+    mockCoolingDown.mockResolvedValue(true);
+
+    const { violations } = await runTranscode(createTranscodeInput());
+
+    expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
+    expect(mockRecordRun).not.toHaveBeenCalled();
+    expect(violations).toEqual([]);
+    expect(mockRecordNearMiss).toHaveBeenCalledWith('rule-transcode-1', {
+      reason: 'cooldown_active',
+      subjectKey: 'session-1',
+      trigger: 'session.transcode_changed',
+    });
+  });
+
+  it('a notification run acts but never becomes a violation', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'send', to: [] }],
+      },
+    ]);
+    mockRecordRun.mockResolvedValue({ id: 'run-1' });
+
+    const input = createTranscodeInput({
+      activeRulesV2: [createTranscodeRule({ kind: 'notification' })],
+    });
+    const { violations } = await runRulePipeline(
+      transcodeEvent(input),
+      inputsOf(input),
+      {},
+      {
+        kind: 'session',
+        sessionId: 'session-1',
+      }
+    );
+
+    expect(violations).toEqual([]);
+    expect(mockExecuteActions).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the matched trigger node and its edge key to the recorder', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-pause-1',
+        ruleName: 'Long Pause',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    const pausedAt = new Date('2026-08-20T10:00:00Z');
+    const input = createPauseInput({ pauseData: { lastPausedAt: pausedAt, pausedDurationMs: 0 } });
+
+    await runPause(input);
+
+    const args = mockRecordRun.mock.calls[0]?.[0] as {
+      trigger: { type: string; nodeId: string | null; edgeKey: string | null };
+    };
+    expect(args.trigger.type).toBe('session.paused');
+    expect(args.trigger.nodeId).toEqual(expect.any(String));
+    expect(args.trigger.edgeKey).toBe(pausedAt.toISOString());
+  });
+
+  it('appends action results to the run steps and marks a thrown action as an error', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+    ]);
+    mockRecordRun.mockResolvedValue({ id: 'run-1' });
+    mockExecuteActions.mockResolvedValue([
+      { action: { type: 'kill_stream' }, success: true, skipped: true, skipReason: 'queued' },
+    ]);
+
+    await runTranscode(createTranscodeInput());
+
+    expect(mockAppendRunSteps).toHaveBeenCalledWith('run-1', [
+      { action: 'kill_stream', success: true, skipped: true, skipReason: 'queued' },
+    ]);
+
+    mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
+
+    await expect(runTranscode(createTranscodeInput())).rejects.toThrow('results table gone');
+    expect(mockMarkRunFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'results table gone',
+        automationName: 'Block 4K Transcoding',
+      })
+    );
   });
 });
 
@@ -1343,12 +1478,12 @@ describe('registerRuleSubscribers', () => {
 
     const result = await dispatch(startedEvent(input), inputsOf(input));
 
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'session', sessionId: 'session-1', fresh: true },
       })
     );
-    expect(mockRecordViolation.mock.calls[0]?.[0]?.marker).toBeUndefined();
+    expect(mockRecordRun.mock.calls[0]?.[0]?.marker).toBeUndefined();
     expect(result.violations).toEqual([
       {
         violation: transcodeViolation,
@@ -1362,7 +1497,7 @@ describe('registerRuleSubscribers', () => {
 
     const result = await dispatch(transcodeEvent(input), inputsOf(input));
 
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'session', sessionId: 'session-1' },
         marker: { transcodeReEval: true },
@@ -1382,12 +1517,12 @@ describe('registerRuleSubscribers', () => {
         actions: [],
       },
     ]);
-    mockRecordViolation.mockResolvedValue(pauseViolation);
+    mockRecordRun.mockResolvedValue(pauseViolation);
     const input = createPauseInput();
 
     const result = await dispatch(pauseEvent(input), inputsOf(input));
 
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'session', sessionId: 'session-1' },
         marker: { pauseReEval: true },
@@ -1418,14 +1553,14 @@ describe('registerRuleSubscribers', () => {
     // Only the inactivity rule is in scope for this trigger
     const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
     expect(rules.map((r) => r.id)).toEqual(['rule-inactive-1']);
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'account', serverUserId: 'user-1' },
         serverUserId: 'user-1',
         session: null,
       })
     );
-    expect(mockRecordViolation.mock.calls[0]?.[0]?.marker).toBeUndefined();
+    expect(mockRecordRun.mock.calls[0]?.[0]?.marker).toBeUndefined();
     expect(result.violations).toHaveLength(1);
   });
 
@@ -1439,12 +1574,12 @@ describe('registerRuleSubscribers', () => {
         actions: [],
       },
     ]);
-    mockRecordViolation.mockResolvedValue(pauseViolation);
+    mockRecordRun.mockResolvedValue(pauseViolation);
     const input = createPauseInput();
 
     const result = await dispatch(heldForEvent(input), inputsOf(input));
 
-    expect(mockRecordViolation).toHaveBeenCalledWith(
+    expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({
         scope: { kind: 'session', sessionId: 'session-1' },
         marker: { heldFor: true },
