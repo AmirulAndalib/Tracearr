@@ -1,22 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { initI18n } from '@tracearr/translations';
 import { RuleBuilderDialog } from '../RuleBuilderDialog';
+
+// The real bundle, so the copy asserted here is the copy pages.json ships.
+beforeAll(async () => {
+  await initI18n({ lng: 'en' });
+});
 
 vi.mock('../RuleBuilder', () => ({
   RuleBuilder: () => <div />,
 }));
-
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => TITLES[key] ?? key }),
-}));
-
-/** The dialog's own copy, as `pages.json` has it after the automations rename. */
-const TITLES: Record<string, string> = {
-  'rules.createRule': 'Create Automation',
-  'rules.editRule': 'Edit Automation',
-  'rules.createDescription': 'Set up a new automation for your media servers.',
-  'rules.updateDescription': 'Update this automation below.',
-};
 
 const props = { open: true, onOpenChange: vi.fn(), onSave: vi.fn() };
 
@@ -25,7 +19,7 @@ describe('RuleBuilderDialog', () => {
     render(<RuleBuilderDialog {...props} />);
 
     expect(screen.getByRole('heading', { name: 'Create Automation' })).toBeInTheDocument();
-    expect(screen.getByText(/new automation/i)).toBeInTheDocument();
+    expect(screen.getByText('Set up a new automation for your media servers.')).toBeInTheDocument();
   });
 
   it('titles an edit dialog as an automation too', () => {
@@ -34,5 +28,6 @@ describe('RuleBuilderDialog', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Edit Automation' })).toBeInTheDocument();
+    expect(screen.getByText('Update this automation below.')).toBeInTheDocument();
   });
 });

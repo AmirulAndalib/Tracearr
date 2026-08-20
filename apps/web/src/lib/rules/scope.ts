@@ -15,12 +15,15 @@ export type RuleScope =
   | { mode: 'account'; serverId: string; serverUserId: string }
   | { mode: 'person'; userId: string };
 
-export const RULE_SCOPE_MODES: readonly RuleScopeMode[] = [
-  'global',
-  'server',
-  'account',
-  'person',
-] as const;
+const RULE_SCOPE_MODES: readonly RuleScopeMode[] = ['global', 'server', 'account', 'person'];
+
+const SINGLE_SERVER_SCOPE_MODES: readonly RuleScopeMode[] = ['global', 'account'];
+
+// On one server, `server` is a second spelling of global and an identity cannot
+// span more accounts than the one, so only two of the four modes mean anything.
+export function offeredScopeModes(serverCount: number): readonly RuleScopeMode[] {
+  return serverCount >= 2 ? RULE_SCOPE_MODES : SINGLE_SERVER_SCOPE_MODES;
+}
 
 export interface RuleScopePayload {
   serverId: string | null;
@@ -85,8 +88,9 @@ export function isScopeComplete(scope: RuleScope): boolean {
       return true;
     case 'server':
       return scope.serverId !== '';
+    // The server behind an account is only there to list the roster; the payload never carries it.
     case 'account':
-      return scope.serverId !== '' && scope.serverUserId !== '';
+      return scope.serverUserId !== '';
     case 'person':
       return scope.userId !== '';
   }

@@ -539,6 +539,13 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       const result = nearMissEntrySchema.safeParse(parsed);
       return result.success ? [result.data] : [];
     });
+
+    if (data.length < entries.length) {
+      request.log.debug(
+        { automationId: automation.id, dropped: entries.length - data.length },
+        'Dropped near-miss ring entries the current shape no longer reads'
+      );
+    }
     return { data } satisfies { data: NearMissEntry[] };
   });
 };

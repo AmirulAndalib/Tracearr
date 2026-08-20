@@ -253,7 +253,7 @@ export function DataTableEmpty<TData extends object>({
   return (
     <tbody data-slot="table-body">
       <tr>
-        {/* Bare td: TableCell's p-2 would stack on the py-12 EmptyState already carries. */}
+        {/* Bare td: TableCell's p-2 would stack on the padding EmptyState already carries. */}
         <td colSpan={table.getVisibleLeafColumns().length}>
           <EmptyState icon={icon} title={title} description={description}>
             {action}

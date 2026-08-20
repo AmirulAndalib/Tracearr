@@ -1,9 +1,4 @@
-/**
- * Action type definitions for the Rules Builder V2.
- *
- * This is the single source of truth for action metadata in the UI.
- * All action-related components reference this registry.
- */
+/** The builder's action metadata registry: labels, config fields and per-type defaults. */
 
 import type {
   ActionType,
@@ -294,15 +289,6 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
   },
 };
 
-// Helper functions
-
-/**
- * Get action definition by type
- */
-export function getActionDefinition(type: ActionType): ActionDefinition {
-  return ACTION_DEFINITIONS[type];
-}
-
 /** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */
 export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>> = {
   adjust: { amount: -10 },
@@ -318,14 +304,15 @@ export function visibleConfigFields(action: Action): ConfigField[] {
   return configFields.filter((field) => field.name === 'mode' || params.includes(field.name));
 }
 
-/** Switching trust mode swaps the parameter set wholesale, keeping only the cooldown. */
+/** Switching trust mode swaps the parameter set wholesale; the node fields and cooldown survive. */
 export function applyActionFieldChange(action: Action, name: string, value: unknown): Action {
   if (action.type === 'trust' && name === 'mode') {
     const mode = value as TrustAction['mode'];
+    const { id, enabled, cooldown_minutes } = action;
     const next: TrustAction = { type: 'trust', mode, ...TRUST_MODE_PARAMS[mode] };
-    if (action.cooldown_minutes !== undefined) {
-      next.cooldown_minutes = action.cooldown_minutes;
-    }
+    if (id !== undefined) next.id = id;
+    if (enabled !== undefined) next.enabled = enabled;
+    if (cooldown_minutes !== undefined) next.cooldown_minutes = cooldown_minutes;
     return next;
   }
   return { ...action, [name]: value };
@@ -340,28 +327,17 @@ const OFFERED_ACTION_TYPES = [
   'message_client',
 ] as const satisfies readonly ActionType[];
 
-/** The action type a freshly added row starts on. */
-export function defaultActionTypeForKind(kind: AutomationKind): ActionType {
-  return kind === 'notification' ? 'send' : OFFERED_ACTION_TYPES[0];
-}
-
-/**
- * Get all action types
- */
-export function getAllActionTypes(): ActionType[] {
-  return [...OFFERED_ACTION_TYPES];
-}
+/** The action type a freshly added row starts on, for either kind. */
+export const DEFAULT_ACTION_TYPE: ActionType = 'send';
 
 /** Both kinds may use every action; a notification automation just leads with `send`. */
 export function actionTypesForKind(kind: AutomationKind): ActionType[] {
-  const types = getAllActionTypes();
+  const types: ActionType[] = [...OFFERED_ACTION_TYPES];
   if (kind !== 'notification') return types;
   return ['send', ...types.filter((type) => type !== 'send')];
 }
 
-/**
- * Create a default action of a given type
- */
+/** Create a default action of a given type. */
 export function createDefaultAction(type: ActionType): Action {
   switch (type) {
     case 'log_only':

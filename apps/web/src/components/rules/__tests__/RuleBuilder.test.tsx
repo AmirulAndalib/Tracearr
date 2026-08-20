@@ -10,7 +10,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 vi.mock('@/hooks/useServer', () => ({
-  useServer: () => ({ servers: [] }),
+  useServer: vi.fn(),
 }));
 
 vi.mock('@/hooks/queries/useUsers', () => ({
@@ -30,6 +30,16 @@ vi.mock('@/hooks/queries/useDestinations', () => ({
 }));
 
 import { useDestinations } from '@/hooks/queries/useDestinations';
+import { useServer } from '@/hooks/useServer';
+
+const mockServers = (count: number) => {
+  const servers = Array.from({ length: count }, (_, index) => ({
+    id: `srv-${index + 1}`,
+    name: `Server ${index + 1}`,
+    type: 'plex',
+  }));
+  vi.mocked(useServer).mockReturnValue({ servers } as unknown as ReturnType<typeof useServer>);
+};
 
 const discord: Destination = {
   id: 'dest-discord',
@@ -75,9 +85,13 @@ const save = (user: ReturnType<typeof userEvent.setup>) =>
 
 const severityLabel = () => screen.queryByText('pages:rules.builder.severityLabel');
 
+const kindOption = (kind: string) =>
+  screen.getByRole('radio', { name: new RegExp(`automations.kind.${kind}Description`) });
+
 beforeEach(() => {
   onSave.mockReset();
   onCancel.mockReset();
+  mockServers(2);
   vi.mocked(useDestinations).mockReturnValue({
     data: [discord],
     isLoading: false,
@@ -152,6 +166,25 @@ describe('RuleBuilder kind', () => {
 });
 
 describe('RuleBuilder kind steering', () => {
+  it('describes both kinds and moves the selection to the one picked', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    expect(screen.getByText('pages:automations.kind.policyDescription')).toBeInTheDocument();
+    expect(screen.getByText('pages:automations.kind.notificationDescription')).toBeInTheDocument();
+    expect(kindOption('policy')).toHaveAttribute('data-state', 'on');
+    expect(kindOption('notification')).toHaveAttribute('data-state', 'off');
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+
+    expect(kindOption('policy')).toHaveAttribute('data-state', 'off');
+    expect(kindOption('notification')).toHaveAttribute('data-state', 'on');
+  });
+
   it('pre-adds a send action when a new automation turns into a notification', async () => {
     const user = userEvent.setup();
     render(
@@ -176,6 +209,37 @@ describe('RuleBuilder kind steering', () => {
     );
 
     expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+  });
+
+  it('takes the pre-added send row back when the kind returns to policy', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
+
+    await user.click(screen.getByText('pages:automations.kind.policy'));
+
+    expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
+  });
+
+  it('keeps a pre-added send row the user has already edited', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    await user.click(screen.getByText('pages:automations.kind.notification'));
+    await user.type(screen.getByLabelText('Cooldown'), '15');
+    await user.click(screen.getByText('pages:automations.kind.policy'));
+
+    expect(screen.getByText('rules.builder.actions.typeLabel')).toBeInTheDocument();
   });
 
   it('keeps configured actions across a kind switch', async () => {
@@ -214,6 +278,19 @@ describe('RuleBuilder actions', () => {
 
     expect(screen.queryByText('rules.builder.actions.typeLabel')).not.toBeInTheDocument();
   });
+
+  it('adds a send row on a policy automation, whatever the catalog order is', async () => {
+    const user = userEvent.setup();
+    render(
+      <TooltipProvider>
+        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+      </TooltipProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: /rules.builder.actions.add/ }));
+
+    expect(screen.getByText('Send Notification')).toBeInTheDocument();
+  });
 });
 
 describe('RuleBuilder scope', () => {
@@ -238,5 +315,44 @@ describe('RuleBuilder scope', () => {
 
     expect(screen.getByText('pages:rules.builder.errors.scopeIncomplete')).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it('offers only the two modes a single server can tell apart', () => {
+    mockServers(1);
+    renderBuilder(['dest-discord']);
+
+    expect(screen.getByText('rules.builder.scope.global')).toBeInTheDocument();
+    expect(screen.getByText('rules.builder.scope.account')).toBeInTheDocument();
+    expect(screen.queryByText('rules.builder.scope.server')).not.toBeInTheDocument();
+    expect(screen.queryByText('rules.builder.scope.person')).not.toBeInTheDocument();
+  });
+
+  it('offers all four modes once a second server exists', () => {
+    renderBuilder(['dest-discord']);
+
+    for (const mode of ['global', 'server', 'account', 'person']) {
+      expect(screen.getByText(`rules.builder.scope.${mode}`)).toBeInTheDocument();
+    }
+  });
+
+  it('still shows a stored server scope on a single-server install', () => {
+    mockServers(1);
+    renderBuilder(['dest-discord'], { serverId: 'srv-1' });
+
+    expect(screen.getByRole('radio', { name: 'rules.builder.scope.server' })).toHaveAttribute(
+      'data-state',
+      'on'
+    );
+  });
+
+  it('skips the one-option server picker in account scope', async () => {
+    const user = userEvent.setup();
+    mockServers(1);
+    renderBuilder(['dest-discord']);
+
+    await user.click(screen.getByText('rules.builder.scope.account'));
+
+    expect(screen.queryByText('rules.builder.scope.serverLabel')).not.toBeInTheDocument();
+    expect(screen.getByText('rules.builder.scope.accountLabel')).toBeInTheDocument();
   });
 });

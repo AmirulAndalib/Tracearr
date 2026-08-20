@@ -26,8 +26,8 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    // md:p-6 caps the primitive's md:p-12 so a consumer's own py-* holds at every width.
-    <Empty className={cn('p-6 py-12 md:p-6', className)}>
+    // Split at md: a bare md:p-* lands after py-12 in the sheet and flattens the block padding.
+    <Empty className={cn('p-6 py-12 md:px-6 md:py-12', className)}>
       <EmptyHeader>
         {Icon && (
           <EmptyMedia variant="icon" className="text-muted-foreground size-16 rounded-full">

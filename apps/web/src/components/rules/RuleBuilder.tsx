@@ -15,14 +15,7 @@ import { AUTOMATION_KINDS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field';
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -35,7 +28,7 @@ import { ConditionGroup } from './ConditionGroup';
 import { ActionRow } from './ActionRow';
 import { RuleScopeField } from './RuleScopeField';
 import {
-  defaultActionTypeForKind,
+  DEFAULT_ACTION_TYPE,
   FIELD_DEFINITIONS,
   getDefaultOperatorForField,
   getDefaultValueForField,
@@ -121,6 +114,8 @@ export function RuleBuilder({
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  // The row the notification kind pre-adds, by identity: any edit replaces the object.
+  const [preAddedAction, setPreAddedAction] = useState<Action | null>(null);
 
   // The backend rejects mixing inactive_days with session fields, so the field
   // picker offers only the still-valid choices for the rule as built.
@@ -137,12 +132,19 @@ export function RuleBuilder({
   const canEnforce = useMemo(() => scopeAllowsCrossServer(scope, conditions), [scope, conditions]);
 
   // A notification automation exists to send something, so an empty list starts with `send`.
-  // A list the user has already built is never rewritten by a kind switch.
+  // Leaving the kind takes that suggestion back; anything the user built or edited stays.
   const handleKindChange = (next: AutomationKind) => {
     setKind(next);
-    if (next === 'notification' && actions.actions.length === 0) {
-      setActions({ actions: [createDefaultAction('send')] });
+    if (next === 'notification') {
+      if (actions.actions.length > 0) return;
+      const suggested = createDefaultAction('send');
+      setPreAddedAction(suggested);
+      setActions({ actions: [suggested] });
+      return;
     }
+    if (!preAddedAction) return;
+    setActions({ actions: actions.actions.filter((action) => action !== preAddedAction) });
+    setPreAddedAction(null);
   };
 
   const validate = (): boolean => {
@@ -215,27 +217,32 @@ export function RuleBuilder({
       <FieldGroup className="gap-4">
         <FieldSet>
           <FieldLegend variant="label">{t('pages:automations.kindColumn')}</FieldLegend>
+          {/* Equal cards, one per kind: the grid stretches them so a longer description
+              cannot resize its option. Each kind states what it does before it is picked. */}
           <ToggleGroup
             type="single"
             variant="outline"
             size="sm"
+            spacing={2}
             value={kind}
             onValueChange={(next) => {
               if (next) handleKindChange(next as AutomationKind);
             }}
-            className="flex-wrap"
+            className="grid w-full grid-cols-1 items-stretch @md:grid-cols-2"
           >
             {AUTOMATION_KINDS.map((option) => (
               <ToggleGroupItem
                 key={option}
                 value={option}
-                className="data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
+                className="data-[state=on]:border-primary data-[state=on]:bg-primary/15 data-[state=on]:text-primary h-full flex-col items-start justify-start gap-1 rounded-lg p-3 text-left whitespace-normal"
               >
-                {t(`pages:automations.kind.${option}`)}
+                <span className="font-medium">{t(`pages:automations.kind.${option}`)}</span>
+                <span className="text-muted-foreground text-xs font-normal">
+                  {t(`pages:automations.kind.${option}Description`)}
+                </span>
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <FieldDescription>{t(`pages:automations.kind.${kind}Description`)}</FieldDescription>
         </FieldSet>
 
         <div
@@ -382,7 +389,7 @@ export function RuleBuilder({
           variant="outline"
           onClick={() =>
             setActions({
-              actions: [...actions.actions, createDefaultAction(defaultActionTypeForKind(kind))],
+              actions: [...actions.actions, createDefaultAction(DEFAULT_ACTION_TYPE)],
             })
           }
         >

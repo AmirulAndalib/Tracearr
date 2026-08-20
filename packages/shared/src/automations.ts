@@ -41,6 +41,12 @@ export type RunStatus = (typeof RUN_STATUSES)[number];
 export const RUN_OUTCOMES = ['completed', 'stopped_by_condition', 'error'] as const;
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];
 
+/** Days a completed run survives when its automation names no retention of its own. */
+export const RETENTION_DEFAULTS = {
+  policy: 365,
+  notification: 30,
+} as const satisfies Record<AutomationKind, number>;
+
 const automationFieldsSchema = z.strictObject({
   name: z.string().trim().min(1).max(100),
   description: z.string().max(500).nullable().optional(),

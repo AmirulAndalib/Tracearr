@@ -888,8 +888,6 @@ class ApiClient {
 
   // Automation runs
   runs = {
-    list: (params: RunListParams = {}) =>
-      this.request<ListResponse<AutomationRunSummary>>(`/runs?${listSearchParams(params)}`),
     get: (id: string) => this.request<AutomationRun>(`/runs/${id}`),
     listForAutomation: (automationId: string, params: RunListParams = {}) =>
       this.request<ListResponse<AutomationRunSummary>>(

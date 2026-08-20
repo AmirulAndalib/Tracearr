@@ -14,30 +14,40 @@ import { useRun } from '@/hooks/queries/useRuns';
 
 /** Step zero, as the recorder writes it. */
 interface TriggerStep {
-  trigger: { type: string; edgeKey?: string | null };
+  trigger: { type: string; edgeKey: string | null };
 }
 
 /** Every later step is one action result. */
 interface ActionStep {
   action: string;
   success: boolean;
-  skipped?: boolean;
-  skipReason?: string | null;
-  message?: string | null;
+  skipped: boolean;
+  skipReason: string | null;
+  message: string | null;
 }
 
 const isRecord = (step: unknown): step is Record<string, unknown> =>
   typeof step === 'object' && step !== null;
 
-const asTriggerStep = (step: unknown): TriggerStep | null =>
-  isRecord(step) && isRecord(step.trigger) && typeof step.trigger.type === 'string'
-    ? { trigger: step.trigger as TriggerStep['trigger'] }
-    : null;
+const asTriggerStep = (step: unknown): TriggerStep | null => {
+  if (!isRecord(step) || !isRecord(step.trigger)) return null;
+  const { type, edgeKey } = step.trigger;
+  if (typeof type !== 'string') return null;
+  return { trigger: { type, edgeKey: typeof edgeKey === 'string' ? edgeKey : null } };
+};
 
-const asActionStep = (step: unknown): ActionStep | null =>
-  isRecord(step) && typeof step.action === 'string' && typeof step.success === 'boolean'
-    ? (step as unknown as ActionStep)
-    : null;
+const asActionStep = (step: unknown): ActionStep | null => {
+  if (!isRecord(step)) return null;
+  const { action, success, skipped, skipReason, message } = step;
+  if (typeof action !== 'string' || typeof success !== 'boolean') return null;
+  return {
+    action,
+    success,
+    skipped: skipped === true,
+    skipReason: typeof skipReason === 'string' ? skipReason : null,
+    message: typeof message === 'string' ? message : null,
+  };
+};
 
 interface RunDetailProps {
   runId: string | null;

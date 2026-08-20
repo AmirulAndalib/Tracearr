@@ -23,8 +23,8 @@ import { ServerSelect } from '@/components/server';
 import { useServer } from '@/hooks/useServer';
 import { useUsers } from '@/hooks/queries/useUsers';
 import {
-  RULE_SCOPE_MODES,
   isScopeComplete,
+  offeredScopeModes,
   withScopeMode,
   type RuleScope,
   type RuleScopeMode,
@@ -51,7 +51,14 @@ export function RuleScopeField({
   const { servers } = useServer();
   const fieldId = useId();
 
-  const scopeServerId = 'serverId' in scope ? scope.serverId : '';
+  // One server needs no picking: the account roster can only come from it.
+  const soleServerId = servers.length === 1 ? (servers[0]?.id ?? '') : '';
+  const scopeServerId = ('serverId' in scope ? scope.serverId : '') || soleServerId;
+  const asksForServer = scope.mode === 'server' || (scope.mode === 'account' && !soleServerId);
+
+  // A stored scope can name a mode this install no longer offers; keep it as the current value.
+  const offered = offeredScopeModes(servers.length);
+  const modes = offered.includes(scope.mode) ? offered : [scope.mode, ...offered];
 
   const { data: accountsPage } = useUsers(
     scope.mode === 'account' && scopeServerId ? { serverId: scopeServerId, pageSize: 100 } : {}
@@ -80,7 +87,7 @@ export function RuleScopeField({
         onValueChange={handleModeChange}
         className="flex-wrap"
       >
-        {RULE_SCOPE_MODES.map((mode) => (
+        {modes.map((mode) => (
           <ToggleGroupItem
             key={mode}
             value={mode}
@@ -97,7 +104,7 @@ export function RuleScopeField({
             <FieldDescription>{t('rules.builder.scope.noServers')}</FieldDescription>
           ) : (
             <div className="grid gap-4 @md:grid-cols-2">
-              {(scope.mode === 'server' || scope.mode === 'account') && (
+              {asksForServer && 'serverId' in scope && (
                 <Field>
                   <FieldLabel htmlFor={`${fieldId}-server`}>
                     {t('rules.builder.scope.serverLabel')}
@@ -118,7 +125,7 @@ export function RuleScopeField({
                 </Field>
               )}
 
-              {scope.mode === 'account' && scope.serverId && (
+              {scope.mode === 'account' && scopeServerId && (
                 <Field>
                   <FieldLabel htmlFor={`${fieldId}-account`}>
                     {t('rules.builder.scope.accountLabel')}
@@ -126,7 +133,7 @@ export function RuleScopeField({
                   <Select
                     value={scope.serverUserId}
                     onValueChange={(serverUserId) =>
-                      onChange({ mode: 'account', serverId: scope.serverId, serverUserId })
+                      onChange({ mode: 'account', serverId: scopeServerId, serverUserId })
                     }
                   >
                     <SelectTrigger id={`${fieldId}-account`}>

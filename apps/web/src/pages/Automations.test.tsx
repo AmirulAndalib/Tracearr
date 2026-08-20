@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Automation } from '@tracearr/shared';
 import { Automations } from './Automations';
 
@@ -83,12 +85,24 @@ function bodyRows() {
 }
 
 function renderAutomations(path = '/automations') {
+  // The builder dialog reaches for destinations the moment it opens.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Automations />
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      {/* Layout's SidebarProvider carries this in the app. */}
+      <TooltipProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/automations" element={<Automations />} />
+            <Route path="/automations/:id" element={<p>the automation detail</p>} />
+          </Routes>
+        </MemoryRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
+
+const openedDetail = () => screen.queryByText('the automation detail');
 
 describe('Automations', () => {
   beforeEach(() => {
@@ -146,6 +160,15 @@ describe('Automations', () => {
     expect(screen.getByText('pages:automations.tryAdjustingFilters')).toBeInTheDocument();
   });
 
+  it('opens the automation when its row is clicked', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    await user.click(screen.getByText('Concurrent cap'));
+
+    expect(openedDetail()).toBeInTheDocument();
+  });
+
   it('toggles a row without navigating away from the list', async () => {
     const user = userEvent.setup();
     renderAutomations();
@@ -153,6 +176,17 @@ describe('Automations', () => {
     await user.click(screen.getByRole('switch'));
 
     expect(toggleMutate).toHaveBeenCalledWith({ id: 'a-1', isActive: false });
+    expect(openedDetail()).not.toBeInTheDocument();
+  });
+
+  it('keeps the row actions from opening the automation', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    await user.click(screen.getByRole('button', { name: 'common:actions.edit' }));
+
+    expect(openedDetail()).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('asks for confirmation before deleting a single automation', async () => {
@@ -163,5 +197,6 @@ describe('Automations', () => {
 
     expect(screen.getByText('pages:automations.deleteAutomationConfirm')).toBeInTheDocument();
     expect(deleteMutate).not.toHaveBeenCalled();
+    expect(openedDetail()).not.toBeInTheDocument();
   });
 });

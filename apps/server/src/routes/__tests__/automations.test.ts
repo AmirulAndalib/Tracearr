@@ -833,6 +833,19 @@ describe('Automation routes', () => {
       expect(response.json().data).toEqual([]);
     });
 
+    it('logs how many ring entries it dropped', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+      const debug = vi.spyOn(app.log, 'debug');
+
+      await app.inject({ method: 'GET', url: `/automations/${AUTOMATION_ID}/evaluations` });
+
+      expect(debug).toHaveBeenCalledWith(
+        expect.objectContaining({ automationId: AUTOMATION_ID, dropped: 1 }),
+        expect.any(String)
+      );
+    });
+
     it('404s when the automation is gone', async () => {
       app = await buildTestApp(ownerUser);
       setupSelect([]);

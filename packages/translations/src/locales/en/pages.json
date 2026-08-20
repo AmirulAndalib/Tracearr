@@ -490,8 +490,10 @@
       "description": "How long this automation keeps its runs, and how often it may fire.",
       "retentionLabel": "Retention (days)",
       "retentionHint": "Leave empty to keep runs for {{days}} days.",
+      "retentionInvalid": "Enter a whole number of days, at least 1, or leave it empty.",
       "cooldownLabel": "Cooldown (minutes)",
-      "cooldownHint": "Leave empty to fire on every match."
+      "cooldownHint": "Leave empty to fire on every match.",
+      "cooldownInvalid": "Enter a whole number of minutes, 0 or more, or leave it empty."
     }
   },
   "terminateStream": {

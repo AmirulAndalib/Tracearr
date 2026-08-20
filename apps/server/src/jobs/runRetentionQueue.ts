@@ -15,7 +15,12 @@
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
 import { sql, type SQL } from 'drizzle-orm';
-import { AUTOMATION_KINDS, TIME_MS, type AutomationKind } from '@tracearr/shared';
+import {
+  AUTOMATION_KINDS,
+  RETENTION_DEFAULTS,
+  TIME_MS,
+  type AutomationKind,
+} from '@tracearr/shared';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 import { isMaintenance } from '../serverState.js';
 import { db } from '../db/client.js';
@@ -25,8 +30,7 @@ const QUEUE_NAME = 'run-retention';
 const LEGACY_QUEUE_NAME = 'violation-retention';
 
 const PURGE_INTERVAL_MS = TIME_MS.DAY;
-const NOTIFICATION_RETENTION_DAYS = 30;
-const POLICY_RETENTION_DAYS = 365;
+// Server policy, not a user-facing default: non-completed runs age out on this window whatever the kind.
 const DIAGNOSTIC_RETENTION_DAYS = 30;
 // Delete in batches so the first run after upgrade cannot hold a long lock
 const DELETE_BATCH_SIZE = 5000;
@@ -208,9 +212,9 @@ function diagnosticsOfKind(kind: AutomationKind): SQL {
  */
 export async function processRunRetention(): Promise<RunRetentionResult> {
   const notificationPurged = await deleteBatched(
-    completedOfKind('notification', NOTIFICATION_RETENTION_DAYS)
+    completedOfKind('notification', RETENTION_DEFAULTS.notification)
   );
-  const policyPurged = await deleteBatched(completedOfKind('policy', POLICY_RETENTION_DAYS));
+  const policyPurged = await deleteBatched(completedOfKind('policy', RETENTION_DEFAULTS.policy));
 
   let diagnosticPurged = 0;
   for (const kind of AUTOMATION_KINDS) {

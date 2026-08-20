@@ -3,6 +3,7 @@ import type { RuleConditions } from '@tracearr/shared';
 import {
   canEnforceAcrossServers,
   isScopeComplete,
+  offeredScopeModes,
   scopeFromRule,
   scopeToPayload,
   withScopeMode,
@@ -86,6 +87,21 @@ describe('isScopeComplete', () => {
     expect(isScopeComplete({ mode: 'account', serverId: 'srv-1', serverUserId: 'su-9' })).toBe(
       true
     );
+  });
+
+  it('accepts a stored account whose server the picker never asked for', () => {
+    expect(isScopeComplete({ mode: 'account', serverId: '', serverUserId: 'su-9' })).toBe(true);
+  });
+});
+
+describe('offeredScopeModes', () => {
+  it('drops the two modes a lone server cannot distinguish', () => {
+    expect(offeredScopeModes(1)).toEqual(['global', 'account']);
+    expect(offeredScopeModes(0)).toEqual(['global', 'account']);
+  });
+
+  it('offers every mode once a second server exists', () => {
+    expect(offeredScopeModes(2)).toEqual(['global', 'server', 'account', 'person']);
   });
 });
 

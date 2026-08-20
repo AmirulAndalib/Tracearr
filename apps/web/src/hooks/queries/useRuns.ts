@@ -3,18 +3,7 @@ import { api, type RunListParams } from '@/lib/api';
 
 export const RUNS_KEY = ['runs'];
 
-export const automationRunsKey = (automationId: string) => [
-  ...RUNS_KEY,
-  'automation',
-  automationId,
-];
-
-export function useRuns(params: RunListParams = {}) {
-  return useQuery({
-    queryKey: [...RUNS_KEY, 'list', params],
-    queryFn: () => api.runs.list(params),
-  });
-}
+const automationRunsKey = (automationId: string) => [...RUNS_KEY, 'automation', automationId];
 
 export function useRun(id: string | undefined) {
   return useQuery({

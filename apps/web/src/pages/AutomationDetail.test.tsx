@@ -288,4 +288,38 @@ describe('AutomationDetail settings', () => {
       data: { retentionDays: 90, cooldownMinutes: null },
     });
   });
+
+  it('refuses a retention of zero instead of letting the API reject it', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.type(screen.getByLabelText('pages:automations.settings.retentionLabel'), '0');
+
+    expect(screen.getByText('pages:automations.settings.retentionInvalid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
+    expect(updateMutate).not.toHaveBeenCalled();
+  });
+
+  it('refuses input that is not a whole number rather than clearing the override', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.type(screen.getByLabelText('pages:automations.settings.cooldownLabel'), '10m');
+
+    expect(screen.getByText('pages:automations.settings.cooldownInvalid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
+  });
+
+  it('takes a cooldown of zero, which its schema allows', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.type(screen.getByLabelText('pages:automations.settings.cooldownLabel'), '0');
+    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(updateMutate).toHaveBeenCalledWith({
+      id: 'a-1',
+      data: { retentionDays: null, cooldownMinutes: 0 },
+    });
+  });
 });

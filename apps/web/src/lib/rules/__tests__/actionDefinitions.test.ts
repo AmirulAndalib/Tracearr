@@ -23,6 +23,18 @@ describe('applyActionFieldChange', () => {
     expect(next).toEqual({ type: 'trust', mode: 'set', value: 50, cooldown_minutes: 15 });
   });
 
+  it('carries the node id and enabled flag through a mode change', () => {
+    const stored = { ...createDefaultAction('trust'), id: 'e8b7d0f4', enabled: false };
+
+    expect(applyActionFieldChange(stored, 'mode', 'set')).toEqual({
+      type: 'trust',
+      mode: 'set',
+      value: 50,
+      id: 'e8b7d0f4',
+      enabled: false,
+    });
+  });
+
   it('merges plainly for every other field', () => {
     const kill = createDefaultAction('kill_stream');
     expect(applyActionFieldChange(kill, 'cooldown_minutes', 30)).toEqual({

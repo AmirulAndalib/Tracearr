@@ -1,21 +1,24 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Save } from 'lucide-react';
-import type { Automation } from '@tracearr/shared';
+import { RETENTION_DEFAULTS, type Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { useUpdateAutomation } from '@/hooks/queries';
 
-/** What retention falls back to when the automation names no window of its own. */
-const KIND_RETENTION_DEFAULT = { policy: 365, notification: 30 } as const;
+interface Override {
+  value: number | null;
+  invalid: boolean;
+}
 
-/** An empty box means "no override"; anything else has to parse as a whole number. */
-const toNullableInt = (raw: string): number | null => {
+/** An empty box means "no override"; anything else has to be a whole number the API accepts. */
+const readOverride = (raw: string, min: number): Override => {
   const trimmed = raw.trim();
-  if (trimmed === '') return null;
+  if (trimmed === '') return { value: null, invalid: false };
+  if (!/^\d+$/.test(trimmed)) return { value: null, invalid: true };
   const parsed = Number.parseInt(trimmed, 10);
-  return Number.isNaN(parsed) ? null : parsed;
+  return parsed < min ? { value: null, invalid: true } : { value: parsed, invalid: false };
 };
 
 export function AutomationSettings({ automation }: { automation: Automation }) {
@@ -25,13 +28,14 @@ export function AutomationSettings({ automation }: { automation: Automation }) {
   const [retentionDays, setRetentionDays] = useState(String(automation.retentionDays ?? ''));
   const [cooldownMinutes, setCooldownMinutes] = useState(String(automation.cooldownMinutes ?? ''));
 
+  const retention = readOverride(retentionDays, 1);
+  const cooldown = readOverride(cooldownMinutes, 0);
+  const invalid = retention.invalid || cooldown.invalid;
+
   const handleSave = () => {
     updateAutomation.mutate({
       id: automation.id,
-      data: {
-        retentionDays: toNullableInt(retentionDays),
-        cooldownMinutes: toNullableInt(cooldownMinutes),
-      },
+      data: { retentionDays: retention.value, cooldownMinutes: cooldown.value },
     });
   };
 
@@ -45,15 +49,20 @@ export function AutomationSettings({ automation }: { automation: Automation }) {
           <Input
             id="automation-retention"
             inputMode="numeric"
-            placeholder={String(KIND_RETENTION_DEFAULT[automation.kind])}
+            placeholder={String(RETENTION_DEFAULTS[automation.kind])}
             value={retentionDays}
             onChange={(event) => setRetentionDays(event.target.value)}
+            aria-invalid={retention.invalid}
           />
-          <FieldDescription>
-            {t('pages:automations.settings.retentionHint', {
-              days: KIND_RETENTION_DEFAULT[automation.kind],
-            })}
-          </FieldDescription>
+          {retention.invalid ? (
+            <FieldError>{t('pages:automations.settings.retentionInvalid')}</FieldError>
+          ) : (
+            <FieldDescription>
+              {t('pages:automations.settings.retentionHint', {
+                days: RETENTION_DEFAULTS[automation.kind],
+              })}
+            </FieldDescription>
+          )}
         </Field>
 
         <Field>
@@ -66,12 +75,17 @@ export function AutomationSettings({ automation }: { automation: Automation }) {
             placeholder="0"
             value={cooldownMinutes}
             onChange={(event) => setCooldownMinutes(event.target.value)}
+            aria-invalid={cooldown.invalid}
           />
-          <FieldDescription>{t('pages:automations.settings.cooldownHint')}</FieldDescription>
+          {cooldown.invalid ? (
+            <FieldError>{t('pages:automations.settings.cooldownInvalid')}</FieldError>
+          ) : (
+            <FieldDescription>{t('pages:automations.settings.cooldownHint')}</FieldDescription>
+          )}
         </Field>
       </div>
 
-      <Button onClick={handleSave} disabled={updateAutomation.isPending}>
+      <Button onClick={handleSave} disabled={invalid || updateAutomation.isPending}>
         <Save />
         {t('common:actions.save')}
       </Button>
