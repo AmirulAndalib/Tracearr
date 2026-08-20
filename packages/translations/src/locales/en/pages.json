@@ -450,7 +450,49 @@
     "deleteAutomation_one": "Delete Automation",
     "deleteAutomation_other": "Delete {{count}} Automations",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
-    "deleteAutomationsConfirm": "Are you sure you want to delete? This action cannot be undone."
+    "deleteAutomationsConfirm": "Are you sure you want to delete? This action cannot be undone.",
+    "detail": {
+      "notFound": "Automation not found"
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "Every evaluation that reached a run, newest first.",
+      "outcome": "Outcome",
+      "summary": "Summary",
+      "started": "Started",
+      "finished": "Finished",
+      "noSummary": "No notes",
+      "outcomes": {
+        "completed": "Completed",
+        "stopped_by_condition": "Stopped by a condition",
+        "error": "Error"
+      },
+      "empty": "No runs yet",
+      "emptyDescription": "Runs show up here once a trigger matches this automation.",
+      "runTitle": "Run",
+      "runLoading": "Loading the run",
+      "triggeredBy": "Triggered by {{trigger}}",
+      "unknownStep": "Unrecognized step"
+    },
+    "evaluations": {
+      "title": "Recent evaluations",
+      "description": "Trigger matches that recorded no run.",
+      "empty": "No recent evaluations",
+      "emptyDescription": "Cooldowns, replayed edges and blocked gates land here.",
+      "reasons": {
+        "cooldown_active": "Cooldown was active",
+        "edge_replayed": "Same edge already handled",
+        "gate_blocked": "An open run already covers this"
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "How long this automation keeps its runs, and how often it may fire.",
+      "retentionLabel": "Retention (days)",
+      "retentionHint": "Leave empty to keep runs for {{days}} days.",
+      "cooldownLabel": "Cooldown (minutes)",
+      "cooldownHint": "Leave empty to fire on every match."
+    }
   },
   "terminateStream": {
     "title": "Terminate Stream",

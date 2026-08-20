@@ -102,6 +102,18 @@ export const runListQuerySchema = paginationSchema
   .extend(listSortSchema(RUN_SORT_FIELDS).shape);
 export type RunListQuery = z.infer<typeof runListQuerySchema>;
 
+export const NEAR_MISS_REASONS = ['cooldown_active', 'edge_replayed', 'gate_blocked'] as const;
+export type NearMissReason = (typeof NEAR_MISS_REASONS)[number];
+
+/** One entry of the capped ring: a trigger matched but the pipeline recorded no run. */
+export const nearMissEntrySchema = z.object({
+  reason: z.enum(NEAR_MISS_REASONS),
+  at: z.iso.datetime(),
+  subjectKey: z.string(),
+  trigger: z.string(),
+});
+export type NearMissEntry = z.infer<typeof nearMissEntrySchema>;
+
 /** API shape. Dates are ISO strings; `triggers` is what the engine matches on. */
 export interface Automation {
   id: string;
@@ -120,6 +132,8 @@ export interface Automation {
   cooldownMinutes: number | null;
   /** null falls back to the kind's default retention */
   retentionDays: number | null;
+  /** Name behind a person scope. The list never joins for it and always sends null. */
+  identityName: string | null;
   createdAt: string;
   updatedAt: string;
 }

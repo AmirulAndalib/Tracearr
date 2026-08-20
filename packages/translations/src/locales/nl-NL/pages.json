@@ -23,6 +23,26 @@
     "versionV2": "API v2"
   },
   "automations": {
+    "activity": {
+      "description": "Every evaluation that reached a run, newest first.",
+      "empty": "No runs yet",
+      "emptyDescription": "Runs show up here once a trigger matches this automation.",
+      "finished": "Finished",
+      "noSummary": "No notes",
+      "outcome": "Outcome",
+      "outcomes": {
+        "completed": "Completed",
+        "error": "Error",
+        "stopped_by_condition": "Stopped by a condition"
+      },
+      "runLoading": "Loading the run",
+      "runTitle": "Run",
+      "started": "Started",
+      "summary": "Summary",
+      "title": "Activity",
+      "triggeredBy": "Triggered by {{trigger}}",
+      "unknownStep": "Unrecognized step"
+    },
     "addAutomation": "Add Automation",
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
@@ -35,8 +55,22 @@
     "deleteAutomation_other": "Delete {{count}} Automations",
     "deleteAutomationsConfirm": "Are you sure you want to delete? This action cannot be undone.",
     "description": "Automations watch your servers and act when their conditions match",
+    "detail": {
+      "notFound": "Automation not found"
+    },
     "disable": "Disable",
     "enable": "Enable",
+    "evaluations": {
+      "description": "Trigger matches that recorded no run.",
+      "empty": "No recent evaluations",
+      "emptyDescription": "Cooldowns, replayed edges and blocked gates land here.",
+      "reasons": {
+        "cooldown_active": "Cooldown was active",
+        "edge_replayed": "Same edge already handled",
+        "gate_blocked": "An open run already covers this"
+      },
+      "title": "Recent evaluations"
+    },
     "fromTemplate": "From a Template",
     "kind": {
       "notification": "Notification",
@@ -55,6 +89,14 @@
       "person": "Person"
     },
     "searchPlaceholder": "Search automations...",
+    "settings": {
+      "cooldownHint": "Leave empty to fire on every match.",
+      "cooldownLabel": "Cooldown (minutes)",
+      "description": "How long this automation keeps its runs, and how often it may fire.",
+      "retentionHint": "Leave empty to keep runs for {{days}} days.",
+      "retentionLabel": "Retention (days)",
+      "title": "Settings"
+    },
     "title": "Automations",
     "toggleAutomation": "Turn {{name}} on or off",
     "tryAdjustingFilters": "Try adjusting your filters."

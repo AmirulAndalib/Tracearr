@@ -6,6 +6,7 @@ import {
   WS_EVENTS,
   type AutomationRunSummary,
   type GroupEvidence,
+  type NearMissEntry,
   type RuleV2,
   type Session,
 } from '@tracearr/shared';
@@ -53,13 +54,8 @@ export interface RecordRunArgs {
   defer?: (effect: () => Promise<void>) => void;
 }
 
-export type NearMissReason = 'cooldown_active' | 'edge_replayed' | 'gate_blocked';
-
-export interface NearMiss {
-  reason: NearMissReason;
-  subjectKey: string;
-  trigger: string;
-}
+/** The ring entry as the pipeline hands it over; the writer stamps `at`. */
+export type NearMiss = Omit<NearMissEntry, 'at'>;
 
 /** How many near misses the ring keeps, and how many the evaluations route reads back. */
 export const EVAL_RING_SIZE = 50;

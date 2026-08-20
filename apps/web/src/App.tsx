@@ -19,6 +19,7 @@ import { MediaDetail } from '@/pages/media/Detail';
 import { Users } from '@/pages/Users';
 import { UserDetail } from '@/pages/UserDetail';
 import { Automations } from '@/pages/Automations';
+import { AutomationDetail } from '@/pages/AutomationDetail';
 import { Violations } from '@/pages/Violations';
 import { ViolationDetail } from '@/pages/ViolationDetail';
 import { History } from '@/pages/History';
@@ -89,6 +90,7 @@ export function App() {
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
           <Route path="automations" element={<Automations />} />
+          <Route path="automations/:id" element={<AutomationDetail />} />
           <Route path="violations" element={<Violations />} />
           <Route path="violations/:id" element={<ViolationDetail />} />
           <Route path="settings/*" element={<Settings />} />

@@ -14,6 +14,7 @@ import type {
   AutomationRunSummary,
   AutomationSortField,
   CreateAutomationInput,
+  NearMissEntry,
   RunListQuery,
   RunSortField,
   UpdateAutomationInput,
@@ -894,9 +895,9 @@ class ApiClient {
       this.request<ListResponse<AutomationRunSummary>>(
         `/automations/${automationId}/runs?${listSearchParams(params)}`
       ),
-    /** The capped near-miss ring: entries the recorder wrote, shape not pinned. */
+    /** The capped near-miss ring, newest first. */
     evaluations: (automationId: string) =>
-      this.request<{ data: unknown[] }>(`/automations/${automationId}/evaluations`),
+      this.request<{ data: NearMissEntry[] }>(`/automations/${automationId}/evaluations`),
   };
 
   // Violations

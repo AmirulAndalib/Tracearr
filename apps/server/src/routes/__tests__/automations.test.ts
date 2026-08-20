@@ -289,6 +289,16 @@ describe('Automation routes', () => {
       expect(response.json().id).toBe(AUTOMATION_ID);
     });
 
+    it('carries the joined identity name for a person scope', async () => {
+      app = await buildTestApp(ownerUser);
+      const userId = randomUUID();
+      setupSelect([automationRow({ userId, identityName: 'Ada' })]);
+
+      const response = await app.inject({ method: 'GET', url: `/automations/${AUTOMATION_ID}` });
+
+      expect(response.json().identityName).toBe('Ada');
+    });
+
     it('404s when there is no such automation', async () => {
       app = await buildTestApp(ownerUser);
       setupSelect([]);
@@ -806,6 +816,21 @@ describe('Automation routes', () => {
         at: '2026-08-20T10:00:00.000Z',
       });
       expect(body.data[1].reason).toBe('gate_blocked');
+    });
+
+    it('drops an entry whose shape the ring no longer matches', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+      vi.mocked(app.redis.lrange).mockResolvedValueOnce([
+        JSON.stringify({ reason: 'retired_reason', subjectKey: 's1', trigger: 'x', at: 'nope' }),
+      ]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/evaluations`,
+      });
+
+      expect(response.json().data).toEqual([]);
     });
 
     it('404s when the automation is gone', async () => {

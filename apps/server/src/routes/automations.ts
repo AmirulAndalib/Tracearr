@@ -4,7 +4,18 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { and, count, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  count,
+  eq,
+  getTableColumns,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { z } from 'zod';
 import {
   REDIS_KEYS,
@@ -15,6 +26,7 @@ import {
   bulkUpdateRulesSchema,
   createAutomationSchema,
   hasAtMostOneScope,
+  nearMissEntrySchema,
   runListQuerySchema,
   scopeAllowsCrossServerEnforcement,
   updateAutomationSchema,
@@ -25,6 +37,7 @@ import {
   type AutomationRunSummary,
   type AutomationSortField,
   type ListResponse,
+  type NearMissEntry,
   type RuleActions,
   type RuleConditions,
   type TriggerNode,
@@ -85,7 +98,7 @@ async function retryOnVersionCollision<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
-function toAutomation(row: AutomationRow): Automation {
+function toAutomation(row: AutomationRow & { identityName?: string | null }): Automation {
   return {
     id: row.id,
     name: row.name,
@@ -102,6 +115,7 @@ function toAutomation(row: AutomationRow): Automation {
     isActive: row.isActive,
     cooldownMinutes: row.cooldownMinutes,
     retentionDays: row.retentionDays,
+    identityName: row.identityName ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -127,10 +141,12 @@ function visibleAutomations(authUser: AuthUser): SQL | undefined {
   );
 }
 
-async function loadAutomation(id: string, authUser: AuthUser): Promise<AutomationRow | undefined> {
+/** The single read joins the person scope's name; the list stays a plain select. */
+async function loadAutomation(id: string, authUser: AuthUser) {
   const rows = await db
-    .select()
+    .select({ ...getTableColumns(automations), identityName: users.name })
     .from(automations)
+    .leftJoin(users, eq(users.id, automations.userId))
     .where(and(eq(automations.id, id), visibleAutomations(authUser)))
     .limit(1);
   return rows[0];
@@ -514,12 +530,15 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     );
 
     const data = entries.flatMap((entry) => {
+      let parsed: unknown;
       try {
-        return [JSON.parse(entry) as unknown];
+        parsed = JSON.parse(entry);
       } catch {
         return [];
       }
+      const result = nearMissEntrySchema.safeParse(parsed);
+      return result.success ? [result.data] : [];
     });
-    return { data };
+    return { data } satisfies { data: NearMissEntry[] };
   });
 };

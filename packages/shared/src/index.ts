@@ -348,6 +348,8 @@ export type {
   AutomationListQuery,
   RunSortField,
   RunListQuery,
+  NearMissReason,
+  NearMissEntry,
 } from './automations.js';
 
 // Automation constants and schemas
@@ -363,6 +365,8 @@ export {
   updateAutomationSchema,
   automationListQuerySchema,
   runListQuerySchema,
+  NEAR_MISS_REASONS,
+  nearMissEntrySchema,
 } from './automations.js';
 
 // Schema exports

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
@@ -10,15 +11,12 @@ import {
   Shield,
   Sparkles,
   Trash2,
-  User,
 } from 'lucide-react';
 import type {
   Automation,
   AutomationKind,
   AutomationSortField,
   CreateAutomationInput,
-  RulesFilterOptions,
-  Server,
 } from '@tracearr/shared';
 import { AUTOMATION_SORT_FIELDS, listPageCount } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -54,9 +52,8 @@ import { countActiveFilters, FilterBar, useFilterState } from '@/components/ui/f
 import type { FilterDescriptor } from '@/components/ui/filters';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
+import { ScopeChip, toBuilderInput } from '@/components/automations';
 import { getRuleIcon, getRuleSummary, RuleBuilderDialog } from '@/components/rules';
-import type { RuleBuilderInput } from '@/components/rules/RuleBuilder';
-import { ServerBadge } from '@/components/server';
 import {
   useAutomations,
   useBulkDeleteAutomations,
@@ -70,7 +67,7 @@ import {
 import { useRulesFilterOptions } from '@/hooks/queries/useHistory';
 import { useRowSelection } from '@/hooks/useRowSelection';
 import { useServer } from '@/hooks/useServer';
-import { CLASSIC_RULE_TEMPLATES, scopeFromRule, type ClassicRuleTemplate } from '@/lib/rules';
+import { CLASSIC_RULE_TEMPLATES, type ClassicRuleTemplate } from '@/lib/rules';
 import {
   AUTOMATIONS_FILTER_DEFAULTS,
   buildAutomationFilterParams,
@@ -94,70 +91,9 @@ const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
   notification: 'outline',
 };
 
-function toBuilderInput(automation: Automation): RuleBuilderInput {
-  return {
-    id: automation.id,
-    name: automation.name,
-    description: automation.description,
-    kind: automation.kind,
-    severity: automation.severity,
-    isActive: automation.isActive,
-    serverId: automation.serverId,
-    serverUserId: automation.serverUserId,
-    userId: automation.userId,
-    enforceAcrossServers: automation.enforceAcrossServers,
-    conditions: automation.conditions,
-    actions: automation.actions,
-  };
-}
-
-/** Where the automation applies, as one chip beside its name. */
-function ScopeChip({
-  automation,
-  servers,
-  filterOptions,
-}: {
-  automation: Automation;
-  servers: Server[];
-  filterOptions?: RulesFilterOptions;
-}) {
-  const { t } = useTranslation('pages');
-  const scope = scopeFromRule(automation).mode;
-
-  if (scope === 'global') {
-    return <Badge variant="secondary">{t('automations.scope.global')}</Badge>;
-  }
-
-  if (scope === 'server') {
-    const server = servers.find((candidate) => candidate.id === automation.serverId);
-    return server ? <ServerBadge server={server} variant="outlined" /> : null;
-  }
-
-  if (scope === 'person') {
-    return (
-      <Badge variant="secondary">
-        <User aria-hidden="true" />
-        {t('automations.scope.person')}
-      </Badge>
-    );
-  }
-
-  const userOption = filterOptions?.users.find((user) => user.id === automation.serverUserId);
-  const server = userOption ? servers.find((s) => s.id === userOption.serverId) : undefined;
-
-  return (
-    <span className="inline-flex items-center gap-1">
-      {server && <ServerBadge server={server} variant="compact" />}
-      <Badge variant="secondary">
-        <User aria-hidden="true" />
-        {userOption?.username ?? userOption?.identityName ?? t('automations.scope.account')}
-      </Badge>
-    </span>
-  );
-}
-
 export function Automations() {
   const { t } = useTranslation(['pages', 'common']);
+  const navigate = useNavigate();
   const { servers } = useServer();
   const { data: settings } = useSettings();
 
@@ -376,7 +312,12 @@ export function Automations() {
           cell: ({ row }) => {
             const automation = row.original;
             return (
-              <div className="flex items-center justify-end gap-1">
+              <div
+                className="flex items-center justify-end gap-1"
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
                 <Button
                   variant="ghost"
                   size="icon"
@@ -523,6 +464,9 @@ export function Automations() {
                   table={table}
                   isLoading={isLoading}
                   loadingLabel={t('common:states.loading')}
+                  onRowClick={(automation) => {
+                    void navigate(`/automations/${automation.id}`);
+                  }}
                   empty={
                     <DataTableEmpty
                       table={table}

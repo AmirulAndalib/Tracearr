@@ -54,6 +54,7 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     isActive: true,
     cooldownMinutes: null,
     retentionDays: null,
+    identityName: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...overrides,
