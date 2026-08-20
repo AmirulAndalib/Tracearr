@@ -1,6 +1,21 @@
 import { isNotNull } from 'drizzle-orm';
+import type { RuleActions } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { automations } from '../../db/schema.js';
+import { listDestinations } from './destinationStore.js';
+
+/**
+ * The destination ids a save names that no row backs. A send action storing one
+ * would fail silently at match time, so the save paths reject it up front.
+ */
+export async function unknownDestinationIds(actions: RuleActions | undefined): Promise<string[]> {
+  const sendIds = [
+    ...new Set(actions?.actions.flatMap((a) => (a.type === 'send' ? a.to : [])) ?? []),
+  ];
+  if (sendIds.length === 0) return [];
+  const known = new Set((await listDestinations()).map((d) => d.id));
+  return sendIds.filter((id) => !known.has(id));
+}
 
 export interface DestinationRef {
   ruleId: string;

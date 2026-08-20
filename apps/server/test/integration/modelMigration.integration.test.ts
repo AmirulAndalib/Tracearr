@@ -446,6 +446,25 @@ describe('runAutomationModelMigration', () => {
     expect(newer.subjectKey).toBe(seeded.sharedSession);
   });
 
+  it('leaves a run recorded after version 1 unlinked when it runs again', async () => {
+    const seeded = await seedCorpus();
+    await runAutomationModelMigration();
+
+    // No subject key, so the second pass has work to do and reaches the version backfill.
+    const later = await insertRun({
+      automationId: seeded.rules.paused.id,
+      serverUserId: seeded.serverUser.id,
+      sessionId: null,
+      data: { ruleName: 'paused' },
+    });
+
+    await runAutomationModelMigration();
+
+    const reloaded = await loadRun(later.id);
+    expect(reloaded.subjectKey).toBe(seeded.serverUser.id);
+    expect(reloaded.definitionVersionId).toBeNull();
+  });
+
   it('writes nothing and logs nothing on a second pass', async () => {
     await seedCorpus();
     await runAutomationModelMigration();

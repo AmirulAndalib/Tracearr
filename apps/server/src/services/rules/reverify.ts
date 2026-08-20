@@ -147,7 +147,8 @@ export async function reverifyKillCondition(
     return { outcome: 'skipped_rule_gone' };
   }
 
-  const rule = mapRuleRowToRuleV2(ruleRow);
+  // No version id: re-verification decides a kill against the live definition and records no run.
+  const rule = mapRuleRowToRuleV2(ruleRow, null);
 
   // Sessions this same violation already terminated (see module header). Used
   // both to tell a self-inflicted trigger stop apart from a genuine one and to

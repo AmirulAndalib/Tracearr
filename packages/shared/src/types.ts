@@ -796,6 +796,8 @@ export interface RuleV2 {
   actions: RuleActions;
   // Which events evaluate this rule. Never null here: the cache mapper normalizes an unstamped row to [].
   triggers: TriggerNode[];
+  /** Latest automation_versions row, stamped on every run this definition records. */
+  currentVersionId: string | null;
   /** Minutes a subject is suppressed after a completed run; null disables the cooldown. */
   cooldownMinutes: number | null;
   createdAt: Date;

@@ -34,6 +34,7 @@ import {
 } from '../../utils/serverFiltering.js';
 import {
   buildOrderBy,
+  likePattern,
   utcDayEnd,
   utcDayStart,
   type SortDirection,
@@ -60,11 +61,6 @@ const USER_SORT_KEYS: Record<UserSortField, SortKey> = {
   joinedAt: { key: sql`u.first_joined_at`, defaultDir: 'desc', nulls: 'last' },
   lastActivityAt: { key: sql`u.last_activity_at`, defaultDir: 'desc', nulls: 'last' },
 };
-
-/** ILIKE treats these as wildcards, so a literal search for them has to escape. */
-function likePattern(search: string): string {
-  return `%${search.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
-}
 
 interface UserRosterSql {
   /** undefined = every server; [] = none of the requested servers are visible. */

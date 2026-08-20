@@ -59,10 +59,13 @@ function ruleRow(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function mockRulesResult(rows: ReturnType<typeof ruleRow>[]) {
+function mockRulesResult(
+  rows: ReturnType<typeof ruleRow>[],
+  currentVersionId: string | null = null
+) {
   mockDbSelect.mockReturnValue({
     from: () => ({
-      where: () => Promise.resolve(rows),
+      where: () => Promise.resolve(rows.map((automation) => ({ automation, currentVersionId }))),
     }),
   });
 }
@@ -173,10 +176,20 @@ describe('mapRuleRowToRuleV2 triggers', () => {
       },
     ];
     const mapped = mapRuleRowToRuleV2(
-      ruleRow('r1', { triggers }) as unknown as Parameters<typeof mapRuleRowToRuleV2>[0]
+      ruleRow('r1', { triggers }) as unknown as Parameters<typeof mapRuleRowToRuleV2>[0],
+      null
     );
     expect(mapped.triggers).toEqual(triggers);
     expect(mockWarn).not.toHaveBeenCalled();
+  });
+
+  it('carries the automation version a run will be stamped with', async () => {
+    invalidateRulesCache();
+    mockRulesResult([ruleRow('r1')], 'ver-9');
+
+    const [rule] = await getActiveRulesV2();
+
+    expect(rule?.currentVersionId).toBe('ver-9');
   });
 
   it('treats a row the migration never stamped as inert and warns once per rule', () => {
@@ -184,9 +197,9 @@ describe('mapRuleRowToRuleV2 triggers', () => {
       typeof mapRuleRowToRuleV2
     >[0];
 
-    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
-    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
-    expect(mapRuleRowToRuleV2(row).triggers).toEqual([]);
+    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
+    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
+    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
 
     expect(mockWarn).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledWith(expect.any(String), {

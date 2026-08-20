@@ -5,7 +5,7 @@
  * Includes batch loading for performance optimization and rule fetching.
  */
 
-import { eq, and, desc, gte, inArray, isNotNull } from 'drizzle-orm';
+import { eq, and, desc, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import {
   TIME_MS,
   SESSION_LIMITS,
@@ -383,7 +383,10 @@ const warnedUntriggeredRuleIds = new Set<string>();
  * Shared by getActiveRulesV2 and the kill-queue reverify path so both build
  * an identical RuleV2 from the same row.
  */
-export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
+export function mapRuleRowToRuleV2(
+  r: typeof automations.$inferSelect,
+  currentVersionId: string | null
+): RuleV2 {
   if (!r.triggers && !warnedUntriggeredRuleIds.has(r.id)) {
     warnedUntriggeredRuleIds.add(r.id);
     rulesLogger.warn('Automation has no stored triggers and will never evaluate', {
@@ -405,11 +408,24 @@ export function mapRuleRowToRuleV2(r: typeof automations.$inferSelect): RuleV2 {
     conditions: r.conditions as RuleConditions,
     actions: r.actions as RuleActions,
     triggers: r.triggers ?? [],
+    currentVersionId,
     cooldownMinutes: r.cooldownMinutes,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
 }
+
+/**
+ * The version a run records. One index lookup per rule on a 10s cache fill.
+ * The outer column is named in full: a table selection renders its columns
+ * unqualified, and a bare `id` here would bind to the subquery's own table.
+ */
+const CURRENT_VERSION_ID = sql<string | null>`(
+  SELECT v.id FROM automation_versions v
+  WHERE v.automation_id = automations.id
+  ORDER BY v.version DESC
+  LIMIT 1
+)`;
 
 /**
  * Get all active V2 rules (rules with conditions/actions defined).
@@ -430,11 +446,11 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
   }
 
   const activeRules = await db
-    .select()
+    .select({ automation: automations, currentVersionId: CURRENT_VERSION_ID })
     .from(automations)
     .where(and(eq(automations.isActive, true), isNotNull(automations.conditions)));
 
-  const mapped = activeRules.map(mapRuleRowToRuleV2);
+  const mapped = activeRules.map((row) => mapRuleRowToRuleV2(row.automation, row.currentVersionId));
 
   rulesCache = { data: mapped, expiresAt: now + RULES_CACHE_TTL_MS };
   for (const listener of refillListeners) listener(mapped);

@@ -1,37 +1,17 @@
 import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
-import type {
-  Action,
-  AutomationKind,
-  RuleActions,
-  RuleConditions,
-  TriggerNode,
-  ViolationSeverity,
-} from '@tracearr/shared';
+import type { Action, RuleActions } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
 import { convertV1Rule } from '../rules/v2Integration.js';
 import { stampNodes, synthesizeTriggers } from './triggers.js';
+import { automationDefinition } from './versions.js';
 
 const logger = createLogger('automation-migration');
 
 /** Distinct from timescale's 875_100_001, the schema runner's 875_100_002 and destinations' 875_100_003. */
 const LOCK_KEY = 875_100_004;
-
-/** The snapshot an automation_versions row stores; scope and definition, no runtime settings. */
-interface AutomationDefinition {
-  name: string;
-  kind: AutomationKind;
-  severity: ViolationSeverity | null;
-  triggers: TriggerNode[];
-  conditions: RuleConditions | null;
-  actions: RuleActions;
-  serverId: string | null;
-  serverUserId: string | null;
-  userId: string | null;
-  enforceAcrossServers: boolean;
-}
 
 interface PendingWork {
   legacy: number;
@@ -129,11 +109,16 @@ async function backfillRuns(
   const affected = async (query: Parameters<Executor['execute']>[0]): Promise<number> =>
     (await executor.execute(query)).rowCount ?? 0;
 
+  // Only runs older than version 1 ran against it; a newer unstamped run was written by an
+  // instance that predates the recorder's stamping, and guessing v1 for it would be a lie.
   const versionLinks = await affected(sql`
     UPDATE automation_runs AS r
     SET definition_version_id = v.id
     FROM automation_versions v
-    WHERE v.automation_id = r.rule_id AND v.version = 1 AND r.definition_version_id IS NULL
+    WHERE v.automation_id = r.rule_id
+      AND v.version = 1
+      AND r.definition_version_id IS NULL
+      AND r.created_at <= v.created_at
   `);
   // A hand-touched database can hold two unacked rows per (rule, session); the key they are
   // about to share is unique, so the older ones are acknowledged rather than deleted.
@@ -255,21 +240,11 @@ export async function runAutomationModelMigration(): Promise<void> {
       );
     if (versionless.length > 0) {
       await tx.insert(automationVersions).values(
-        versionless.map((row) => {
-          const definition = {
-            name: row.name,
-            kind: row.kind,
-            severity: row.severity,
-            triggers: row.triggers ?? [],
-            conditions: row.conditions,
-            actions: row.actions ?? { actions: [] },
-            serverId: row.serverId,
-            serverUserId: row.serverUserId,
-            userId: row.userId,
-            enforceAcrossServers: row.enforceAcrossServers,
-          } satisfies AutomationDefinition;
-          return { automationId: row.id, version: 1, definition };
-        })
+        versionless.map((row) => ({
+          automationId: row.id,
+          version: 1,
+          definition: automationDefinition(row),
+        }))
       );
     }
 

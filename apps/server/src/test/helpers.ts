@@ -38,6 +38,7 @@ const QUERY_CHAIN_METHODS = [
   'limit',
   'offset',
   'set',
+  'values',
   'returning',
 ];
 

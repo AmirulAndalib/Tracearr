@@ -1,7 +1,10 @@
 import { z } from 'zod';
+import { listDateBoundSchema, listSortSchema } from './listQuery.js';
 import {
+  booleanStringSchema,
   crossServerEnforcementRefinement,
   hasAtMostOneScope,
+  paginationSchema,
   ruleActionsSchema,
   ruleConditionsSchema,
   scopeAllowsCrossServerEnforcement,
@@ -66,6 +69,39 @@ export const updateAutomationSchema = automationFieldsSchema
 export type CreateAutomationInput = z.infer<typeof createAutomationSchema>;
 export type UpdateAutomationInput = z.infer<typeof updateAutomationSchema>;
 
+export const AUTOMATION_SORT_FIELDS = [
+  'name',
+  'createdAt',
+  'updatedAt',
+  'kind',
+  'isActive',
+] as const;
+export type AutomationSortField = (typeof AUTOMATION_SORT_FIELDS)[number];
+
+export const automationListQuerySchema = paginationSchema
+  .extend({
+    kind: z.enum(AUTOMATION_KINDS).optional(),
+    enabled: booleanStringSchema.optional(),
+    search: z.string().trim().min(1).max(100).optional(),
+  })
+  .extend(listSortSchema(AUTOMATION_SORT_FIELDS).shape);
+export type AutomationListQuery = z.infer<typeof automationListQuerySchema>;
+
+export const RUN_SORT_FIELDS = ['startedAt', 'finishedAt', 'outcome'] as const;
+export type RunSortField = (typeof RUN_SORT_FIELDS)[number];
+
+export const runListQuerySchema = paginationSchema
+  .extend({
+    kind: z.enum(AUTOMATION_KINDS).optional(),
+    outcome: z.enum(RUN_OUTCOMES).optional(),
+    automationId: uuidSchema.optional(),
+    // Calendar days against the run's start, resolved to half-open UTC bounds.
+    startDate: listDateBoundSchema,
+    endDate: listDateBoundSchema,
+  })
+  .extend(listSortSchema(RUN_SORT_FIELDS).shape);
+export type RunListQuery = z.infer<typeof runListQuerySchema>;
+
 /** API shape. Dates are ISO strings; `triggers` is what the engine matches on. */
 export interface Automation {
   id: string;
@@ -99,7 +135,8 @@ export interface AutomationRunSummary {
   severity: ViolationSeverity | null;
   serverUserId: string | null;
   sessionId: string | null;
-  serverId: string;
+  /** Null only for a run with no server account to attribute it to. */
+  serverId: string | null;
   subjectKey: string | null;
   startedAt: string;
   finishedAt: string | null;

@@ -344,6 +344,10 @@ export type {
   AutomationRun,
   CreateAutomationInput,
   UpdateAutomationInput,
+  AutomationSortField,
+  AutomationListQuery,
+  RunSortField,
+  RunListQuery,
 } from './automations.js';
 
 // Automation constants and schemas
@@ -352,9 +356,13 @@ export {
   TRIGGER_TYPES,
   RUN_STATUSES,
   RUN_OUTCOMES,
+  AUTOMATION_SORT_FIELDS,
+  RUN_SORT_FIELDS,
   triggerNodeSchema,
   createAutomationSchema,
   updateAutomationSchema,
+  automationListQuerySchema,
+  runListQuerySchema,
 } from './automations.js';
 
 // Schema exports

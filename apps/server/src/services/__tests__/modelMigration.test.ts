@@ -425,6 +425,20 @@ describe('runAutomationModelMigration', () => {
     expect(infos[0]).toContain('3 step log(s)');
   });
 
+  it('links only the runs that predate version 1', async () => {
+    const harness = await run({
+      counts: { ...idle, stale_runs: 1 },
+      rowCounts: { row_number: 0, subject_key: 1 },
+    });
+
+    const link = harness.tx.execute.mock.calls
+      .map((call) => sqlText(call[0]))
+      .find((text) => text.includes('SET definition_version_id'));
+
+    expect(link).toContain('r.definition_version_id IS NULL');
+    expect(link).toContain('r.created_at <= v.created_at');
+  });
+
   it('runs for a run row a rolling upgrade left without a subject key', async () => {
     const harness = await run({
       counts: { ...idle, stale_runs: 1 },

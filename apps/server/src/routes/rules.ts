@@ -28,6 +28,7 @@ import type {
   ViolationSeverity,
   AuthUser,
 } from '@tracearr/shared';
+import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
 import { db } from '../db/client.js';
 import { automations, serverUsers, automationRuns, servers, users } from '../db/schema.js';
 import { hasServerAccess } from '../utils/serverFiltering.js';
@@ -36,7 +37,6 @@ import { invalidateRulesCache } from '../jobs/poller/database.js';
 import { synthesizeTriggers } from '../services/automations/triggers.js';
 import { hasInactivityCondition } from '../services/rules/engine.js';
 import { needsMigration, convertLegacyRule, migrateRules } from '../services/rules/migration.js';
-import { listDestinations } from '../services/notifications/destinationStore.js';
 import { firstIssueMessage } from '../utils/zod.js';
 
 /**
@@ -68,17 +68,6 @@ async function batchGetIdentityServerIds(userIds: string[]): Promise<Map<string,
 function hasIdentityAccess(authUser: AuthUser, identityServerIds: string[] | undefined): boolean {
   if (authUser.role === 'owner') return true;
   return (identityServerIds ?? []).some((serverId) => hasServerAccess(authUser, serverId));
-}
-
-// A send action stores destination ids; one naming a row that doesn't exist
-// would fail silently at rule-match time, so reject it at save.
-async function unknownDestinationIds(actions: RuleActions | undefined): Promise<string[]> {
-  const sendIds = [
-    ...new Set(actions?.actions.flatMap((a) => (a.type === 'send' ? a.to : [])) ?? []),
-  ];
-  if (sendIds.length === 0) return [];
-  const known = new Set((await listDestinations()).map((d) => d.id));
-  return sendIds.filter((id) => !known.has(id));
 }
 
 export const ruleRoutes: FastifyPluginAsync = async (app) => {

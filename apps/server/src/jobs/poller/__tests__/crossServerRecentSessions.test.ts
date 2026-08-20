@@ -172,6 +172,7 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
     kind: 'policy',
     conditions,
     actions: { actions: [] },
+    currentVersionId: null,
     cooldownMinutes: null,
     createdAt: new Date(),
     updatedAt: new Date(),

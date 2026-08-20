@@ -222,6 +222,7 @@ const rule: RuleV2 = {
   isActive: true,
   kind: 'policy',
   cooldownMinutes: null,
+  currentVersionId: null,
   conditions: {
     groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 1 }] }],
   },

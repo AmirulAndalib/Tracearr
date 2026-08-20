@@ -121,6 +121,7 @@ export function buildRunValues(args: RecordRunArgs): typeof automationRuns.$infe
     serverUserId,
     sessionId: scope.kind === 'session' ? scope.sessionId : null,
     subjectKey: subjectKeyOf(scope),
+    definitionVersionId: automation.currentVersionId,
     kind: automation.kind,
     status: 'finished',
     outcome: result.matched ? 'completed' : 'stopped_by_condition',
@@ -342,10 +343,28 @@ export async function recordNearMiss(automationId: string, entry: NearMiss): Pro
   }
 }
 
+/** Takes the columns rather than the row, so a joined summary select maps through here too. */
 export function toRunSummary(
-  row: AutomationRunRow,
+  row: Pick<
+    AutomationRunRow,
+    | 'id'
+    | 'automationId'
+    | 'kind'
+    | 'status'
+    | 'outcome'
+    | 'humanSummary'
+    | 'severity'
+    | 'serverUserId'
+    | 'sessionId'
+    | 'subjectKey'
+    | 'startedAt'
+    | 'createdAt'
+    | 'finishedAt'
+    | 'acknowledgedAt'
+    | 'dismissedAt'
+  >,
   automationName: string,
-  serverId: string
+  serverId: string | null
 ): AutomationRunSummary {
   return {
     id: row.id,

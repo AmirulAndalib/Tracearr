@@ -226,10 +226,16 @@ function createPausedProcessedSession(overrides: Record<string, unknown> = {}): 
 
 /** Stamps the triggers the boot migration would synthesize, so fixtures route like stored rules. */
 function migrated(
-  base: Omit<RuleV2, 'triggers' | 'kind' | 'cooldownMinutes'>,
+  base: Omit<RuleV2, 'triggers' | 'kind' | 'cooldownMinutes' | 'currentVersionId'>,
   overrides: Partial<RuleV2> = {}
 ): RuleV2 {
-  const merged = { kind: 'policy' as const, cooldownMinutes: null, ...base, ...overrides };
+  const merged = {
+    kind: 'policy' as const,
+    cooldownMinutes: null,
+    currentVersionId: null,
+    ...base,
+    ...overrides,
+  };
   return {
     ...merged,
     triggers:
