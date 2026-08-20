@@ -4,6 +4,7 @@ import { HighchartsReact } from 'highcharts-react-official';
 import type { PlayStats, Server } from '@tracearr/shared';
 import { getHour12 } from '@/lib/timeFormat';
 import { ChartSkeleton } from '@/components/ui/skeleton';
+import { ChartEmpty } from './ChartEmpty';
 import { parseChartDate, buildPerServerSeries } from './chartUtils';
 
 interface PlaysChartProps {
@@ -262,14 +263,7 @@ export function PlaysChart({
   }
 
   if (!data || data.length === 0) {
-    return (
-      <div
-        className="text-muted-foreground flex items-center justify-center rounded-lg border border-dashed"
-        style={{ height }}
-      >
-        No play data available
-      </div>
-    );
+    return <ChartEmpty height={height} message="No play data available" />;
   }
 
   return (
