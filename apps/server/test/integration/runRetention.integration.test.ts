@@ -4,7 +4,7 @@
  * The purge windows are per-row SQL — COALESCE over the joined automation's
  * retention_days — so only a real database can answer which rows survive.
  *
- * Run with: pnpm --filter @tracearr/server test:integration -- runRetention
+ * Run with: pnpm --filter @tracearr/server exec vitest run --config vitest.integration.config.ts runRetention
  */
 
 import { randomUUID } from 'node:crypto';

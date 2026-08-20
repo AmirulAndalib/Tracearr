@@ -89,6 +89,7 @@ describe('processRunRetention', () => {
     const queries = rendered();
     expect(queries).toHaveLength(4);
     for (const query of queries) {
+      expect(query.sql).toContain('delete from automation_runs');
       expect(query.sql).toContain("ar.status = 'finished'");
       expect(query.sql).toContain('ar.session_id is not null');
       expect(query.sql).not.toContain('acknowledged_at');

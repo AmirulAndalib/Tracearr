@@ -113,6 +113,8 @@ function createStatements() {
      * Count unacknowledged violations
      * Used for: Alert badge in navigation
      * Called: On app load and after acknowledgment
+     * Note: requireUser keeps the badge on the same rows /violations lists,
+     * which joins server_users and so drops account-keyed runs.
      */
     unacknowledgedViolationsCount: db
       .select({
@@ -123,7 +125,7 @@ function createStatements() {
         and(
           isNull(automationRuns.acknowledgedAt),
           isNull(automationRuns.dismissedAt),
-          ...violationAliasConditions()
+          ...violationAliasConditions({ requireUser: true })
         )
       )
       .prepare('unacknowledged_violations_count'),

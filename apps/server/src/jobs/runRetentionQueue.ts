@@ -14,8 +14,8 @@
  */
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
-import { AUTOMATION_KINDS, TIME_MS, type AutomationKind } from '@tracearr/shared';
 import { sql, type SQL } from 'drizzle-orm';
+import { AUTOMATION_KINDS, TIME_MS, type AutomationKind } from '@tracearr/shared';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 import { isMaintenance } from '../serverState.js';
 import { db } from '../db/client.js';
@@ -134,12 +134,15 @@ export async function scheduleRunRetention(): Promise<void> {
     return;
   }
 
+  // Droppable once no install can predate 2.2.0-beta, the release that renamed the queue.
   const legacyQueue = new Queue(LEGACY_QUEUE_NAME, {
     connection: connectionOptions,
     prefix: getBullPrefix(),
   });
   try {
     await legacyQueue.obliterate({ force: true });
+  } catch (error) {
+    console.warn('[RunRetention] Could not sweep the legacy queue:', error);
   } finally {
     await legacyQueue.close();
   }
@@ -178,7 +181,7 @@ async function deleteBatched(where: SQL): Promise<number> {
       WHERE id IN (
         SELECT ar.id FROM automation_runs ar
         JOIN automations a ON a.id = ar.rule_id
-        WHERE ar.status = 'finished' AND ar.session_id IS NOT NULL AND ${where}
+        WHERE ar.status = 'finished' AND ar.session_id IS NOT NULL AND (${where})
         LIMIT ${DELETE_BATCH_SIZE}
       )
     `);
