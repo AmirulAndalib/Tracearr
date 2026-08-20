@@ -171,6 +171,22 @@ function setupTransaction(rows: unknown[][]): TxHarness {
   return harness;
 }
 
+/** The driver's error when the version number this save computed is already taken. */
+function versionCollision(): Error {
+  return Object.assign(
+    new Error('duplicate key value violates unique constraint "automation_versions_unique"'),
+    { code: '23505' }
+  );
+}
+
+/** Collides the next `times` transactions; the harness implementation answers the rest. */
+function failTransactions(times: number): void {
+  const transaction = vi.mocked(db.transaction as unknown as ReturnType<typeof vi.fn>);
+  for (let i = 0; i < times; i++) {
+    transaction.mockImplementationOnce((() => Promise.reject(versionCollision())) as never);
+  }
+}
+
 describe('Automation routes', () => {
   let app: FastifyInstance;
 
@@ -454,6 +470,121 @@ describe('Automation routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(harness.inserts).toEqual([]);
+    });
+
+    it('writes no version when the payload restates the stored definition', async () => {
+      app = await buildTestApp(ownerUser);
+      // A round-trip from the builder resends the stored nodes, ids and all, so stamping is a no-op.
+      const stored = automationRow({
+        conditions: {
+          groups: [
+            {
+              conditions: [
+                {
+                  id: randomUUID(),
+                  enabled: true,
+                  field: 'concurrent_streams',
+                  operator: 'gt',
+                  value: 2,
+                },
+              ],
+            },
+          ],
+        },
+        actions: { actions: [{ id: randomUUID(), enabled: true, type: 'kill_stream' }] },
+      });
+      setupSelect([stored]);
+      const harness = setupTransaction([[stored]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: {
+          name: stored.name,
+          conditions: stored.conditions,
+          actions: stored.actions,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      // Fresh trigger ids on an unchanged definition would version the automation on every save.
+      expect(harness.updateSets[0]).not.toHaveProperty('triggers');
+      expect(harness.inserts).toEqual([]);
+    });
+
+    it('stamps the action nodes a payload changes', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = automationRow();
+      setupSelect([stored]);
+      const nextActions = { actions: [{ type: 'message_client', message: 'wrap it up' }] };
+      const harness = setupTransaction([[{ ...stored, actions: nextActions }], [{ id: 'ver-2' }]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { actions: nextActions },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const update = harness.updateSets[0] as { actions: RuleActions };
+      expect(update.actions.actions[0]).toMatchObject({
+        type: 'message_client',
+        id: expect.any(String),
+        enabled: true,
+      });
+      expect(harness.inserts).toHaveLength(1);
+    });
+
+    it('names the destinations no row backs', async () => {
+      app = await buildTestApp(ownerUser);
+      const gone = randomUUID();
+      setupSelect([automationRow()]);
+      vi.mocked(unknownDestinationIds).mockResolvedValue([gone]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { actions: { actions: [{ type: 'send', to: [gone] }] } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toContain(gone);
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('retries once when a concurrent save took the version number', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+      const harness = setupTransaction([[automationRow({ name: 'renamed' })], [{ id: 'ver-3' }]]);
+      failTransactions(1);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { name: 'renamed' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().name).toBe('renamed');
+      expect(db.transaction).toHaveBeenCalledTimes(2);
+      expect(harness.inserts).toHaveLength(1);
+    });
+
+    it('409s when the retry collides too', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+      setupTransaction([[automationRow({ name: 'renamed' })], [{ id: 'ver-3' }]]);
+      failTransactions(2);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { name: 'renamed' },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(db.transaction).toHaveBeenCalledTimes(2);
+      expect(invalidateRulesCache).not.toHaveBeenCalled();
     });
 
     it('rejects a scope that only conflicts once merged with the stored row', async () => {

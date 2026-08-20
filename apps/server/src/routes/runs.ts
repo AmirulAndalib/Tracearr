@@ -5,6 +5,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { and, count, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 import {
   runListQuerySchema,
   uuidSchema,
@@ -15,7 +16,6 @@ import {
   type RunListQuery,
   type RunSortField,
 } from '@tracearr/shared';
-import { z } from 'zod';
 import { db } from '../db/client.js';
 import { automationRuns, automations, serverUsers } from '../db/schema.js';
 import { toRunSummary } from '../services/automations/runRecorder.js';
@@ -88,6 +88,7 @@ export async function countRuns(where: SQL | undefined): Promise<number> {
   const rows = await db
     .select({ total: count() })
     .from(automationRuns)
+    .innerJoin(automations, eq(automationRuns.automationId, automations.id))
     .leftJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
     .where(where);
   return rows[0]?.total ?? 0;

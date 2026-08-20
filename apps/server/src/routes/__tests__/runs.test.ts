@@ -11,7 +11,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
 import type { AuthUser } from '@tracearr/shared';
-import { queryChain, renderCall } from '../../test/helpers.js';
+import { queryChain, renderCall, renderedJoins } from '../../test/helpers.js';
 
 vi.mock('../../db/client.js', () => ({
   db: { select: vi.fn() },
@@ -165,6 +165,17 @@ describe('Run routes', () => {
         '2026-08-16T00:00:00.000Z',
       ]);
       expect(renderCall(countChain).text).toBe(page.text);
+    });
+
+    it('counts over the joins the page selects from', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain, countChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/runs' });
+
+      // A filter on an automations column would throw against a FROM that omits the join.
+      expect(renderedJoins(pageChain)).toEqual(['automation_runs.rule_id = automations.id']);
+      expect(renderedJoins(countChain)).toEqual(renderedJoins(pageChain));
     });
 
     it('defaults to newest first, tiebroken on the run id', async () => {

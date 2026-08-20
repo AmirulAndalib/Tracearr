@@ -66,6 +66,15 @@ export function renderCall(
   return { text: rendered.sql.replace(/\s+/g, ' ').trim(), params: rendered.params };
 }
 
+// The ON condition of every inner join a chain recorded, in join order.
+export function renderedJoins(chain: any): string[] {
+  return chain.innerJoin.mock.calls.map((call: unknown[]) =>
+    renderSql(call[1] as SQL)
+      .sql.replace(/\s+/g, ' ')
+      .trim()
+  );
+}
+
 // Every WHERE the given chains recorded, in call order.
 export function renderedWheres(chains: any[]): string[] {
   return chains.flatMap((chain: any) =>

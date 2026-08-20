@@ -12,6 +12,7 @@ import {
   type DestinationKind,
   type NotificationEventType,
 } from '@tracearr/shared';
+import { isUniqueViolation } from '../db/pg.js';
 import { rulesReferencingDestinations } from '../services/notifications/destinationRefs.js';
 import {
   createDestination,
@@ -52,13 +53,6 @@ function assertSafeUrls(kind: DestinationKind, config: Record<string, unknown>):
       });
     }
   }
-}
-
-/** Postgres unique_violation on destinations.name. drizzle wraps the driver error, so the code can sit one level down. */
-function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false;
-  const err = error as { code?: unknown; cause?: { code?: unknown } };
-  return err.code === '23505' || err.cause?.code === '23505';
 }
 
 const unsavedTestSchema = z.strictObject({

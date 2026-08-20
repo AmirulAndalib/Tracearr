@@ -5,6 +5,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { and, count, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import { z } from 'zod';
 import {
   REDIS_KEYS,
   RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
@@ -30,11 +31,12 @@ import {
   type UpdateAutomationInput,
   type ViolationSeverity,
 } from '@tracearr/shared';
-import { z } from 'zod';
 import { db } from '../db/client.js';
+import { isUniqueViolation } from '../db/pg.js';
 import { automations, serverUsers, servers, users } from '../db/schema.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
+import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
 import { stampNodes, synthesizeTriggers } from '../services/automations/triggers.js';
 import {
   automationDefinition,
@@ -64,10 +66,24 @@ const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
   isActive: { key: sql`${automations.isActive}`, defaultDir: 'desc' },
 };
 
-/** The near-miss ring the recorder keeps per automation. */
-const EVALUATION_RING_LIMIT = 50;
-
 type AutomationRow = typeof automations.$inferSelect;
+
+/** The column has no null state; a notification automation keeps the default it ignores. */
+const storedSeverity = (severity: ViolationSeverity | null | undefined): ViolationSeverity =>
+  severity ?? 'warning';
+
+/**
+ * The version number is `max + 1`, so two concurrent definition writes pick the same one
+ * and the loser breaks the unique index; re-running the transaction sees the winner's row.
+ */
+async function retryOnVersionCollision<T>(write: () => Promise<T>): Promise<T> {
+  try {
+    return await write();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return await write();
+  }
+}
 
 function toAutomation(row: AutomationRow): Automation {
   return {
@@ -242,11 +258,10 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
           name: input.name,
           description: input.description,
           kind: input.kind,
-          // The column has no null state; a notification automation keeps the default it ignores.
-          severity: input.severity ?? 'warning',
+          severity: storedSeverity(input.severity),
           conditions: stamped.conditions,
           actions: stamped.actions,
-          triggers: synthesizeTriggers(input.conditions),
+          triggers: synthesizeTriggers(stamped.conditions),
           serverId: input.serverId,
           serverUserId: input.serverUserId,
           userId: input.userId,
@@ -329,10 +344,13 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (patch.name !== undefined) updateData.name = patch.name;
     if (patch.description !== undefined) updateData.description = patch.description;
     if (patch.kind !== undefined) updateData.kind = patch.kind;
-    if (patch.severity !== undefined) updateData.severity = patch.severity ?? 'warning';
+    if (patch.severity !== undefined) updateData.severity = storedSeverity(patch.severity);
     if (patch.conditions !== undefined && stamped.conditions) {
       updateData.conditions = stamped.conditions;
-      updateData.triggers = synthesizeTriggers(patch.conditions);
+      // Synthesis mints fresh trigger ids, which would version a restated definition.
+      if (JSON.stringify(stamped.conditions) !== JSON.stringify(existing.conditions)) {
+        updateData.triggers = synthesizeTriggers(stamped.conditions);
+      }
     }
     if (patch.actions !== undefined) updateData.actions = stamped.actions;
     if (patch.serverId !== undefined) updateData.serverId = patch.serverId;
@@ -345,21 +363,30 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (patch.retentionDays !== undefined) updateData.retentionDays = patch.retentionDays;
     if (patch.isActive !== undefined) updateData.isActive = patch.isActive;
 
-    const updated = await db.transaction(async (tx) => {
-      const rows = await tx
-        .update(automations)
-        .set(updateData)
-        .where(eq(automations.id, existing.id))
-        .returning();
-      const row = rows[0];
-      if (!row) return null;
-      // Runtime settings are not part of the definition, so toggling one takes no version.
-      const definition = automationDefinition(row);
-      if (!sameDefinition(definition, automationDefinition(existing))) {
-        await insertAutomationVersion(tx, row.id, definition);
-      }
-      return row;
-    });
+    const save = () =>
+      db.transaction(async (tx) => {
+        const rows = await tx
+          .update(automations)
+          .set(updateData)
+          .where(eq(automations.id, existing.id))
+          .returning();
+        const row = rows[0];
+        if (!row) return null;
+        // Runtime settings are not part of the definition, so toggling one takes no version.
+        const definition = automationDefinition(row);
+        if (!sameDefinition(definition, automationDefinition(existing))) {
+          await insertAutomationVersion(tx, row.id, definition);
+        }
+        return row;
+      });
+
+    let updated: AutomationRow | null;
+    try {
+      updated = await retryOnVersionCollision(save);
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      return reply.conflict('the automation changed while saving; try again');
+    }
 
     if (!updated) return reply.internalServerError('Failed to update automation');
 
@@ -483,7 +510,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     const entries = await app.redis.lrange(
       REDIS_KEYS.AUTOMATION_EVALS(automation.id),
       0,
-      EVALUATION_RING_LIMIT - 1
+      EVAL_RING_SIZE - 1
     );
 
     const data = entries.flatMap((entry) => {

@@ -61,7 +61,8 @@ export interface NearMiss {
   trigger: string;
 }
 
-const EVAL_RING_SIZE = 50;
+/** How many near misses the ring keeps, and how many the evaluations route reads back. */
+export const EVAL_RING_SIZE = 50;
 const EVAL_RING_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export const subjectKeyOf = (scope: RunScope): string =>
