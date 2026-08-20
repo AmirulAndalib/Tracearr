@@ -859,7 +859,13 @@ describe('Violation Routes', () => {
       expect(mockRecalculateAggregateTrustScore).toHaveBeenCalledWith(userId, txMock);
     });
 
-    it('reverses trust score when dismissing violation with adjust_trust action', async () => {
+    it.each([
+      { label: 'an adjust_trust action', action: { type: 'adjust_trust', amount: -20 } },
+      {
+        label: 'a trust action in adjust mode',
+        action: { type: 'trust', mode: 'adjust', amount: -20 },
+      },
+    ])('reverses trust score when dismissing a violation with $label', async ({ action }) => {
       // Dismiss reverses any trust changes made by explicit rule actions.
       // This treats dismiss as "false positive, undo everything".
       const ownerUser = createOwnerUser();
@@ -872,7 +878,7 @@ describe('Violation Routes', () => {
       const serverId = ownerUser.serverIds[0];
 
       // First select: violation exists check
-      // Second select: rule actions with adjust_trust -20
+      // Second select: the rule's stored trust action, worth -20 either way
       let selectCallCount = 0;
       mockDb.select.mockImplementation(() => {
         selectCallCount++;
@@ -887,16 +893,10 @@ describe('Violation Routes', () => {
             },
           ]);
         } else {
-          // Rule with adjust_trust action
           return {
             from: vi.fn().mockReturnValue({
               where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockResolvedValue([
-                  {
-                    id: ruleId,
-                    actions: { actions: [{ type: 'adjust_trust', amount: -20 }] },
-                  },
-                ]),
+                limit: vi.fn().mockResolvedValue([{ id: ruleId, actions: { actions: [action] } }]),
               }),
             }),
           };

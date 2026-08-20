@@ -8,6 +8,7 @@ import type {
   SendAction,
   AdjustTrustAction,
   SetTrustAction,
+  TrustAction,
   KillStreamAction,
   MessageClientAction,
   LogOnlyAction,
@@ -399,6 +400,47 @@ describe('Action Executor Registry', () => {
       it('should reset user trust to baseline', async () => {
         const context = createMockContext();
         const action: Action = { type: 'reset_trust' };
+
+        const result = await executeAction(context, action);
+
+        expect(result.success).toBe(true);
+        expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
+      });
+    });
+
+    describe('trust', () => {
+      it('should adjust user trust by amount in adjust mode', async () => {
+        const context = createMockContext();
+        const action: TrustAction = { type: 'trust', mode: 'adjust', amount: -10 };
+
+        const result = await executeAction(context, action);
+
+        expect(result.success).toBe(true);
+        expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
+      });
+
+      it('should not adjust if amount is 0', async () => {
+        const context = createMockContext();
+        const action: TrustAction = { type: 'trust', mode: 'adjust', amount: 0 };
+
+        await executeAction(context, action);
+
+        expect(mockDeps.adjustUserTrust).not.toHaveBeenCalled();
+      });
+
+      it('should set user trust in set mode', async () => {
+        const context = createMockContext();
+        const action: TrustAction = { type: 'trust', mode: 'set', value: 30 };
+
+        const result = await executeAction(context, action);
+
+        expect(result.success).toBe(true);
+        expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 30);
+      });
+
+      it('should reset user trust in reset mode', async () => {
+        const context = createMockContext();
+        const action: TrustAction = { type: 'trust', mode: 'reset' };
 
         const result = await executeAction(context, action);
 

@@ -82,6 +82,7 @@ export const WS_EVENTS = {
   SESSION_STOPPED: 'session:stopped',
   SESSION_UPDATED: 'session:updated',
   VIOLATION_NEW: 'violation:new',
+  RUN_FINISHED: 'run:finished',
   STATS_UPDATED: 'stats:updated',
   IMPORT_PROGRESS: 'import:progress',
   IMPORT_JELLYSTAT_PROGRESS: 'import:jellystat:progress',

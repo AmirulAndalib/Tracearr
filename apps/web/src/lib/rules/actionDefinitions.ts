@@ -5,7 +5,7 @@
  * All action-related components reference this registry.
  */
 
-import type { ActionType, ViolationSeverity, Action } from '@tracearr/shared';
+import type { ActionType, ViolationSeverity, Action, TrustAction } from '@tracearr/shared';
 
 // Config field types for rendering action configuration
 export type ConfigFieldType = 'number' | 'text' | 'select' | 'slider' | 'destinations';
@@ -175,6 +175,45 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
     configFields: [],
   },
 
+  trust: {
+    type: 'trust',
+    label: 'Trust Score',
+    description: 'Adjust, set, or reset the trust score',
+    icon: 'TrendingUp',
+    color: 'default',
+    configFields: [
+      {
+        name: 'mode',
+        label: 'Mode',
+        type: 'select',
+        required: true,
+        options: [
+          { value: 'adjust', label: 'Adjust by amount' },
+          { value: 'set', label: 'Set to value' },
+          { value: 'reset', label: 'Reset to default (100)' },
+        ],
+      },
+      {
+        name: 'amount',
+        label: 'Amount',
+        type: 'number',
+        min: -100,
+        max: 100,
+        step: 1,
+        description: 'Adjust mode only. Positive to increase, negative to decrease.',
+      },
+      {
+        name: 'value',
+        label: 'Value',
+        type: 'slider',
+        min: 0,
+        max: 100,
+        step: 1,
+        description: 'Set mode only.',
+      },
+    ],
+  },
+
   kill_stream: {
     type: 'kill_stream',
     label: 'Kill Stream',
@@ -259,6 +298,26 @@ export function getActionDefinition(type: ActionType): ActionDefinition {
   return ACTION_DEFINITIONS[type];
 }
 
+/** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */
+export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>> = {
+  adjust: { amount: -10 },
+  set: { value: 50 },
+  reset: {},
+};
+
+/** Switching trust mode swaps the parameter set wholesale, keeping only the cooldown. */
+export function applyActionFieldChange(action: Action, name: string, value: unknown): Action {
+  if (action.type === 'trust' && name === 'mode') {
+    const mode = value as TrustAction['mode'];
+    const next: TrustAction = { type: 'trust', mode, ...TRUST_MODE_PARAMS[mode] };
+    if (action.cooldown_minutes !== undefined) {
+      next.cooldown_minutes = action.cooldown_minutes;
+    }
+    return next;
+  }
+  return { ...action, [name]: value };
+}
+
 /**
  * Get all action types
  */
@@ -281,6 +340,8 @@ export function createDefaultAction(type: ActionType): Action {
       return { type: 'set_trust', value: 50 };
     case 'reset_trust':
       return { type: 'reset_trust' };
+    case 'trust':
+      return { type: 'trust', mode: 'adjust', ...TRUST_MODE_PARAMS.adjust };
     case 'kill_stream':
       return { type: 'kill_stream' };
     case 'message_client':

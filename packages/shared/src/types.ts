@@ -1,6 +1,7 @@
 /**
  * Core type definitions for Tracearr
  */
+import type { AutomationRunSummary } from './automations.js';
 import type { NotificationToast } from './destinations.js';
 import type { sessionTargetSchema, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
@@ -697,6 +698,7 @@ export type ActionType =
   | 'adjust_trust'
   | 'set_trust'
   | 'reset_trust'
+  | 'trust'
   | 'kill_stream'
   | 'message_client';
 
@@ -727,6 +729,16 @@ export interface ResetTrustAction {
   type: 'reset_trust';
 }
 
+export interface TrustAction {
+  type: 'trust';
+  mode: 'adjust' | 'set' | 'reset';
+  /** adjust only: positive or negative */
+  amount?: number;
+  /** set only */
+  value?: number;
+  cooldown_minutes?: number;
+}
+
 export interface KillStreamAction {
   type: 'kill_stream';
   /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
@@ -750,6 +762,7 @@ export type Action =
   | AdjustTrustAction
   | SetTrustAction
   | ResetTrustAction
+  | TrustAction
   | KillStreamAction
   | MessageClientAction;
 
@@ -1312,6 +1325,7 @@ export interface ServerToClientEvents {
   'session:stopped': (sessionId: string) => void;
   'session:updated': (session: ActiveSession) => void;
   'violation:new': (violation: ViolationWithDetails) => void;
+  'run:finished': (run: AutomationRunSummary) => void;
   'stats:updated': (stats: DashboardStats) => void;
   'import:progress': (progress: TautulliImportProgress) => void;
   'import:jellystat:progress': (progress: JellystatImportProgress) => void;

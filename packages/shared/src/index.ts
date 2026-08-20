@@ -63,6 +63,7 @@ export type {
   AdjustTrustAction,
   SetTrustAction,
   ResetTrustAction,
+  TrustAction,
   KillStreamAction,
   MessageClientAction,
   RuleActions,
@@ -330,6 +331,31 @@ export type {
   NotificationToast,
 } from './destinations.js';
 
+// Automation type exports
+export type {
+  AutomationKind,
+  TriggerType,
+  TriggerNode,
+  RunStatus,
+  RunOutcome,
+  Automation,
+  AutomationRunSummary,
+  AutomationRun,
+  CreateAutomationInput,
+  UpdateAutomationInput,
+} from './automations.js';
+
+// Automation constants and schemas
+export {
+  AUTOMATION_KINDS,
+  TRIGGER_TYPES,
+  RUN_STATUSES,
+  RUN_OUTCOMES,
+  triggerNodeSchema,
+  createAutomationSchema,
+  updateAutomationSchema,
+} from './automations.js';
+
 // Schema exports
 export {
   // Common
@@ -381,8 +407,10 @@ export {
   createRuleV2Schema,
   updateRuleV2Schema,
   ruleConditionsSchema,
+  actionTypeSchema,
   actionSchema,
   sendActionSchema,
+  trustActionSchema,
   hasAtMostOneScope,
   RULE_SCOPE_ERROR_MESSAGE,
   scopeAllowsCrossServerEnforcement,

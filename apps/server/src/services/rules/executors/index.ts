@@ -6,6 +6,7 @@ import type {
   SendAction,
   AdjustTrustAction,
   SetTrustAction,
+  TrustAction,
   KillStreamAction,
   MessageClientAction,
   ServerUser,
@@ -315,6 +316,36 @@ const executeResetTrust: ActionExecutor = async (context: EvaluationContext): Pr
 };
 
 /**
+ * Change user trust, the mode picking which of the three trust deps runs.
+ */
+const executeTrust: ActionExecutor = async (
+  context: EvaluationContext,
+  action: Action
+): Promise<void> => {
+  const { serverUser } = context;
+  const typedAction = action as TrustAction;
+
+  switch (typedAction.mode) {
+    case 'adjust': {
+      // Stored rows are not revalidated on read, so a missing parameter falls through quietly.
+      const amount = typedAction.amount ?? 0;
+      if (amount !== 0) {
+        await currentDeps.adjustUserTrust(serverUser.id, amount);
+      }
+      break;
+    }
+    case 'set':
+      if (typedAction.value !== undefined) {
+        await currentDeps.setUserTrust(serverUser.id, typedAction.value);
+      }
+      break;
+    case 'reset':
+      await currentDeps.resetUserTrust(serverUser.id);
+      break;
+  }
+};
+
+/**
  * Terminate the current session.
  */
 const executeKillStream: ActionExecutor = async (
@@ -440,6 +471,7 @@ export const executorRegistry: Record<ActionType, ActionExecutor> = {
   adjust_trust: executeAdjustTrust,
   set_trust: executeSetTrust,
   reset_trust: executeResetTrust,
+  trust: executeTrust,
   kill_stream: executeKillStream,
   message_client: executeMessageClient,
 };

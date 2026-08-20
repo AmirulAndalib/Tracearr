@@ -22,6 +22,7 @@ import {
   violationIdParamSchema,
   violationQuerySchema,
   violationRosterFilterSchema,
+  type Action,
   type AuthUser,
   type ListResponse,
   type ViolationBulkBody,
@@ -62,6 +63,21 @@ import {
  */
 function collectIdentityUserIds(userId: string | undefined, userIds: string[] | undefined) {
   return Array.from(new Set([...(userIds ?? []), ...(userId ? [userId] : [])]));
+}
+
+/**
+ * The trust delta a stored action applied, or null when it applied none.
+ * Stored rows carry either the legacy adjust_trust or the trust action, and
+ * neither is revalidated on read, so the amount has to be checked at runtime.
+ */
+function trustAdjustment(action: Action): number | null {
+  if (action.type === 'adjust_trust' && typeof action.amount === 'number') {
+    return action.amount;
+  }
+  if (action.type === 'trust' && action.mode === 'adjust' && typeof action.amount === 'number') {
+    return action.amount;
+  }
+  return null;
 }
 
 /**
@@ -1022,7 +1038,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
    * DELETE /violations/:id - Dismiss a violation
    *
    * Dismissing a violation:
-   * 1. Reverses any trust score changes made by explicit rule actions (adjust_trust)
+   * 1. Reverses any trust score changes made by explicit rule actions (see trustAdjustment)
    * 2. Soft-deletes the row (dismissedAt) so dedup keeps blocking re-creation
    *
    * This treats dismiss as "false positive, undo everything".
@@ -1079,10 +1095,8 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     const ruleActions = rule?.actions?.actions;
     if (ruleActions && Array.isArray(ruleActions)) {
       for (const action of ruleActions) {
-        if (action.type === 'adjust_trust' && typeof action.amount === 'number') {
-          // Sum up all trust adjustments made by this rule
-          trustAdjustmentToReverse += Number(action.amount);
-        }
+        // Sum up all trust adjustments made by this rule
+        trustAdjustmentToReverse += trustAdjustment(action) ?? 0;
       }
     }
 
@@ -1248,9 +1262,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
       const ruleActions = rule.actions?.actions;
       if (ruleActions && Array.isArray(ruleActions)) {
         for (const action of ruleActions) {
-          if (action.type === 'adjust_trust' && typeof action.amount === 'number') {
-            adjustment += Number(action.amount);
-          }
+          adjustment += trustAdjustment(action) ?? 0;
         }
       }
       ruleAdjustments.set(rule.id, adjustment);

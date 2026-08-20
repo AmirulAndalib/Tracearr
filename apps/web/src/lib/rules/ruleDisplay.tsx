@@ -280,6 +280,7 @@ const COMPACT_ACTION_LABELS: Record<ActionType, string> = {
   adjust_trust: 'Adjust trust',
   set_trust: 'Set trust',
   reset_trust: 'Reset trust',
+  trust: 'Trust score',
   kill_stream: 'Kill stream',
   message_client: 'Message',
 };

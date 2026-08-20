@@ -25,6 +25,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ACTION_DEFINITIONS,
+  applyActionFieldChange,
   getAllActionTypes,
   createDefaultAction,
   type ConfigField,
@@ -39,6 +40,7 @@ const ACTION_ICONS: Record<ActionType, React.ComponentType<{ className?: string 
   adjust_trust: TrendingUp,
   set_trust: Target,
   reset_trust: RotateCcw,
+  trust: TrendingUp,
   kill_stream: XCircle,
   message_client: MessageSquare,
 };
@@ -112,7 +114,7 @@ export function ActionRow({ action, onChange, onRemove, showRemove = true }: Act
             key={field.name}
             field={field}
             value={readValue(field.name)}
-            onChange={(value) => onChange({ ...action, [field.name]: value })}
+            onChange={(value) => onChange(applyActionFieldChange(action, field.name, value))}
           />
         ))}
       </div>

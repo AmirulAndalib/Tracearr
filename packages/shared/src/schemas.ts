@@ -585,6 +585,7 @@ export const actionTypeSchema = z.enum([
   'adjust_trust',
   'set_trust',
   'reset_trust',
+  'trust',
   'kill_stream',
   'message_client',
 ]);
@@ -614,6 +615,32 @@ export const setTrustActionSchema = z.object({
 export const resetTrustActionSchema = z.object({
   type: z.literal('reset_trust'),
 });
+
+export const trustActionSchema = z
+  .object({
+    type: z.literal('trust'),
+    mode: z.enum(['adjust', 'set', 'reset']),
+    amount: z.number().int().min(-100).max(100).optional(),
+    value: z.number().int().min(0).max(100).optional(),
+    cooldown_minutes: z.number().int().nonnegative().optional(),
+  })
+  .superRefine((action, ctx) => {
+    if (action.mode === 'adjust' && action.amount === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'adjust needs an amount' });
+    }
+    if (action.mode === 'set' && action.value === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'set needs a value' });
+    }
+    if (action.mode === 'adjust' && action.value !== undefined) {
+      ctx.addIssue({ code: 'custom', message: 'adjust takes an amount, not a value' });
+    }
+    if (action.mode === 'set' && action.amount !== undefined) {
+      ctx.addIssue({ code: 'custom', message: 'set takes a value, not an amount' });
+    }
+    if (action.mode === 'reset' && (action.amount !== undefined || action.value !== undefined)) {
+      ctx.addIssue({ code: 'custom', message: 'reset takes no parameter' });
+    }
+  });
 
 export const sessionTargetSchema = z.enum([
   'triggering',
@@ -649,6 +676,7 @@ export const actionSchema = z.discriminatedUnion('type', [
   adjustTrustActionSchema,
   setTrustActionSchema,
   resetTrustActionSchema,
+  trustActionSchema,
   killStreamActionSchema,
   messageClientActionSchema,
 ]);
@@ -672,7 +700,7 @@ export function hasAtMostOneScope(data: {
 export const RULE_SCOPE_ERROR_MESSAGE =
   'A rule can only be scoped to one of server, account, or person';
 
-const scopeRefinement = {
+export const scopeRefinement = {
   message: RULE_SCOPE_ERROR_MESSAGE,
 } as const;
 
@@ -688,7 +716,7 @@ export function scopeAllowsCrossServerEnforcement(data: {
 export const RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE =
   'A server-scoped rule cannot enforce actions across all servers';
 
-const crossServerEnforcementRefinement = {
+export const crossServerEnforcementRefinement = {
   message: RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
 } as const;
 
@@ -1377,6 +1405,7 @@ export type LogOnlyAction = z.infer<typeof logOnlyActionSchema>;
 export type AdjustTrustAction = z.infer<typeof adjustTrustActionSchema>;
 export type SetTrustAction = z.infer<typeof setTrustActionSchema>;
 export type ResetTrustAction = z.infer<typeof resetTrustActionSchema>;
+export type TrustAction = z.infer<typeof trustActionSchema>;
 export type KillStreamAction = z.infer<typeof killStreamActionSchema>;
 export type MessageClientAction = z.infer<typeof messageClientActionSchema>;
 export type Action = z.infer<typeof actionSchema>;
