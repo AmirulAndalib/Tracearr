@@ -47,6 +47,11 @@ import {
   SameServerCombineNotConfirmedError,
 } from '../../src/services/mergeService.js';
 
+/** The list envelope reports total and pageSize; the page count derives from them. */
+function pageCount(body: { meta: { pageSize: number; total: number } }): number {
+  return Math.ceil(body.meta.total / body.meta.pageSize);
+}
+
 describe('mergeUsers', () => {
   it('merges a cross-server duplicate: repoints server users, carries history, recomputes aggregates, deletes source, writes audit', async () => {
     const admin = await createTestUser({ role: 'owner' });
@@ -800,7 +805,7 @@ describe('GET /violations userId identity filter', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.total).toBe(2);
+    expect(body.meta.total).toBe(2);
     const returnedServerUserIds = body.data
       .map((v: { serverUserId: string }) => v.serverUserId)
       .sort();
@@ -853,7 +858,7 @@ describe('GET /violations userId identity filter', () => {
 
     expect(response.statusCode).toBe(200);
     const body = response.json();
-    expect(body.total).toBe(1);
+    expect(body.meta.total).toBe(1);
     expect(body.data[0].serverUserId).toBe(targetSu.id);
   });
 });
@@ -949,7 +954,7 @@ describe('GET /users identityServers', () => {
     // The viewer can't see serverB at all, so the merged identity shows up as
     // exactly one row scoped to serverA.
     expect(rows).toHaveLength(1);
-    expect(body.total).toBe(1);
+    expect(body.meta.total).toBe(1);
     const row = rows.find((r) => r.id === targetSu.id);
     expect(row?.identityServers.map((s) => s.id)).toEqual([serverA.id]);
   });
@@ -990,7 +995,7 @@ describe('GET /users dedup + includeRemoved + access scoping', () => {
     const mergedRows = rows.filter((r) => r.id === targetSu.id || r.id === sourceSu.id);
     expect(mergedRows).toHaveLength(1);
     expect(mergedRows[0]?.id).toBe(targetSu.id);
-    expect(body.total).toBeGreaterThanOrEqual(1);
+    expect(body.meta.total).toBeGreaterThanOrEqual(1);
   });
 
   it('hides a merged identity by default when every account is removed, and shows it with includeRemoved=true', async () => {
@@ -1085,7 +1090,7 @@ describe('GET /users dedup + includeRemoved + access scoping', () => {
     }[];
 
     expect(rows).toHaveLength(1);
-    expect(body.total).toBe(1);
+    expect(body.meta.total).toBe(1);
     expect(rows[0]?.id).toBe(targetSu.id);
     expect(rows[0]?.serverId).toBe(serverA.id);
     expect(rows[0]?.identityServers.map((s) => s.id)).toEqual([serverA.id]);
@@ -1239,8 +1244,8 @@ describe('GET /users search', () => {
     const body = response.json();
     const rows = body.data as { id: string }[];
     expect(rows.map((r) => r.id)).toEqual([su.id]);
-    expect(body.total).toBe(1);
-    expect(body.totalPages).toBe(1);
+    expect(body.meta.total).toBe(1);
+    expect(pageCount(body)).toBe(1);
   });
 
   it('matches by identity display name, not just account username', async () => {
@@ -1273,7 +1278,7 @@ describe('GET /users search', () => {
     const body = response.json();
     const rows = body.data as { id: string }[];
     expect(rows.map((r) => r.id)).toEqual([su.id]);
-    expect(body.total).toBe(1);
+    expect(body.meta.total).toBe(1);
   });
 
   it('escapes % and _ so a literal search term is not treated as a wildcard', async () => {
@@ -1313,7 +1318,7 @@ describe('GET /users search', () => {
     const rowIds = (body.data as { id: string }[]).map((r) => r.id);
     expect(rowIds).toEqual([literalMatch.id]);
     expect(rowIds).not.toContain(decoy.id);
-    expect(body.total).toBe(1);
+    expect(body.meta.total).toBe(1);
   });
 
   it('composes search with serverIds, includeRemoved, and the one-row-per-identity dedup', async () => {
@@ -1363,8 +1368,8 @@ describe('GET /users search', () => {
     // even though the search also matches its removed serverB sibling.
     expect(rows).toHaveLength(1);
     expect(rows[0]?.id).toBe(targetSu.id);
-    expect(body.total).toBe(1);
-    expect(body.totalPages).toBe(1);
+    expect(body.meta.total).toBe(1);
+    expect(pageCount(body)).toBe(1);
 
     // With includeRemoved and no server filter, both sides of the search
     // still collapse to the identity's single representative row, and the
@@ -1380,8 +1385,8 @@ describe('GET /users search', () => {
       (r) => r.id === targetSu.id || r.id === sourceSu.id
     );
     expect(mergedRows).toHaveLength(1);
-    expect(includeRemovedBody.total).toBe(2);
-    expect(includeRemovedBody.totalPages).toBe(1);
+    expect(includeRemovedBody.meta.total).toBe(2);
+    expect(pageCount(includeRemovedBody)).toBe(1);
   });
 });
 
@@ -1444,6 +1449,36 @@ describe('identity trust rollup stays current outside merge/split', () => {
     // Untouched sibling account keeps its own score
     const [suARow] = await db.select().from(serverUsers).where(eq(serverUsers.id, suA.id));
     expect(suARow?.trustScore).toBe(90);
+  });
+
+  it('rolls the earliest join and latest activity across accounts onto the identity', async () => {
+    const serverA = await createTestServer({ type: 'plex' });
+    const serverB = await createTestServer({ type: 'jellyfin' });
+    const person = await createTestUser({ role: 'member' });
+
+    const earlyJoin = new Date('2024-03-04T05:06:07.000Z');
+    const lateActivity = new Date('2026-06-02T00:00:00.000Z');
+    const suA = await createTestServerUser({
+      userId: person.id,
+      serverId: serverA.id,
+      lastActivityAt: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    const suB = await createTestServerUser({
+      userId: person.id,
+      serverId: serverB.id,
+      lastActivityAt: lateActivity,
+    });
+    await db.update(serverUsers).set({ joinedAt: earlyJoin }).where(eq(serverUsers.id, suA.id));
+    await db
+      .update(serverUsers)
+      .set({ joinedAt: new Date('2025-09-09T00:00:00.000Z') })
+      .where(eq(serverUsers.id, suB.id));
+
+    await recomputeIdentityAggregates(person.id);
+
+    const [row] = await db.select().from(users).where(eq(users.id, person.id));
+    expect(row?.firstJoinedAt).toEqual(earlyJoin);
+    expect(row?.lastActivityAt).toEqual(lateActivity);
   });
 
   it('recomputes the aggregate when dismissing a violation reverses a rule trust adjustment on one account', async () => {
@@ -1759,8 +1794,10 @@ describe('GET /users orderBy', () => {
   it('defaults to username ascending when no sort params are given, matching prior behavior', async () => {
     const admin = await createTestUser({ role: 'owner' });
     const server = await createTestServer({ type: 'plex' });
-    const identityA = await createTestUser({ role: 'member' });
-    const identityB = await createTestUser({ role: 'member' });
+    // The roster sorts on the identity label the row renders, so the display
+    // name has to carry the username the ordering is being asserted on.
+    const identityA = await createTestUser({ role: 'member', name: 'zebra' });
+    const identityB = await createTestUser({ role: 'member', name: 'aardvark' });
     const suZebra = await createTestServerUser({
       userId: identityA.id,
       serverId: server.id,
@@ -1805,6 +1842,10 @@ describe('GET /users orderBy', () => {
       .update(serverUsers)
       .set({ lastActivityAt: new Date('2026-01-01T00:00:00Z') })
       .where(eq(serverUsers.id, activeSu.id));
+    // The roster sorts on the identity rollup, which a direct account write
+    // leaves untouched; without this both rows are null and the id tiebreak
+    // decides the order.
+    await recomputeIdentityAggregates(active.id);
 
     const app = Fastify({ logger: false });
     await app.register(sensible);

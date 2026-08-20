@@ -888,8 +888,12 @@ export async function recomputeIdentityAggregates(
         min(${serverUsers.trustScore}) filter (where ${serverUsers.removedAt} is null),
         min(${serverUsers.trustScore})
       )`,
-      firstJoinedAt: sql<Date | null>`min(${serverUsers.joinedAt})`,
-      lastActivityAt: sql<Date | null>`max(${serverUsers.lastActivityAt})`,
+      // The driver hands timestamps back as strings; mapWith borrows the
+      // column's decoder so these are Dates the users columns can be set to.
+      firstJoinedAt: sql<Date | null>`min(${serverUsers.joinedAt})`.mapWith(serverUsers.joinedAt),
+      lastActivityAt: sql<Date | null>`max(${serverUsers.lastActivityAt})`.mapWith(
+        serverUsers.lastActivityAt
+      ),
     })
     .from(serverUsers)
     .where(eq(serverUsers.userId, userId));
