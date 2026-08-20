@@ -154,11 +154,11 @@ import {
   shutdownPlexTokenRefreshQueue,
 } from './jobs/plexTokenRefresh.js';
 import {
-  initViolationRetentionQueue,
-  startViolationRetentionWorker,
-  scheduleViolationRetention,
-  shutdownViolationRetentionQueue,
-} from './jobs/violationRetentionQueue.js';
+  initRunRetentionQueue,
+  startRunRetentionWorker,
+  scheduleRunRetention,
+  shutdownRunRetentionQueue,
+} from './jobs/runRetentionQueue.js';
 import { initHeavyOpsLock } from './jobs/heavyOpsLock.js';
 import { startConnectionBudget, stopConnectionBudget } from './services/connectionBudget.js';
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
@@ -585,7 +585,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     await shutdownInactivityCheckQueue();
     await shutdownBackupQueue();
     await shutdownPlexTokenRefreshQueue();
-    await shutdownViolationRetentionQueue();
+    await shutdownRunRetentionQueue();
   });
 
   // Probe DB and Redis to decide if we can initialize services now
@@ -964,14 +964,14 @@ async function initializeServices(app: FastifyInstance) {
     // Don't throw - scheduled backups are non-critical
   }
 
-  // Initialize violation retention queue (daily purge of old dismissed rows)
+  // Initialize run retention queue (daily purge of aged automation runs)
   try {
-    initViolationRetentionQueue(redisUrl);
-    startViolationRetentionWorker();
-    void scheduleViolationRetention();
-    app.log.info('Violation retention queue initialized');
+    initRunRetentionQueue(redisUrl);
+    startRunRetentionWorker();
+    void scheduleRunRetention();
+    app.log.info('Run retention queue initialized');
   } catch (err) {
-    app.log.error({ err }, 'Failed to initialize violation retention queue');
+    app.log.error({ err }, 'Failed to initialize run retention queue');
   }
 
   // Initialize plex token refresh queue (renews strong-PIN JWT tokens before they expire)
@@ -1378,7 +1378,7 @@ async function start() {
         void shutdownInactivityCheckQueue();
         void shutdownBackupQueue();
         void shutdownPlexTokenRefreshQueue();
-        void shutdownViolationRetentionQueue();
+        void shutdownRunRetentionQueue();
         void app.close().then(() => process.exit(0));
       });
     }
@@ -1421,7 +1421,7 @@ async function start() {
           shutdownInactivityCheckQueue(),
           shutdownBackupQueue(),
           shutdownPlexTokenRefreshQueue(),
-          shutdownViolationRetentionQueue(),
+          shutdownRunRetentionQueue(),
         ]).catch((err) => {
           app.log.error({ err }, 'Error shutting down queues during maintenance');
         });
