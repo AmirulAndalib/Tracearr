@@ -23,7 +23,7 @@ const routeMap = buildRouteMap();
  */
 export function useDocumentTitle() {
   const location = useLocation();
-  const { t } = useTranslation('nav');
+  const { t } = useTranslation(['nav', 'pages']);
 
   useEffect(() => {
     const pathname = location.pathname;
@@ -43,6 +43,16 @@ export function useDocumentTitle() {
 
     if (pathname.startsWith('/media/')) {
       document.title = `Media Details | ${APP_NAME}`;
+      return;
+    }
+
+    if (pathname === '/automations/new') {
+      document.title = `${t('pages:automations.createAutomation')} | ${APP_NAME}`;
+      return;
+    }
+
+    if (pathname.startsWith('/automations/') && pathname.endsWith('/edit')) {
+      document.title = `${t('pages:automations.editAutomation')} | ${APP_NAME}`;
       return;
     }
 
