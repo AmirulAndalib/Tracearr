@@ -602,7 +602,7 @@ export const automationRuns = pgTable(
       .where(sql`kind = 'policy' AND outcome = 'completed'`),
     // The runs list default sort; null placement and tiebreak match its ORDER BY.
     index('automation_runs_started_at_idx').on(table.startedAt.desc().nullsLast(), table.id),
-    // Server-scoped run lists page straight off this.
+    // Every runs list narrows by the caller's servers before it sorts.
     index('automation_runs_server_started_idx').on(table.serverId, table.startedAt.desc()),
   ]
 );

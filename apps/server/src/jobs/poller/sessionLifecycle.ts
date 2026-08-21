@@ -1230,13 +1230,6 @@ export async function handleMediaChangeAtomic(
 // ============================================================================
 
 /**
- * Notification types used during poll processing
- */
-type PollNotification =
-  | { type: 'session_started'; payload: ActiveSession }
-  | { type: 'session_stopped'; payload: ActiveSession };
-
-/**
  * Input for processing poll results
  */
 export interface PollResultsInput {
@@ -1263,12 +1256,10 @@ export interface PollResultsInput {
   pubSubService: {
     publish: (event: string, data: unknown) => Promise<void>;
   } | null;
-  /** Notification enqueue function */
-  enqueueNotification: (notification: PollNotification) => Promise<unknown>;
   /**
    * IDs (subset of newSessions) confirmed from a pending entry rather than
-   * created fresh. The pending create already published session:started and
-   * enqueued session_started, so both are skipped here for these ids.
+   * created fresh. The pending create already published session:started, so
+   * it is skipped here for these ids.
    */
   confirmedFromPendingIds?: Set<string>;
 }
@@ -1299,7 +1290,6 @@ export async function processPollResults(input: PollResultsInput): Promise<void>
     cachedSessions,
     cacheService,
     pubSubService,
-    enqueueNotification,
     confirmedFromPendingIds,
   } = input;
 
@@ -1326,12 +1316,10 @@ export async function processPollResults(input: PollResultsInput): Promise<void>
   // Publish events via pub/sub
   if (pubSubService) {
     for (const session of newSessions) {
-      // Sessions confirmed from a pending entry already got both of these
-      // at pending create - re-sending here would double the SSE event and
-      // the user-facing notification.
+      // A session confirmed from a pending entry was already published at pending
+      // create; re-sending here would double the SSE event.
       if (confirmedFromPendingIds?.has(session.id)) continue;
       await pubSubService.publish('session:started', session);
-      await enqueueNotification({ type: 'session_started', payload: session });
     }
 
     // No consumer reads the payload, so one tick's updates collapse to a single publish.
@@ -1341,19 +1329,7 @@ export async function processPollResults(input: PollResultsInput): Promise<void>
 
     for (const key of stoppedKeys) {
       const stoppedSession = findStoppedSession(key, cachedSessions);
-      if (stoppedSession) {
-        // Fetch the computed durationMs from DB since the cached session has stale data
-        const [dbSession] = await db
-          .select({ durationMs: sessions.durationMs })
-          .from(sessions)
-          .where(eq(sessions.id, stoppedSession.id));
-        const durationMs = dbSession?.durationMs ?? stoppedSession.durationMs;
-        await pubSubService.publish('session:stopped', stoppedSession.id);
-        await enqueueNotification({
-          type: 'session_stopped',
-          payload: { ...stoppedSession, durationMs },
-        });
-      }
+      if (stoppedSession) await pubSubService.publish('session:stopped', stoppedSession.id);
     }
   }
 }

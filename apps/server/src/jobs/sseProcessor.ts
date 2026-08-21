@@ -34,7 +34,6 @@ import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
 import { getIdentityServerUserIds } from '../services/userService.js';
 import { createLogger } from '../utils/logger.js';
-import { enqueueNotification } from './notificationQueue.js';
 import {
   batchGetLibraryItemIdentity,
   getActiveAutomations,
@@ -887,13 +886,6 @@ function handleFallbackActivated(event: FallbackEvent): void {
     notifiedDownServers.add(serverId); // Mark as down so we know to send server_up later
     console.log(`[SSEProcessor] Server ${serverName} is DOWN (threshold exceeded)`);
 
-    enqueueNotification({
-      type: 'server_down',
-      payload: { serverName, serverId },
-    }).catch((error: unknown) => {
-      console.error(`[SSEProcessor] Error enqueueing server_down notification:`, error);
-    });
-
     // The closure holds no row: the automations and the server are read when the timer fires.
     void dispatchServerHealthById('server.down', serverId, new Date());
   }, SERVER_DOWN_THRESHOLD_MS);
@@ -939,15 +931,6 @@ async function handleFallbackDeactivated(event: FallbackEvent): Promise<void> {
   // Server was previously down (notification was sent), now it's back up
   notifiedDownServers.delete(serverId);
   console.log(`[SSEProcessor] Server ${serverName} is back UP (SSE restored)`);
-
-  try {
-    await enqueueNotification({
-      type: 'server_up',
-      payload: { serverName, serverId },
-    });
-  } catch (error) {
-    console.error(`[SSEProcessor] Error enqueueing server_up notification:`, error);
-  }
 
   await dispatchServerHealthById('server.up', serverId, new Date());
 }
@@ -1167,7 +1150,6 @@ async function createNewSession(
   // Note: Rules are NOT evaluated yet - that happens after confirmation
   if (pubSubService) {
     await pubSubService.publish('session:started', activeSession);
-    await enqueueNotification({ type: 'session_started', payload: activeSession });
   }
 
   console.log(
@@ -1266,7 +1248,6 @@ async function handleMediaChange(
 
   if (pubSubService) {
     await pubSubService.publish('session:started', activeSession);
-    await enqueueNotification({ type: 'session_started', payload: activeSession });
   }
 
   console.log(
@@ -1762,9 +1743,7 @@ async function confirmPendingSessionAndPersist(
  * Stop a session
  */
 async function stopSession(existingSession: typeof sessions.$inferSelect): Promise<void> {
-  const cachedSession = await cacheService?.getSessionById(existingSession.id);
-
-  const { wasUpdated, durationMs, needsRetry, retryData } = await stopSessionAtomic({
+  const { wasUpdated, needsRetry, retryData } = await stopSessionAtomic({
     session: existingSession,
     stoppedAt: new Date(),
   });
@@ -1787,12 +1766,6 @@ async function stopSession(existingSession: typeof sessions.$inferSelect): Promi
 
   if (pubSubService) {
     await pubSubService.publish('session:stopped', existingSession.id);
-    if (cachedSession) {
-      await enqueueNotification({
-        type: 'session_stopped',
-        payload: { ...cachedSession, durationMs },
-      });
-    }
   }
 
   console.log(`[SSEProcessor] Stopped session ${existingSession.id}`);

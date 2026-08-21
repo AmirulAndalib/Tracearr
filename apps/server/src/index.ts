@@ -107,6 +107,7 @@ import {
   shutdownNotificationQueue,
 } from './jobs/notificationQueue.js';
 import { runAutomationModelMigration } from './services/automations/modelMigration.js';
+import { runSystemEventsMigration } from './services/automations/systemEventsMigration.js';
 import { seedBuiltinTemplates } from './services/automations/templates/seeder.js';
 import { initDestinationCrypto } from './services/notifications/destinationCrypto.js';
 import { invalidateDestinationsCache } from './services/notifications/destinationStore.js';
@@ -826,6 +827,10 @@ async function initializeServices(app: FastifyInstance) {
   // Unwrapped like its neighbours: a catalog that failed to seed would leave the gallery
   // and every bound instance pointing at a template version that was never written.
   await seedBuiltinTemplates();
+
+  // Needs the catalog it seeds: the destination subscriptions it converts become instances of
+  // those templates. Unwrapped too, or an install ends up with neither the checkbox nor the rule.
+  await runSystemEventsMigration();
 
   try {
     await sweepDestinationConfigs();

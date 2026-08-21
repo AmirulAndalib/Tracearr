@@ -30,8 +30,8 @@ const PAUSE_MEASURE: Partial<Record<ConditionField, 'current' | 'total'>> = {
 };
 const RISING_OPERATORS: ReadonlySet<string> = new Set(['gt', 'gte']);
 /** What a rule with nothing to derive from gets; disabled, so it fires nothing until someone sets it. */
-const DEFAULT_HELD_FOR = { minutes: 30, measure: 'current' } as const;
-const DEFAULT_INACTIVE_DAYS = 30;
+export const DEFAULT_HELD_FOR = { minutes: 30, measure: 'current' } as const;
+export const DEFAULT_INACTIVE_FOR = { days: 30 } as const;
 
 function* enabledConditions(conditions: AutomationConditions | null | undefined) {
   for (const group of conditions?.groups ?? []) {
@@ -56,12 +56,17 @@ function threshold(condition: Condition, max: number, automationId?: string): nu
   return null;
 }
 
-/** One node per distinct measure and threshold among the rising pause conditions. */
-function heldForNodes(
+export interface HeldForParams {
+  minutes: number;
+  measure: 'current' | 'total';
+}
+
+/** Every distinct measure and threshold among the rising pause conditions, in condition order. */
+export function heldForThresholds(
   conditions: AutomationConditions | null | undefined,
   automationId?: string
-): TriggerNode[] {
-  const nodes: TriggerNode[] = [];
+): HeldForParams[] {
+  const found: HeldForParams[] = [];
   const seen = new Set<string>();
   for (const condition of enabledConditions(conditions)) {
     const measure = PAUSE_MEASURE[condition.field];
@@ -69,36 +74,61 @@ function heldForNodes(
     const minutes = threshold(condition, 1440, automationId);
     if (minutes === null || seen.has(`${measure}:${String(minutes)}`)) continue;
     seen.add(`${measure}:${String(minutes)}`);
-    nodes.push({
-      id: randomUUID(),
-      type: 'session.held_for',
-      enabled: true,
-      params: { minutes, measure },
-    });
+    found.push({ minutes, measure });
   }
-  if (nodes.length > 0) return nodes;
-  return [
-    { id: randomUUID(), type: 'session.held_for', enabled: false, params: { ...DEFAULT_HELD_FOR } },
-  ];
+  return found;
 }
 
 /** The first enabled inactive_days threshold, which is what the evaluator applies today. */
+export function inactiveForDays(
+  conditions: AutomationConditions | null | undefined,
+  automationId?: string
+): number | null {
+  for (const condition of enabledConditions(conditions)) {
+    if (condition.field !== 'inactive_days') continue;
+    const days = threshold(condition, 3650, automationId);
+    if (days !== null) return days;
+  }
+  return null;
+}
+
+/** One node per threshold the pause conditions imply, or a disabled default when they imply none. */
+function heldForNodes(
+  conditions: AutomationConditions | null | undefined,
+  automationId?: string
+): TriggerNode[] {
+  const thresholds = heldForThresholds(conditions, automationId);
+  if (thresholds.length === 0) {
+    return [
+      {
+        id: randomUUID(),
+        type: 'session.held_for',
+        enabled: false,
+        params: { ...DEFAULT_HELD_FOR },
+      },
+    ];
+  }
+  return thresholds.map((params) => ({
+    id: randomUUID(),
+    type: 'session.held_for',
+    enabled: true,
+    params,
+  }));
+}
+
 function inactiveForNode(
   conditions: AutomationConditions | null | undefined,
   automationId?: string
 ): TriggerNode {
-  for (const condition of enabledConditions(conditions)) {
-    if (condition.field !== 'inactive_days') continue;
-    const days = threshold(condition, 3650, automationId);
-    if (days === null) continue;
-    return { id: randomUUID(), type: 'account.inactive_for', enabled: true, params: { days } };
-  }
-  return {
-    id: randomUUID(),
-    type: 'account.inactive_for',
-    enabled: false,
-    params: { days: DEFAULT_INACTIVE_DAYS },
-  };
+  const days = inactiveForDays(conditions, automationId);
+  return days === null
+    ? {
+        id: randomUUID(),
+        type: 'account.inactive_for',
+        enabled: false,
+        params: { ...DEFAULT_INACTIVE_FOR },
+      }
+    : { id: randomUUID(), type: 'account.inactive_for', enabled: true, params: { days } };
 }
 
 /**

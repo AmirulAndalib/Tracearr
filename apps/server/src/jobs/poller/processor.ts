@@ -43,7 +43,6 @@ import { getWatchedThreshold } from '../../services/settings.js';
 import { sseManager } from '../../services/sseManager.js';
 import { createLogger } from '../../utils/logger.js';
 
-import { enqueueNotification } from '../notificationQueue.js';
 import {
   batchGetIdentityServerUserIds,
   batchGetLibraryItemIdentity,
@@ -77,7 +76,6 @@ import { mapMediaSession, pickLiveSessionFields, pickStreamDetailFields } from '
 import {
   buildCompositeKey,
   calculatePauseAccumulation,
-  calculateStopDuration,
   checkWatchCompletion,
   createInitialConfirmationState,
   detectMediaChange,
@@ -258,29 +256,6 @@ async function handleFirstMisses(
 }
 
 /**
- * Send the deferred session_stopped notification for a confirmed grace-period
- * stop. Shared by sweepGracePeriod (DB-confirmed stop) and
- * pruneMissedPollTracking (server deleted, so there is no DB row left to
- * confirm against - the notification comes from the retained snapshot alone).
- * No session.stopped dispatch here: the snapshot is not a row to build a
- * context from, and the DB-confirmed path already dispatched from stopSessionAtomic.
- */
-async function sendGracePeriodStopNotification(
-  key: string,
-  snapshot: ActiveSession,
-  durationMs: number | null
-): Promise<void> {
-  try {
-    await enqueueNotification({
-      type: 'session_stopped',
-      payload: { ...snapshot, durationMs },
-    });
-  } catch (notifErr) {
-    console.error(`[Poller] Failed to enqueue stop notification for ${key}:`, notifErr);
-  }
-}
-
-/**
  * Lazily backfill recentSessionsMap for a server user absent from the
  * new-session batch (e.g. a pending session confirming on a later tick, so
  * its key already reads as "not new"). Writes back into the map so repeat
@@ -305,16 +280,14 @@ async function resolveVanishedPendingSession(
   serverId: string,
   serverType: string,
   pendingKeySource: string
-): Promise<{ notify: boolean; durationMs: number | null }> {
-  if (!cacheService) return { notify: false, durationMs: null };
+): Promise<void> {
+  if (!cacheService) return;
   const cache = cacheService;
   const pendingKey =
     serverType === 'plex' ? pendingKeySource.slice(serverId.length + 1) : pendingKeySource;
 
   const pendingData = await cache.getPendingSession(serverId, pendingKey);
-  if (!pendingData) {
-    return { notify: false, durationMs: null };
-  }
+  if (!pendingData) return;
 
   const { maxViewOffset, initialViewOffset } = pendingData.confirmation;
   const progress = maxViewOffset - (initialViewOffset ?? maxViewOffset);
@@ -325,7 +298,7 @@ async function resolveVanishedPendingSession(
       `[Poller] Discarded phantom pending session ${pendingKey} (id: ${pendingData.id}) ` +
         `(vanished before confirmation)`
     );
-    return { notify: false, durationMs: null };
+    return;
   }
 
   const lockResult = await cache.withSessionCreateLock(
@@ -375,9 +348,7 @@ async function resolveVanishedPendingSession(
     }
   );
 
-  if (!lockResult) {
-    return { notify: false, durationMs: null };
-  }
+  if (!lockResult) return;
 
   if (lockResult.qualityChange) {
     await handleQualityChangeFallout(lockResult.qualityChange, cache, pubSubService);
@@ -393,9 +364,7 @@ async function resolveVanishedPendingSession(
       console.error('[Poller] Failed to broadcast violations for vanished pending session:', err);
     }
   }
-  if (lockResult.wasTerminatedByRule) {
-    return { notify: false, durationMs: null };
-  }
+  if (lockResult.wasTerminatedByRule) return;
 
   const stopResult = await stopSessionAtomic({
     session: lockResult.insertedSession,
@@ -410,8 +379,6 @@ async function resolveVanishedPendingSession(
     `[Poller] Persisted vanished pending session ${lockResult.insertedSession.id} ` +
       `(${Math.round(progress / 1000)}s progress before disappearing)`
   );
-
-  return { notify: stopResult.wasUpdated, durationMs: stopResult.durationMs };
 }
 
 /**
@@ -453,14 +420,7 @@ async function sweepGracePeriod(
             continue;
           }
 
-          const { durationMs, notify } = await resolveVanishedPendingSession(
-            serverId,
-            pendingServerType,
-            key
-          );
-          if (notify) {
-            await sendGracePeriodStopNotification(key, snapshot, durationMs);
-          }
+          await resolveVanishedPendingSession(serverId, pendingServerType, key);
         } else {
           const serverType = serverTypeMap.get(serverId);
           const session =
@@ -482,16 +442,13 @@ async function sweepGracePeriod(
             // session.lastSeenAt is the last poll that confirmed this session
             // alive - it vanished 1-2 polls before this sweep, so `new Date()`
             // would bill the grace-period gap itself as watch time.
-            const { wasUpdated, durationMs, needsRetry, retryData } = await stopSessionAtomic({
+            const { needsRetry, retryData } = await stopSessionAtomic({
               session,
               stoppedAt: session.lastSeenAt,
             });
             clearDbWriteTracking(session.id);
             if (needsRetry && retryData && cacheService) {
               await cacheService.addSessionWriteRetry(session.id, retryData);
-            }
-            if (wasUpdated) {
-              await sendGracePeriodStopNotification(key, snapshot, durationMs);
             }
           } else {
             console.log(
@@ -533,13 +490,11 @@ async function sweepGracePeriod(
  *    30s reconciliation passes, so it must leave the entry alone; pruning
  *    here makes the confirm step unreachable and strands the session in
  *    cache (counted by rules) until the stale sweep. stopSessionAtomic's
- *    isNull(stoppedAt) guard already prevents any double-notify with SSE.
+ *    isNull(stoppedAt) guard already prevents any double-stop with SSE.
  *  - Removed from the DB: sessions.server_id is ON DELETE CASCADE, so the
- *    session row is already gone and no other path (sweepStaleSessions
- *    included, since it also reads from that now-deleted row) will ever
- *    send this stop's notification. There is nothing left to write to the
- *    DB, but the notification still fires from the retained ActiveSession
- *    snapshot, and the cache/pubsub entry is cleared the same way
+ *    session row is already gone and there is nothing left to write or to
+ *    build an evaluation context from - a stream-ended automation does not
+ *    fire for it. The cache/pubsub entry is cleared the same way
  *    sweepGracePeriod clears a DB-confirmed stop.
  * Runs unprotected by serverPollLocks: the entries pruned belong to servers
  * this tick will not touch, and sweepGracePeriod already tolerates a
@@ -552,7 +507,6 @@ async function pruneMissedPollTracking(
 ): Promise<void> {
   const pollableServerIds = new Set(serversNeedingPoll.map((server) => server.id));
   const existingServerIds = new Set(allServers.map((server) => server.id));
-  const now = new Date();
   // Same deferred-invalidation shape as sweepGracePeriod: one flush after the
   // loop, kept behind try/finally so a throw partway through still flushes
   // whatever was already removed.
@@ -565,17 +519,6 @@ async function pruneMissedPollTracking(
       // SSE-covered server still in the DB: leave the entry for reconciliation.
       if (existingServerIds.has(snapshot.serverId)) continue;
 
-      const { durationMs } = calculateStopDuration(
-        {
-          startedAt: snapshot.startedAt,
-          lastPausedAt: snapshot.lastPausedAt,
-          pausedDurationMs: snapshot.pausedDurationMs ?? 0,
-          progressMs: snapshot.progressMs,
-          totalDurationMs: snapshot.totalDurationMs,
-        },
-        now
-      );
-      await sendGracePeriodStopNotification(key, snapshot, durationMs);
       if (cacheService) {
         await cacheService.removeActiveSession(snapshot.id, { skipDashboardInvalidation: true });
         dashboardStatsDirty = true;
@@ -1216,7 +1159,6 @@ async function processServerSessions(
             await cacheService.addActiveSession(activeSession);
             if (pubSubService) {
               await pubSubService.publish('session:started', activeSession);
-              await enqueueNotification({ type: 'session_started', payload: activeSession });
             }
             continue;
           }
@@ -1970,10 +1912,6 @@ async function pollServers(): Promise<void> {
 
             if (wasDown) {
               console.log(`[Poller] Server ${server.name} is back UP`);
-              await enqueueNotification({
-                type: 'server_up',
-                payload: { serverName: server.name, serverId: server.id },
-              });
               await dispatchServerHealth('server.up', healthServer, new Date());
             }
           } else {
@@ -1986,10 +1924,6 @@ async function pollServers(): Promise<void> {
                 console.log(
                   `[Poller] Server ${server.name} is DOWN (${failCount} consecutive failures)`
                 );
-                await enqueueNotification({
-                  type: 'server_down',
-                  payload: { serverName: server.name, serverId: server.id },
-                });
                 await dispatchServerHealth('server.down', healthServer, new Date());
               }
             }
@@ -2022,7 +1956,6 @@ async function pollServers(): Promise<void> {
       cachedSessions,
       cacheService,
       pubSubService,
-      enqueueNotification,
       confirmedFromPendingIds: allConfirmedFromPendingIds,
     });
 
@@ -2127,31 +2060,6 @@ export async function sweepStaleSessions(): Promise<number> {
 
     const now = new Date();
 
-    // The stop notification needs the user/server shape ActiveSession carries,
-    // which the sessions row doesn't have inline - batched once for all stale
-    // sessions rather than joined into the query above (that query's shape is
-    // shared with the stale-session filtering logic and stays untouched).
-    const staleServerIds = [...new Set(staleSessions.map((s) => s.serverId))];
-    const staleServerUserIds = [...new Set(staleSessions.map((s) => s.serverUserId))];
-    const [staleServerRows, staleServerUserRows] = await Promise.all([
-      db
-        .select({ id: servers.id, name: servers.name, type: servers.type })
-        .from(servers)
-        .where(inArray(servers.id, staleServerIds)),
-      db
-        .select({
-          id: serverUsers.id,
-          username: serverUsers.username,
-          thumbUrl: serverUsers.thumbUrl,
-          identityName: users.name,
-        })
-        .from(serverUsers)
-        .innerJoin(users, eq(serverUsers.userId, users.id))
-        .where(inArray(serverUsers.id, staleServerUserIds)),
-    ]);
-    const staleServerById = new Map(staleServerRows.map((row) => [row.id, row]));
-    const staleServerUserById = new Map(staleServerUserRows.map((row) => [row.id, row]));
-
     // Dashboard invalidation is deferred to one call after the loop (instead
     // of one SCAN per force-stopped session); try/finally so the flag still
     // flushes if a later iteration throws.
@@ -2164,7 +2072,7 @@ export async function sweepStaleSessions(): Promise<number> {
           continue;
         }
 
-        const { wasUpdated, durationMs, needsRetry, retryData } = await stopSessionAtomic({
+        const { wasUpdated, needsRetry, retryData } = await stopSessionAtomic({
           session: staleSession,
           stoppedAt: now,
           forceStopped: true,
@@ -2188,27 +2096,6 @@ export async function sweepStaleSessions(): Promise<number> {
 
         if (pubSubService) {
           await pubSubService.publish('session:stopped', staleSession.id);
-        }
-
-        const server = staleServerById.get(staleSession.serverId);
-        const user = staleServerUserById.get(staleSession.serverUserId);
-        if (server && user) {
-          const snapshot = {
-            ...staleSession,
-            stoppedAt: now,
-            user,
-            server,
-            canTerminate: server.type !== 'plex' || !!staleSession.plexSessionId,
-          } as ActiveSession;
-          await sendGracePeriodStopNotification(
-            `${staleSession.serverId}:${staleSession.sessionKey}`,
-            snapshot,
-            durationMs
-          );
-        } else {
-          console.error(
-            `[Poller] Missing server/user for stale session ${staleSession.id}, skipping stop notification`
-          );
         }
       }
     } finally {
@@ -2385,7 +2272,6 @@ export async function triggerServerPoll(serverId: string): Promise<void> {
         cachedSessions,
         cacheService,
         pubSubService,
-        enqueueNotification,
         confirmedFromPendingIds,
       });
     }
@@ -2499,7 +2385,6 @@ export async function triggerReconciliationPoll(): Promise<void> {
         cachedSessions,
         cacheService,
         pubSubService,
-        enqueueNotification,
         confirmedFromPendingIds: allConfirmedFromPendingIds,
       });
 

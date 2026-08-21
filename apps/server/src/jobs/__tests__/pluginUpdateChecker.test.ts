@@ -58,18 +58,6 @@ describe('runPluginUpdateCheck', () => {
     mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
     await runPluginUpdateCheck();
     await runPluginUpdateCheck();
-    const calls = mockEnqueueNotification.mock.calls.filter(
-      (c) => c[0].type === 'plugin_update_available'
-    );
-    expect(calls).toHaveLength(1);
-    expect(calls[0]![0].payload.serverId).toBe('s1');
-    expect(calls[0]![0].payload.latestVersion).toBe('0.2.0.0');
-  });
-
-  it('dispatches the trigger beside the notification, deduped the same way', async () => {
-    mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
-    await runPluginUpdateCheck();
-    await runPluginUpdateCheck();
 
     expect(mockDispatchPluginUpdate).toHaveBeenCalledTimes(1);
     expect(mockDispatchPluginUpdate).toHaveBeenCalledWith({
@@ -78,9 +66,13 @@ describe('runPluginUpdateCheck', () => {
       latestVersion: '0.2.0.0',
       downloadUrl: 'https://github.com/Tracearr/Media-Server-SSE/releases/latest',
     });
-    expect(
-      mockEnqueueNotification.mock.calls.filter((c) => c[0].type === 'plugin_update_available')
-    ).toHaveLength(1);
+  });
+
+  it('leaves the notification to whatever automation listens for the trigger', async () => {
+    mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
+    await runPluginUpdateCheck();
+
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it('re-arms when a newer version appears', async () => {
@@ -88,36 +80,34 @@ describe('runPluginUpdateCheck', () => {
     await runPluginUpdateCheck();
     mockFetchJson.mockResolvedValue([{ versions: [{ version: '0.3.0.0' }] }]);
     await runPluginUpdateCheck();
-    const calls = mockEnqueueNotification.mock.calls.filter(
-      (c) => c[0].type === 'plugin_update_available'
-    );
-    expect(calls).toHaveLength(2);
+
+    expect(mockDispatchPluginUpdate).toHaveBeenCalledTimes(2);
   });
 
   it('does not nudge an up to date plugin', async () => {
     mockSseManager.getPluginVersion.mockReturnValue('0.2.0.0');
     await runPluginUpdateCheck();
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockDispatchPluginUpdate).not.toHaveBeenCalled();
   });
 
   it('never nudges plex servers', async () => {
     mockDbServers.mockResolvedValue([{ id: 's2', name: 'Plex', type: 'plex' }]);
     await runPluginUpdateCheck();
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockDispatchPluginUpdate).not.toHaveBeenCalled();
   });
 
   it('skips servers in fallback (no live plugin connection)', async () => {
     mockSseManager.isInFallback.mockReturnValue(true);
     mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
     await runPluginUpdateCheck();
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockDispatchPluginUpdate).not.toHaveBeenCalled();
   });
 
   it('fails soft on manifest fetch error', async () => {
     mockFetchJson.mockRejectedValue(new Error('network'));
     await expect(runPluginUpdateCheck()).resolves.toBeUndefined();
     expect(mockSseManager.setLatestPluginVersion).not.toHaveBeenCalled();
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockDispatchPluginUpdate).not.toHaveBeenCalled();
   });
 
   it('does nothing when disabled', async () => {

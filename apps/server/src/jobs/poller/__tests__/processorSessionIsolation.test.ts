@@ -373,9 +373,7 @@ describe('per-session error isolation in processServerSessions', () => {
     await triggerPoll();
 
     expect(cacheService.setServerHealth).not.toHaveBeenCalledWith('server-1', false);
-    expect(mockEnqueueNotification.mock.calls.some(([arg]) => arg.type === 'server_down')).toBe(
-      false
-    );
+    expect(dispatchedOfType('server.down')).toEqual([]);
   });
 
   it('still reports the server unhealthy when client.getSessions() itself fails', async () => {
@@ -388,12 +386,9 @@ describe('per-session error isolation in processServerSessions', () => {
     await triggerPoll();
 
     expect(cacheService.setServerHealth).toHaveBeenCalledWith('server-1', false);
-    expect(mockEnqueueNotification.mock.calls.some(([arg]) => arg.type === 'server_down')).toBe(
-      true
-    );
   });
 
-  it('dispatches server.down beside the notification once the threshold trips', async () => {
+  it('dispatches server.down once the threshold trips, and enqueues nothing', async () => {
     mockGetActiveAutomations.mockResolvedValue([serverDownAutomation]);
     mockCreateMediaServerClient.mockReturnValue({
       getSessions: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
@@ -410,9 +405,7 @@ describe('per-session error isolation in processServerSessions', () => {
         server: { id: 'server-1', name: 'Test Server', type: 'plex' },
       },
     ]);
-    expect(mockEnqueueNotification.mock.calls.some(([arg]) => arg.type === 'server_down')).toBe(
-      true
-    );
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it('dispatches server.up when the server comes back', async () => {
@@ -432,7 +425,6 @@ describe('per-session error isolation in processServerSessions', () => {
     await triggerPoll();
 
     expect(dispatchedOfType('server.up')).toHaveLength(1);
-    expect(mockEnqueueNotification.mock.calls.some(([arg]) => arg.type === 'server_up')).toBe(true);
   });
 
   it('dispatches no health event when no automation listens', async () => {
@@ -445,9 +437,6 @@ describe('per-session error isolation in processServerSessions', () => {
     await triggerPoll();
 
     expect(dispatchedOfType('server.down')).toEqual([]);
-    expect(mockEnqueueNotification.mock.calls.some(([arg]) => arg.type === 'server_down')).toBe(
-      true
-    );
   });
 
   it('does not treat a session that throws mid-processing as missing for grace-period purposes', async () => {

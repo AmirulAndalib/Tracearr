@@ -3,7 +3,6 @@ import { maxVersion, compareVersions } from '../utils/pluginVersion.js';
 import { sseManager } from '../services/sseManager.js';
 import { getSettings } from '../services/settings.js';
 import { dispatchPluginUpdate } from '../services/automations/events/producers.js';
-import { enqueueNotification } from './notificationQueue.js';
 import { db } from '../db/client.js';
 import { servers } from '../db/schema.js';
 
@@ -66,17 +65,6 @@ export async function runPluginUpdateCheck(): Promise<void> {
       if (nudgedVersions.get(server.id) === latest) continue;
 
       nudgedVersions.set(server.id, latest);
-      await enqueueNotification({
-        type: 'plugin_update_available',
-        payload: {
-          serverId: server.id,
-          serverName: server.name,
-          serverType: server.type,
-          installedVersion: installed,
-          latestVersion: latest,
-          downloadUrl: RELEASES_URL,
-        },
-      });
       await dispatchPluginUpdate({
         server: { id: server.id, name: server.name, type: server.type },
         installedVersion: installed,

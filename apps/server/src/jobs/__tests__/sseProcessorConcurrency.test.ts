@@ -247,10 +247,7 @@ describe('SSE Processor - Concurrent Session Creation', () => {
     expect(addActiveSessionSpy).toHaveBeenCalledTimes(1);
     expect(setPendingSessionSpy).toHaveBeenCalledTimes(1);
 
-    const startedNotifications = mockEnqueueNotification.mock.calls.filter(
-      (call) => call[0]?.type === 'session_started'
-    );
-    expect(startedNotifications).toHaveLength(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
 
     const pendingKeys = await cacheService.getAllPendingSessionKeys();
     expect(pendingKeys).toHaveLength(1);

@@ -14,7 +14,7 @@ const logger = createLogger('automation-migration');
 /** Distinct from timescale's 875_100_001, the schema runner's 875_100_002 and destinations' 875_100_003. */
 const LOCK_KEY = 875_100_004;
 
-interface PendingWork {
+export interface PendingWork {
   legacy: number;
   missingTriggers: number;
   missingVersion: number;
@@ -39,7 +39,7 @@ const hasWork = (pending: PendingWork): boolean =>
 const STALE_RUNS = sql`subject_key IS NULL AND (session_id IS NOT NULL OR server_user_id IS NOT NULL)`;
 
 /** The V1 columns left the schema; a database upgrading across releases can still have them. */
-async function hasLegacyColumns(executor: Executor): Promise<boolean> {
+export async function hasLegacyColumns(executor: Executor): Promise<boolean> {
   const result = await executor.execute(sql`
     SELECT count(*)::int AS present
     FROM information_schema.columns
@@ -51,7 +51,7 @@ async function hasLegacyColumns(executor: Executor): Promise<boolean> {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** Untyped once the columns leave the schema, so every field is checked back into shape. */
 function legacyRowOf(row: Record<string, unknown>): LegacyAutomationRow {
@@ -79,7 +79,10 @@ async function selectLegacyRows(executor: Executor): Promise<LegacyAutomationRow
   return result.rows.map(legacyRowOf);
 }
 
-async function countPendingWork(executor: Executor, legacyColumns: boolean): Promise<PendingWork> {
+export async function countPendingWork(
+  executor: Executor,
+  legacyColumns: boolean
+): Promise<PendingWork> {
   const legacyCount = legacyColumns
     ? sql`count(*) FILTER (WHERE a.type IS NOT NULL AND a.conditions IS NULL)::int`
     : sql`0`;

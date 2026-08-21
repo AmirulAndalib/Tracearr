@@ -196,13 +196,24 @@ describe('Run routes', () => {
       expect(response.statusCode).toBe(400);
     });
 
-    it('scopes a viewer to the servers its accounts are on', async () => {
+    it('scopes a viewer by the server the run was recorded against', async () => {
       app = await buildTestApp(viewerUser);
       const { pageChain } = setupListMocks([], 0);
 
       await app.inject({ method: 'GET', url: '/runs' });
 
-      expect(renderCall(pageChain).params).toContain('srv-1');
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('automation_runs.server_id = ');
+      expect(page.params).toContain('srv-1');
+    });
+
+    it('leaves an owner unfiltered, so install-wide runs stay readable', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(pageChain.where.mock.calls[0]?.[0]).toBeUndefined();
     });
 
     it('answers an empty page for a caller with no servers, without querying', async () => {

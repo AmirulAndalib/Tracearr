@@ -392,9 +392,8 @@ describe('poller resolves a pending session that vanishes before confirmation', 
     // stoppedAt is the last confirmed-alive time, not the sweep's own Date.now().
     expect(stopCall.stoppedAt).toEqual(new Date(pendingData.lastSeenAt));
 
-    expect(mockEnqueueNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'session_stopped' })
-    );
+    // stopSessionAtomic owns the session.stopped dispatch; nothing enqueues here.
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it('drops the stale pending entry without persisting when a concurrent caller already wrote the row', async () => {

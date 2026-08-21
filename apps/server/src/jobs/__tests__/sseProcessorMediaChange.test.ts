@@ -429,12 +429,8 @@ describe('SSE Processor - Media Change Detection', () => {
     // Should have broadcast start for new session
     expect(mockPubSubService.publish).toHaveBeenCalledWith('session:started', mockActiveSession);
 
-    // Should only enqueue session_started (no session_stopped — matches poller behavior)
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueNotification).toHaveBeenCalledWith({
-      type: 'session_started',
-      payload: mockActiveSession,
-    });
+    // The automations own the notification now; the media change enqueues nothing.
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it('does not trigger media change for same ratingKey', async () => {

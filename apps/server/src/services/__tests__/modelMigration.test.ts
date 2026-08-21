@@ -503,6 +503,45 @@ describe('runAutomationModelMigration', () => {
     expect(infos[0]).toContain('Acknowledged 2 duplicate active run(s)');
   });
 
+  it('refuses to read a legacy row whose type it does not recognize', async () => {
+    const state: TxState = {
+      counts: { ...idle, legacy: 1 },
+      legacyRows: [
+        {
+          id: 'a9',
+          name: 'from the future',
+          type: 'quantum_streams',
+          params: null,
+          server_user_id: null,
+          server_id: null,
+          is_active: true,
+        },
+      ],
+    };
+
+    await expect(run(state)).rejects.toThrow('Cannot read legacy automation a9');
+    expect(convertV1Rule).not.toHaveBeenCalled();
+  });
+
+  it('reads a params array as no params at all', async () => {
+    await run({
+      counts: { ...idle, legacy: 1 },
+      legacyRows: [
+        {
+          id: 'a10',
+          name: 'array params',
+          type: 'concurrent_streams',
+          params: [{ maxStreams: 2 }] as unknown as Record<string, unknown>,
+          server_user_id: null,
+          server_id: null,
+          is_active: true,
+        },
+      ],
+    });
+
+    expect(vi.mocked(convertV1Rule).mock.calls[0]?.[1]).toMatchObject({ id: 'a10', params: null });
+  });
+
   it('lets a failed conversion abort the transaction without touching the cache', async () => {
     vi.mocked(convertV1Rule).mockRejectedValueOnce(new Error('unknown V1 type'));
     const harness = buildTx({

@@ -17,7 +17,7 @@ import {
   type RunSortField,
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
-import { automationRuns, automations, serverUsers } from '../db/schema.js';
+import { automationRuns, automations } from '../db/schema.js';
 import { toRunSummary } from '../services/automations/runRecorder.js';
 import {
   buildOrderBy,
@@ -73,7 +73,6 @@ export function buildRunSummaryQuery(params: RunPageParams) {
     .select(runSummaryColumns)
     .from(automationRuns)
     .innerJoin(automations, eq(automationRuns.automationId, automations.id))
-    .leftJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
     .where(params.where)
     .orderBy(
       buildOrderBy(RUN_SORT_KEYS, params.orderBy, params.orderDir, sql`${automationRuns.id}`)
@@ -88,7 +87,6 @@ export async function countRuns(where: SQL | undefined): Promise<number> {
     .select({ total: count() })
     .from(automationRuns)
     .innerJoin(automations, eq(automationRuns.automationId, automations.id))
-    .leftJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
     .where(where);
   return rows[0]?.total ?? 0;
 }
@@ -98,14 +96,20 @@ export type RunSummaryRow = Awaited<ReturnType<typeof buildRunSummaryQuery>>[num
 export const mapRunSummary = (row: RunSummaryRow): AutomationRunSummary =>
   toRunSummary(row, row.automationName);
 
-/** Runs are attributed through their server account; a caller sees the servers it can reach. */
+/**
+ * The recorder stamps the server on every run, user-less ones included; a caller sees the
+ * servers it can reach, and install-wide runs carry no server, so only owners read those.
+ */
 export function runAccessCondition(authUser: AuthUser): {
   empty: boolean;
   condition: SQL | undefined;
 } {
   const resolvedIds = resolveServerIds(authUser, undefined, undefined, { strict: false });
   if (resolvedIds?.length === 0) return { empty: true, condition: undefined };
-  return { empty: false, condition: buildMultiServerCondition(resolvedIds, serverUsers.serverId) };
+  return {
+    empty: false,
+    condition: buildMultiServerCondition(resolvedIds, automationRuns.serverId),
+  };
 }
 
 export type RunFilters = Omit<RunListQuery, 'page' | 'pageSize' | 'orderBy' | 'orderDir'>;
@@ -178,7 +182,6 @@ export const runRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(automationRuns)
       .innerJoin(automations, eq(automationRuns.automationId, automations.id))
-      .leftJoin(serverUsers, eq(automationRuns.serverUserId, serverUsers.id))
       .where(and(eq(automationRuns.id, params.data.id), access.condition))
       .limit(1);
 

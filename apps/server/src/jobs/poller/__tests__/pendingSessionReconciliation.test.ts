@@ -781,10 +781,8 @@ describe('poller isNew branch defers to a pending session', () => {
     // Both display immediately - session:started fires for each, with no DB write.
     expect(pubSubService.publish).toHaveBeenCalledTimes(2);
     expect(pubSubService.publish).toHaveBeenCalledWith('session:started', expect.anything());
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
-    expect(mockEnqueueNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'session_started' })
-    );
+    // A pending entry is not a session yet; the automations fire at confirmation.
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
 
     // Nothing goes through the batched new/updated/stopped pipeline this tick.
     expect(mockProcessPollResults).not.toHaveBeenCalled();
