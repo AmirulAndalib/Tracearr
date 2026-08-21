@@ -51,9 +51,14 @@ import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
 import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
-import { stampNodes, synthesizeTriggers } from '../services/automations/triggers.js';
+import {
+  resynthesizeTriggers,
+  stampNodes,
+  synthesizeTriggers,
+} from '../services/automations/triggers.js';
 import {
   automationDefinition,
+  canonicalEqual,
   insertAutomationVersion,
   sameDefinition,
 } from '../services/automations/versions.js';
@@ -389,9 +394,10 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (patch.severity !== undefined) updateData.severity = storedSeverity(patch.severity);
     if (patch.conditions !== undefined && stamped.conditions) {
       updateData.conditions = stamped.conditions;
-      // Synthesis mints fresh trigger ids, which would version a restated definition.
-      if (JSON.stringify(stamped.conditions) !== JSON.stringify(existing.conditions)) {
-        updateData.triggers = synthesizeTriggers(stamped.conditions);
+      // The payload comes back from zod in its own key order and the stored row in
+      // jsonb's, so only a canonical compare can tell a restatement from an edit.
+      if (!canonicalEqual(stamped.conditions, existing.conditions)) {
+        updateData.triggers = resynthesizeTriggers(stamped.conditions, existing.triggers);
       }
     }
     if (patch.actions !== undefined) updateData.actions = stamped.actions;

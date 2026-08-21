@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
-import type { AuthUser, RuleActions, RuleConditions } from '@tracearr/shared';
+import type { AuthUser, RuleActions, RuleConditions, TriggerNode } from '@tracearr/shared';
 import { queryChain, renderCall } from '../../test/helpers.js';
 
 vi.mock('../../db/client.js', () => ({
@@ -497,24 +497,26 @@ describe('Automation routes', () => {
 
     it('writes no version when the payload restates the stored definition', async () => {
       app = await buildTestApp(ownerUser);
-      // A round-trip from the builder resends the stored nodes, ids and all, so stamping is a no-op.
+      const conditionId = randomUUID();
+      const actionId = randomUUID();
+      // jsonb hands keys back shortest first, so a stored node never reads in payload order.
       const stored = automationRow({
         conditions: {
           groups: [
             {
               conditions: [
                 {
-                  id: randomUUID(),
-                  enabled: true,
+                  id: conditionId,
                   field: 'concurrent_streams',
-                  operator: 'gt',
                   value: 2,
+                  enabled: true,
+                  operator: 'gt',
                 },
               ],
             },
           ],
         },
-        actions: { actions: [{ id: randomUUID(), enabled: true, type: 'kill_stream' }] },
+        actions: { actions: [{ id: actionId, type: 'kill_stream', enabled: true }] },
       });
       setupSelect([stored]);
       const harness = setupTransaction([[stored]]);
@@ -524,8 +526,23 @@ describe('Automation routes', () => {
         url: `/automations/${AUTOMATION_ID}`,
         payload: {
           name: stored.name,
-          conditions: stored.conditions,
-          actions: stored.actions,
+          // The builder resends the stored nodes in its own key order.
+          conditions: {
+            groups: [
+              {
+                conditions: [
+                  {
+                    field: 'concurrent_streams',
+                    operator: 'gt',
+                    value: 2,
+                    id: conditionId,
+                    enabled: true,
+                  },
+                ],
+              },
+            ],
+          },
+          actions: { actions: [{ type: 'kill_stream', id: actionId, enabled: true }] },
         },
       });
 
@@ -533,6 +550,41 @@ describe('Automation routes', () => {
       // Fresh trigger ids on an unchanged definition would version the automation on every save.
       expect(harness.updateSets[0]).not.toHaveProperty('triggers');
       expect(harness.inserts).toEqual([]);
+    });
+
+    it('carries the surviving trigger node ids through a real condition change', async () => {
+      app = await buildTestApp(ownerUser);
+      const startedId = randomUUID();
+      const stored = automationRow({
+        triggers: [{ id: startedId, type: 'session.started', enabled: true }],
+      });
+      setupSelect([stored]);
+      const harness = setupTransaction([[stored], [{ id: 'ver-2' }]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: {
+          conditions: {
+            groups: [
+              { conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }] },
+            ],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const update = harness.updateSets[0] as { triggers: TriggerNode[] };
+      const started = update.triggers.find((trigger) => trigger.type === 'session.started');
+      // The notification gate keys on the node id; re-minting it re-notifies everything.
+      expect(started?.id).toBe(startedId);
+      expect(update.triggers.map((trigger) => trigger.type)).toEqual([
+        'session.started',
+        'session.paused',
+        'session.held_for',
+      ]);
+      const minted = update.triggers.filter((trigger) => trigger.id !== startedId);
+      expect(new Set(minted.map((trigger) => trigger.id)).size).toBe(2);
     });
 
     it('stamps the action nodes a payload changes', async () => {

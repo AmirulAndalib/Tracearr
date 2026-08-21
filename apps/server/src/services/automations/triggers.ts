@@ -40,6 +40,22 @@ export function synthesizeTriggers(conditions: RuleConditions | null | undefined
   return triggers;
 }
 
+/**
+ * Re-synthesis for a save: a trigger type that survives the edit keeps the node
+ * id it already had. The notification gate reads that id off past runs, so a
+ * fresh one re-notifies every subject the automation has already reached.
+ */
+export function resynthesizeTriggers(
+  conditions: RuleConditions | null | undefined,
+  existing: TriggerNode[] | null | undefined
+): TriggerNode[] {
+  const byType = new Map((existing ?? []).map((trigger) => [trigger.type, trigger.id]));
+  return synthesizeTriggers(conditions).map((trigger) => {
+    const priorId = byType.get(trigger.type);
+    return priorId ? { ...trigger, id: priorId } : trigger;
+  });
+}
+
 const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({
   ...item,
   id: item.id ?? randomUUID(),

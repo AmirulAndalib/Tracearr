@@ -17,10 +17,11 @@ import {
   createTestServerUser,
   createTestSession,
 } from '@tracearr/test-utils/factories';
-import type { RuleV2 } from '@tracearr/shared';
+import type { RuleV2, TriggerNode } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns } from '../../src/db/schema.js';
 import { recordRun, type RunTrigger } from '../../src/services/automations/runRecorder.js';
+import { resynthesizeTriggers } from '../../src/services/automations/triggers.js';
 import type { EvaluationResult } from '../../src/services/rules/types.js';
 
 const matched: EvaluationResult = {
@@ -102,5 +103,85 @@ describe('recordRun notification gate', () => {
       .from(automationRuns)
       .where(eq(automationRuns.automationId, row.id));
     expect(stored).toHaveLength(2);
+  });
+
+  it('re-fires on a re-minted trigger node and stays quiet on the one a save carried over', async () => {
+    const owner = await createTestUser({ role: 'owner' });
+    const server = await createTestServer({ type: 'plex' });
+    const serverUser = await createTestServerUser({ userId: owner.id, serverId: server.id });
+    const session = await createTestSession({ serverId: server.id, serverUserId: serverUser.id });
+
+    const conditions = {
+      groups: [
+        {
+          conditions: [{ field: 'is_transcoding' as const, operator: 'eq' as const, value: true }],
+        },
+      ],
+    };
+    const stored: TriggerNode[] = [
+      { id: randomUUID(), type: 'session.transcode_changed', enabled: true },
+    ];
+    const [row] = await db
+      .insert(automations)
+      .values({
+        name: 'notify on transcode',
+        kind: 'notification',
+        severity: 'warning',
+        isActive: true,
+        conditions,
+        actions: { actions: [] },
+        triggers: stored,
+      })
+      .returning();
+    if (!row) throw new Error('failed to insert the automation');
+
+    const automation: RuleV2 = {
+      id: row.id,
+      name: row.name,
+      description: null,
+      serverId: null,
+      serverUserId: null,
+      userId: null,
+      enforceAcrossServers: false,
+      isActive: true,
+      severity: 'warning',
+      kind: 'notification',
+      conditions,
+      actions: { actions: [] },
+      triggers: stored,
+      cooldownMinutes: null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+    const record = (nodeId: string | null) =>
+      recordRun({
+        automation,
+        result: matched,
+        serverUserId: serverUser.id,
+        serverId: server.id,
+        scope: { kind: 'session', sessionId: session.id },
+        session: null,
+        trigger: {
+          type: 'session.transcode_changed',
+          nodeId,
+          edgeKey: 'transcode/none',
+          at: new Date(),
+        },
+      });
+
+    const priorId = stored[0]?.id ?? null;
+    const first = await record(priorId);
+    // A save re-synthesizes the set but keeps the id of every type that survived it.
+    const afterSave = resynthesizeTriggers(conditions, stored);
+    const carriedId =
+      afterSave.find((trigger) => trigger.type === 'session.transcode_changed')?.id ?? null;
+    const carried = await record(carriedId);
+    const reminted = await record(randomUUID());
+
+    expect(carriedId).toBe(priorId);
+
+    expect(first).not.toBeNull();
+    expect(carried).toBeNull();
+    expect(reminted).not.toBeNull();
   });
 });
