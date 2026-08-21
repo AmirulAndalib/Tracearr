@@ -15,7 +15,7 @@ import { describe, it, expect } from 'vitest';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import sensible from '@fastify/sensible';
-import type { RuleConditions, Server, ServerUser, Session } from '@tracearr/shared';
+import type { AutomationConditions, Server, ServerUser, Session } from '@tracearr/shared';
 import { createAutomationSchema, DEFAULT_STREAM_DETAILS } from '@tracearr/shared';
 import {
   createTestUser,
@@ -32,7 +32,7 @@ import { resolveTargetSessions } from '../../src/services/automations/executors/
 import { automationRoutes } from '../../src/routes/automations.js';
 
 // A condition that always matches, so tests exercise scope filtering only.
-const ALWAYS_MATCH_CONDITIONS: RuleConditions = {
+const ALWAYS_MATCH_CONDITIONS: AutomationConditions = {
   groups: [{ conditions: [{ field: 'trust_score', operator: 'gte', value: 0 }] }],
 };
 

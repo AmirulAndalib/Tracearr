@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { ConditionField, RuleConditions, TriggerNode } from '@tracearr/shared';
+import type { ConditionField, AutomationConditions, TriggerNode } from '@tracearr/shared';
 import { resynthesizeTriggers, stampNodes, synthesizeTriggers } from '../automations/triggers.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** One field per group, which is how the sniffing predicates walked legacy rows. */
-const conditionsFor = (...fields: ConditionField[]): RuleConditions => ({
+const conditionsFor = (...fields: ConditionField[]): AutomationConditions => ({
   groups: fields.map((field) => ({ conditions: [{ field, operator: 'gt', value: 1 }] })),
 });
 
-const types = (conditions: RuleConditions | null) =>
+const types = (conditions: AutomationConditions | null) =>
   synthesizeTriggers(conditions).map((trigger) => trigger.type);
 
 describe('synthesizeTriggers', () => {
@@ -79,7 +79,7 @@ describe('synthesizeTriggers', () => {
   });
 
   it('reads every condition in a group, not just the first', () => {
-    const conditions: RuleConditions = {
+    const conditions: AutomationConditions = {
       groups: [
         {
           conditions: [
@@ -158,7 +158,7 @@ describe('stampNodes', () => {
   });
 
   it('does not mutate its input', () => {
-    const conditions: RuleConditions = {
+    const conditions: AutomationConditions = {
       groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
     };
     stampNodes({ conditions, actions: { actions: [{ type: 'trust', mode: 'reset' }] } });

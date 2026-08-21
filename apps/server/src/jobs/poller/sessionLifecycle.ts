@@ -9,7 +9,7 @@ import {
   SESSION_WRITE_RETRY,
   TIME_MS,
   type ActiveSession,
-  type RuleV2,
+  type EngineAutomation,
   type Session,
   type StreamDetailFields,
 } from '@tracearr/shared';
@@ -936,7 +936,7 @@ export interface ConfirmPendingSessionInput {
   /** Pending session data from Redis */
   pendingData: PendingSessionData;
   /** Active V2 rules to evaluate */
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   /** Active sessions for rule context */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation */

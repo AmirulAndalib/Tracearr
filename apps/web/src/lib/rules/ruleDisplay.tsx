@@ -9,9 +9,9 @@ import type {
   Condition,
   Action,
   ConditionField,
-  RuleActions,
-  RuleConditions,
-  RulesFilterOptions,
+  AutomationActions,
+  AutomationConditions,
+  AutomationFilterOptions,
 } from '@tracearr/shared';
 import { type UnitSystem, formatConditionFieldValue } from '@tracearr/shared';
 import {
@@ -69,8 +69,8 @@ const DEFAULT_ICON = <Settings2 className="h-5 w-5" />;
 
 /** The conditions/actions pair both `Rule` and `Automation` carry. */
 export interface RuleDisplayInput {
-  conditions?: RuleConditions | null;
-  actions?: RuleActions | null;
+  conditions?: AutomationConditions | null;
+  actions?: AutomationActions | null;
 }
 
 /**
@@ -111,7 +111,7 @@ function countTotalConditions(rule: RuleDisplayInput): number {
  */
 export function formatCondition(
   condition: Condition,
-  filterOptions?: RulesFilterOptions,
+  filterOptions?: AutomationFilterOptions,
   unitSystem?: UnitSystem
 ): string {
   const fieldDef = FIELD_DEFINITIONS[condition.field];
@@ -184,7 +184,7 @@ export function formatCondition(
 function lookupDynamicValue(
   field: ConditionField,
   value: string,
-  filterOptions?: RulesFilterOptions
+  filterOptions?: AutomationFilterOptions
 ): string | null {
   if (!filterOptions) return null;
 
@@ -212,7 +212,7 @@ function lookupDynamicValue(
 function formatConditionValue(
   condition: Condition,
   fieldDef: (typeof FIELD_DEFINITIONS)[ConditionField] | undefined,
-  filterOptions?: RulesFilterOptions
+  filterOptions?: AutomationFilterOptions
 ): string {
   const { value, field } = condition;
 
@@ -280,7 +280,7 @@ function formatActions(actions: Action[]): string {
  */
 export function getRuleSummary(
   rule: RuleDisplayInput,
-  filterOptions?: RulesFilterOptions,
+  filterOptions?: AutomationFilterOptions,
   unitSystem?: UnitSystem
 ): string {
   // Conditions part

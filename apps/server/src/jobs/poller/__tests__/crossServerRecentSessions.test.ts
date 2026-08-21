@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import type { Session, Condition, RuleV2, ServerUser, Server } from '@tracearr/shared';
+import type { Session, Condition, EngineAutomation, ServerUser, Server } from '@tracearr/shared';
 import { synthesizeTriggers } from '../../../services/automations/triggers.js';
 import { evaluatorRegistry } from '../../../services/automations/evaluators/index.js';
 import type { SessionEvaluationContext } from '../../../services/automations/types.js';
@@ -157,7 +157,7 @@ function createMockServer(overrides: Partial<Server> = {}): Server {
   };
 }
 
-function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createMockRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',

@@ -12,9 +12,8 @@
  * Each legacy type is converted to V2 conditions and actions.
  */
 import type {
-  RuleType,
-  RuleConditions,
-  RuleActions,
+  AutomationConditions,
+  AutomationActions,
   ViolationSeverity,
   Condition,
   ImpossibleTravelParams,
@@ -25,11 +24,15 @@ import type {
   AccountInactivityParams,
 } from '@tracearr/shared';
 import { rulesLogger as logger } from '../../utils/logger.js';
+import type { ruleTypeEnum } from '../../db/schema.js';
+
+/** The v1 `automations.type` values this converter still reads. */
+export type LegacyRuleType = (typeof ruleTypeEnum)[number];
 
 export interface LegacyRule {
   id: string;
   name: string;
-  type: RuleType;
+  type: LegacyRuleType;
   params: Record<string, unknown>;
   serverUserId: string | null;
   serverId: string | null;
@@ -39,8 +42,8 @@ export interface LegacyRule {
 export interface MigratedRule {
   id: string;
   severity: ViolationSeverity;
-  conditions: RuleConditions;
-  actions: RuleActions;
+  conditions: AutomationConditions;
+  actions: AutomationActions;
 }
 
 /**
@@ -50,7 +53,7 @@ export interface MigratedRule {
  * V2 equivalent: travel_speed_kmh > maxSpeedKmh
  * Also applies excludePrivateIps as is_local_network = false condition if enabled.
  */
-function convertImpossibleTravel(params: ImpossibleTravelParams): RuleConditions {
+function convertImpossibleTravel(params: ImpossibleTravelParams): AutomationConditions {
   const groups: Array<{ conditions: Condition[] }> = [
     {
       conditions: [
@@ -85,7 +88,7 @@ function convertImpossibleTravel(params: ImpossibleTravelParams): RuleConditions
  * Original behavior: Flag if user has active sessions in locations > minDistanceKm apart.
  * V2 equivalent: active_session_distance_km > minDistanceKm
  */
-function convertSimultaneousLocations(params: SimultaneousLocationsParams): RuleConditions {
+function convertSimultaneousLocations(params: SimultaneousLocationsParams): AutomationConditions {
   const groups: Array<{ conditions: Condition[] }> = [
     {
       conditions: [
@@ -122,7 +125,7 @@ function convertSimultaneousLocations(params: SimultaneousLocationsParams): Rule
  *   - groupByDevice=true: unique_devices_in_window > maxIps
  *
  */
-function convertDeviceVelocity(params: DeviceVelocityParams): RuleConditions {
+function convertDeviceVelocity(params: DeviceVelocityParams): AutomationConditions {
   const field = params.groupByDevice ? 'unique_devices_in_window' : 'unique_ips_in_window';
 
   const groups: Array<{ conditions: Condition[] }> = [
@@ -164,7 +167,7 @@ function convertDeviceVelocity(params: DeviceVelocityParams): RuleConditions {
  * Original behavior: Flag if active streams > maxStreams.
  * V2 equivalent: concurrent_streams > maxStreams
  */
-function convertConcurrentStreams(params: ConcurrentStreamsParams): RuleConditions {
+function convertConcurrentStreams(params: ConcurrentStreamsParams): AutomationConditions {
   const groups: Array<{ conditions: Condition[] }> = [
     {
       conditions: [
@@ -203,7 +206,7 @@ function convertConcurrentStreams(params: ConcurrentStreamsParams): RuleConditio
  * - blocklist: country IN [blocked countries]
  * - allowlist: country NOT IN [allowed countries]
  */
-function convertGeoRestriction(params: GeoRestrictionParams): RuleConditions {
+function convertGeoRestriction(params: GeoRestrictionParams): AutomationConditions {
   const groups: Array<{ conditions: Condition[] }> = [];
 
   if (params.mode === 'blocklist') {
@@ -253,7 +256,7 @@ function convertGeoRestriction(params: GeoRestrictionParams): RuleConditions {
  *
  * Note: This triggers when a previously inactive user starts a session.
  */
-function convertAccountInactivity(params: AccountInactivityParams): RuleConditions {
+function convertAccountInactivity(params: AccountInactivityParams): AutomationConditions {
   // Convert to days for comparison
   let inactivityDays = params.inactivityValue;
   if (params.inactivityUnit === 'weeks') {
@@ -283,7 +286,7 @@ function convertAccountInactivity(params: AccountInactivityParams): RuleConditio
  * Create default actions for migrated rules.
  * Violations are auto-created from rule severity, so no violation action needed.
  */
-function createDefaultActions(): RuleActions {
+function createDefaultActions(): AutomationActions {
   return {
     actions: [],
   };
@@ -293,7 +296,7 @@ function createDefaultActions(): RuleActions {
  * Convert a legacy rule to V2 format.
  */
 export function convertLegacyRule(rule: LegacyRule): MigratedRule | null {
-  let conditions: RuleConditions;
+  let conditions: AutomationConditions;
 
   try {
     switch (rule.type) {

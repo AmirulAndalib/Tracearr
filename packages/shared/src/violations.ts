@@ -1,10 +1,10 @@
+import type { ConditionField } from './automations/index.js';
 import type {
   ViolationWithDetails,
   ViolationSessionInfo,
   UnitSystem,
   GroupEvidence,
   ConditionEvidence,
-  ConditionField,
 } from './types.js';
 import { formatSpeed, formatDistance } from './constants.js';
 

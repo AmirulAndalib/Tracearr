@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Action, RuleActions, RuleConditions } from '@tracearr/shared';
+import type { Action, AutomationActions, AutomationConditions } from '@tracearr/shared';
 import type { StoredAction } from '../automations/modelMigration.js';
 
 const infos: string[] = [];
@@ -51,7 +51,7 @@ interface LegacyRow {
 
 interface UntriggeredRow {
   id: string;
-  conditions: RuleConditions | null;
+  conditions: AutomationConditions | null;
   actions: { actions: StoredAction[] } | null;
 }
 
@@ -61,8 +61,8 @@ interface VersionlessRow {
   kind: string;
   severity: string;
   triggers: unknown;
-  conditions: RuleConditions | null;
-  actions: RuleActions | null;
+  conditions: AutomationConditions | null;
+  actions: AutomationActions | null;
   serverId: string | null;
   serverUserId: string | null;
   userId: string | null;
@@ -157,8 +157,8 @@ async function run(state: TxState) {
 
 const idle: Counts = { legacy: 0, missing_triggers: 0, missing_version: 0, stale_runs: 0 };
 
-const conditionsWith = (field: string): RuleConditions =>
-  ({ groups: [{ conditions: [{ field, operator: 'gt', value: 1 }] }] }) as RuleConditions;
+const conditionsWith = (field: string): AutomationConditions =>
+  ({ groups: [{ conditions: [{ field, operator: 'gt', value: 1 }] }] }) as AutomationConditions;
 
 const actionsOf = (...actions: StoredAction[]): { actions: StoredAction[] } => ({ actions });
 
@@ -245,7 +245,7 @@ describe('runAutomationModelMigration', () => {
       versionlessRows: [],
     });
 
-    const actions = (harness.updates[0]?.actions as RuleActions).actions as Array<
+    const actions = (harness.updates[0]?.actions as AutomationActions).actions as Array<
       Action & { id: string; enabled: boolean }
     >;
     expect(actions.map((a) => a.type)).toEqual([
@@ -282,7 +282,7 @@ describe('runAutomationModelMigration', () => {
       versionlessRows: [],
     });
 
-    expect((harness.updates[0]?.actions as RuleActions).actions[0]).toMatchObject({
+    expect((harness.updates[0]?.actions as AutomationActions).actions[0]).toMatchObject({
       type: 'trust',
       mode: 'adjust',
       amount: 5,
@@ -329,7 +329,7 @@ describe('runAutomationModelMigration', () => {
       versionlessRows: [],
     });
 
-    const conditions = harness.updates[0]?.conditions as RuleConditions;
+    const conditions = harness.updates[0]?.conditions as AutomationConditions;
     const nodes = conditions.groups.flatMap((g) => g.conditions) as unknown as Array<{
       id: string;
       enabled: boolean;

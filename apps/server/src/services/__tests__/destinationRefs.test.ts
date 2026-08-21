@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RuleActions } from '@tracearr/shared';
+import type { AutomationActions } from '@tracearr/shared';
 
 interface RuleRow {
   id: string;
   name: string;
   isActive: boolean;
-  actions: RuleActions | null;
+  actions: AutomationActions | null;
 }
 
 const ruleRows: RuleRow[] = [];
@@ -19,9 +19,9 @@ vi.mock('../../db/client.js', () => ({
   },
 }));
 
-import { rulesReferencingDestinations } from '../notifications/destinationRefs.js';
+import { automationsReferencingDestinations } from '../notifications/destinationRefs.js';
 
-describe('rulesReferencingDestinations', () => {
+describe('automationsReferencingDestinations', () => {
   it('counts inactive rules and ignores non-send actions', async () => {
     ruleRows.length = 0;
     ruleRows.push(
@@ -45,7 +45,7 @@ describe('rulesReferencingDestinations', () => {
       }
     );
 
-    const refs = await rulesReferencingDestinations();
+    const refs = await automationsReferencingDestinations();
 
     expect(refs.get('dest-a')).toEqual([
       { ruleId: 'rule-1', ruleName: 'Active both', isActive: true },

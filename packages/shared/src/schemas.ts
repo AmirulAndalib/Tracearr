@@ -393,15 +393,6 @@ export const accountInactivityParamsSchema = z.object({
   inactivityUnit: z.enum(['days', 'weeks', 'months']).default('days'),
 });
 
-export const ruleParamsSchema = z.union([
-  impossibleTravelParamsSchema,
-  simultaneousLocationsParamsSchema,
-  deviceVelocityParamsSchema,
-  concurrentStreamsParamsSchema,
-  geoRestrictionParamsSchema,
-  accountInactivityParamsSchema,
-]);
-
 // ============================================
 // Rules Builder V2 - Validation Schemas
 // ============================================
@@ -428,7 +419,7 @@ export {
   conditionValueSchema,
   conditionSchema,
   conditionGroupSchema,
-  ruleConditionsSchema,
+  automationConditionsSchema,
 } from './automations/conditions.js';
 export type {
   ComparisonOperator,
@@ -449,7 +440,7 @@ export type {
   ConditionValue,
   Condition,
   ConditionGroup,
-  RuleConditions,
+  AutomationConditions,
 } from './automations/conditions.js';
 export {
   sendActionSchema,
@@ -459,7 +450,7 @@ export {
   messageClientActionSchema,
   actionSchema,
   actionTypeSchema,
-  ruleActionsSchema,
+  automationActionsSchema,
 } from './automations/actions.js';
 export type {
   SessionTarget,
@@ -469,7 +460,7 @@ export type {
   KillStreamAction,
   MessageClientAction,
   Action,
-  RuleActions,
+  AutomationActions,
 } from './automations/actions.js';
 export const violationSeveritySchema = z.enum(['low', 'warning', 'high']);
 
@@ -482,11 +473,11 @@ export function hasAtMostOneScope(data: {
   return [data.serverId, data.serverUserId, data.userId].filter((v) => v != null).length <= 1;
 }
 
-export const RULE_SCOPE_ERROR_MESSAGE =
+export const AUTOMATION_SCOPE_ERROR_MESSAGE =
   'An automation can only be scoped to one of server, account, or person';
 
 export const scopeRefinement = {
-  message: RULE_SCOPE_ERROR_MESSAGE,
+  message: AUTOMATION_SCOPE_ERROR_MESSAGE,
 } as const;
 
 // A server-scoped automation detects on that server's sessions only; enforcing its
@@ -498,20 +489,20 @@ export function scopeAllowsCrossServerEnforcement(data: {
   return !(data.serverId != null && data.enforceAcrossServers === true);
 }
 
-export const RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE =
+export const AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE =
   'A server-scoped automation cannot enforce actions across all servers';
 
 export const crossServerEnforcementRefinement = {
-  message: RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
+  message: AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
 } as const;
 
 // Bulk operations schemas
-export const bulkUpdateRulesSchema = z.object({
+export const bulkUpdateAutomationsSchema = z.object({
   ids: z.array(uuidSchema).min(1, 'At least one automation ID is required'),
   isActive: z.boolean(),
 });
 
-export const bulkDeleteRulesSchema = z.object({
+export const bulkDeleteAutomationsSchema = z.object({
   ids: z.array(uuidSchema).min(1, 'At least one automation ID is required'),
 });
 
@@ -1125,8 +1116,8 @@ export type HistoryQueryInput = z.infer<typeof historyQuerySchema>;
 export type HistoryAggregatesQueryInput = z.infer<typeof historyAggregatesQuerySchema>;
 export type FilterOptionsQueryInput = z.infer<typeof filterOptionsQuerySchema>;
 
-export type BulkUpdateRulesInput = z.infer<typeof bulkUpdateRulesSchema>;
-export type BulkDeleteRulesInput = z.infer<typeof bulkDeleteRulesSchema>;
+export type BulkUpdateAutomationsInput = z.infer<typeof bulkUpdateAutomationsSchema>;
+export type BulkDeleteAutomationsInput = z.infer<typeof bulkDeleteAutomationsSchema>;
 
 export type ServerIdFilterInput = z.infer<typeof serverIdFilterSchema>;
 export type DashboardQueryInput = z.infer<typeof dashboardQuerySchema>;

@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import type {
   Condition,
   ConditionGroup as ConditionGroupType,
-  RulesFilterOptions,
+  AutomationFilterOptions,
 } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConditionRow } from './ConditionRow';
@@ -15,7 +15,7 @@ interface ConditionGroupProps {
   onChange: (group: ConditionGroupType) => void;
   onRemove: () => void;
   showRemove?: boolean;
-  filterOptions?: RulesFilterOptions;
+  filterOptions?: AutomationFilterOptions;
   allowedFields?: ReadonlySet<string>;
 }
 

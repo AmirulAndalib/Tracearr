@@ -46,7 +46,7 @@ import type {
   UpdateDestinationInput,
   HistorySessionResponse,
   HistoryFilterOptions,
-  RulesFilterOptions,
+  AutomationFilterOptions,
   HistoryQueryInput,
   HistoryAggregatesQueryInput,
   HistoryAggregates,
@@ -833,7 +833,9 @@ class ApiClient {
      * Returns all countries (with hasSessions indicator) and servers.
      */
     rulesFilterOptions: () => {
-      return this.request<RulesFilterOptions>('/sessions/filter-options?includeAllCountries=true');
+      return this.request<AutomationFilterOptions>(
+        '/sessions/filter-options?includeAllCountries=true'
+      );
     },
     getActive: async (serverIds?: string[]) => {
       const params = new URLSearchParams();

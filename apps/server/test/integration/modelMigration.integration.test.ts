@@ -19,7 +19,12 @@ import {
   createTestServerUser,
   createTestSession,
 } from '@tracearr/test-utils/factories';
-import type { Action, RuleActions, RuleConditions, TriggerNode } from '@tracearr/shared';
+import type {
+  Action,
+  AutomationActions,
+  AutomationConditions,
+  TriggerNode,
+} from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, automationVersions } from '../../src/db/schema.js';
 import {
@@ -29,16 +34,16 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-const conditions = (...fields: Array<[string, string, unknown]>): RuleConditions =>
+const conditions = (...fields: Array<[string, string, unknown]>): AutomationConditions =>
   ({
     groups: fields.map(([field, operator, value]) => ({
       conditions: [{ field, operator, value }],
     })),
-  }) as RuleConditions;
+  }) as AutomationConditions;
 
 async function insertV2(overrides: {
   name: string;
-  conditions: RuleConditions;
+  conditions: AutomationConditions;
   actions?: { actions: StoredAction[] };
 }) {
   const [row] = await db
@@ -49,7 +54,7 @@ async function insertV2(overrides: {
       isActive: true,
       conditions: overrides.conditions,
       // The corpus deliberately seeds shapes the contract dropped; the column is jsonb either way.
-      actions: (overrides.actions ?? { actions: [] }) as RuleActions,
+      actions: (overrides.actions ?? { actions: [] }) as AutomationActions,
     })
     .returning();
   if (!row) throw new Error(`failed to insert ${overrides.name}`);

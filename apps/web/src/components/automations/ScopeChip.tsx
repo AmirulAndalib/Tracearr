@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { User } from 'lucide-react';
-import type { Automation, RulesFilterOptions, Server } from '@tracearr/shared';
+import type { Automation, AutomationFilterOptions, Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { ServerBadge } from '@/components/server';
 import { scopeFromRule } from '@/lib/rules';
@@ -8,7 +8,7 @@ import { scopeFromRule } from '@/lib/rules';
 interface ScopeChipProps {
   automation: Automation;
   servers: Server[];
-  filterOptions?: RulesFilterOptions;
+  filterOptions?: AutomationFilterOptions;
 }
 
 /** Where the automation applies, as one chip beside its name. */

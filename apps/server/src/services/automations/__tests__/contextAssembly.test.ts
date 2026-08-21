@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ActiveSession, RuleV2, Session } from '@tracearr/shared';
+import type { ActiveSession, EngineAutomation, Session } from '@tracearr/shared';
 import type { sessions } from '../../../db/schema.js';
 
 const mockGetIdentityServerUserIds = vi.fn();
@@ -13,7 +13,7 @@ vi.mock('../../../jobs/poller/database.js', () => ({
   batchGetRecentUserSessions: (...args: unknown[]) => mockBatchGetRecentUserSessions(...args),
   mergeRecentSessionsForIdentity: (...args: unknown[]) =>
     mockMergeRecentSessionsForIdentity(...args),
-  maxWindowHoursFromRules: (rules: RuleV2[]) => (rules.length > 0 ? 72 : 24),
+  maxWindowHoursFromRules: (rules: EngineAutomation[]) => (rules.length > 0 ? 72 : 24),
 }));
 
 vi.mock('../../../utils/logger.js', () => ({
@@ -106,7 +106,7 @@ describe('assembleEvaluationInputs', () => {
   it('filters grace-flagged sessions, resolves identity, and fetches recent with the rules window', async () => {
     cached.push(session('a'), session('b'));
     graceIds.add('b');
-    const rules = [{ id: 'r1' } as RuleV2];
+    const rules = [{ id: 'r1' } as EngineAutomation];
 
     const result = await assembleEvaluationInputs({ rules, server, serverUser });
 
@@ -126,7 +126,7 @@ describe('assembleEvaluationInputs', () => {
       .mockResolvedValueOnce(new Map([['su1', [session('mine')]]]));
 
     const result = await assembleEvaluationInputs({
-      rules: [{ id: 'r1' } as RuleV2],
+      rules: [{ id: 'r1' } as EngineAutomation],
       server,
       serverUser,
     });

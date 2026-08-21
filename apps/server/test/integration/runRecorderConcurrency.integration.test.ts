@@ -19,7 +19,7 @@ import {
   createTestServerUser,
   createTestSession,
 } from '@tracearr/test-utils/factories';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, users } from '../../src/db/schema.js';
 import { recordRun } from '../../src/services/automations/runRecorder.js';
@@ -34,7 +34,7 @@ const matched: EvaluationResult = {
   evidence: [],
 };
 
-async function seedPolicyAutomation(): Promise<RuleV2> {
+async function seedPolicyAutomation(): Promise<EngineAutomation> {
   const nodeId = randomUUID();
   const [row] = await db
     .insert(automations)

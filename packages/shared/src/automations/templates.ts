@@ -4,7 +4,7 @@ import {
   ifActionSchema,
   killStreamActionSchema,
   messageClientActionSchema,
-  ruleActionsSchema,
+  automationActionsSchema,
   sendActionSchema,
   trustActionSchema,
 } from './actions.js';
@@ -14,7 +14,7 @@ import {
   conditionGroupSchema,
   conditionSchema,
   conditionValueSchema,
-  ruleConditionsSchema,
+  automationConditionsSchema,
 } from './conditions.js';
 import { createAutomationSchema } from './definition.js';
 import { triggerNodeSchema } from './triggers.js';
@@ -24,7 +24,7 @@ import type {
   ConditionField,
   ConditionGroup,
   ConditionValueType,
-  RuleConditions,
+  AutomationConditions,
 } from './conditions.js';
 import type { CreateAutomationInput } from './definition.js';
 import type { TriggerNode } from './triggers.js';
@@ -201,10 +201,10 @@ const templateConditionGroupSchema = conditionGroupSchema.extend({
 });
 type TemplateConditionGroup = z.infer<typeof templateConditionGroupSchema>;
 
-const templateRuleConditionsSchema = ruleConditionsSchema.extend({
+const templateConditionsSchema = automationConditionsSchema.extend({
   groups: z.array(templateConditionGroupSchema),
 });
-type TemplateRuleConditions = z.infer<typeof templateRuleConditionsSchema>;
+type TemplateConditions = z.infer<typeof templateConditionsSchema>;
 
 // The trigger union's members in declaration order: paramless, session.held_for, account.inactive_for.
 const [paramlessTrigger, heldForTrigger, inactiveForTrigger] = triggerNodeSchema.options;
@@ -266,7 +266,7 @@ type TemplateLeafAction = z.infer<typeof templateLeafActionSchema>;
 
 const templateIfActionSchema = ifActionSchema.extend({
   enabled: nodeEnabledSlot,
-  conditions: templateRuleConditionsSchema,
+  conditions: templateConditionsSchema,
   then: z.array(templateLeafActionSchema),
   else: z.array(templateLeafActionSchema),
 });
@@ -280,7 +280,7 @@ const templateActionSchema = z.discriminatedUnion('type', [
 ]);
 type TemplateAction = z.infer<typeof templateActionSchema>;
 
-const templateRuleActionsSchema = ruleActionsSchema.extend({
+const templateActionsSchema = automationActionsSchema.extend({
   actions: z.array(templateActionSchema),
 });
 
@@ -288,8 +288,8 @@ export const templateDefinitionSchema = z.strictObject({
   kind: createAutomationSchema.shape.kind,
   severity: createAutomationSchema.shape.severity.optional(),
   triggers: z.array(templateTriggerNodeSchema),
-  conditions: templateRuleConditionsSchema,
-  actions: templateRuleActionsSchema,
+  conditions: templateConditionsSchema,
+  actions: templateActionsSchema,
   scope: z.strictObject({
     serverId: slot(z.uuid()).optional(),
     serverUserId: slot(z.uuid()).optional(),
@@ -332,7 +332,7 @@ function slotsOf(definition: TemplateDefinition): SlotVisit[] {
     add('value', condition.value, [...path, 'value'], condition.field);
     addParams(condition.params, path);
   };
-  const addConditions = (conditions: TemplateRuleConditions, path: (string | number)[]) => {
+  const addConditions = (conditions: TemplateConditions, path: (string | number)[]) => {
     conditions.groups.forEach((group, groupIndex) => {
       const groupPath = [...path, 'groups', groupIndex];
       add('enabled', group.enabled, [...groupPath, 'enabled']);
@@ -577,7 +577,7 @@ export function liftAutomation(automation: CreateAutomationInput & { triggers: T
     ...group,
     conditions: group.conditions.map(liftCondition),
   });
-  const liftConditions = (conditions: RuleConditions): TemplateRuleConditions => ({
+  const liftConditions = (conditions: AutomationConditions): TemplateConditions => ({
     ...conditions,
     groups: conditions.groups.map(liftGroup),
   });

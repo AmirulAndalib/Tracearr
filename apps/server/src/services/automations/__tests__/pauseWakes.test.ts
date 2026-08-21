@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 
 const MIN = 60_000;
 const t0 = Date.UTC(2026, 7, 16, 12, 0, 0);
@@ -61,7 +61,7 @@ import {
   stopPauseWakes,
 } from '../wakes/pauseWakes.js';
 
-function pauseRule(minutes: number, id = 'p'): RuleV2 {
+function pauseRule(minutes: number, id = 'p'): EngineAutomation {
   return {
     id,
     name: id,
@@ -73,7 +73,7 @@ function pauseRule(minutes: number, id = 'p'): RuleV2 {
       ],
     },
     actions: { actions: [] },
-  } as unknown as RuleV2;
+  } as unknown as EngineAutomation;
 }
 function pausedRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -357,7 +357,9 @@ describe('registerPauseWakeSubscriptions', () => {
   );
 
   it('rehydrates only when a pause-rule change follows the baseline fill, on the leader', async () => {
-    const refill = mockOnActiveAutomationsRefill.mock.calls[0]?.[0] as (rules: RuleV2[]) => void;
+    const refill = mockOnActiveAutomationsRefill.mock.calls[0]?.[0] as (
+      rules: EngineAutomation[]
+    ) => void;
 
     refill([pauseRule(10)]);
     await vi.advanceTimersByTimeAsync(0);

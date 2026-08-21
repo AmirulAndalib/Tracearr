@@ -1,4 +1,4 @@
-import type { Condition, ConditionGroup, RuleV2 } from '@tracearr/shared';
+import type { Condition, ConditionGroup, EngineAutomation } from '@tracearr/shared';
 import { compare } from '../comparisons.js';
 import { hasPauseConditions, PAUSE_CONDITION_FIELDS } from '../engine.js';
 
@@ -13,7 +13,7 @@ export interface PauseCrossingInput {
   lastPausedAt: number;
   pausedDurationMs: number;
   now: number;
-  rules: RuleV2[];
+  rules: EngineAutomation[];
 }
 
 export interface PauseCrossingResult {

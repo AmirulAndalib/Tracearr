@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { nodeFieldsShape, ruleConditionsSchema } from './conditions.js';
+import { nodeFieldsShape, automationConditionsSchema } from './conditions.js';
 import { type TriggerContext } from './triggers.js';
 
 export const sendActionSchema = z.object({
@@ -77,7 +77,7 @@ export const leafActionSchema = z.discriminatedUnion('type', [
 export const ifActionSchema = z.strictObject({
   ...nodeFieldsShape,
   type: z.literal('if'),
-  conditions: ruleConditionsSchema,
+  conditions: automationConditionsSchema,
   then: z.array(leafActionSchema),
   else: z.array(leafActionSchema),
 });
@@ -92,7 +92,7 @@ export const actionSchema = z.discriminatedUnion('type', [
 ]);
 
 // Rule actions container (actions are optional side-effects; violations are always auto-created)
-export const ruleActionsSchema = z.object({
+export const automationActionsSchema = z.object({
   actions: z.array(actionSchema),
 });
 
@@ -120,4 +120,4 @@ export type MessageClientAction = z.infer<typeof messageClientActionSchema>;
 export type LeafAction = z.infer<typeof leafActionSchema>;
 export type IfAction = z.infer<typeof ifActionSchema>;
 export type Action = z.infer<typeof actionSchema>;
-export type RuleActions = z.infer<typeof ruleActionsSchema>;
+export type AutomationActions = z.infer<typeof automationActionsSchema>;

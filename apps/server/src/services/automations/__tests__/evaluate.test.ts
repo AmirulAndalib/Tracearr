@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
   ConditionField,
-  RuleConditions,
-  RuleV2,
+  AutomationConditions,
+  EngineAutomation,
   Session,
   TriggerNode,
 } from '@tracearr/shared';
@@ -23,8 +23,8 @@ import { synthesizeTriggers } from '../triggers.js';
 import { matchesTrigger, rulesForTrigger, triggerCandidates } from '../events/evaluate.js';
 
 /** A rule the boot migration would have produced from these conditions. */
-function rule(id: string, ...fields: ConditionField[]): RuleV2 {
-  const conditions: RuleConditions = {
+function rule(id: string, ...fields: ConditionField[]): EngineAutomation {
+  const conditions: AutomationConditions = {
     groups: fields.map((field) => ({ conditions: [{ field, operator: 'gte', value: 1 }] })),
   };
   return {
@@ -35,7 +35,7 @@ function rule(id: string, ...fields: ConditionField[]): RuleV2 {
     conditions,
     actions: { actions: [] },
     triggers: synthesizeTriggers(conditions),
-  } as unknown as RuleV2;
+  } as unknown as EngineAutomation;
 }
 
 const transcodeRule = rule('t', 'is_transcoding');

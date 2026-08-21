@@ -19,8 +19,9 @@ import {
   createTestServer,
   createTestServerUser,
   createTestSession,
-  createTestRule,
-  createTestViolation,
+  createConcurrentStreamsAutomation,
+  createGeoRestrictionAutomation,
+  createTestRun,
 } from '@tracearr/test-utils/factories';
 import { db } from '../../src/db/client.js';
 import { fullRoutes } from '../../src/routes/users/full.js';
@@ -77,12 +78,9 @@ describe('mergeUsers', () => {
       serverUserId: sourceSu.id,
       durationMs: 60_000,
     });
-    const rule = await createTestRule({
-      type: 'concurrent_streams',
-      params: { max_streams: 2 },
-    });
-    await createTestViolation({
-      ruleId: rule.id,
+    const rule = await createConcurrentStreamsAutomation(2);
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: sourceSu.id,
       sessionId: sourceSession.id,
     });
@@ -183,24 +181,12 @@ describe('mergeUsers', () => {
     await createTestSession({ serverId: server.id, serverUserId: sourceSu.id });
     await createTestSession({ serverId: server.id, serverUserId: sourceSu.id });
 
-    // Conflicting per-user rule override: primary wins, source copy dropped
-    await createTestRule({
-      name: 'Max streams',
-      type: 'concurrent_streams',
-      params: { max_streams: 2 },
-      serverUserId: targetSu.id,
-    });
-    await createTestRule({
-      name: 'Max streams',
-      type: 'concurrent_streams',
-      params: { max_streams: 5 },
-      serverUserId: sourceSu.id,
-    });
+    // Conflicting per-user automation override: primary wins, source copy dropped
+    await createConcurrentStreamsAutomation(2, { name: 'Max streams', serverUserId: targetSu.id });
+    await createConcurrentStreamsAutomation(5, { name: 'Max streams', serverUserId: sourceSu.id });
     // Source-only override: moves to the target server user
-    const geoRule = await createTestRule({
+    const geoRule = await createGeoRestrictionAutomation(['XX'], {
       name: 'Geo lock',
-      type: 'geo_restriction',
-      params: { blocked_countries: ['XX'] },
       serverUserId: sourceSu.id,
     });
 
@@ -227,7 +213,7 @@ describe('mergeUsers', () => {
     expect(combinedSu?.email).toBe('primary@example.com');
     expect(combinedSu?.trustScore).toBe(95);
 
-    // Rule overrides: conflicting name dropped, unique one repointed
+    // Automation overrides: conflicting name dropped, unique one repointed
     const targetRules = await db
       .select()
       .from(automations)
@@ -241,7 +227,8 @@ describe('mergeUsers', () => {
     expect(movedGeoRule?.serverUserId).toBe(targetSu.id);
     const maxStreamRules = targetRules.filter((r) => r.name === 'Max streams');
     expect(maxStreamRules).toHaveLength(1);
-    expect((maxStreamRules[0]?.params as { max_streams: number }).max_streams).toBe(2);
+    // The target's threshold survived, not the source's 5.
+    expect(maxStreamRules[0]?.conditions?.groups[0]?.conditions[0]?.value).toBe(2);
   });
 
   it('never carries removedAt from the source onto the surviving row on a same-server combine', async () => {
@@ -587,14 +574,14 @@ describe('GET /users/:id/full?scope=identity panels', () => {
       state: 'stopped',
     });
 
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
-    await createTestViolation({
-      ruleId: rule.id,
+    const rule = await createConcurrentStreamsAutomation(2);
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: targetSu.id,
       sessionId: sessionA.id,
     });
-    await createTestViolation({
-      ruleId: rule.id,
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: sourceSu.id,
       sessionId: sessionB.id,
     });
@@ -776,14 +763,14 @@ describe('GET /violations userId identity filter', () => {
 
     const sessionA = await createTestSession({ serverId: serverA.id, serverUserId: targetSu.id });
     const sessionB = await createTestSession({ serverId: serverB.id, serverUserId: sourceSu.id });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
-    await createTestViolation({
-      ruleId: rule.id,
+    const rule = await createConcurrentStreamsAutomation(2);
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: targetSu.id,
       sessionId: sessionA.id,
     });
-    await createTestViolation({
-      ruleId: rule.id,
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: sourceSu.id,
       sessionId: sessionB.id,
     });
@@ -823,14 +810,14 @@ describe('GET /violations userId identity filter', () => {
 
     const sessionA = await createTestSession({ serverId: serverA.id, serverUserId: targetSu.id });
     const sessionB = await createTestSession({ serverId: serverB.id, serverUserId: sourceSu.id });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
-    await createTestViolation({
-      ruleId: rule.id,
+    const rule = await createConcurrentStreamsAutomation(2);
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: targetSu.id,
       sessionId: sessionA.id,
     });
-    await createTestViolation({
-      ruleId: rule.id,
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: sourceSu.id,
       sessionId: sessionB.id,
     });
@@ -1505,18 +1492,15 @@ describe('identity trust rollup stays current outside merge/split', () => {
     const [before] = await db.select().from(users).where(eq(users.id, person.id));
     expect(before?.aggregateTrustScore).toBe(50);
 
-    const rule = await createTestRule({
-      type: 'concurrent_streams',
-      params: { max_streams: 2 },
-    });
+    const rule = await createConcurrentStreamsAutomation(2);
     await db
       .update(automations)
       .set({ actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -20 }] } })
       .where(eq(automations.id, rule.id));
 
     const session = await createTestSession({ serverId: serverB.id, serverUserId: suB.id });
-    const violation = await createTestViolation({
-      ruleId: rule.id,
+    const violation = await createTestRun({
+      automationId: rule.id,
       serverUserId: suB.id,
       sessionId: session.id,
     });

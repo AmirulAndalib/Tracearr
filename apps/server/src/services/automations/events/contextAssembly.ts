@@ -1,5 +1,11 @@
 import { eq } from 'drizzle-orm';
-import type { ActiveSession, RuleV2, Server, ServerUser, Session } from '@tracearr/shared';
+import type {
+  ActiveSession,
+  EngineAutomation,
+  Server,
+  ServerUser,
+  Session,
+} from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import { servers, serverUsers, users } from '../../../db/schema.js';
 import {
@@ -92,7 +98,7 @@ export async function loadEvaluationServerUser(
 export async function loadEvaluationContext(
   serverId: string,
   serverUserId: string,
-  rules: RuleV2[]
+  rules: EngineAutomation[]
 ): Promise<{
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
@@ -114,7 +120,7 @@ export async function loadEvaluationContext(
  * carries per tick. Failed identity/recent lookups degrade to this server_user only.
  */
 export async function assembleEvaluationInputs(args: {
-  rules: RuleV2[];
+  rules: EngineAutomation[];
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
 }): Promise<EvaluationInputs> {

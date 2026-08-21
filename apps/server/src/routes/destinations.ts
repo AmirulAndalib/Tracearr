@@ -13,7 +13,7 @@ import {
   type NotificationEventType,
 } from '@tracearr/shared';
 import { isUniqueViolation } from '../db/pg.js';
-import { rulesReferencingDestinations } from '../services/notifications/destinationRefs.js';
+import { automationsReferencingDestinations } from '../services/notifications/destinationRefs.js';
 import {
   createDestination,
   deleteDestination,
@@ -85,7 +85,10 @@ export async function destinationRoutes(app: FastifyInstance): Promise<void> {
    * GET /destinations - List destinations with masked config
    */
   app.get('/', owner, async () => {
-    const [rows, refs] = await Promise.all([listDestinations(), rulesReferencingDestinations()]);
+    const [rows, refs] = await Promise.all([
+      listDestinations(),
+      automationsReferencingDestinations(),
+    ]);
     return rows.map((row) => toPublicDestination(row, refs.get(row.id)?.length ?? 0));
   });
 
@@ -171,7 +174,7 @@ export async function destinationRoutes(app: FastifyInstance): Promise<void> {
       }
       throw error;
     }
-    const refs = await rulesReferencingDestinations();
+    const refs = await automationsReferencingDestinations();
     return toPublicDestination(row, refs.get(row.id)?.length ?? 0);
   });
 
@@ -183,7 +186,7 @@ export async function destinationRoutes(app: FastifyInstance): Promise<void> {
     if (!current) return reply.notFound('Destination not found');
     if (current.builtin) return reply.badRequest('Built-in destinations cannot be deleted');
 
-    const refs = (await rulesReferencingDestinations()).get(current.id) ?? [];
+    const refs = (await automationsReferencingDestinations()).get(current.id) ?? [];
     if (refs.length > 0) {
       return reply.code(409).send({
         message: `Used by ${refs.length} rule(s)`,

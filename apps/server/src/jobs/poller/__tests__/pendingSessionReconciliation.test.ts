@@ -8,7 +8,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PendingSessionData } from '../types.js';
-import type { RuleV2, Session, ServerUser, Server as MediaServer } from '@tracearr/shared';
+import type {
+  EngineAutomation,
+  Session,
+  ServerUser,
+  Server as MediaServer,
+} from '@tracearr/shared';
 
 const {
   mockSseManager,
@@ -635,7 +640,7 @@ describe('poller isNew branch defers to a pending session', () => {
       actions: { actions: [{ type: 'kill_stream' }] },
       createdAt: new Date(),
       updatedAt: new Date(),
-    } as unknown as RuleV2;
+    } as unknown as EngineAutomation;
 
     const serverUser = { id: 'server-user-1', serverId: 'server-1' } as unknown as ServerUser;
     const server = { id: 'server-1', type: 'plex' } as unknown as MediaServer;

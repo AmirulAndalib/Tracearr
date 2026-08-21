@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import type { Automation, RulesFilterOptions, Server } from '@tracearr/shared';
+import type { Automation, AutomationFilterOptions, Server } from '@tracearr/shared';
 import { ScopeChip } from './ScopeChip';
 
 vi.mock('react-i18next', () => ({
@@ -29,7 +29,7 @@ const servers: Server[] = [
 ];
 
 // The API returns one row per person, on the representative account.
-const filterOptions: RulesFilterOptions = {
+const filterOptions: AutomationFilterOptions = {
   platforms: [],
   products: [],
   devices: [],

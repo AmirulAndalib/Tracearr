@@ -9,7 +9,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 import type { sessions } from '../../../db/schema.js';
 import type { GeoLocation } from '../../../services/geoip.js';
 import type { ProcessedSession } from '../types.js';
@@ -217,7 +217,7 @@ const geo: GeoLocation = {
   asnOrganization: null,
 };
 
-const rule: RuleV2 = {
+const rule: EngineAutomation = {
   id: 'r1',
   name: 'Kill on start',
   description: null,
@@ -253,7 +253,7 @@ function killResults(enqueuedSessionIds: string[]) {
   ];
 }
 
-function create(activeAutomations: RuleV2[] = [rule]) {
+function create(activeAutomations: EngineAutomation[] = [rule]) {
   return createSessionWithRulesAtomic({
     processed,
     server,

@@ -4,48 +4,6 @@
 
 import { classifyByDimensions, type ResolutionLabel } from './resolution.js';
 
-// Rule type definitions with default parameters
-export const RULE_DEFAULTS = {
-  impossible_travel: {
-    maxSpeedKmh: 500,
-    ignoreVpnRanges: false,
-    excludePrivateIps: false,
-  },
-  simultaneous_locations: {
-    minDistanceKm: 100,
-    excludePrivateIps: false,
-  },
-  device_velocity: {
-    maxIps: 5,
-    windowHours: 24,
-    excludePrivateIps: false,
-    groupByDevice: false,
-  },
-  concurrent_streams: {
-    maxStreams: 3,
-    excludePrivateIps: false,
-  },
-  geo_restriction: {
-    mode: 'blocklist',
-    countries: [],
-    excludePrivateIps: false,
-  },
-  account_inactivity: {
-    inactivityValue: 30,
-    inactivityUnit: 'days',
-  },
-} as const;
-
-// Rule type display names
-export const RULE_DISPLAY_NAMES = {
-  impossible_travel: 'Impossible Travel',
-  simultaneous_locations: 'Simultaneous Locations',
-  device_velocity: 'Device Velocity',
-  concurrent_streams: 'Concurrent Streams',
-  geo_restriction: 'Geo Restriction',
-  account_inactivity: 'Account Inactivity',
-} as const;
-
 export { IDENTITY_AWARE_CONDITION_FIELDS } from './automations/conditions.js';
 
 // Severity levels
@@ -284,9 +242,10 @@ export const REDIS_KEYS = {
     ratingKey: string
   ) =>
     `${_redisPrefix}termination:cooldown:composite:${serverId}:${serverUserId}:${deviceId}:${ratingKey}`,
-  // Rule cooldowns
-  RULE_COOLDOWN: (ruleId: string, targetId: string) =>
-    `${_redisPrefix}tracearr:rule:cooldown:${ruleId}:${targetId}`,
+  // Per-action cooldown on one target. The key string keeps its v1 shape so
+  // cooldowns already armed in Redis stay honoured.
+  ACTION_COOLDOWN: (automationId: string, targetId: string) =>
+    `${_redisPrefix}tracearr:rule:cooldown:${automationId}:${targetId}`,
   // Automation-level cooldown, keyed on the run's subject
   AUTOMATION_COOLDOWN: (automationId: string, subjectKey: string) =>
     `${_redisPrefix}tracearr:automation:cooldown:${automationId}:${subjectKey}`,

@@ -12,7 +12,7 @@ import {
   POLLING_INTERVALS,
   SESSION_LIMITS,
   type ActiveSession,
-  type RuleV2,
+  type EngineAutomation,
   type Session,
 } from '@tracearr/shared';
 import { and, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
@@ -723,7 +723,7 @@ async function resolvePendingSession(
  */
 async function processServerSessions(
   server: ServerWithToken,
-  activeAutomations: RuleV2[],
+  activeAutomations: EngineAutomation[],
   cachedSessionKeys: Set<string>,
   activeSessions: ActiveSession[] = []
 ): Promise<ServerProcessingResult> {

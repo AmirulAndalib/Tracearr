@@ -7,7 +7,7 @@
 
 import type { Redis } from 'ioredis';
 import { eq, sql } from 'drizzle-orm';
-import { REDIS_KEYS, type RuleType } from '@tracearr/shared';
+import { REDIS_KEYS } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
 import { rulesLogger } from '../../utils/logger.js';
@@ -18,6 +18,7 @@ import {
   type ActionResult,
 } from './executors/index.js';
 import { convertLegacyRule } from './migration.js';
+import type { LegacyRuleType } from './migration.js';
 
 // ============================================================================
 // Action Result Storage
@@ -259,14 +260,14 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
      * Check if a rule/target combination is on cooldown.
      */
     checkCooldown: async (ruleId, targetId, _cooldownMinutes) => {
-      return isCoolingDown(redis, REDIS_KEYS.RULE_COOLDOWN(ruleId, targetId));
+      return isCoolingDown(redis, REDIS_KEYS.ACTION_COOLDOWN(ruleId, targetId));
     },
 
     /**
      * Set cooldown for a rule/target combination.
      */
     setCooldown: async (ruleId, targetId, cooldownMinutes) => {
-      const key = REDIS_KEYS.RULE_COOLDOWN(ruleId, targetId);
+      const key = REDIS_KEYS.ACTION_COOLDOWN(ruleId, targetId);
       await armCooldown(redis, key, cooldownMinutes);
 
       rulesLogger.debug(`Set cooldown for ${cooldownMinutes} minutes`, {
@@ -286,7 +287,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
 export interface LegacyAutomationRow {
   id: string;
   name: string;
-  type: RuleType;
+  type: LegacyRuleType;
   params: Record<string, unknown> | null;
   serverUserId: string | null;
   serverId: string | null;

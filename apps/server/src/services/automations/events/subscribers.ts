@@ -1,4 +1,4 @@
-import type { ConditionField, RuleV2, RunFinishedEvent } from '@tracearr/shared';
+import type { ConditionField, EngineAutomation, RunFinishedEvent } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import {
   appendRunSteps,
@@ -30,7 +30,7 @@ import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 interface PendingAct {
   context: EvaluationContext;
   result: EvaluationResult;
-  rule: RuleV2;
+  rule: EngineAutomation;
   run: AutomationRunRow;
 }
 
@@ -74,7 +74,7 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
 const INACTIVE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set(['inactive_days']);
 
 /** What makes this firing a distinct edge for the notification gate. */
-function edgeKeyOf(event: EvaluatingEvent, automation: RuleV2): string | null {
+function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation): string | null {
   switch (event.type) {
     case 'session.started':
       return null;
@@ -94,7 +94,7 @@ function edgeKeyOf(event: EvaluatingEvent, automation: RuleV2): string | null {
  * elapsed value: a rehydrated wake replays the same crossing with a larger number.
  */
 function conditionThreshold(
-  automation: RuleV2,
+  automation: EngineAutomation,
   fields: ReadonlySet<ConditionField>
 ): string | null {
   for (const group of automation.conditions?.groups ?? []) {

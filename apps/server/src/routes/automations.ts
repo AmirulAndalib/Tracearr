@@ -19,11 +19,11 @@ import {
 import { z } from 'zod';
 import {
   REDIS_KEYS,
-  RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
-  RULE_SCOPE_ERROR_MESSAGE,
+  AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
+  AUTOMATION_SCOPE_ERROR_MESSAGE,
   automationListQuerySchema,
-  bulkDeleteRulesSchema,
-  bulkUpdateRulesSchema,
+  bulkDeleteAutomationsSchema,
+  bulkUpdateAutomationsSchema,
   createAutomationSchema,
   hasAtMostOneScope,
   nearMissEntrySchema,
@@ -38,8 +38,8 @@ import {
   type AutomationSortField,
   type ListResponse,
   type NearMissEntry,
-  type RuleActions,
-  type RuleConditions,
+  type AutomationActions,
+  type AutomationConditions,
   type TriggerNode,
   type UpdateAutomationInput,
   type ViolationSeverity,
@@ -355,9 +355,9 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     // A partial payload cannot see the fields it leaves alone, so the invariants
     // are checked against the row the write would leave behind.
     const scope = mergedScope(existing, patch);
-    if (!hasAtMostOneScope(scope)) return reply.badRequest(RULE_SCOPE_ERROR_MESSAGE);
+    if (!hasAtMostOneScope(scope)) return reply.badRequest(AUTOMATION_SCOPE_ERROR_MESSAGE);
     if (!scopeAllowsCrossServerEnforcement(scope)) {
-      return reply.badRequest(RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE);
+      return reply.badRequest(AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE);
     }
 
     const missingScope = await missingScopeRef(patch);
@@ -377,8 +377,8 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       description: string | null;
       kind: AutomationKind;
       severity: ViolationSeverity;
-      conditions: RuleConditions;
-      actions: RuleActions;
+      conditions: AutomationConditions;
+      actions: AutomationActions;
       triggers: TriggerNode[];
       serverId: string | null;
       serverUserId: string | null;
@@ -474,7 +474,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
    * PATCH /automations/bulk - Enable or disable several automations
    */
   app.patch('/bulk', owner, async (request, reply) => {
-    const parsed = bulkUpdateRulesSchema.safeParse(request.body);
+    const parsed = bulkUpdateAutomationsSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.badRequest('Invalid request body');
     }
@@ -493,7 +493,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
    * DELETE /automations/bulk - Remove several automations
    */
   app.delete('/bulk', owner, async (request, reply) => {
-    const parsed = bulkDeleteRulesSchema.safeParse(request.body);
+    const parsed = bulkDeleteAutomationsSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.badRequest('Invalid request body');
     }

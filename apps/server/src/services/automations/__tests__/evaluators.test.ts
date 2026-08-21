@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Condition, Operator, Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
+import type {
+  Condition,
+  Operator,
+  Session,
+  ServerUser,
+  Server,
+  EngineAutomation,
+} from '@tracearr/shared';
 import type { EvaluatorResult, SessionEvaluationContext } from '../types.js';
 import { synthesizeTriggers } from '../triggers.js';
 import {
@@ -146,7 +153,7 @@ function createMockServer(overrides: Partial<Server> = {}): Server {
 }
 
 // Helper to create a test rule
-function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createMockRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',

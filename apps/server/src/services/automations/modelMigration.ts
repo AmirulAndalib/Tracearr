@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
-import type { Action, KillStreamAction, RuleActions } from '@tracearr/shared';
+import type { Action, KillStreamAction, AutomationActions } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
 import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
@@ -94,7 +94,7 @@ function rewriteAction(action: StoredAction): Action | null {
   }
 }
 
-function rewriteActions(actions: { actions: StoredAction[] } | null): RuleActions {
+function rewriteActions(actions: { actions: StoredAction[] } | null): AutomationActions {
   const nodes: Action[] = [];
   for (const action of actions?.actions ?? []) {
     const rewritten = rewriteAction(action);

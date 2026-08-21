@@ -9,7 +9,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2, Session } from '@tracearr/shared';
+import type { EngineAutomation, Session } from '@tracearr/shared';
 import type { ProcessedSession } from '../../../jobs/poller/types.js';
 import type {
   AccountInactiveForEvent,
@@ -240,9 +240,9 @@ function createPausedProcessedSession(overrides: Record<string, unknown> = {}): 
 
 /** Stamps the triggers the boot migration would synthesize, so fixtures route like stored rules. */
 function migrated(
-  base: Omit<RuleV2, 'triggers' | 'kind' | 'cooldownMinutes' | 'currentVersionId'>,
-  overrides: Partial<RuleV2> = {}
-): RuleV2 {
+  base: Omit<EngineAutomation, 'triggers' | 'kind' | 'cooldownMinutes' | 'currentVersionId'>,
+  overrides: Partial<EngineAutomation> = {}
+): EngineAutomation {
   const merged = {
     kind: 'policy' as const,
     cooldownMinutes: null,
@@ -257,7 +257,7 @@ function migrated(
   };
 }
 
-function createTranscodeRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createTranscodeRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   return migrated(
     {
       id: 'rule-transcode-1',
@@ -285,7 +285,7 @@ function createTranscodeRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   );
 }
 
-function createConcurrentStreamsRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createConcurrentStreamsRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   return migrated(
     {
       id: 'rule-concurrent-1',
@@ -310,7 +310,7 @@ function createConcurrentStreamsRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   );
 }
 
-function createPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createPauseRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   return migrated(
     {
       id: 'rule-pause-1',
@@ -335,7 +335,7 @@ function createPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   );
 }
 
-function createTotalPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createTotalPauseRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   return migrated(
     {
       id: 'rule-total-pause-1',
@@ -360,7 +360,7 @@ function createTotalPauseRule(overrides: Partial<RuleV2> = {}): RuleV2 {
   );
 }
 
-function createInactivityRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createInactivityRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   return migrated(
     {
       id: 'rule-inactive-1',
@@ -401,7 +401,7 @@ interface TriggerInput {
   processed: ProcessedSession;
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   activeSessions: Session[];
   recentSessions: Session[];
 }
@@ -595,7 +595,10 @@ describe('session.transcode_changed pipeline', () => {
 
       // Should have been called with only the transcode rule, not the concurrent streams rule
       expect(mockEvaluateRulesAsync).toHaveBeenCalledTimes(1);
-      const [_baseContext, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_baseContext, rules] = mockEvaluateRulesAsync.mock.calls[0] as [
+        unknown,
+        EngineAutomation[],
+      ];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-transcode-1');
       expect(rules[0]?.name).toBe('Block 4K Transcoding');
@@ -826,7 +829,7 @@ describe('session.transcode_changed pipeline', () => {
       expect(mockEvaluateRulesAsync).toHaveBeenCalledTimes(1);
       const [baseContext] = mockEvaluateRulesAsync.mock.calls[0] as [
         { session: Session },
-        RuleV2[],
+        EngineAutomation[],
       ];
 
       // Session should have UPDATED transcode fields from processed
@@ -875,7 +878,7 @@ describe('session.transcode_changed pipeline', () => {
       await runTranscode(input);
 
       // Only the transcode rule should be evaluated
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-transcode-1');
     });
@@ -905,7 +908,7 @@ describe('session.transcode_changed pipeline', () => {
 
       await runTranscode(input);
 
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-output-res-1');
     });
@@ -935,7 +938,7 @@ describe('session.transcode_changed pipeline', () => {
 
       await runTranscode(input);
 
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-downgrade-1');
     });
@@ -952,7 +955,10 @@ describe('session.paused pipeline', () => {
       await runPause(createPauseInput());
 
       expect(mockEvaluateRulesAsync).toHaveBeenCalledTimes(1);
-      const [_baseContext, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_baseContext, rules] = mockEvaluateRulesAsync.mock.calls[0] as [
+        unknown,
+        EngineAutomation[],
+      ];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-pause-1');
       expect(rules[0]?.name).toBe('Kill After 15min Pause');
@@ -969,7 +975,7 @@ describe('session.paused pipeline', () => {
 
       await runPause(input);
 
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(2);
       expect(rules.map((r) => r.id)).toEqual(['rule-pause-1', 'rule-total-pause-1']);
     });
@@ -1219,7 +1225,7 @@ describe('session.paused pipeline', () => {
       expect(mockEvaluateRulesAsync).toHaveBeenCalledTimes(1);
       const [baseContext] = mockEvaluateRulesAsync.mock.calls[0] as [
         { session: Session },
-        RuleV2[],
+        EngineAutomation[],
       ];
 
       // Session should use FRESH pause data, not stale existingSession values
@@ -1242,7 +1248,7 @@ describe('session.paused pipeline', () => {
 
       const [baseContext] = mockEvaluateRulesAsync.mock.calls[0] as [
         { session: Session },
-        RuleV2[],
+        EngineAutomation[],
       ];
       expect(baseContext.session.state).toBe('paused');
     });
@@ -1260,7 +1266,7 @@ describe('session.paused pipeline', () => {
 
       await runPause(input);
 
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-pause-1');
     });
@@ -1294,7 +1300,7 @@ describe('session.paused pipeline', () => {
       await runPause(input);
 
       // The mixed rule has a pause condition, so it should be included
-      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+      const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
       expect(rules).toHaveLength(1);
       expect(rules[0]?.id).toBe('rule-mixed-1');
     });
@@ -1310,7 +1316,7 @@ describe('runRulePipeline', () => {
 
     const [baseContext] = mockEvaluateRulesAsync.mock.calls[0] as [
       { session: Session; activeSessions: Session[] },
-      RuleV2[],
+      EngineAutomation[],
     ];
     expect(baseContext.activeSessions).toHaveLength(2);
     expect(baseContext.activeSessions[1]).toBe(baseContext.session);
@@ -1898,7 +1904,7 @@ describe('registerRuleSubscribers', () => {
     });
 
     // Only the inactivity rule is in scope for this trigger
-    const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, RuleV2[]];
+    const [_ctx, rules] = mockEvaluateRulesAsync.mock.calls[0] as [unknown, EngineAutomation[]];
     expect(rules.map((r) => r.id)).toEqual(['rule-inactive-1']);
     expect(mockRecordRun).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -1,4 +1,4 @@
-import type { RuleV2, Session, ViolationSeverity } from '@tracearr/shared';
+import type { EngineAutomation, Session, ViolationSeverity } from '@tracearr/shared';
 import type { db } from '../../../db/client.js';
 import type { sessions } from '../../../db/schema.js';
 import type { ActionResult } from '../executors/index.js';
@@ -106,7 +106,7 @@ export type EventOf<T extends TriggerType> = RuleEvent extends infer E
 
 /** Tick-scoped, in-process; passed alongside the event, never part of it. Arrays are by reference. */
 export interface EvaluationInputs {
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   activeSessions: Session[];
   recentSessions: Session[];
   identityServerUserIds?: string[];

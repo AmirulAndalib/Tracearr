@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 import { CROSSING_PAD_MS, HOLD_OPEN_RECHECK_MS, pauseCrossings } from '../wakes/crossings.js';
 
 const MIN = 60_000;
@@ -11,7 +11,7 @@ interface Cond {
   value: number;
 }
 
-function groups(id: string, ...groupConds: Cond[][]): RuleV2 {
+function groups(id: string, ...groupConds: Cond[][]): EngineAutomation {
   return {
     id,
     name: id,
@@ -19,12 +19,12 @@ function groups(id: string, ...groupConds: Cond[][]): RuleV2 {
     severity: 'warning',
     conditions: { groups: groupConds.map((conditions) => ({ conditions })) },
     actions: { actions: [] },
-  } as unknown as RuleV2;
+  } as unknown as EngineAutomation;
 }
-function rule(id: string, conds: Cond[]): RuleV2 {
+function rule(id: string, conds: Cond[]): EngineAutomation {
   return groups(id, conds);
 }
-function twoGroups(id: string, a: Cond, b: Cond): RuleV2 {
+function twoGroups(id: string, a: Cond, b: Cond): EngineAutomation {
   return groups(id, [a], [b]);
 }
 
@@ -96,7 +96,7 @@ describe('pauseCrossings', () => {
       {
         ...rule('b', [{ field: 'current_pause_minutes', operator: 'gt', value: 5 }]),
         isActive: false,
-      } as RuleV2,
+      } as EngineAutomation,
     ];
     const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0, rules });
     expect(r.next).toBeNull();

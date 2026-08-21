@@ -10,8 +10,8 @@ import {
   uuidSchema,
   violationSeveritySchema,
 } from '../schemas.js';
-import { ACTIONS, ruleActionsSchema } from './actions.js';
-import { CONDITION_FIELDS, ruleConditionsSchema } from './conditions.js';
+import { ACTIONS, automationActionsSchema } from './actions.js';
+import { CONDITION_FIELDS, automationConditionsSchema } from './conditions.js';
 import {
   TRIGGERS,
   TRIGGER_CONTEXT_RANK,
@@ -19,17 +19,17 @@ import {
   triggerNodeSchema,
   variablesFor,
 } from './triggers.js';
-import type { Action, RuleActions } from './actions.js';
-import type { ConditionFieldDescriptor } from './conditions.js';
-import type { TriggerNode } from './triggers.js';
+import type { Action, AutomationActions } from './actions.js';
 import type {
+  AutomationConditions,
   ConditionField,
+  ConditionFieldDescriptor,
   ConditionGroup,
   ConditionValue,
   Operator,
-  RuleConditions,
-  ViolationSeverity,
-} from '../types.js';
+} from './conditions.js';
+import type { TriggerNode } from './triggers.js';
+import type { ViolationSeverity } from '../types.js';
 
 export const AUTOMATION_KINDS = ['policy', 'notification'] as const;
 export type AutomationKind = (typeof AUTOMATION_KINDS)[number];
@@ -51,8 +51,8 @@ const automationFieldsSchema = z.strictObject({
   kind: z.enum(AUTOMATION_KINDS),
   severity: violationSeveritySchema.nullable(),
   triggers: z.array(triggerNodeSchema).optional(),
-  conditions: ruleConditionsSchema,
-  actions: ruleActionsSchema,
+  conditions: automationConditionsSchema,
+  actions: automationActionsSchema,
   serverId: uuidSchema.nullable().optional(),
   serverUserId: uuidSchema.nullable().optional(),
   userId: uuidSchema.nullable().optional(),
@@ -91,8 +91,8 @@ export function definitionRefinements(
   def: {
     kind: AutomationKind;
     triggers?: TriggerNode[];
-    conditions: RuleConditions;
-    actions: RuleActions;
+    conditions: AutomationConditions;
+    actions: AutomationActions;
   },
   ctx: z.RefinementCtx,
   opts: { requireTriggers: boolean }
@@ -318,8 +318,8 @@ export interface Automation {
   kind: AutomationKind;
   severity: ViolationSeverity | null;
   triggers: TriggerNode[];
-  conditions: RuleConditions;
-  actions: RuleActions;
+  conditions: AutomationConditions;
+  actions: AutomationActions;
   serverId: string | null;
   serverUserId: string | null;
   userId: string | null;

@@ -17,7 +17,7 @@ import {
   createTestServerUser,
   createTestSession,
 } from '@tracearr/test-utils/factories';
-import type { RuleV2, TriggerNode } from '@tracearr/shared';
+import type { EngineAutomation, TriggerNode } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns } from '../../src/db/schema.js';
 import { recordRun, type RunTrigger } from '../../src/services/automations/runRecorder.js';
@@ -55,7 +55,7 @@ describe('recordRun notification gate', () => {
       .returning();
     if (!row) throw new Error('failed to insert the automation');
 
-    const automation: RuleV2 = {
+    const automation: EngineAutomation = {
       id: row.id,
       name: row.name,
       description: null,
@@ -135,7 +135,7 @@ describe('recordRun notification gate', () => {
       .returning();
     if (!row) throw new Error('failed to insert the automation');
 
-    const automation: RuleV2 = {
+    const automation: EngineAutomation = {
       id: row.id,
       name: row.name,
       description: null,

@@ -66,8 +66,8 @@ import type {
   StreamAudioDetails,
   TranscodeInfo,
   SubtitleInfo,
-  RuleConditions,
-  RuleActions,
+  AutomationConditions,
+  AutomationActions,
 } from '@tracearr/shared';
 
 // Re-export for consumers of this module
@@ -439,8 +439,8 @@ export const automations = pgTable(
     type: varchar('type', { length: 50 }).$type<(typeof ruleTypeEnum)[number]>(),
     params: jsonb('params').$type<Record<string, unknown>>(),
     // New V2 columns
-    conditions: jsonb('conditions').$type<RuleConditions>(),
-    actions: jsonb('actions').$type<RuleActions>(),
+    conditions: jsonb('conditions').$type<AutomationConditions>(),
+    actions: jsonb('actions').$type<AutomationActions>(),
     kind: text('kind').notNull().default('policy').$type<AutomationKind>(),
     // Null until the boot migration synthesizes them from conditions.
     triggers: jsonb('triggers').$type<TriggerNode[]>(),

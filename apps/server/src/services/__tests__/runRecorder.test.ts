@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleV2, Session } from '@tracearr/shared';
+import type { EngineAutomation, Session } from '@tracearr/shared';
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { EvaluationResult } from '../automations/types.js';
@@ -119,7 +119,7 @@ const automation = {
   actions: { actions: [] },
   conditions: { groups: [] },
   triggers: [],
-} as unknown as RuleV2;
+} as unknown as EngineAutomation;
 
 const result: EvaluationResult = {
   ruleId: 'r1',
@@ -324,7 +324,7 @@ describe('recordRun', () => {
   });
 
   describe('notification kind', () => {
-    const notify = { ...automation, kind: 'notification' } as RuleV2;
+    const notify = { ...automation, kind: 'notification' } as EngineAutomation;
     const edge = {
       type: 'session.paused' as const,
       nodeId: 'node-2',
@@ -396,7 +396,11 @@ describe('recordRun', () => {
   });
 
   describe('transaction path', () => {
-    const cooling = { ...automation, kind: 'notification', cooldownMinutes: 15 } as RuleV2;
+    const cooling = {
+      ...automation,
+      kind: 'notification',
+      cooldownMinutes: 15,
+    } as EngineAutomation;
     const fresh = { kind: 'session' as const, sessionId: 's1', fresh: true };
 
     it('holds the cooldown arm and the publish for the caller post-commit phase', async () => {
@@ -588,7 +592,7 @@ describe('buildRunValues', () => {
 
   it('defaults severity to warning', () => {
     const values = buildRunValues(
-      args({ automation: { ...automation, severity: undefined } as unknown as RuleV2 })
+      args({ automation: { ...automation, severity: undefined } as unknown as EngineAutomation })
     );
 
     expect(values.severity).toBe('warning');

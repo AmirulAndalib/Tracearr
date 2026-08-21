@@ -4,7 +4,7 @@
  * all-null, silently saving a targeted rule as a global one.
  */
 
-import type { RuleConditions } from '@tracearr/shared';
+import type { AutomationConditions } from '@tracearr/shared';
 import { IDENTITY_AWARE_CONDITION_FIELDS } from '@tracearr/shared';
 
 export type RuleScopeMode = 'global' | 'server' | 'account' | 'person';
@@ -98,7 +98,10 @@ export function isScopeComplete(scope: RuleScope): boolean {
 
 // Server-scoped rules evaluate one server's sessions, and the backend rejects
 // the combination, so cross-server enforcement is off the table there.
-export function canEnforceAcrossServers(scope: RuleScope, conditions: RuleConditions): boolean {
+export function canEnforceAcrossServers(
+  scope: RuleScope,
+  conditions: AutomationConditions
+): boolean {
   if (scope.mode === 'server') return false;
   const identityAware = IDENTITY_AWARE_CONDITION_FIELDS as readonly string[];
   return conditions.groups.some((group) =>

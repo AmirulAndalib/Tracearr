@@ -1,5 +1,5 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import { sessions } from '../../../db/schema.js';
 import { getActiveAutomations, onActiveAutomationsRefill } from '../../../jobs/poller/database.js';
@@ -48,7 +48,7 @@ export function pendingWakeCount(): number {
 /** Set or replace the one timer for a paused session; a null crossing cancels it. Leader only. */
 export function schedulePauseWake(
   session: PausedSessionLike,
-  rules: RuleV2[],
+  rules: EngineAutomation[],
   opts: { evaluateIfPast?: boolean } = {}
 ): void {
   cancelPauseWake(session.id);
@@ -168,7 +168,7 @@ export async function rehydratePauseWakes(): Promise<void> {
   for (const row of rows) schedulePauseWake(row, rules, { evaluateIfPast: true });
 }
 
-function pauseRulesFingerprint(rules: RuleV2[]): string {
+function pauseRulesFingerprint(rules: EngineAutomation[]): string {
   const parts: string[] = [];
   for (const rule of rules) {
     if (!rule.isActive) continue;

@@ -8,9 +8,7 @@
 import type {
   Session,
   SessionState,
-  Rule,
-  RuleParams,
-  RuleV2,
+  EngineAutomation,
   ActiveSession,
   StreamDetailFields,
 } from '@tracearr/shared';
@@ -369,7 +367,7 @@ export interface SessionCreationInput {
   /** GeoIP location data */
   geo: GeoLocation;
   /** Active V2 rules to evaluate */
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation context */
@@ -439,7 +437,7 @@ export interface ResolvePendingSessionInput {
   /** Server user info (matches SessionCreationInput.serverUser) */
   userDetail: SessionCreationInput['serverUser'];
   /** Active V2 rules to evaluate on confirmation */
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: ActiveSession[];
   /** Recent sessions for rule evaluation context */
@@ -515,7 +513,7 @@ export interface MediaChangeInput {
   /** GeoIP location data */
   geo: GeoLocation;
   /** Active V2 rules to evaluate */
-  activeAutomations: RuleV2[];
+  activeAutomations: EngineAutomation[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation context */
@@ -545,4 +543,4 @@ export interface MediaChangeResult {
 // Re-exports for convenience
 // ============================================================================
 
-export type { Session, SessionState, Rule, RuleParams, RuleV2 };
+export type { Session, SessionState, EngineAutomation };

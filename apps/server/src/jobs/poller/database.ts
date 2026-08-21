@@ -10,9 +10,9 @@ import {
   TIME_MS,
   SESSION_LIMITS,
   type Session,
-  type RuleV2,
-  type RuleConditions,
-  type RuleActions,
+  type EngineAutomation,
+  type AutomationConditions,
+  type AutomationActions,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import {
@@ -97,7 +97,7 @@ const MAX_RULE_WINDOW_HOURS = 168;
  * evaluators without windows keep their day of context, capped at
  * MAX_RULE_WINDOW_HOURS.
  */
-export function maxWindowHoursFromRules(rulesList: RuleV2[]): number {
+export function maxWindowHoursFromRules(rulesList: EngineAutomation[]): number {
   let max = 24;
   for (const rule of rulesList) {
     for (const group of rule.conditions?.groups ?? []) {
@@ -334,14 +334,14 @@ export async function getSessionsTerminatedByViolation(violationId: string): Pro
 // TTL fallback for multi-instance deployments: another instance's invalidation isn't visible here, so an automation change can take up to this long to apply.
 const AUTOMATIONS_CACHE_TTL_MS = 10_000;
 
-let automationsCache: { data: RuleV2[]; expiresAt: number } | null = null;
+let automationsCache: { data: EngineAutomation[]; expiresAt: number } | null = null;
 
 /** Invalidate the active automations cache. Call from every automation create/update/delete/toggle path. */
 export function invalidateAutomationsCache(): void {
   automationsCache = null;
 }
 
-type AutomationsRefillListener = (rules: RuleV2[]) => void;
+type AutomationsRefillListener = (rules: EngineAutomation[]) => void;
 const refillListeners: AutomationsRefillListener[] = [];
 
 /** Called after every automations-cache fill on this instance; listeners must not throw. */
@@ -379,14 +379,14 @@ export async function getCachedServers(): Promise<(typeof servers.$inferSelect)[
 const warnedUntriggeredAutomationIds = new Set<string>();
 
 /**
- * Map an `automations` row to the shared RuleV2 shape. Shared by
+ * Map an `automations` row to the shared EngineAutomation shape. Shared by
  * getActiveAutomations and the kill-queue reverify path so both build an
- * identical RuleV2 from the same row.
+ * identical EngineAutomation from the same row.
  */
 export function mapAutomationRow(
   r: typeof automations.$inferSelect,
   currentVersionId: string | null
-): RuleV2 {
+): EngineAutomation {
   if (!r.triggers && !warnedUntriggeredAutomationIds.has(r.id)) {
     warnedUntriggeredAutomationIds.add(r.id);
     rulesLogger.warn('Automation has no stored triggers and will never evaluate', {
@@ -405,8 +405,8 @@ export function mapAutomationRow(
     isActive: r.isActive,
     severity: r.severity,
     kind: r.kind,
-    conditions: r.conditions as RuleConditions,
-    actions: r.actions as RuleActions,
+    conditions: r.conditions as AutomationConditions,
+    actions: r.actions as AutomationActions,
     triggers: r.triggers ?? [],
     currentVersionId,
     cooldownMinutes: r.cooldownMinutes,
@@ -431,7 +431,7 @@ const CURRENT_VERSION_ID = sql<string | null>`(
  * Active automations with conditions defined, evaluated by the session
  * lifecycle event system. Cached in-process for AUTOMATIONS_CACHE_TTL_MS.
  */
-export async function getActiveAutomations(): Promise<RuleV2[]> {
+export async function getActiveAutomations(): Promise<EngineAutomation[]> {
   const now = Date.now();
   if (automationsCache && automationsCache.expiresAt > now) {
     return automationsCache.data;

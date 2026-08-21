@@ -1,10 +1,10 @@
 import { INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
 import type {
-  RuleConditions,
+  AutomationConditions,
   ConditionGroup,
   Condition,
   ConditionField,
-  RuleV2,
+  EngineAutomation,
   ConditionEvidence,
   GroupEvidence,
 } from '@tracearr/shared';
@@ -33,7 +33,7 @@ export const PAUSE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
  * Check if a rule contains any condition fields that depend on pause state.
  * Used to filter which rules need re-evaluation on each poll for paused sessions.
  */
-export function hasPauseConditions(rule: RuleV2): boolean {
+export function hasPauseConditions(rule: EngineAutomation): boolean {
   if (!rule.conditions?.groups) return false;
   return rule.conditions.groups.some((group) =>
     group.conditions.some((condition) => PAUSE_CONDITION_FIELDS.has(condition.field))
@@ -42,7 +42,7 @@ export function hasPauseConditions(rule: RuleV2): boolean {
 
 /** True when any condition uses inactive_days; the V2 rule routes gate scheduling on it. */
 export function hasInactivityCondition(rule: {
-  conditions: RuleConditions | null | undefined;
+  conditions: AutomationConditions | null | undefined;
 }): boolean {
   if (!rule.conditions?.groups) return false;
   return rule.conditions.groups.some((group) =>
@@ -156,7 +156,7 @@ async function evaluateConditionGroupAsync(
  */
 async function evaluateAllGroupsAsync(
   context: EvaluationContext,
-  conditions: RuleConditions
+  conditions: AutomationConditions
 ): Promise<AllGroupsResult> {
   if (conditions.groups.length === 0) {
     return { matchedGroups: [], evidence: [] };
@@ -218,7 +218,10 @@ export async function evaluateRuleAsync(context: EvaluationContext): Promise<Eva
 }
 
 /** The scope filters that decide whether a rule is evaluated at all. */
-export function ruleAppliesTo(rule: RuleV2, baseContext: Omit<EvaluationContext, 'rule'>): boolean {
+export function ruleAppliesTo(
+  rule: EngineAutomation,
+  baseContext: Omit<EvaluationContext, 'rule'>
+): boolean {
   if (!rule.isActive) return false;
   if (rule.serverId && rule.serverId !== baseContext.server.id) return false;
   if (rule.serverUserId && rule.serverUserId !== baseContext.serverUser.id) return false;
@@ -233,7 +236,7 @@ export function ruleAppliesTo(rule: RuleV2, baseContext: Omit<EvaluationContext,
  */
 export async function evaluateRulesAsync(
   baseContext: Omit<EvaluationContext, 'rule'>,
-  rules: RuleV2[],
+  rules: EngineAutomation[],
   opts: { includeUnmatched?: boolean } = {}
 ): Promise<EvaluationResult[]> {
   const results: EvaluationResult[] = [];

@@ -11,7 +11,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
-import type { AuthUser, RuleActions, RuleConditions, TriggerNode } from '@tracearr/shared';
+import type {
+  AuthUser,
+  AutomationActions,
+  AutomationConditions,
+  TriggerNode,
+} from '@tracearr/shared';
 import { queryChain, renderCall } from '../../test/helpers.js';
 
 vi.mock('../../db/client.js', () => ({
@@ -40,11 +45,11 @@ import { unknownDestinationIds } from '../../services/notifications/destinationR
 import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { automationRoutes } from '../automations.js';
 
-const conditions: RuleConditions = {
+const conditions: AutomationConditions = {
   groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 2 }] }],
 };
 
-const actions: RuleActions = { actions: [{ type: 'kill_stream' }] };
+const actions: AutomationActions = { actions: [{ type: 'kill_stream' }] };
 
 const AUTOMATION_ID = randomUUID();
 const OTHER_ID = randomUUID();
@@ -334,8 +339,8 @@ describe('Automation routes', () => {
       expect(response.json().id).toBe(OTHER_ID);
 
       const values = harness.insertedValues[0] as {
-        conditions: RuleConditions;
-        actions: RuleActions;
+        conditions: AutomationConditions;
+        actions: AutomationActions;
         triggers: Array<{ type: string }>;
       };
       const condition = values.conditions.groups[0]?.conditions[0];
@@ -367,7 +372,7 @@ describe('Automation routes', () => {
         },
       });
 
-      const values = harness.insertedValues[0] as { actions: RuleActions };
+      const values = harness.insertedValues[0] as { actions: AutomationActions };
       expect(values.actions.actions[0]).toMatchObject({ id, enabled: false });
     });
 
@@ -591,7 +596,7 @@ describe('Automation routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const update = harness.updateSets[0] as { actions: RuleActions };
+      const update = harness.updateSets[0] as { actions: AutomationActions };
       expect(update.actions.actions[0]).toMatchObject({
         type: 'message_client',
         id: expect.any(String),

@@ -211,7 +211,7 @@ export interface Destination {
   configStatus: 'ok' | 'reencrypt';
   config: Record<string, string | null> | null;
   secretsSet: string[];
-  referencedByRuleCount: number;
+  referencedByAutomationCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -219,7 +219,7 @@ export interface Destination {
 export interface NotificationToast {
   title: string;
   message: string;
-  ruleId: string;
-  ruleName: string;
+  automationId: string;
+  automationName: string;
   severity: ViolationSeverity;
 }

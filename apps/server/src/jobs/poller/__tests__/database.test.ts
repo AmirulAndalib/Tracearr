@@ -37,7 +37,7 @@ import {
   mapAutomationRow,
   maxWindowHoursFromRules,
 } from '../database.js';
-import type { RuleV2 } from '@tracearr/shared';
+import type { EngineAutomation } from '@tracearr/shared';
 
 function ruleRow(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -229,7 +229,7 @@ describe('maxWindowHoursFromRules', () => {
           },
         ],
       },
-    }) as RuleV2;
+    }) as EngineAutomation;
 
   it('defaults to 24 when no rule sets a window', () => {
     expect(maxWindowHoursFromRules([])).toBe(24);

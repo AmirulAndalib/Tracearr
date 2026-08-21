@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type {
   ConditionField,
   NodeFields,
-  RuleActions,
-  RuleConditions,
+  AutomationActions,
+  AutomationConditions,
   TriggerNode,
   TriggerType,
 } from '@tracearr/shared';
@@ -41,7 +41,9 @@ const inactiveForNode = (): TriggerNode => ({
  * Mirrors the engine's condition sniffing: inactive_days routes to the account trigger and
  * suppresses session.started, while transcode and pause fields add their edge triggers either way.
  */
-export function synthesizeTriggers(conditions: RuleConditions | null | undefined): TriggerNode[] {
+export function synthesizeTriggers(
+  conditions: AutomationConditions | null | undefined
+): TriggerNode[] {
   const fields = new Set<string>();
   for (const group of conditions?.groups ?? []) {
     for (const condition of group.conditions) fields.add(condition.field);
@@ -63,7 +65,7 @@ export function synthesizeTriggers(conditions: RuleConditions | null | undefined
  * fresh one re-notifies every subject the automation has already reached.
  */
 export function resynthesizeTriggers(
-  conditions: RuleConditions | null | undefined,
+  conditions: AutomationConditions | null | undefined,
   existing: TriggerNode[] | null | undefined
 ): TriggerNode[] {
   const byType = new Map((existing ?? []).map((trigger) => [trigger.type, trigger.id]));
@@ -81,9 +83,9 @@ const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({
 
 /** The builder addresses nodes by id, so every condition and action needs one before it is stored. */
 export function stampNodes(definition: {
-  conditions: RuleConditions | null;
-  actions: RuleActions | null;
-}): { conditions: RuleConditions | null; actions: RuleActions } {
+  conditions: AutomationConditions | null;
+  actions: AutomationActions | null;
+}): { conditions: AutomationConditions | null; actions: AutomationActions } {
   return {
     conditions: definition.conditions
       ? {

@@ -93,8 +93,8 @@ describe('webToastType.render', () => {
       data: {
         title: 'Rule fired',
         message: 'Too many streams',
-        ruleId: 'rule-456',
-        ruleName: 'Test Rule',
+        automationId: 'rule-456',
+        automationName: 'Test Rule',
         severity: 'high',
       },
     });
@@ -134,8 +134,8 @@ describe('webToastType.deliver', () => {
     const data = {
       title: 'Rule fired',
       message: 'Too many streams',
-      ruleId: 'rule-456',
-      ruleName: 'Test Rule',
+      automationId: 'rule-456',
+      automationName: 'Test Rule',
       severity: 'high',
     } as const;
 

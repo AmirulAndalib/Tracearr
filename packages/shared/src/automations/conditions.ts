@@ -127,7 +127,7 @@ export const conditionGroupSchema = z.object({
 });
 
 // Rule conditions (AND logic between groups)
-export const ruleConditionsSchema = z.object({
+export const automationConditionsSchema = z.object({
   groups: z.array(conditionGroupSchema),
 });
 
@@ -142,6 +142,7 @@ export type DeviceClientField = z.infer<typeof deviceClientFieldSchema>;
 export type NetworkLocationField = z.infer<typeof networkLocationFieldSchema>;
 export type ScopeField = z.infer<typeof scopeFieldSchema>;
 export type ConditionField = z.infer<typeof conditionFieldSchema>;
+export type TranscodingConditionValue = z.infer<typeof transcodingConditionValueSchema>;
 export type VideoResolution = z.infer<typeof videoResolutionSchema>;
 export type DeviceType = z.infer<typeof deviceTypeSchema>;
 export type Platform = z.infer<typeof platformSchema>;
@@ -149,7 +150,7 @@ export type MediaTypeEnum = z.infer<typeof mediaTypeEnumSchema>;
 export type ConditionValue = z.infer<typeof conditionValueSchema>;
 export type Condition = z.infer<typeof conditionSchema>;
 export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
-export type RuleConditions = z.infer<typeof ruleConditionsSchema>;
+export type AutomationConditions = z.infer<typeof automationConditionsSchema>;
 
 export type ConditionValueType = 'number' | 'boolean' | 'text' | 'select' | 'multiSelect' | 'cidr';
 

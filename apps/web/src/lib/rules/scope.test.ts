@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { RuleConditions } from '@tracearr/shared';
+import type { AutomationConditions } from '@tracearr/shared';
 import {
   canEnforceAcrossServers,
   isScopeComplete,
@@ -10,7 +10,7 @@ import {
   type RuleScope,
 } from './scope';
 
-function conditions(...fields: string[]): RuleConditions {
+function conditions(...fields: string[]): AutomationConditions {
   return {
     groups: [
       {
@@ -18,7 +18,7 @@ function conditions(...fields: string[]): RuleConditions {
           field,
           operator: 'gt',
           value: 1,
-        })) as RuleConditions['groups'][number]['conditions'],
+        })) as AutomationConditions['groups'][number]['conditions'],
       },
     ],
   };

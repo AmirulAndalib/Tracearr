@@ -5,7 +5,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import type { Rule, RunFinishedEvent, ViolationWithDetails, RuleType } from '@tracearr/shared';
+import type { RunFinishedEvent, ViolationWithDetails } from '@tracearr/shared';
 import { WS_EVENTS } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { servers, serverUsers, sessions, users } from '../../db/schema.js';
@@ -18,14 +18,12 @@ import { enqueueNotification } from '../notificationQueue.js';
 // Transaction-Aware Violation Creation
 // ============================================================================
 
-/**
- * Minimal rule info needed for violation broadcasting.
- * Supports both V1 (legacy) and V2 rules.
- */
+/** Minimal automation info needed for violation broadcasting. */
 export interface ViolationRuleInfo {
   id: string;
   name: string;
-  type: RuleType | null; // null for V2 rules
+  // Kept so the broadcast payload matches the v1-era API shape; automations never set it.
+  type: null;
 }
 
 /**
@@ -34,7 +32,7 @@ export interface ViolationRuleInfo {
  */
 export interface ViolationInsertResult {
   violation: typeof automationRuns.$inferSelect;
-  rule: Rule | ViolationRuleInfo;
+  rule: ViolationRuleInfo;
 }
 
 /**

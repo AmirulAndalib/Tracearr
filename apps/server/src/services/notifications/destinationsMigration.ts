@@ -5,7 +5,7 @@ import {
   type Action,
   type DestinationKind,
   type NotificationEventType,
-  type RuleActions,
+  type AutomationActions,
 } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { destinations, automations, settings } from '../../db/schema.js';
@@ -85,7 +85,7 @@ export interface PlannedDestination {
 export interface Plan {
   destinations: PlannedDestination[];
   builtinEvents: { push: NotificationEventType[]; webToast: NotificationEventType[] };
-  ruleUpdates: Array<{ id: string; actions: RuleActions }>;
+  ruleUpdates: Array<{ id: string; actions: AutomationActions }>;
   logs: string[];
 }
 

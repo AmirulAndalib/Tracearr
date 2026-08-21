@@ -20,8 +20,8 @@ import {
   createTestServer,
   createTestServerUser,
   createTestSession,
-  createTestRule,
-  createTestViolation,
+  createConcurrentStreamsAutomation,
+  createTestRun,
 } from '@tracearr/test-utils/factories';
 import { db } from '../../src/db/client.js';
 import { violationRoutes } from '../../src/routes/violations.js';
@@ -67,7 +67,7 @@ describe('POST /violations/bulk/acknowledge - person filter', () => {
     const personB = await createTestUser({ role: 'member' });
     const personBSu = await createTestServerUser({ userId: personB.id, serverId: serverA.id });
 
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
 
     const sessionA1 = await createTestSession({
       serverId: serverA.id,
@@ -79,18 +79,18 @@ describe('POST /violations/bulk/acknowledge - person filter', () => {
     });
     const sessionB = await createTestSession({ serverId: serverA.id, serverUserId: personBSu.id });
 
-    const violationA1 = await createTestViolation({
-      ruleId: rule.id,
+    const violationA1 = await createTestRun({
+      automationId: rule.id,
       serverUserId: personASu1.id,
       sessionId: sessionA1.id,
     });
-    const violationA2 = await createTestViolation({
-      ruleId: rule.id,
+    const violationA2 = await createTestRun({
+      automationId: rule.id,
       serverUserId: personASu2.id,
       sessionId: sessionA2.id,
     });
-    const violationB = await createTestViolation({
-      ruleId: rule.id,
+    const violationB = await createTestRun({
+      automationId: rule.id,
       serverUserId: personBSu.id,
       sessionId: sessionB.id,
     });
@@ -135,10 +135,10 @@ describe('POST /violations/bulk/acknowledge - person filter', () => {
     const server = await createTestServer({ type: 'plex' });
     const person = await createTestUser({ role: 'member' });
     const su = await createTestServerUser({ userId: person.id, serverId: server.id });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
     const session = await createTestSession({ serverId: server.id, serverUserId: su.id });
-    const violation = await createTestViolation({
-      ruleId: rule.id,
+    const violation = await createTestRun({
+      automationId: rule.id,
       serverUserId: su.id,
       sessionId: session.id,
     });
@@ -184,7 +184,7 @@ describe('DELETE /violations/bulk - person filter', () => {
     const personB = await createTestUser({ role: 'member' });
     const personBSu = await createTestServerUser({ userId: personB.id, serverId: serverA.id });
 
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
 
     const sessionA1 = await createTestSession({
       serverId: serverA.id,
@@ -196,18 +196,18 @@ describe('DELETE /violations/bulk - person filter', () => {
     });
     const sessionB = await createTestSession({ serverId: serverA.id, serverUserId: personBSu.id });
 
-    const violationA1 = await createTestViolation({
-      ruleId: rule.id,
+    const violationA1 = await createTestRun({
+      automationId: rule.id,
       serverUserId: personASu1.id,
       sessionId: sessionA1.id,
     });
-    const violationA2 = await createTestViolation({
-      ruleId: rule.id,
+    const violationA2 = await createTestRun({
+      automationId: rule.id,
       serverUserId: personASu2.id,
       sessionId: sessionA2.id,
     });
-    const violationB = await createTestViolation({
-      ruleId: rule.id,
+    const violationB = await createTestRun({
+      automationId: rule.id,
       serverUserId: personBSu.id,
       sessionId: sessionB.id,
     });
@@ -265,7 +265,7 @@ describe('DELETE /violations/bulk - person filter', () => {
     const [before] = await db.select().from(users).where(eq(users.id, target.id));
     expect(before?.aggregateTrustScore).toBe(90);
 
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
     await db
       .update(automations)
       .set({ actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -20 }] } })
@@ -276,13 +276,13 @@ describe('DELETE /violations/bulk - person filter', () => {
     await db.update(serverUsers).set({ trustScore: 70 }).where(eq(serverUsers.id, targetSu.id));
     await db.update(serverUsers).set({ trustScore: 70 }).where(eq(serverUsers.id, sourceSu.id));
 
-    const violationA = await createTestViolation({
-      ruleId: rule.id,
+    const violationA = await createTestRun({
+      automationId: rule.id,
       serverUserId: targetSu.id,
       sessionId: sessionA.id,
     });
-    const violationB = await createTestViolation({
-      ruleId: rule.id,
+    const violationB = await createTestRun({
+      automationId: rule.id,
       serverUserId: sourceSu.id,
       sessionId: sessionB.id,
     });
@@ -337,9 +337,9 @@ describe('GET /violations - user.userId identity field', () => {
     const server = await createTestServer({ type: 'plex' });
     const person = await createTestUser({ role: 'member' });
     const su = await createTestServerUser({ userId: person.id, serverId: server.id });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
     const session = await createTestSession({ serverId: server.id, serverUserId: su.id });
-    await createTestViolation({ ruleId: rule.id, serverUserId: su.id, sessionId: session.id });
+    await createTestRun({ automationId: rule.id, serverUserId: su.id, sessionId: session.id });
 
     const app = await buildApp({
       userId: admin.id,
@@ -368,24 +368,24 @@ describe('bulk endpoints - people (userIds) multiselect filter', () => {
     const suA = await createTestServerUser({ userId: personA.id, serverId: server.id });
     const suB = await createTestServerUser({ userId: personB.id, serverId: server.id });
     const suC = await createTestServerUser({ userId: personC.id, serverId: server.id });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
 
     const sessionA = await createTestSession({ serverId: server.id, serverUserId: suA.id });
     const sessionB = await createTestSession({ serverId: server.id, serverUserId: suB.id });
     const sessionC = await createTestSession({ serverId: server.id, serverUserId: suC.id });
 
-    const violationA = await createTestViolation({
-      ruleId: rule.id,
+    const violationA = await createTestRun({
+      automationId: rule.id,
       serverUserId: suA.id,
       sessionId: sessionA.id,
     });
-    const violationB = await createTestViolation({
-      ruleId: rule.id,
+    const violationB = await createTestRun({
+      automationId: rule.id,
       serverUserId: suB.id,
       sessionId: sessionB.id,
     });
-    const violationC = await createTestViolation({
-      ruleId: rule.id,
+    const violationC = await createTestRun({
+      automationId: rule.id,
       serverUserId: suC.id,
       sessionId: sessionC.id,
     });
@@ -547,9 +547,9 @@ describe('recomputeIdentityAggregates semantics', () => {
       serverId: server.id,
       trustScore: 85,
     });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
     const session = await createTestSession({ serverId: server.id, serverUserId: su.id });
-    await createTestViolation({ ruleId: rule.id, serverUserId: su.id, sessionId: session.id });
+    await createTestRun({ automationId: rule.id, serverUserId: su.id, sessionId: session.id });
 
     await userService.recomputeIdentityAggregates(person.id);
 
@@ -573,10 +573,10 @@ describe('recomputeIdentityAggregates semantics', () => {
       trustScore: 20,
       removedAt: new Date('2026-01-01T00:00:00Z'),
     });
-    const rule = await createTestRule({ type: 'concurrent_streams', params: { max_streams: 2 } });
+    const rule = await createConcurrentStreamsAutomation(2);
     const session = await createTestSession({ serverId: serverB.id, serverUserId: removedSu.id });
-    await createTestViolation({
-      ruleId: rule.id,
+    await createTestRun({
+      automationId: rule.id,
       serverUserId: removedSu.id,
       sessionId: session.id,
     });

@@ -1,4 +1,4 @@
-import { TRIGGER_TYPES, type RuleV2, type TriggerNode } from '@tracearr/shared';
+import { TRIGGER_TYPES, type EngineAutomation, type TriggerNode } from '@tracearr/shared';
 import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
 import { ruleAppliesTo } from '../engine.js';
 import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
@@ -24,24 +24,30 @@ const EVALUATING_TRIGGERS: ReadonlySet<string> = new Set(TRIGGER_TYPES);
 
 /** The enabled stored node that makes this rule run for the trigger, if it has one. */
 export function triggerNodeFor(
-  rule: Pick<RuleV2, 'triggers'>,
+  rule: Pick<EngineAutomation, 'triggers'>,
   trigger: TriggerType
 ): TriggerNode | null {
   return rule.triggers.find((node) => node.enabled && node.type === trigger) ?? null;
 }
 
 /** A rule runs for a trigger when its stored triggers hold an enabled node of that type. */
-export function matchesTrigger(rule: Pick<RuleV2, 'triggers'>, trigger: TriggerType): boolean {
+export function matchesTrigger(
+  rule: Pick<EngineAutomation, 'triggers'>,
+  trigger: TriggerType
+): boolean {
   return triggerNodeFor(rule, trigger) !== null;
 }
 
-export function rulesForTrigger(trigger: TriggerType, rules: RuleV2[]): RuleV2[] {
+export function rulesForTrigger(
+  trigger: TriggerType,
+  rules: EngineAutomation[]
+): EngineAutomation[] {
   if (!EVALUATING_TRIGGERS.has(trigger)) return [];
   return rules.filter((rule) => matchesTrigger(rule, trigger));
 }
 
 export interface TriggerCandidates {
-  rules: RuleV2[];
+  rules: EngineAutomation[];
   baseContext: Omit<EvaluationContext, 'rule'>;
 }
 

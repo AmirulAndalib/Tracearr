@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { RuleConditions, RuleV2 } from '@tracearr/shared';
+import type { AutomationConditions, EngineAutomation } from '@tracearr/shared';
 
 const mockGetActiveAutomations = vi.fn();
 const mockBatchIdentity = vi.fn();
@@ -58,8 +58,8 @@ import {
   scheduleInactivityChecks,
 } from '../inactivityCheckQueue.js';
 
-function inactivityRule(id: string, scope: Partial<RuleV2> = {}): RuleV2 {
-  const conditions: RuleConditions = {
+function inactivityRule(id: string, scope: Partial<EngineAutomation> = {}): EngineAutomation {
+  const conditions: AutomationConditions = {
     groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
   };
   return {
@@ -74,7 +74,7 @@ function inactivityRule(id: string, scope: Partial<RuleV2> = {}): RuleV2 {
     userId: null,
     ...scope,
     triggers: scope.triggers !== undefined ? scope.triggers : synthesizeTriggers(conditions),
-  } as unknown as RuleV2;
+  } as unknown as EngineAutomation;
 }
 const candidate = (id: string, userId = 'u1') => ({
   id,
@@ -119,7 +119,7 @@ describe('processInactivityCheck', () => {
       expect(call[0]).toMatchObject({ type: 'account.inactive_for', session: null });
       expect(call[1]).toMatchObject({ activeSessions: [], recentSessions: [] });
       expect(
-        (call[1] as { activeAutomations: RuleV2[] }).activeAutomations.map((r) => r.id)
+        (call[1] as { activeAutomations: EngineAutomation[] }).activeAutomations.map((r) => r.id)
       ).toEqual(['a', 'b']);
     }
   });
@@ -140,7 +140,7 @@ describe('processInactivityCheck', () => {
   });
 
   it('does nothing when no active rule carries the account.inactive_for trigger', async () => {
-    const conditions: RuleConditions = {
+    const conditions: AutomationConditions = {
       groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
     };
     mockGetActiveAutomations.mockResolvedValue([
@@ -176,9 +176,9 @@ describe('processInactivityCheck', () => {
     } as never);
     expect(mockWhere).toHaveBeenCalledTimes(1);
     expect(
-      (mockDispatch.mock.calls[0]?.[1] as { activeAutomations: RuleV2[] }).activeAutomations.map(
-        (r) => r.id
-      )
+      (
+        mockDispatch.mock.calls[0]?.[1] as { activeAutomations: EngineAutomation[] }
+      ).activeAutomations.map((r) => r.id)
     ).toEqual(['b']);
   });
 

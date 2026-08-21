@@ -158,7 +158,7 @@ describe('Redis Prefix Coverage', () => {
     expect(REDIS_KEYS.TERMINATION_COOLDOWN('server-1', 'session-1')).toMatch(
       new RegExp(`^${TEST_PREFIX}`)
     );
-    expect(REDIS_KEYS.RULE_COOLDOWN('rule-1', 'target-1')).toMatch(new RegExp(`^${TEST_PREFIX}`));
+    expect(REDIS_KEYS.ACTION_COOLDOWN('rule-1', 'target-1')).toMatch(new RegExp(`^${TEST_PREFIX}`));
   });
 
   it('should prefix keys created by PushRateLimiter', async () => {
@@ -220,7 +220,7 @@ describe('Redis Prefix Coverage', () => {
     await redis.set(REDIS_KEYS.SESSION_BY_ID('session-1'), 'session-data');
     await redis.setex(REDIS_KEYS.REFRESH_TOKEN('hash123'), 3600, 'token-data');
     await redis.setex(REDIS_KEYS.RATE_LIMIT_LOGIN('127.0.0.1'), 900, '5');
-    await redis.set(REDIS_KEYS.RULE_COOLDOWN('rule-1', 'user-1'), '1');
+    await redis.set(REDIS_KEYS.ACTION_COOLDOWN('rule-1', 'user-1'), '1');
 
     // Scan ALL keys in Redis
     const allKeys = await redis.keys('*');

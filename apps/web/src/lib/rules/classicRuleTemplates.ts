@@ -6,22 +6,30 @@
  */
 
 import type {
-  RuleType,
-  RuleConditions,
-  RuleActions,
+  AutomationConditions,
+  AutomationActions,
   ViolationSeverity,
   Condition,
   ConditionGroup,
 } from '@tracearr/shared';
 
+/** Identifies a built-in template; the names come from the v1 rule types these presets replace. */
+export type ClassicRuleType =
+  | 'impossible_travel'
+  | 'simultaneous_locations'
+  | 'device_velocity'
+  | 'concurrent_streams'
+  | 'geo_restriction'
+  | 'account_inactivity';
+
 export interface ClassicRuleTemplate {
-  type: RuleType;
+  type: ClassicRuleType;
   label: string;
   description: string;
   defaultName: string;
   severity: ViolationSeverity;
-  conditions: RuleConditions;
-  actions: RuleActions;
+  conditions: AutomationConditions;
+  actions: AutomationActions;
 }
 
 /**
@@ -47,7 +55,7 @@ function buildConditionGroups(
 /**
  * Default actions for classic rules (empty — violations are auto-created from rule severity)
  */
-const DEFAULT_ACTIONS: RuleActions = {
+const DEFAULT_ACTIONS: AutomationActions = {
   actions: [],
 };
 
@@ -236,28 +244,6 @@ export function createAccountInactivityTemplate(
     },
     actions: DEFAULT_ACTIONS,
   };
-}
-
-/**
- * Get default template for a classic rule type
- */
-export function getClassicRuleTemplate(type: RuleType): ClassicRuleTemplate {
-  switch (type) {
-    case 'impossible_travel':
-      return createImpossibleTravelTemplate();
-    case 'simultaneous_locations':
-      return createSimultaneousLocationsTemplate();
-    case 'device_velocity':
-      return createDeviceVelocityTemplate();
-    case 'concurrent_streams':
-      return createConcurrentStreamsTemplate();
-    case 'geo_restriction':
-      return createGeoRestrictionTemplate();
-    case 'account_inactivity':
-      return createAccountInactivityTemplate();
-    default:
-      return createConcurrentStreamsTemplate();
-  }
 }
 
 /**

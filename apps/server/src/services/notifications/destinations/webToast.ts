@@ -22,8 +22,8 @@ export const webToastType: DestinationType<Record<string, never>, ToastRendered>
         data: {
           title: ctx.source.title,
           message: ctx.source.message,
-          ruleId: v.rule.id,
-          ruleName: v.rule.name,
+          automationId: v.rule.id,
+          automationName: v.rule.name,
           severity: v.severity,
         },
       };

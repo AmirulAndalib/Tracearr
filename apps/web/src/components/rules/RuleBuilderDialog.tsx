@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { RuleBuilder, type RuleBuilderInput } from './RuleBuilder';
-import type { CreateAutomationInput, RulesFilterOptions } from '@tracearr/shared';
+import type { CreateAutomationInput, AutomationFilterOptions } from '@tracearr/shared';
 
 interface RuleBuilderDialogProps {
   open: boolean;
@@ -15,7 +15,7 @@ interface RuleBuilderDialogProps {
   rule?: RuleBuilderInput;
   onSave: (data: CreateAutomationInput) => Promise<void>;
   isLoading?: boolean;
-  filterOptions?: RulesFilterOptions;
+  filterOptions?: AutomationFilterOptions;
 }
 
 export function RuleBuilderDialog({

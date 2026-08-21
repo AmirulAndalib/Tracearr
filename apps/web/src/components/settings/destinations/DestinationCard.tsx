@@ -93,9 +93,11 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
           </p>
         )}
 
-        {destination.referencedByRuleCount > 0 && (
+        {destination.referencedByAutomationCount > 0 && (
           <p className="text-muted-foreground text-sm">
-            {t('pages:settings.destinations.usedBy', { count: destination.referencedByRuleCount })}
+            {t('pages:settings.destinations.usedBy', {
+              count: destination.referencedByAutomationCount,
+            })}
           </p>
         )}
 

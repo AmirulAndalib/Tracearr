@@ -4,12 +4,12 @@ import { Plus, Save, Loader2 } from 'lucide-react';
 import type {
   AutomationKind,
   ConditionGroup as ConditionGroupType,
-  RuleConditions,
-  RuleActions,
+  AutomationConditions,
+  AutomationActions,
   Action,
   ViolationSeverity,
   CreateAutomationInput,
-  RulesFilterOptions,
+  AutomationFilterOptions,
 } from '@tracearr/shared';
 import { AUTOMATION_KINDS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
@@ -53,8 +53,8 @@ export interface RuleBuilderInput {
   serverUserId?: string | null;
   userId?: string | null;
   enforceAcrossServers?: boolean;
-  conditions?: RuleConditions | null;
-  actions?: RuleActions | null;
+  conditions?: AutomationConditions | null;
+  actions?: AutomationActions | null;
 }
 
 interface RuleBuilderProps {
@@ -62,7 +62,7 @@ interface RuleBuilderProps {
   onSave: (data: CreateAutomationInput) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
-  filterOptions?: RulesFilterOptions;
+  filterOptions?: AutomationFilterOptions;
 }
 
 const DEFAULT_FIELD = 'concurrent_streams';
@@ -79,12 +79,12 @@ function createDefaultConditionGroup(): ConditionGroupType {
   };
 }
 
-function extractConditions(rule?: RuleBuilderInput): RuleConditions {
+function extractConditions(rule?: RuleBuilderInput): AutomationConditions {
   if (rule?.conditions && 'groups' in rule.conditions) return rule.conditions;
   return { groups: [createDefaultConditionGroup()] };
 }
 
-function extractActions(rule?: RuleBuilderInput): RuleActions {
+function extractActions(rule?: RuleBuilderInput): AutomationActions {
   if (rule?.actions && 'actions' in rule.actions) return rule.actions;
   return { actions: [] };
 }
@@ -104,10 +104,10 @@ export function RuleBuilder({
   // Kept across a switch to notification so switching back restores the picked severity.
   const [severity, setSeverity] = useState<ViolationSeverity>(initialRule?.severity ?? 'warning');
   const [isActive, setIsActive] = useState(initialRule?.isActive ?? true);
-  const [conditions, setConditions] = useState<RuleConditions>(() =>
+  const [conditions, setConditions] = useState<AutomationConditions>(() =>
     extractConditions(initialRule)
   );
-  const [actions, setActions] = useState<RuleActions>(() => extractActions(initialRule));
+  const [actions, setActions] = useState<AutomationActions>(() => extractActions(initialRule));
   const [scope, setScope] = useState<RuleScope>(() => scopeFromRule(initialRule));
   const [enforceAcrossServers, setEnforceAcrossServers] = useState(
     initialRule?.enforceAcrossServers ?? false

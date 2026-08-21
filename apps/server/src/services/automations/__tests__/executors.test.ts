@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type {
   Action,
-  RuleV2,
+  EngineAutomation,
   Session,
   Server,
   ServerUser,
@@ -134,7 +134,7 @@ function createMockServerUser(overrides: Partial<ServerUser> = {}): ServerUser {
   };
 }
 
-function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createMockRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',

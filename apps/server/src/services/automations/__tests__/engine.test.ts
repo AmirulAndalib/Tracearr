@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
+import type { Session, ServerUser, Server, EngineAutomation } from '@tracearr/shared';
 import type { EvaluationContext } from '../types.js';
 import { synthesizeTriggers } from '../triggers.js';
 import {
@@ -135,7 +135,7 @@ function createMockServer(overrides: Partial<Server> = {}): Server {
   };
 }
 
-function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
+function createMockRule(overrides: Partial<EngineAutomation> = {}): EngineAutomation {
   const conditions = overrides.conditions ?? { groups: [] };
   return {
     id: 'rule-1',
@@ -161,7 +161,7 @@ function createMockRule(overrides: Partial<RuleV2> = {}): RuleV2 {
 }
 
 function createTestContext(
-  rule: RuleV2,
+  rule: EngineAutomation,
   overrides: Partial<EvaluationContext> = {}
 ): EvaluationContext {
   const server = createMockServer();
@@ -709,7 +709,7 @@ describe('session-less context', () => {
 
 describe('evaluateRulesAsync', () => {
   it('returns only matching rules', async () => {
-    const rules: RuleV2[] = [
+    const rules: EngineAutomation[] = [
       createMockRule({
         id: 'rule-1',
         conditions: {
@@ -744,7 +744,7 @@ describe('evaluateRulesAsync', () => {
   });
 
   it('skips inactive rules', async () => {
-    const rules: RuleV2[] = [
+    const rules: EngineAutomation[] = [
       createMockRule({
         id: 'rule-1',
         isActive: false,
@@ -771,7 +771,7 @@ describe('evaluateRulesAsync', () => {
   });
 
   it('respects server scope', async () => {
-    const rules: RuleV2[] = [
+    const rules: EngineAutomation[] = [
       createMockRule({
         id: 'rule-1',
         serverId: 'server-1',
@@ -803,7 +803,7 @@ describe('evaluateRulesAsync', () => {
   });
 
   it('respects person (identity) scope', async () => {
-    const rules: RuleV2[] = [
+    const rules: EngineAutomation[] = [
       createMockRule({
         id: 'rule-person-a',
         userId: 'identity-a',
@@ -881,7 +881,7 @@ describe('evaluateRulesAsync', () => {
   });
 
   it('returns the unmatched results too under includeUnmatched', async () => {
-    const rules: RuleV2[] = [
+    const rules: EngineAutomation[] = [
       createMockRule({
         id: 'rule-hit',
         conditions: {

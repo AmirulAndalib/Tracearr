@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type {
   AutomationKind,
-  RuleActions,
-  RuleConditions,
+  AutomationActions,
+  AutomationConditions,
   TriggerNode,
   ViolationSeverity,
 } from '@tracearr/shared';
@@ -20,8 +20,8 @@ export function automationDefinition(row: {
   kind: AutomationKind;
   severity: ViolationSeverity | null;
   triggers: TriggerNode[] | null;
-  conditions: RuleConditions | null;
-  actions: RuleActions | null;
+  conditions: AutomationConditions | null;
+  actions: AutomationActions | null;
   serverId: string | null;
   serverUserId: string | null;
   userId: string | null;

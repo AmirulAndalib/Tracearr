@@ -1,6 +1,6 @@
 import type {
   Condition,
-  RuleV2,
+  EngineAutomation,
   Action,
   Session,
   ServerUser,
@@ -15,7 +15,7 @@ export interface EvaluationContext {
   server: Server;
   activeSessions: Session[];
   recentSessions: Session[];
-  rule: RuleV2;
+  rule: EngineAutomation;
   /** All server_user ids belonging to the same identity as serverUser.
    *  Optional so contexts built before a lookup (or in old tests) fall back
    *  to single server_user behavior. */

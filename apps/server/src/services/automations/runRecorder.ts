@@ -8,7 +8,7 @@ import {
   type GroupEvidence,
   type RunFinishedEvent,
   type NearMissEntry,
-  type RuleV2,
+  type EngineAutomation,
   type Session,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
@@ -38,7 +38,7 @@ export interface RunTrigger {
 }
 
 export interface RecordRunArgs {
-  automation: RuleV2;
+  automation: EngineAutomation;
   result: EvaluationResult;
   serverUserId: string;
   serverId: string;
@@ -312,7 +312,7 @@ export async function noteRunFailure(args: {
 }
 
 export async function automationCoolingDown(
-  automation: RuleV2,
+  automation: EngineAutomation,
   subjectKey: string
 ): Promise<boolean> {
   if (!automation.cooldownMinutes) return false;

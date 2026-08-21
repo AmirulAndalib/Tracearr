@@ -15,7 +15,7 @@ const fake = vi.hoisted(() => {
     configStatus: 'ok',
     config: null,
     secretsSet: [],
-    referencedByRuleCount: 0,
+    referencedByAutomationCount: 0,
     createdAt: '2026-08-17T00:00:00.000Z',
     updatedAt: '2026-08-17T00:00:00.000Z',
   };

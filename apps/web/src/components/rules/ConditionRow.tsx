@@ -6,7 +6,7 @@ import type {
   ConditionField,
   DeviceType,
   Operator,
-  RulesFilterOptions,
+  AutomationFilterOptions,
 } from '@tracearr/shared';
 import { fromMetricDistance, toMetricDistance, formatConditionFieldValue } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ interface ConditionRowProps {
   onChange: (condition: Condition) => void;
   onRemove: () => void;
   showRemove?: boolean;
-  filterOptions?: RulesFilterOptions;
+  filterOptions?: AutomationFilterOptions;
   allowedFields?: ReadonlySet<string>;
 }
 
@@ -288,7 +288,7 @@ function ConditionToggle({ label, hint, checked, onChange }: ConditionToggleProp
 
 function dynamicOptions(
   field: ConditionField,
-  filterOptions: RulesFilterOptions | undefined,
+  filterOptions: AutomationFilterOptions | undefined,
   groupLabels: CountryGroupLabels
 ): MultiSelectOption[] | undefined {
   if (!filterOptions) return undefined;
@@ -315,7 +315,7 @@ function dynamicOptions(
 function buildValueSpec(
   fieldDef: FieldDefinition,
   isArray: boolean,
-  filterOptions: RulesFilterOptions | undefined,
+  filterOptions: AutomationFilterOptions | undefined,
   displayUnit: string | undefined,
   groupLabels: CountryGroupLabels
 ): RuleControlSpec {
