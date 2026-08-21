@@ -95,22 +95,6 @@
       "webhookTestFailed": "Webhook-test mislukt"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} is onbereikbaar",
-        "title": "Server offline"
-      },
-      "serverOnline": {
-        "message": "{{name}} is weer online",
-        "title": "Server online"
-      },
-      "streamStarted": {
-        "message": "{{user}} is begonnen met kijken naar {{media}}",
-        "title": "Nieuwe stream gestart"
-      },
-      "streamStopped": {
-        "message": "{{user}} is gestopt met kijken",
-        "title": "Stream gestopt"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} is beschikbaar",
         "title": "Update beschikbaar"

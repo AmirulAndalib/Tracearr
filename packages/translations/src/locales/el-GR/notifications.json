@@ -95,22 +95,6 @@
       "webhookTestFailed": "Το τεστ Webhook απέτυχε"
     },
     "info": {
-      "serverOffline": {
-        "message": "Το {{name}} δεν είναι προσβάσιμο",
-        "title": "Διακομιστής Χωρίς Σύνδεση"
-      },
-      "serverOnline": {
-        "message": "Το {{name}} είναι ξανά συνδεδεμένο",
-        "title": "Συνδεδεμένος Διακομιστής"
-      },
-      "streamStarted": {
-        "message": "Ο {{user}} άρχισε να βλέπει {{media}}",
-        "title": "Ξεκίνησε Η Νέα Ροή"
-      },
-      "streamStopped": {
-        "message": "Το {{user}} σταμάτησε να παρακολουθεί",
-        "title": "Η Ροή Σταμάτησε"
-      },
       "updateAvailable": {
         "message": "Το Tracearr {{version}} είναι διαθέσιμο",
         "title": "Διαθέσιμη Ενημέρωση"

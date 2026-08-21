@@ -95,22 +95,6 @@
       "webhookTestFailed": "Webhook 测试失败"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} 无法联系",
-        "title": "服务器离线"
-      },
-      "serverOnline": {
-        "message": "{{name}} 已经上线了",
-        "title": "服务器在线"
-      },
-      "streamStarted": {
-        "message": "{{user}}开始观看{{media}}",
-        "title": "新流已开始"
-      },
-      "streamStopped": {
-        "message": "{{user}}停止观看",
-        "title": "流停止"
-      },
       "updateAvailable": {
         "message": "Tracearr{{version}}可用",
         "title": "有可用更新"

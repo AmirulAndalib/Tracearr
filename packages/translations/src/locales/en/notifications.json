@@ -223,25 +223,9 @@
       }
     },
     "info": {
-      "streamStarted": {
-        "title": "New Stream Started",
-        "message": "{{user}} started watching {{media}}"
-      },
-      "streamStopped": {
-        "title": "Stream Stopped",
-        "message": "{{user}} stopped watching"
-      },
       "updateAvailable": {
         "title": "Update Available",
         "message": "Tracearr {{version}} is available"
-      },
-      "serverOffline": {
-        "title": "Server Offline",
-        "message": "{{name}} is unreachable"
-      },
-      "serverOnline": {
-        "title": "Server Online",
-        "message": "{{name}} is back online"
       },
       "violationDetected": {
         "title": "New Violation: {{ruleName}}",

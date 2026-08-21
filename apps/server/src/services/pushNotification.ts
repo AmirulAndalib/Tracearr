@@ -506,7 +506,10 @@ export class PushNotificationService {
   /**
    * Send violation notification to devices that have enabled violation alerts
    */
-  async notifyViolation(violation: ViolationWithDetails): Promise<void> {
+  async notifyViolation(
+    violation: ViolationWithDetails,
+    override?: PushTextOverride
+  ): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     if (sessions.length === 0) return;
 
@@ -565,9 +568,11 @@ export class PushNotificationService {
 
     const messages = activeSessions.map((session) =>
       buildPushMessage(session.expoPushToken, session.deviceSecret, {
-        title: serverName,
+        title: override?.title ?? serverName,
         subtitle: `${SEVERITY_LEVELS[severity].label} Violation`,
-        body: `${violation.user.identityName ?? violation.user.username}: ${violation.rule.name}`,
+        body:
+          override?.body ??
+          `${violation.user.identityName ?? violation.user.username}: ${violation.rule.name}`,
         data: {
           type: 'violation_detected',
           violationId: violation.id,
@@ -593,7 +598,7 @@ export class PushNotificationService {
   /**
    * Send session started notification to devices that have enabled stream alerts
    */
-  async notifySessionStarted(session: ActiveSession): Promise<void> {
+  async notifySessionStarted(session: ActiveSession, override?: PushTextOverride): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     if (sessions.length === 0) return;
 
@@ -638,9 +643,11 @@ export class PushNotificationService {
 
     const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
-        title: serverName,
+        title: override?.title ?? serverName,
         subtitle: 'Now Playing',
-        body: `${session.user.identityName ?? session.user.username}: ${formattedTitle}`,
+        body:
+          override?.body ??
+          `${session.user.identityName ?? session.user.username}: ${formattedTitle}`,
         data: {
           type: 'stream_started',
           sessionId: session.id,
@@ -664,7 +671,7 @@ export class PushNotificationService {
   /**
    * Send session stopped notification to devices that have enabled stream alerts
    */
-  async notifySessionStopped(session: ActiveSession): Promise<void> {
+  async notifySessionStopped(session: ActiveSession, override?: PushTextOverride): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     if (sessions.length === 0) return;
 
@@ -709,9 +716,11 @@ export class PushNotificationService {
 
     const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
-        title: serverName,
+        title: override?.title ?? serverName,
         subtitle: 'Stream Ended',
-        body: `${session.user.identityName ?? session.user.username}: ${formattedTitle}`,
+        body:
+          override?.body ??
+          `${session.user.identityName ?? session.user.username}: ${formattedTitle}`,
         data: {
           type: 'stream_stopped',
           sessionId: session.id,

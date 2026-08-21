@@ -269,7 +269,10 @@ function variablesOf(event: NotificationEvent): Record<string, string> {
     }
     case 'server_down':
     case 'server_up':
-      return { 'server.name': event.payload.serverName };
+      return {
+        'server.name': event.payload.serverName,
+        'server.type': event.payload.serverType ?? '',
+      };
     case 'plugin_update_available': {
       const p = event.payload;
       return {
@@ -320,9 +323,9 @@ export function toNotificationPayload(
       case 'session_stopped':
         return PayloadBuilders.fromSessionStopped(event.payload);
       case 'server_down':
-        return PayloadBuilders.fromServerDown(event.payload.serverName);
+        return PayloadBuilders.fromServerDown(event.payload.serverName, event.payload.serverType);
       case 'server_up':
-        return PayloadBuilders.fromServerUp(event.payload.serverName);
+        return PayloadBuilders.fromServerUp(event.payload.serverName, event.payload.serverType);
       case 'plugin_update_available': {
         const p = event.payload;
         return PayloadBuilders.fromPluginUpdate(

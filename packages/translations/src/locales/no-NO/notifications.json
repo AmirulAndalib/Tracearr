@@ -95,22 +95,6 @@
       "webhookTestFailed": "Webhook-test mislyktes"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} er utilgjengelig",
-        "title": "Server frakoblet"
-      },
-      "serverOnline": {
-        "message": "{{name}} er tilbake på nettet",
-        "title": "Server pålogget"
-      },
-      "streamStarted": {
-        "message": "{{user}} har startet å se på {{media}}",
-        "title": "Ny strømming startet"
-      },
-      "streamStopped": {
-        "message": "{{user}} sluttet å følge",
-        "title": "Strøm stoppet"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} er tilgjengelig",
         "title": "Oppdatering tilgjengelig"

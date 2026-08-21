@@ -95,22 +95,6 @@
       "webhookTestFailed": "Teste do Webhook falhou"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} é inacessível",
-        "title": "Servidor Offline"
-      },
-      "serverOnline": {
-        "message": "{{name}} está de volta online",
-        "title": "Servidor online"
-      },
-      "streamStarted": {
-        "message": "{{user}} começou a assistir {{media}}",
-        "title": "Nova transmissão iniciada"
-      },
-      "streamStopped": {
-        "message": "{{user}} parou de assistir",
-        "title": "Transmissão interrompida"
-      },
       "updateAvailable": {
         "message": "O Tracearr {{version}} está disponível",
         "title": "Atualização disponível"

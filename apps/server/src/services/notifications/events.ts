@@ -1,11 +1,18 @@
 import type { ActiveSession, NotificationEventType, ViolationWithDetails } from '@tracearr/shared';
 
+/** The SSE fallback's down timer holds only the name and id, so the type is optional. */
+export interface ServerEventPayload {
+  serverName: string;
+  serverId: string;
+  serverType?: 'plex' | 'jellyfin' | 'emby';
+}
+
 export type NotificationEvent =
   | { type: 'violation'; payload: ViolationWithDetails }
   | { type: 'session_started'; payload: ActiveSession }
   | { type: 'session_stopped'; payload: ActiveSession }
-  | { type: 'server_down'; payload: { serverName: string; serverId: string } }
-  | { type: 'server_up'; payload: { serverName: string; serverId: string } }
+  | { type: 'server_down'; payload: ServerEventPayload }
+  | { type: 'server_up'; payload: ServerEventPayload }
   | {
       type: 'plugin_update_available';
       payload: {

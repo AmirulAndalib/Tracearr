@@ -95,22 +95,6 @@
       "webhookTestFailed": "Test Webhooku se nezdařil"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} je nedostupný",
-        "title": "Server je offline"
-      },
-      "serverOnline": {
-        "message": "{{name}} je opět online",
-        "title": "Server online"
-      },
-      "streamStarted": {
-        "message": "{{user}} začal sledovat {{media}}",
-        "title": "Nový Stream byl spuštěn"
-      },
-      "streamStopped": {
-        "message": "{{user}} přestal sledovat",
-        "title": "Stream zastaven"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} je k dispozici",
         "title": "Dostupná aktualizace"

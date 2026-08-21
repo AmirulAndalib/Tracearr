@@ -95,22 +95,6 @@
       "webhookTestFailed": "Webhookテストに失敗しました"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} に到達できません",
-        "title": "サーバーオフライン"
-      },
-      "serverOnline": {
-        "message": "{{name}} がオンラインに戻りました",
-        "title": "サーバーオンライン"
-      },
-      "streamStarted": {
-        "message": "{{user}} が {{media}} の視聴を開始しました",
-        "title": "新しいストリームを開始"
-      },
-      "streamStopped": {
-        "message": "{{user}} が視聴を停止しました",
-        "title": "配信を停止しました"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} が利用できます",
         "title": "アップデートがあります"

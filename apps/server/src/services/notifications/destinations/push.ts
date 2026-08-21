@@ -25,13 +25,15 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
   kind: 'push',
   events: DESTINATION_TYPES.push.events,
   render(event, _config, ctx) {
-    if (UPDATE_EVENTS.has(event.type)) {
+    // An automation asking for an update is the opt-in; nothing else produces these.
+    if (ctx.source.kind === 'automation' && UPDATE_EVENTS.has(event.type)) {
       const payload = toNotificationPayload(event, ctx.source);
       return {
         kind: 'update',
         title: payload.title,
         body: payload.message,
-        data: { type: eventTypeOf(event), ...event.payload },
+        // The discriminator goes last: a payload key named `type` must never replace it.
+        data: { ...event.payload, type: eventTypeOf(event) },
       };
     }
     if (ctx.source.kind !== 'automation') return { kind: 'event', event };
@@ -54,11 +56,11 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
     const override = rendered.override;
     switch (e.type) {
       case 'violation':
-        return pushNotificationService.notifyViolation(e.payload);
+        return pushNotificationService.notifyViolation(e.payload, override);
       case 'session_started':
-        return pushNotificationService.notifySessionStarted(e.payload);
+        return pushNotificationService.notifySessionStarted(e.payload, override);
       case 'session_stopped':
-        return pushNotificationService.notifySessionStopped(e.payload);
+        return pushNotificationService.notifySessionStopped(e.payload, override);
       case 'server_down':
         return pushNotificationService.notifyServerDown(
           e.payload.serverName,
@@ -74,7 +76,7 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
       case 'plugin_update_available':
       case 'server_update_available':
       case 'tracearr_update_available':
-        return; // routed as an update render; kept exhaustive
+        return; // an automation routes these as an update render; a system source has nowhere to go
     }
   },
   test: async () => {

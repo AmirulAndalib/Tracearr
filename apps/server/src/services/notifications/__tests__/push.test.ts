@@ -64,6 +64,10 @@ describe('pushType.render', () => {
     });
   });
 
+  it('leaves a system-sourced update event on the no-op arm', async () => {
+    expect(await render(tracearrUpdate)).toEqual({ kind: 'event', event: tracearrUpdate });
+  });
+
   it('renders the three update events with their resolved text', async () => {
     expect(await render(tracearrUpdate, automationCtx())).toEqual({
       kind: 'update',
@@ -114,17 +118,35 @@ describe('pushType.deliver', () => {
       deliverCtx
     );
 
-    expect(spies.notifyViolation).toHaveBeenCalledWith(violation);
+    expect(spies.notifyViolation).toHaveBeenCalledWith(violation, undefined);
   });
 
-  it('sends a stream start through notifySessionStarted', async () => {
+  it('hands notifyViolation the automation override', async () => {
     await pushType.deliver(
-      { kind: 'event', event: { type: 'session_started', payload: session } },
+      {
+        kind: 'event',
+        event: { type: 'violation', payload: violation },
+        override: { body: 'over the limit' },
+      },
       {},
       deliverCtx
     );
 
-    expect(spies.notifySessionStarted).toHaveBeenCalledWith(session);
+    expect(spies.notifyViolation).toHaveBeenCalledWith(violation, { body: 'over the limit' });
+  });
+
+  it('sends a stream start through notifySessionStarted with any override', async () => {
+    await pushType.deliver(
+      {
+        kind: 'event',
+        event: { type: 'session_started', payload: session },
+        override: { title: 'Playing' },
+      },
+      {},
+      deliverCtx
+    );
+
+    expect(spies.notifySessionStarted).toHaveBeenCalledWith(session, { title: 'Playing' });
   });
 
   it('sends a stream stop through notifySessionStopped', async () => {
@@ -134,7 +156,7 @@ describe('pushType.deliver', () => {
       deliverCtx
     );
 
-    expect(spies.notifySessionStopped).toHaveBeenCalledWith(session);
+    expect(spies.notifySessionStopped).toHaveBeenCalledWith(session, undefined);
   });
 
   it('sends server down with the name, the id and any override', async () => {

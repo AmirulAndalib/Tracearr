@@ -3,6 +3,7 @@ import type {
   ActiveSession,
   Action,
   EngineAutomation,
+  ViolationWithDetails,
   Session,
   Server,
   ServerUser,
@@ -418,7 +419,7 @@ describe('Action Executor Registry', () => {
         expect(result.skipped).toBeUndefined();
         expect(enqueueCall().event).toEqual({
           type: 'server_down',
-          payload: { serverName: 'Test Server', serverId: 'server-1' },
+          payload: { serverName: 'Test Server', serverId: 'server-1', serverType: 'plex' },
         });
       });
 
@@ -461,6 +462,15 @@ describe('Action Executor Registry', () => {
         await executeAction(context, { type: 'send', to: ['d1'] });
 
         expect(enqueueCall().event.type).toBe('violation');
+      });
+
+      it('names the server on the violation shape so {{server.type}} resolves', async () => {
+        const context = createMockContext();
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        const payload = enqueueCall().event.payload as ViolationWithDetails;
+        expect(payload.server).toEqual({ id: 'server-1', name: 'Test Server', type: 'plex' });
       });
 
       it('keeps the violation shape for a trigger with no native event', async () => {
@@ -1335,6 +1345,20 @@ describe('Action Executor Registry', () => {
       };
     }
 
+    /** An account context the inactivity sweep would hand the engine. */
+    function inactivityContext(serverUser: ServerUser): EvaluationContext {
+      return {
+        ...createAccountContext(serverUser),
+        trigger: {
+          type: 'account.inactive_for',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(serverUser),
+          session: null,
+        },
+      };
+    }
+
     beforeEach(() => {
       mockDeps = createMockDeps();
       setActionExecutorDeps(mockDeps);
@@ -1401,28 +1425,32 @@ describe('Action Executor Registry', () => {
       });
     });
 
-    it('stamps the days an inactivity trigger measured so {{days}} renders', async () => {
+    it('keeps the inactivity wording as the default body an override can replace', async () => {
       const serverUser = createMockServerUser({ lastActivityAt: fortyFiveDaysAgo });
-      const context: EvaluationContext = {
-        ...createAccountContext(serverUser),
-        trigger: {
-          type: 'account.inactive_for',
-          at: new Date(),
-          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
-          serverUser: {
-            id: serverUser.id,
-            userId: serverUser.userId,
-            username: serverUser.username,
-            thumbUrl: null,
-            identityName: null,
-            trustScore: 100,
-            lastActivityAt: fortyFiveDaysAgo,
-            createdAt: new Date(),
-            identityServerUserIds: [serverUser.id],
-          },
-          session: null,
-        },
-      };
+      const context = inactivityContext(serverUser);
+
+      await executeActions(context, [{ type: 'send', to: ['d1'] }]);
+      expect(enqueueCall().source).toMatchObject({
+        body: 'Account "testuser" has been inactive for 45 days',
+      });
+
+      (mockDeps.enqueueAutomationNotification as ReturnType<typeof vi.fn>).mockClear();
+      await executeActions(context, [{ type: 'send', to: ['d1'], body: 'come back {{days}}' }]);
+      expect(enqueueCall().source).toMatchObject({ body: 'come back {{days}}' });
+    });
+
+    it('words the default body for a never-active account', async () => {
+      const context = inactivityContext(createMockServerUser({ lastActivityAt: null }));
+
+      await executeActions(context, [{ type: 'send', to: ['d1'] }]);
+
+      expect(enqueueCall().source).toMatchObject({
+        body: 'Account "testuser" has never been active',
+      });
+    });
+
+    it('stamps the days an inactivity trigger measured so {{days}} renders', async () => {
+      const context = inactivityContext(createMockServerUser({ lastActivityAt: fortyFiveDaysAgo }));
 
       await executeActions(context, [{ type: 'send', to: ['d1'] }]);
 

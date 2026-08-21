@@ -95,22 +95,6 @@
       "webhookTestFailed": "Тест Webhook не вдався"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} недоступний",
-        "title": "Сервер не в мережі"
-      },
-      "serverOnline": {
-        "message": "{{name}} знову у мережі",
-        "title": "Сервер онлайн"
-      },
-      "streamStarted": {
-        "message": "{{user}} почав дивитися {{media}}",
-        "title": "Нову стрім розпочато"
-      },
-      "streamStopped": {
-        "message": "Перестати відстежувати {{user}}",
-        "title": "Трансляцію зупинено"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} доступний",
         "title": "Доступне оновлення"

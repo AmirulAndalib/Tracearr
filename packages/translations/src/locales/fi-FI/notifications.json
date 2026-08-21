@@ -95,22 +95,6 @@
       "webhookTestFailed": "Webkoukkutesti epäonnistui"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} ei ole tavoitettavissa",
-        "title": "Palvelin Offline-tilassa"
-      },
-      "serverOnline": {
-        "message": "{{name}} on taas verkossa",
-        "title": "Palvelin Paikalla"
-      },
-      "streamStarted": {
-        "message": "{{user}} started watching {{media}}",
-        "title": "Uusi Virta Aloitettu"
-      },
-      "streamStopped": {
-        "message": "{{user}} pysäytti katselun",
-        "title": "Virta Pysäytetty"
-      },
       "updateAvailable": {
         "message": "Seuraa {{version}} on saatavilla",
         "title": "Päivitys Saatavilla"

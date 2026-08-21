@@ -146,6 +146,35 @@ describe('toNotificationPayload with an automation source', () => {
     expect(payload.event).toBe('tracearr_update_available');
   });
 
+  it('resolves the server name and type of a native server event', () => {
+    const payload = toNotificationPayload(
+      {
+        type: 'server_down',
+        payload: { serverName: 'Living Room', serverId: 's1', serverType: 'jellyfin' },
+      },
+      automation({ body: '{{server.name}} ({{server.type}}) is gone' })
+    );
+
+    expect(payload.message).toBe('Living Room (jellyfin) is gone');
+    expect(payload.context).toEqual({
+      type: 'server_down',
+      serverName: 'Living Room',
+      serverType: 'jellyfin',
+    });
+  });
+
+  it('resolves the server name and type of a violation-shaped run', () => {
+    const payload = toNotificationPayload(
+      {
+        type: 'violation',
+        payload: { ...violation, server: { id: 's1', name: 'Living Room', type: 'emby' } },
+      },
+      automation({ body: '{{server.name}} / {{server.type}}' })
+    );
+
+    expect(payload.message).toBe('Living Room / emby');
+  });
+
   it('reads the account name and media title off a violation-shaped run', () => {
     const payload = toNotificationPayload(
       {

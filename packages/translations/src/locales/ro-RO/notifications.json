@@ -95,22 +95,6 @@
       "webhookTestFailed": "Testul Webhook a eșuat"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} este inaccesibil",
-        "title": "Server offline"
-      },
-      "serverOnline": {
-        "message": "{{name}} este din nou online",
-        "title": "Server Online"
-      },
-      "streamStarted": {
-        "message": "{{user}} a început urmărirea {{media}}",
-        "title": "A început un nou flux"
-      },
-      "streamStopped": {
-        "message": "{{user}} a oprit vizionarea",
-        "title": "Stream oprit"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} este disponibil",
         "title": "Actualizare disponibilă"

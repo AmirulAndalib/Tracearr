@@ -95,22 +95,6 @@
       "webhookTestFailed": "فشل اختبار Webhook"
     },
     "info": {
-      "serverOffline": {
-        "message": "{{name}} غير قابل للوصول",
-        "title": "الخادم غير متصل"
-      },
-      "serverOnline": {
-        "message": "{{name}} يعود إلى الإنترنت",
-        "title": "خادم متصل"
-      },
-      "streamStarted": {
-        "message": "{{user}} started watching {{media}}",
-        "title": "بدأ بث جديد"
-      },
-      "streamStopped": {
-        "message": "{{user}} stopped watching",
-        "title": "توقف البث"
-      },
       "updateAvailable": {
         "message": "Tracearr {{version}} متاح",
         "title": "تحديث متوفر"

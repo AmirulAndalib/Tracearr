@@ -9,10 +9,15 @@ import type {
   TrustAction,
   KillStreamAction,
   MessageClientAction,
+  Server,
   ServerUser,
 } from '@tracearr/shared';
 import { automationsLogger } from '../../../utils/logger.js';
-import type { NotificationEvent, NotificationSource } from '../../notifications/events.js';
+import type {
+  NotificationEvent,
+  NotificationSource,
+  ServerEventPayload,
+} from '../../notifications/events.js';
 import { evaluateAllGroupsAsync } from '../engine.js';
 import type { ActionExecutor, EvaluationContext } from '../types.js';
 import { resolveTargetSessions } from './targeting.js';
@@ -153,6 +158,13 @@ function inactiveDays(serverUser: ServerUser): number | null {
   return Math.floor((Date.now() - new Date(serverUser.lastActivityAt).getTime()) / TIME_MS.DAY);
 }
 
+/** An inactivity run has no other words for itself; the send's own body still wins. */
+function accountInactivityMessage(serverUser: ServerUser): string {
+  const days = inactiveDays(serverUser);
+  if (days === null) return `Account "${serverUser.username}" has never been active`;
+  return `Account "${serverUser.username}" has been inactive for ${days} days`;
+}
+
 /** The numbers a trigger measured, so `{{minutes}}` and friends render off a violation shape. */
 function triggerNumbers(context: EvaluationContext): Record<string, number> {
   const { trigger, serverUser } = context;
@@ -189,6 +201,10 @@ function activeSessionOf(context: EvaluationContext, durationMs?: number): Activ
   };
 }
 
+function serverPayload(server: Server): ServerEventPayload {
+  return { serverName: server.name, serverId: server.id, serverType: server.type };
+}
+
 /**
  * The notification event the trigger speaks natively. Triggers with none - transcode
  * changes, pauses, held_for and inactivity - fall through to the violation shape.
@@ -206,13 +222,9 @@ function nativeEventFor(context: EvaluationContext): NotificationEvent | null {
       return payload ? { type: 'session_stopped', payload } : null;
     }
     case 'server.down':
-      return server
-        ? { type: 'server_down', payload: { serverName: server.name, serverId: server.id } }
-        : null;
+      return server ? { type: 'server_down', payload: serverPayload(server) } : null;
     case 'server.up':
-      return server
-        ? { type: 'server_up', payload: { serverName: server.name, serverId: server.id } }
-        : null;
+      return server ? { type: 'server_up', payload: serverPayload(server) } : null;
     case 'plugin.update_available':
       return {
         type: 'plugin_update_available',
@@ -287,6 +299,7 @@ function violationEventFor(context: EvaluationContext): NotificationEvent | null
         ...triggerNumbers(context),
       },
       rule: { id: rule.id, name: rule.name, type: null },
+      server: { id: server.id, name: server.name, type: server.type },
       session: undefined,
       user: {
         id: serverUser.id,
@@ -297,6 +310,13 @@ function violationEventFor(context: EvaluationContext): NotificationEvent | null
       },
     },
   };
+}
+
+/** Only inactivity carries copy the violation shape cannot express on its own. */
+function defaultBodyFor(context: EvaluationContext): string | undefined {
+  const { trigger, serverUser } = context;
+  if (!serverUser || trigger?.type !== 'account.inactive_for') return undefined;
+  return accountInactivityMessage(serverUser);
 }
 
 /**
@@ -317,12 +337,13 @@ const executeSend: ActionExecutor = async (
   const event = native ?? violationEventFor(context);
   if (!event) return { skipReason: 'No account to notify about' };
 
+  const body = typedAction.body ?? defaultBodyFor(context);
   const source: NotificationSource = {
     kind: 'automation',
     automationId: rule.id,
     automationName: rule.name,
     ...(typedAction.title !== undefined && { title: typedAction.title }),
-    ...(typedAction.body !== undefined && { body: typedAction.body }),
+    ...(body !== undefined && { body }),
   };
 
   const enqueued = await currentDeps.enqueueAutomationNotification({ to, event, source });
