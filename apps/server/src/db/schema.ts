@@ -30,6 +30,9 @@ import {
   type AutomationKind,
   type NotificationEventType,
   type RunOutcome,
+  type TEMPLATE_GROUPS,
+  type TemplateDefinition,
+  type TemplateInput,
   type TriggerNode,
 } from '@tracearr/shared';
 
@@ -41,16 +44,6 @@ export const sessionStateEnum = ['playing', 'paused', 'stopped'] as const;
 
 // Media type enum - imported from shared package
 export const mediaTypeEnum = MEDIA_TYPES;
-
-// Rule type enum
-export const ruleTypeEnum = [
-  'impossible_travel',
-  'simultaneous_locations',
-  'device_velocity',
-  'concurrent_streams',
-  'geo_restriction',
-  'account_inactivity',
-] as const;
 
 // Violation severity enum
 export const violationSeverityEnum = ['low', 'warning', 'high'] as const;
@@ -94,6 +87,9 @@ export const servers = pgTable(
     plexAccountId: uuid('plex_account_id'),
     displayOrder: integer('display_order').default(0).notNull(),
     color: varchar('color', { length: 7 }), // Hex color like #3b82f6
+    // The version the media server reports, and the newest release known for it.
+    version: text('version'),
+    latestVersion: text('latest_version'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -428,6 +424,43 @@ export const sessions = pgTable(
   ]
 );
 
+// A parameterized automation blueprint; instances bind its inputs and point back at it
+export const automationTemplates = pgTable('automation_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+  group: text('group').notNull().$type<(typeof TEMPLATE_GROUPS)[number]>(),
+  kind: text('kind').notNull().$type<AutomationKind>(),
+  builtin: boolean('builtin').notNull().default(false),
+  source: text('source').notNull().$type<'builtin' | 'import' | 'local'>(),
+  author: text('author'),
+  minServerVersion: text('min_server_version'),
+  currentVersion: integer('current_version').notNull().default(1),
+  fingerprint: text('fingerprint').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Immutable per-version payload; a fingerprint change appends a row rather than editing one
+export const automationTemplateVersions = pgTable(
+  'automation_template_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    templateId: uuid('template_id')
+      .notNull()
+      .references(() => automationTemplates.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    inputs: jsonb('inputs').$type<TemplateInput[]>().notNull(),
+    definition: jsonb('definition').$type<TemplateDefinition>().notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('automation_template_versions_template_version_uq').on(table.templateId, table.version),
+  ]
+);
+
 // Automations (sharing detection policies and notification housekeeping)
 export const automations = pgTable(
   'automations',
@@ -435,15 +468,11 @@ export const automations = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 100 }).notNull(),
     description: text('description'),
-    // Legacy columns - will be removed after migration
-    type: varchar('type', { length: 50 }).$type<(typeof ruleTypeEnum)[number]>(),
-    params: jsonb('params').$type<Record<string, unknown>>(),
-    // New V2 columns
     conditions: jsonb('conditions').$type<AutomationConditions>(),
     actions: jsonb('actions').$type<AutomationActions>(),
     kind: text('kind').notNull().default('policy').$type<AutomationKind>(),
-    // Null until the boot migration synthesizes them from conditions.
-    triggers: jsonb('triggers').$type<TriggerNode[]>(),
+    // The NOT NULL lands at runtime once the boot pass has backfilled every row.
+    triggers: jsonb('triggers').$type<TriggerNode[]>().notNull().default([]),
     severity: varchar('severity', { length: 20 })
       .notNull()
       .default('warning')
@@ -461,9 +490,14 @@ export const automations = pgTable(
     // Null falls back to the per-kind default in the retention worker.
     cooldownMinutes: integer('cooldown_minutes'),
     retentionDays: integer('retention_days'),
-    templateId: uuid('template_id'),
+    templateId: uuid('template_id').references(() => automationTemplates.id, {
+      onDelete: 'restrict',
+    }),
     templateVersion: integer('template_version'),
     templateInputs: jsonb('template_inputs').$type<Record<string, unknown>>(),
+    // Where a detached instance came from; kept for provenance, so no FK.
+    originTemplateId: uuid('origin_template_id'),
+    originTemplateVersion: integer('origin_template_version'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -508,13 +542,10 @@ export const automationRuns = pgTable(
     // No FK: sessions is a hypertable, so timescale.ts drops the constraint at boot.
     sessionId: uuid('session_id'),
     severity: varchar('severity', { length: 20 }).$type<(typeof violationSeverityEnum)[number]>(),
-    // Denormalized rule type for unique constraint (automations.type copied here)
-    // This enables the partial unique index without requiring a join
-    // Nullable for V2 rules which don't have a type field
-    ruleType: varchar('rule_type', { length: 50 }).$type<(typeof ruleTypeEnum)[number] | null>(),
+    // The server the run acted on; no FK, so a deleted server leaves its runs readable.
+    serverId: uuid('server_id'),
     data: jsonb('data').notNull().$type<Record<string, unknown>>(),
     kind: text('kind').notNull().default('policy').$type<AutomationKind>(),
-    status: text('status').notNull().default('finished'),
     outcome: text('outcome').notNull().default('completed').$type<RunOutcome>(),
     humanSummary: text('human_summary'),
     definitionVersionId: uuid('definition_version_id').references(() => automationVersions.id),
@@ -571,6 +602,8 @@ export const automationRuns = pgTable(
       .where(sql`kind = 'policy' AND outcome = 'completed'`),
     // The runs list default sort; null placement and tiebreak match its ORDER BY.
     index('automation_runs_started_at_idx').on(table.startedAt.desc().nullsLast(), table.id),
+    // Server-scoped run lists page straight off this.
+    index('automation_runs_server_started_idx').on(table.serverId, table.startedAt.desc()),
   ]
 );
 

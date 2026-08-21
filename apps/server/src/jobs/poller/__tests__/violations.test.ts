@@ -42,7 +42,6 @@ const result = {
     serverUserId: 'su1',
     sessionId: null,
     kind: 'policy',
-    status: 'finished',
     outcome: 'completed',
     humanSummary: null,
     severity: 'warning',

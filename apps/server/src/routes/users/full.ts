@@ -318,7 +318,8 @@ export const fullRoutes: FastifyPluginAsync = async (app) => {
           id: automationRuns.id,
           ruleId: automationRuns.automationId,
           ruleName: automations.name,
-          ruleType: automations.type,
+          // The v1 column is gone; the key stays on the wire, always null.
+          ruleType: sql<null>`NULL`,
           serverUserId: automationRuns.serverUserId,
           serverId: serverUsers.serverId,
           serverName: servers.name,

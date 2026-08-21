@@ -1,10 +1,11 @@
-import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
+import { eq, isNull, notExists, sql } from 'drizzle-orm';
 import type { Action, KillStreamAction, AutomationActions } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
 import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
-import { convertV1Rule } from './v2Integration.js';
+import { LEGACY_RULE_TYPES } from './migration.js';
+import { convertV1Rule, type LegacyAutomationRow } from './v2Integration.js';
 import { stampNodes, synthesizeTriggers } from './triggers.js';
 import { automationDefinition } from './versions.js';
 
@@ -37,10 +38,54 @@ const hasWork = (pending: PendingWork): boolean =>
 /** Run rows still missing the subject key the writer stamps. */
 const STALE_RUNS = sql`subject_key IS NULL AND (session_id IS NOT NULL OR server_user_id IS NOT NULL)`;
 
-async function countPendingWork(executor: Executor): Promise<PendingWork> {
+/** The V1 columns left the schema; a database upgrading across releases can still have them. */
+async function hasLegacyColumns(executor: Executor): Promise<boolean> {
+  const result = await executor.execute(sql`
+    SELECT count(*)::int AS present
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'automations'
+      AND column_name IN ('type', 'params')
+  `);
+  return result.rows[0]?.present === 2;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+/** Untyped once the columns leave the schema, so every field is checked back into shape. */
+function legacyRowOf(row: Record<string, unknown>): LegacyAutomationRow {
+  const type = LEGACY_RULE_TYPES.find((candidate) => candidate === row.type);
+  if (typeof row.id !== 'string' || typeof row.name !== 'string' || type === undefined) {
+    throw new Error(`Cannot read legacy automation ${String(row.id)}: type "${String(row.type)}"`);
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    type,
+    params: isRecord(row.params) ? row.params : null,
+    serverUserId: typeof row.server_user_id === 'string' ? row.server_user_id : null,
+    serverId: typeof row.server_id === 'string' ? row.server_id : null,
+    isActive: row.is_active === true,
+  };
+}
+
+async function selectLegacyRows(executor: Executor): Promise<LegacyAutomationRow[]> {
+  const result = await executor.execute(sql`
+    SELECT id, name, type, params, server_user_id, server_id, is_active
+    FROM automations
+    WHERE type IS NOT NULL AND conditions IS NULL
+  `);
+  return result.rows.map(legacyRowOf);
+}
+
+async function countPendingWork(executor: Executor, legacyColumns: boolean): Promise<PendingWork> {
+  const legacyCount = legacyColumns
+    ? sql`count(*) FILTER (WHERE a.type IS NOT NULL AND a.conditions IS NULL)::int`
+    : sql`0`;
   const result = await executor.execute(sql`
     SELECT
-      count(*) FILTER (WHERE a.type IS NOT NULL AND a.conditions IS NULL)::int AS legacy,
+      ${legacyCount} AS legacy,
       count(*) FILTER (WHERE a.triggers IS NULL)::int AS missing_triggers,
       count(*) FILTER (WHERE v.id IS NULL)::int AS missing_version,
       (EXISTS (SELECT 1 FROM automation_runs WHERE ${STALE_RUNS}))::int AS stale_runs
@@ -157,9 +202,7 @@ async function backfillRuns(
     UPDATE automation_runs SET started_at = created_at WHERE started_at IS NULL
   `);
   const finished = await affected(sql`
-    UPDATE automation_runs
-    SET finished_at = created_at
-    WHERE finished_at IS NULL AND status = 'finished'
+    UPDATE automation_runs SET finished_at = created_at WHERE finished_at IS NULL
   `);
   const stepLogs = await affected(sql`
     UPDATE automation_runs
@@ -175,29 +218,17 @@ async function backfillRuns(
  * Re-runs write nothing and log nothing.
  */
 export async function runAutomationModelMigration(): Promise<void> {
-  if (!hasWork(await countPendingWork(db))) return;
+  const legacyColumns = await hasLegacyColumns(db);
+  if (!hasWork(await countPendingWork(db, legacyColumns))) return;
 
   const summary = await db.transaction(async (tx): Promise<MigrationSummary | null> => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(${LOCK_KEY})`);
-    const pending = await countPendingWork(tx);
+    const pending = await countPendingWork(tx, legacyColumns);
     if (!hasWork(pending)) return null;
 
-    const legacyRows = await tx
-      .select({
-        id: automations.id,
-        name: automations.name,
-        type: automations.type,
-        params: automations.params,
-        serverUserId: automations.serverUserId,
-        serverId: automations.serverId,
-        isActive: automations.isActive,
-      })
-      .from(automations)
-      .where(and(isNotNull(automations.type), isNull(automations.conditions)));
+    const legacyRows = legacyColumns ? await selectLegacyRows(tx) : [];
     for (const row of legacyRows) {
-      const { type } = row;
-      if (type === null) continue;
-      await convertV1Rule(tx, { ...row, type });
+      await convertV1Rule(tx, row);
     }
 
     const untriggered = await tx

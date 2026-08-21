@@ -112,7 +112,7 @@ function triggerStep(args: RecordRunArgs): Record<string, unknown> {
 }
 
 export function buildRunValues(args: RecordRunArgs): typeof automationRuns.$inferInsert {
-  const { automation, result, serverUserId, scope, session, trigger, marker } = args;
+  const { automation, result, serverUserId, serverId, scope, session, trigger, marker } = args;
   const now = new Date();
   return {
     automationId: automation.id,
@@ -121,14 +121,13 @@ export function buildRunValues(args: RecordRunArgs): typeof automationRuns.$infe
     subjectKey: subjectKeyOf(scope),
     definitionVersionId: automation.currentVersionId,
     kind: automation.kind,
-    status: 'finished',
+    serverId,
     outcome: result.matched ? 'completed' : 'stopped_by_condition',
     humanSummary: result.matched ? null : stoppedSummary(result.stoppedBy),
     startedAt: trigger.at,
     finishedAt: now,
     // Severity is a violation triage field; notification runs have none to triage.
     severity: automation.kind === 'notification' ? null : (automation.severity ?? 'warning'),
-    ruleType: null,
     steps: [triggerStep(args)],
     data: {
       evidence: result.evidence,

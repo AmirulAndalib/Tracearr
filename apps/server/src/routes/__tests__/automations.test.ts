@@ -838,7 +838,6 @@ describe('Automation routes', () => {
         automationId: AUTOMATION_ID,
         automationName: 'kill long pauses',
         kind: 'policy',
-        status: 'finished',
         outcome: 'completed',
         humanSummary: null,
         severity: 'warning',

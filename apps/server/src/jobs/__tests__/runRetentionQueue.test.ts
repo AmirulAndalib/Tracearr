@@ -134,14 +134,13 @@ describe('processRunRetention', () => {
     }
   });
 
-  it('keeps every predicate finished and blind to ack or dismiss', async () => {
+  it('keeps every predicate blind to ack or dismiss', async () => {
     await processRunRetention();
 
     const queries = rendered();
     expect(queries).toHaveLength(4);
     for (const query of queries) {
       expect(query.sql).toContain('delete from automation_runs');
-      expect(query.sql).toContain("ar.status = 'finished'");
       expect(query.sql).not.toContain('acknowledged_at');
       expect(query.sql).not.toContain('dismissed_at');
     }

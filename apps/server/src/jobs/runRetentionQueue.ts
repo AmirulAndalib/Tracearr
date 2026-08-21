@@ -190,7 +190,7 @@ async function deleteBatched(where: SQL, onBatch?: BatchListener): Promise<numbe
       DELETE FROM automation_runs
       WHERE id IN (
         SELECT ar.id FROM automation_runs ar
-        WHERE ar.status = 'finished' AND (${where})
+        WHERE ${where}
         LIMIT ${DELETE_BATCH_SIZE}
       )
       RETURNING server_user_id

@@ -10,7 +10,7 @@ import { promises as fs, createReadStream, createWriteStream } from 'node:fs';
 import os from 'node:os';
 import { join } from 'node:path';
 import { ZipArchive } from 'archiver';
-import { and, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { getActiveAggregateNames } from '../db/timescale.js';
 import {
@@ -49,6 +49,7 @@ import {
   servers,
   serverUsers,
   automations,
+  automationTemplates,
   settings,
   mobileTokens,
   mobileSessions,
@@ -378,6 +379,7 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
       WHERE relname IN (
         'sessions', 'users', 'servers', 'server_users',
         'automations', 'automation_runs', 'automation_versions',
+        'automation_templates', 'automation_template_versions',
         'termination_logs', 'plex_accounts', 'settings',
         'notification_preferences', 'destinations',
         'mobile_sessions', 'mobile_tokens',
@@ -531,6 +533,8 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
     // Delete runs first (FK constraint)
     await db.delete(automationRuns);
     const deleted = await db.delete(automations).returning({ id: automations.id });
+    // Builtin templates come back at boot; imported and local ones do not.
+    await db.delete(automationTemplates).where(eq(automationTemplates.builtin, false));
     invalidateAutomationsCache();
     return {
       success: true,

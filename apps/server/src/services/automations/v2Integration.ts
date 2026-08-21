@@ -9,7 +9,7 @@ import type { Redis } from 'ioredis';
 import { eq, sql } from 'drizzle-orm';
 import { REDIS_KEYS } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
-import { automations, serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
+import { serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
 import { rulesLogger } from '../../utils/logger.js';
 import { recomputeIdentityAggregates } from '../userService.js';
 import {
@@ -17,8 +17,7 @@ import {
   type ActionExecutorDeps,
   type ActionResult,
 } from './executors/index.js';
-import { convertLegacyRule } from './migration.js';
-import type { LegacyRuleType } from './migration.js';
+import { convertLegacyRule, type LegacyRuleType } from './migration.js';
 
 // ============================================================================
 // Action Result Storage
@@ -313,17 +312,17 @@ export async function convertV1Rule(executor: Executor, row: LegacyAutomationRow
     throw new Error(`Cannot convert rule ${row.id}: unknown V1 type "${row.type}"`);
   }
 
-  await executor
-    .update(automations)
-    .set({
-      severity: converted.severity,
-      conditions: converted.conditions,
-      actions: converted.actions,
-      type: null,
-      params: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(automations.id, row.id));
+  // Raw because `type` and `params` are gone from the schema; only a legacy row still has them.
+  await executor.execute(sql`
+    UPDATE automations
+    SET severity = ${converted.severity},
+        conditions = ${JSON.stringify(converted.conditions)}::jsonb,
+        actions = ${JSON.stringify(converted.actions)}::jsonb,
+        type = NULL,
+        params = NULL,
+        updated_at = now()
+    WHERE id = ${row.id}
+  `);
 }
 
 // ============================================================================

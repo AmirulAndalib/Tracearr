@@ -173,7 +173,6 @@ const inserted = {
   serverUserId: 'su1',
   sessionId: 's1',
   kind: 'policy',
-  status: 'finished',
   outcome: 'completed',
   humanSummary: null,
   severity: 'high',
@@ -487,13 +486,12 @@ describe('buildRunValues', () => {
       subjectKey: 's1',
       definitionVersionId: 'ver-1',
       kind: 'policy',
-      status: 'finished',
+      serverId: 'srv1',
       outcome: 'completed',
       humanSummary: null,
       startedAt: expect.any(Date),
       finishedAt: expect.any(Date),
       severity: 'high',
-      ruleType: null,
       steps: [
         {
           trigger: { id: 'node-1', type: 'session.started', edgeKey: null },
@@ -524,7 +522,7 @@ describe('buildRunValues', () => {
 
     expect(values.sessionId).toBeNull();
     expect(values.subjectKey).toBe('su1');
-    expect(values.ruleType).toBeNull();
+    expect(values.serverId).toBe('srv1');
     expect(values.data).not.toHaveProperty('sessionKey');
     expect(values.data).not.toHaveProperty('mediaTitle');
     expect(values.data).not.toHaveProperty('ipAddress');

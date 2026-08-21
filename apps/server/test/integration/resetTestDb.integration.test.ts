@@ -20,6 +20,7 @@ const ROOT_TABLES = [
   'sessions',
   'library_items',
   'media',
+  'automation_templates',
   'automations',
   'server_users',
   'servers',

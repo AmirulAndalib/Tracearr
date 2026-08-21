@@ -89,7 +89,7 @@ interface MockViolationWithJoins {
   id: string;
   ruleId: string;
   ruleName: string;
-  ruleType: string;
+  ruleType: null;
   serverUserId: string;
   username: string;
   userThumb: string | null;
@@ -132,7 +132,7 @@ function createTestViolation(
     id: overrides.id ?? randomUUID(),
     ruleId: overrides.ruleId ?? randomUUID(),
     ruleName: overrides.ruleName ?? 'Test Rule',
-    ruleType: overrides.ruleType ?? 'concurrent_streams',
+    ruleType: null,
     serverUserId: overrides.serverUserId ?? randomUUID(),
     username: overrides.username ?? 'testuser',
     userThumb: overrides.userThumb ?? null,
@@ -492,7 +492,7 @@ describe('Violation Routes', () => {
       expect(body.id).toBe(violationId);
       // Verify nested shape (not flat)
       expect(body.rule.name).toBe('Test Rule');
-      expect(body.rule.type).toBe('concurrent_streams');
+      expect(body.rule.type).toBeNull();
       expect(body.user.username).toBe('testuser');
       expect(body.server.name).toBe('Test Server');
       expect(body.session.mediaTitle).toBe('Test Movie');

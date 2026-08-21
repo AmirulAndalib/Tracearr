@@ -82,9 +82,6 @@ export async function broadcastViolations(
 
   const finished: RunFinishedEvent[] = [];
   for (const { violation, rule } of violationResults) {
-    // Get rule type - null for V2 rules
-    const ruleType = 'type' in rule ? rule.type : null;
-
     const violationWithDetails: ViolationWithDetails = {
       id: violation.id,
       ruleId: violation.automationId,
@@ -106,7 +103,7 @@ export async function broadcastViolations(
       rule: {
         id: rule.id,
         name: rule.name,
-        type: ruleType,
+        type: rule.type,
       },
       server: {
         id: details.serverId,

@@ -49,7 +49,6 @@ interface RunSeed {
   sessionId: string | null;
   kind: AutomationKind;
   finishedAt: Date;
-  status?: string;
   outcome?: RunOutcome;
   acknowledgedAt?: Date | null;
   dismissedAt?: Date | null;
@@ -63,7 +62,6 @@ async function seedRun(seed: RunSeed): Promise<string> {
       serverUserId: seed.serverUserId,
       sessionId: seed.sessionId,
       kind: seed.kind,
-      status: seed.status ?? 'finished',
       outcome: seed.outcome ?? 'completed',
       finishedAt: seed.finishedAt,
       acknowledgedAt: seed.acknowledgedAt ?? null,
@@ -222,19 +220,11 @@ describe('processRunRetention', () => {
     expect(left.has(recentError)).toBe(true);
   });
 
-  it('never touches running or account-keyed completed rows and ignores ack or dismiss state', async () => {
+  it('never touches account-keyed rows and ignores ack or dismiss state', async () => {
     const { serverUserId, sessionId } = await seedSubject();
     const policy = await seedAutomation('policy');
     const notify = await seedAutomation('notification');
 
-    const running = await seedRun({
-      automationId: policy,
-      serverUserId,
-      sessionId,
-      kind: 'policy',
-      status: 'running',
-      finishedAt: daysAgo(400),
-    });
     const accountPolicy = await seedRun({
       automationId: policy,
       serverUserId,
@@ -269,7 +259,6 @@ describe('processRunRetention', () => {
     await processRunRetention();
     const left = await survivors();
 
-    expect(left.has(running)).toBe(true);
     expect(left.has(accountPolicy)).toBe(true);
     expect(left.has(accountNotification)).toBe(true);
     expect(left.has(acknowledged)).toBe(false);

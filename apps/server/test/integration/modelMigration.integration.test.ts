@@ -53,7 +53,8 @@ async function insertV2(overrides: {
       severity: 'warning',
       isActive: true,
       conditions: overrides.conditions,
-      // The corpus deliberately seeds shapes the contract dropped; the column is jsonb either way.
+      // Pre-phase-4 rows predate both the triggers default and the action contract.
+      triggers: sql`NULL`,
       actions: (overrides.actions ?? { actions: [] }) as AutomationActions,
     })
     .returning();
@@ -61,31 +62,35 @@ async function insertV2(overrides: {
   return row;
 }
 
+/** The v1 columns left the schema; only the SQL migrations still carry them. */
 async function insertV1(overrides: {
   name: string;
   type: 'concurrent_streams' | 'account_inactivity';
   params: Record<string, unknown>;
-}) {
-  const [row] = await db
-    .insert(automations)
-    .values({
-      name: overrides.name,
-      type: overrides.type,
-      params: overrides.params,
-      severity: 'low',
-      isActive: true,
-    })
-    .returning();
-  if (!row) throw new Error(`failed to insert ${overrides.name}`);
-  return row;
+}): Promise<{ id: string }> {
+  const result = await db.execute(sql`
+    INSERT INTO automations (name, type, params, severity, is_active, triggers)
+    VALUES (
+      ${overrides.name}, ${overrides.type}, ${JSON.stringify(overrides.params)}::jsonb,
+      'low', true, NULL
+    )
+    RETURNING id::text AS id
+  `);
+  const id = result.rows[0]?.id;
+  if (typeof id !== 'string') throw new Error(`failed to insert ${overrides.name}`);
+  return { id };
 }
+
+const legacyColumnsOf = async (id: string) => {
+  const result = await db.execute(sql`SELECT type, params FROM automations WHERE id = ${id}`);
+  return result.rows[0];
+};
 
 async function insertRun(values: {
   automationId: string;
   serverUserId: string | null;
   sessionId: string | null;
   data: Record<string, unknown>;
-  status?: 'running' | 'finished';
   acknowledgedAt?: Date;
   dismissedAt?: Date;
 }) {
@@ -97,7 +102,6 @@ async function insertRun(values: {
       sessionId: values.sessionId,
       severity: 'warning',
       data: values.data,
-      status: values.status ?? 'finished',
       acknowledgedAt: values.acknowledgedAt ?? null,
       dismissedAt: values.dismissedAt ?? null,
     })
@@ -248,14 +252,6 @@ async function seedCorpus() {
     sessionId: null,
     data: { ruleName: 'paused' },
   });
-  const running = await insertRun({
-    automationId: paused.id,
-    serverUserId: serverUser.id,
-    sessionId: sessions[3]?.id ?? null,
-    data: { ruleName: 'paused' },
-    status: 'running',
-  });
-
   const sharedSession = sessions[4]?.id;
   if (!sharedSession) throw new Error('missing session for the duplicate pair');
   const duplicateOlder = await insertRawRun({
@@ -292,7 +288,6 @@ async function seedCorpus() {
       dismissed,
       accountRun,
       subjectless,
-      running,
       duplicateOlder,
       duplicateNewer,
     },
@@ -319,8 +314,7 @@ describe('runAutomationModelMigration', () => {
     await runAutomationModelMigration();
 
     const v1Concurrent = await load(seeded.rules.v1Concurrent.id);
-    expect(v1Concurrent.type).toBeNull();
-    expect(v1Concurrent.params).toBeNull();
+    expect(await legacyColumnsOf(v1Concurrent.id)).toEqual({ type: null, params: null });
     expect(v1Concurrent.conditions?.groups[0]?.conditions[0]).toMatchObject({
       field: 'concurrent_streams',
       operator: 'gt',
@@ -442,10 +436,6 @@ describe('runAutomationModelMigration', () => {
     const subjectless = await loadRun(seeded.runs.subjectless.id);
     expect(subjectless.subjectKey).toBeNull();
     expect(subjectless.startedAt?.toISOString()).toBe(subjectless.createdAt.toISOString());
-
-    const running = await loadRun(seeded.runs.running.id);
-    expect(running.finishedAt).toBeNull();
-    expect(running.subjectKey).toBe(seeded.runs.running.sessionId);
 
     const older = await loadRun(seeded.runs.duplicateOlder);
     const newer = await loadRun(seeded.runs.duplicateNewer);

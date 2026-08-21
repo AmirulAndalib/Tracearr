@@ -516,19 +516,18 @@ describe('Debug Routes', () => {
     it('deletes all automations and their runs first', async () => {
       app = await buildTestApp(ownerUser);
 
-      // Mock delete - first for runs (no returning), then for automations (with returning)
+      // Runs first (no returning), then automations (with returning), then the
+      // non-builtin templates (where clause, no returning).
       let deleteCallIndex = 0;
       vi.mocked(db.delete).mockImplementation(() => {
         deleteCallIndex++;
-        if (deleteCallIndex === 1) {
-          // runs - just resolves
-          return Promise.resolve() as never;
-        } else {
-          // automations - returns deleted items
+        if (deleteCallIndex === 1) return Promise.resolve() as never;
+        if (deleteCallIndex === 2) {
           return {
             returning: vi.fn().mockResolvedValue([{ id: 'automation-1' }, { id: 'automation-2' }]),
           } as never;
         }
+        return { where: vi.fn().mockResolvedValue(undefined) } as never;
       });
 
       const response = await app.inject({
@@ -540,6 +539,7 @@ describe('Debug Routes', () => {
       const body = response.json();
       expect(body.success).toBe(true);
       expect(body.deleted).toBe(2);
+      expect(db.delete).toHaveBeenCalledTimes(3);
     });
   });
 

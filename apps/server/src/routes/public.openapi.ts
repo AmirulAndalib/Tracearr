@@ -676,7 +676,7 @@ const Violation = z
     createdAt: z.iso.datetime(),
     rule: z.object({
       id: z.uuid(),
-      type: z.string().nullable().openapi({ example: 'concurrent_streams' }),
+      type: z.string().nullable().openapi({ example: null }),
       name: z.string().openapi({ example: 'Max 2 concurrent streams' }),
     }),
     user: UserInfo,

@@ -39,14 +39,15 @@ function sqlText(query: unknown): string {
     .join('');
 }
 
+/** The raw shape `selectLegacyRows` reads back, straight from the dropped columns. */
 interface LegacyRow {
-  id: string;
-  name: string;
-  type: string;
+  id: unknown;
+  name: unknown;
+  type: unknown;
   params: Record<string, unknown> | null;
-  serverUserId: string | null;
-  serverId: string | null;
-  isActive: boolean;
+  server_user_id: string | null;
+  server_id: string | null;
+  is_active: boolean;
 }
 
 interface UntriggeredRow {
@@ -79,6 +80,8 @@ interface Counts {
 interface TxState {
   counts: Counts;
   txCounts?: Counts;
+  /** Defaults to whether the state supplies legacy rows at all. */
+  legacyColumns?: boolean;
   legacyRows?: LegacyRow[];
   untriggeredRows?: UntriggeredRow[];
   versionlessRows?: VersionlessRow[];
@@ -91,6 +94,7 @@ function buildTx(state: TxState) {
   const inserted: Array<Record<string, unknown>> = [];
 
   const countRows = (counts: TxState['counts']) => ({ rows: [counts] });
+  const legacyColumns = state.legacyColumns ?? state.legacyRows !== undefined;
 
   const tx = {
     execute: vi.fn((query: unknown) => {
@@ -103,6 +107,10 @@ function buildTx(state: TxState) {
         log.push('count');
         return Promise.resolve(countRows(state.txCounts ?? state.counts));
       }
+      if (text.includes('server_user_id, server_id, is_active')) {
+        log.push('select:legacy');
+        return Promise.resolve({ rows: state.legacyRows ?? [] });
+      }
       const marker = text.trim().split(/\s+/).slice(0, 6).join(' ');
       log.push(`execute:${marker}`);
       const key = Object.keys(state.rowCounts ?? {}).find((k) => text.includes(k));
@@ -111,19 +119,10 @@ function buildTx(state: TxState) {
     select: vi.fn((projection: Record<string, unknown>) => ({
       from: (table: unknown) => {
         if (table === automationVersions) return { where: () => ({ subquery: true }) };
-        const keys = Object.keys(projection);
-        const which = keys.includes('type')
-          ? 'legacy'
-          : keys.includes('kind')
-            ? 'versionless'
-            : 'untriggered';
+        const which = Object.keys(projection).includes('kind') ? 'versionless' : 'untriggered';
         log.push(`select:${which}`);
         const rows =
-          which === 'legacy'
-            ? (state.legacyRows ?? [])
-            : which === 'versionless'
-              ? (state.versionlessRows ?? [])
-              : (state.untriggeredRows ?? []);
+          which === 'versionless' ? (state.versionlessRows ?? []) : (state.untriggeredRows ?? []);
         return { where: () => Promise.resolve(rows) };
       },
     })),
@@ -143,12 +142,22 @@ function buildTx(state: TxState) {
     })),
   };
 
-  return { tx, log, updates, inserted };
+  return { tx, log, updates, inserted, legacyColumns };
+}
+
+/** The boot probe and the pre-transaction count both land on `db.execute`. */
+function mockDbExecute(state: TxState, legacyColumns: boolean) {
+  vi.mocked(db.execute).mockImplementation(((query: unknown) => {
+    if (sqlText(query).includes('information_schema')) {
+      return Promise.resolve({ rows: [{ present: legacyColumns ? 2 : 0 }] });
+    }
+    return Promise.resolve({ rows: [state.counts] });
+  }) as never);
 }
 
 async function run(state: TxState) {
   const harness = buildTx(state);
-  vi.mocked(db.execute).mockResolvedValue({ rows: [state.counts] } as never);
+  mockDbExecute(state, harness.legacyColumns);
   vi.mocked(db.transaction).mockImplementation((async (cb: (tx: unknown) => unknown) =>
     cb(harness.tx)) as unknown as typeof db.transaction);
   await runAutomationModelMigration();
@@ -196,9 +205,9 @@ describe('runAutomationModelMigration', () => {
       name: 'inactive folks',
       type: 'account_inactivity',
       params: { inactivityValue: 30, inactivityUnit: 'days' },
-      serverUserId: null,
-      serverId: null,
-      isActive: true,
+      server_user_id: null,
+      server_id: null,
+      is_active: true,
     };
     const harness = await run({
       counts: { ...idle, legacy: 1, missing_triggers: 1, missing_version: 1 },
@@ -210,7 +219,15 @@ describe('runAutomationModelMigration', () => {
     });
 
     expect(vi.mocked(convertV1Rule).mock.calls[0]?.[0]).toBe(harness.tx);
-    expect(vi.mocked(convertV1Rule).mock.calls[0]?.[1]).toEqual({ ...legacyRow });
+    expect(vi.mocked(convertV1Rule).mock.calls[0]?.[1]).toEqual({
+      id: 'a1',
+      name: 'inactive folks',
+      type: 'account_inactivity',
+      params: { inactivityValue: 30, inactivityUnit: 'days' },
+      serverUserId: null,
+      serverId: null,
+      isActive: true,
+    });
     expect(harness.log.slice(0, 5)).toEqual([
       'lock',
       'count',
@@ -222,6 +239,23 @@ describe('runAutomationModelMigration', () => {
     const triggers = harness.updates[0]?.triggers as Array<{ type: string; enabled: boolean }>;
     expect(triggers.map((t) => t.type)).toEqual(['account.inactive_for']);
     expect(harness.updates[0]?.actions).toEqual({ actions: [] });
+  });
+
+  it('skips the V1 pass and its count when the dropped columns are gone', async () => {
+    const harness = await run({
+      counts: { ...idle, missing_triggers: 1 },
+      legacyColumns: false,
+      untriggeredRows: [
+        { id: 'a1', conditions: conditionsWith('inactive_days'), actions: actionsOf() },
+      ],
+    });
+
+    expect(harness.log).not.toContain('select:legacy');
+    expect(convertV1Rule).not.toHaveBeenCalled();
+    const counted = harness.tx.execute.mock.calls
+      .map((call) => sqlText(call[0]))
+      .find((text) => text.includes('missing_triggers'));
+    expect(counted).not.toContain('a.type IS NOT NULL');
   });
 
   it('rewrites every legacy action shape and gives each surviving node an id', async () => {
@@ -477,17 +511,18 @@ describe('runAutomationModelMigration', () => {
         {
           id: 'a8',
           name: 'broken',
-          type: 'mystery',
+          type: 'geo_restriction',
           params: null,
-          serverUserId: null,
-          serverId: null,
-          isActive: true,
+          server_user_id: null,
+          server_id: null,
+          is_active: true,
         },
       ],
     });
-    vi.mocked(db.execute).mockResolvedValue({
-      rows: [{ ...idle, legacy: 1, missing_triggers: 1, missing_version: 1 }],
-    } as never);
+    mockDbExecute(
+      { counts: { ...idle, legacy: 1, missing_triggers: 1, missing_version: 1 } },
+      harness.legacyColumns
+    );
     vi.mocked(db.transaction).mockImplementation((async (cb: (tx: unknown) => unknown) =>
       cb(harness.tx)) as unknown as typeof db.transaction);
 

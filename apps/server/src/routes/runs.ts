@@ -47,7 +47,7 @@ const runSummaryColumns = {
   severity: automationRuns.severity,
   serverUserId: automationRuns.serverUserId,
   sessionId: automationRuns.sessionId,
-  serverId: serverUsers.serverId,
+  serverId: automationRuns.serverId,
   subjectKey: automationRuns.subjectKey,
   startedAt: automationRuns.startedAt,
   createdAt: automationRuns.createdAt,

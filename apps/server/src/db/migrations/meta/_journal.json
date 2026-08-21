@@ -652,6 +652,13 @@
       "when": 1787272330141,
       "tag": "0092_chilly_namorita",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1787295520176,
+      "tag": "0093_automation_templates",
+      "breakpoints": true
     }
   ]
 }

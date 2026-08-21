@@ -24,10 +24,18 @@ import type {
   AccountInactivityParams,
 } from '@tracearr/shared';
 import { rulesLogger as logger } from '../../utils/logger.js';
-import type { ruleTypeEnum } from '../../db/schema.js';
 
-/** The v1 `automations.type` values this converter still reads. */
-export type LegacyRuleType = (typeof ruleTypeEnum)[number];
+/** Mirrors the dropped `automations.type` enum, for upgrades that skip a version. */
+export const LEGACY_RULE_TYPES = [
+  'impossible_travel',
+  'simultaneous_locations',
+  'device_velocity',
+  'concurrent_streams',
+  'geo_restriction',
+  'account_inactivity',
+] as const;
+
+export type LegacyRuleType = (typeof LEGACY_RULE_TYPES)[number];
 
 export interface LegacyRule {
   id: string;

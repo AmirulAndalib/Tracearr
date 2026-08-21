@@ -85,7 +85,7 @@ describe('GET /api/v1/public/violations', () => {
       data: { maxStreams: 2, actualStreams: 4 },
       createdAt: new Date('2026-01-02T03:04:05.000Z'),
       ruleId,
-      ruleType: 'concurrent_streams',
+      ruleType: null,
       ruleName: 'Max 2 concurrent streams',
       userId,
       serverUsername: 'ada_plex',
@@ -116,7 +116,7 @@ describe('GET /api/v1/public/violations', () => {
           createdAt: '2026-01-02T03:04:05.000Z',
           rule: {
             id: ruleId,
-            type: 'concurrent_streams',
+            type: null,
             name: 'Max 2 concurrent streams',
           },
           user: {
