@@ -36,6 +36,7 @@ function subjectOf(event: RuleEvent): string {
   if ('session' in event && event.session) return event.session.id;
   if ('sessionId' in event) return event.sessionId;
   if ('serverUser' in event) return event.serverUser.id;
+  if ('media' in event) return `media:${event.media.libraryItemId}`;
   if ('server' in event) return `server:${event.server.id}`;
   return 'install';
 }

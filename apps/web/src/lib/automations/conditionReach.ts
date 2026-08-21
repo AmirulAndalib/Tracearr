@@ -5,7 +5,7 @@
 
 import {
   TRIGGERS,
-  TRIGGER_CONTEXT_RANK,
+  contextSupplies,
   type AutomationConditions,
   type Condition,
   type TriggerNode,
@@ -43,11 +43,7 @@ export function orphaningTriggers(
 
   const names = triggers
     .filter((trigger) => trigger.enabled)
-    .filter(
-      (trigger) =>
-        TRIGGER_CONTEXT_RANK[TRIGGERS[trigger.type].context] <
-        TRIGGER_CONTEXT_RANK[descriptor.requires]
-    )
+    .filter((trigger) => !contextSupplies(TRIGGERS[trigger.type].context, descriptor.requires))
     .map((trigger) => triggerLabel(t, trigger.type));
 
   return [...new Set(names)];

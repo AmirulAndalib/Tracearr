@@ -1,4 +1,4 @@
-import { TIME_MS } from '@tracearr/shared';
+import { BYTES_PER_GB, TIME_MS, resolutionTierRank } from '@tracearr/shared';
 import type {
   Condition,
   ConditionField,
@@ -1007,6 +1007,97 @@ const evaluateMediaType: ConditionEvaluator = (
 };
 
 // ============================================================================
+// Media Evaluators
+// ============================================================================
+
+/** Every media field reads the item the sync just wrote; any other context has none. */
+const NO_MEDIA: EvaluatorResult = { matched: false, actual: null };
+
+const evaluateLibraryItemType: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  return { matched: compare(media.type, condition.operator, condition.value), actual: media.type };
+};
+
+const evaluateLibraryName: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  return {
+    matched: compare(media.libraryName, condition.operator, condition.value),
+    actual: media.libraryName,
+  };
+};
+
+/** Ranked on both sides, so the stored '4k' clears a picked '4K' and "at least" is one row. */
+const evaluateResolutionAfter: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  const actual = media.quality.resolution;
+  const rank = resolutionTierRank(actual);
+  const threshold =
+    typeof condition.value === 'string' ? resolutionTierRank(condition.value) : null;
+  if (rank === null || threshold === null) return { matched: false, actual };
+  return { matched: compare(rank, condition.operator, threshold), actual };
+};
+
+const evaluateDynamicRangeAfter: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  const actual = media.quality.dynamicRange;
+  if (actual === null) return { matched: false, actual };
+  return { matched: compare(actual, condition.operator, condition.value), actual };
+};
+
+/** Both parsers upper-case the codec, so the comparison folds case on both sides. */
+const evaluateVideoCodecAfter: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  const actual = media.quality.videoCodec;
+  if (actual === null) return { matched: false, actual };
+  const value =
+    typeof condition.value === 'string' ? condition.value.toLowerCase() : condition.value;
+  return { matched: compare(actual.toLowerCase(), condition.operator, value), actual };
+};
+
+const evaluateAudioChannelsAfter: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  const actual = media.quality.audioChannels;
+  if (actual === null) return { matched: false, actual };
+  return { matched: compare(actual, condition.operator, condition.value), actual };
+};
+
+const evaluateFileSizeAfter: ConditionEvaluator = (
+  context: SessionEvaluationContext,
+  condition: Condition
+): EvaluatorResult => {
+  const media = context.media;
+  if (!media) return NO_MEDIA;
+  const bytes = media.quality.fileSize;
+  if (bytes === null) return { matched: false, actual: null };
+  const gb = bytes / BYTES_PER_GB;
+  return { matched: compare(gb, condition.operator, condition.value), actual: gb };
+};
+
+// ============================================================================
 // Evaluator Registry
 // ============================================================================
 
@@ -1048,6 +1139,15 @@ export const evaluatorRegistry: Record<ConditionField, ConditionEvaluator> = {
   // Scope
   server_id: evaluateServerId,
   media_type: evaluateMediaType,
+
+  // Media
+  library_item_type: evaluateLibraryItemType,
+  library_name: evaluateLibraryName,
+  resolution_after: evaluateResolutionAfter,
+  dynamic_range_after: evaluateDynamicRangeAfter,
+  video_codec_after: evaluateVideoCodecAfter,
+  audio_channels_after: evaluateAudioChannelsAfter,
+  file_size_after: evaluateFileSizeAfter,
 };
 
 // Export helper functions for testing

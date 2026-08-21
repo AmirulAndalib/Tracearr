@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { TRIGGER_CONTEXT_RANK, type TriggerContext } from './triggers.js';
+import { DYNAMIC_RANGE_TOKENS } from '../dynamicRange.js';
+import { RESOLUTION_TIERS } from '../resolution.js';
+import { contextSupplies, type TriggerContext } from './triggers.js';
 
 // Operators
 export const comparisonOperatorSchema = z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
@@ -46,6 +48,17 @@ export const networkLocationFieldSchema = z.enum(['is_local_network', 'country',
 
 export const scopeFieldSchema = z.enum(['server_id', 'media_type']);
 
+/** The `_after` fields read the value a library item ends the sync with. */
+export const mediaFieldSchema = z.enum([
+  'library_item_type',
+  'library_name',
+  'resolution_after',
+  'dynamic_range_after',
+  'video_codec_after',
+  'audio_channels_after',
+  'file_size_after',
+]);
+
 export const conditionFieldSchema = z.union([
   sessionBehaviorFieldSchema,
   streamQualityFieldSchema,
@@ -53,6 +66,7 @@ export const conditionFieldSchema = z.union([
   deviceClientFieldSchema,
   networkLocationFieldSchema,
   scopeFieldSchema,
+  mediaFieldSchema,
 ]);
 
 // Enums
@@ -79,6 +93,18 @@ export const mediaTypeEnumSchema = z.enum([
   'live',
   'trailer',
 ]);
+/** library_items.media_type, which is a wider vocabulary than a session's mediaType. */
+export const libraryItemTypeSchema = z.enum([
+  'movie',
+  'show',
+  'season',
+  'episode',
+  'artist',
+  'album',
+  'track',
+  'photo',
+]);
+const RESOLUTION_LABELS = Object.keys(RESOLUTION_TIERS);
 
 // Condition value
 export const conditionValueSchema = z.union([
@@ -141,6 +167,8 @@ export type UserAttributeField = z.infer<typeof userAttributeFieldSchema>;
 export type DeviceClientField = z.infer<typeof deviceClientFieldSchema>;
 export type NetworkLocationField = z.infer<typeof networkLocationFieldSchema>;
 export type ScopeField = z.infer<typeof scopeFieldSchema>;
+export type MediaField = z.infer<typeof mediaFieldSchema>;
+export type LibraryItemType = z.infer<typeof libraryItemTypeSchema>;
 export type ConditionField = z.infer<typeof conditionFieldSchema>;
 export type TranscodingConditionValue = z.infer<typeof transcodingConditionValueSchema>;
 export type VideoResolution = z.infer<typeof videoResolutionSchema>;
@@ -163,7 +191,8 @@ export interface ConditionFieldDescriptor {
     | 'user_attributes'
     | 'device_client'
     | 'network_location'
-    | 'scope';
+    | 'scope'
+    | 'media';
   /** The narrowest trigger context that can supply this field. */
   requires: TriggerContext;
   operators: readonly Operator[];
@@ -171,7 +200,7 @@ export interface ConditionFieldDescriptor {
   options?: readonly string[];
   /** Options the client fetches instead of the catalog carrying them. */
   dynamicSource?: 'users' | 'countries' | 'servers';
-  unit?: 'km' | 'kmh' | 'mbps' | 'days' | 'minutes' | 'hours';
+  unit?: 'km' | 'kmh' | 'mbps' | 'days' | 'minutes' | 'hours' | 'gb';
   min?: number;
   max?: number;
   step?: number;
@@ -425,6 +454,72 @@ export const CONDITION_FIELDS: Record<ConditionField, ConditionFieldDescriptor> 
     flags: {},
     identityAware: false,
   },
+  library_item_type: {
+    category: 'media',
+    requires: 'media',
+    operators: [...EQUALITY_OPERATORS, ...ARRAY_OPERATORS],
+    valueType: 'multiSelect',
+    options: libraryItemTypeSchema.options,
+    flags: {},
+    identityAware: false,
+  },
+  library_name: {
+    category: 'media',
+    requires: 'media',
+    operators: [...EQUALITY_OPERATORS, ...STRING_OPERATORS],
+    valueType: 'text',
+    flags: {},
+    identityAware: false,
+  },
+  resolution_after: {
+    category: 'media',
+    requires: 'media',
+    // Compared by tier rank, so "at least 4K" is one row rather than a list.
+    operators: COMPARISON_OPERATORS,
+    valueType: 'select',
+    options: RESOLUTION_LABELS,
+    flags: {},
+    identityAware: false,
+  },
+  dynamic_range_after: {
+    category: 'media',
+    requires: 'media',
+    operators: [...EQUALITY_OPERATORS, ...ARRAY_OPERATORS],
+    valueType: 'multiSelect',
+    options: DYNAMIC_RANGE_TOKENS,
+    flags: {},
+    identityAware: false,
+  },
+  video_codec_after: {
+    category: 'media',
+    requires: 'media',
+    operators: [...EQUALITY_OPERATORS, ...STRING_OPERATORS],
+    valueType: 'text',
+    flags: {},
+    identityAware: false,
+  },
+  audio_channels_after: {
+    category: 'media',
+    requires: 'media',
+    operators: COMPARISON_OPERATORS,
+    valueType: 'number',
+    min: 1,
+    max: 16,
+    step: 1,
+    flags: {},
+    identityAware: false,
+  },
+  file_size_after: {
+    category: 'media',
+    requires: 'media',
+    operators: COMPARISON_OPERATORS,
+    valueType: 'number',
+    unit: 'gb',
+    min: 0,
+    step: 1,
+    flags: {},
+    identityAware: false,
+  },
 };
 
 // Fields whose evaluators aggregate across every server_user id of the same identity.
@@ -438,8 +533,5 @@ export const IDENTITY_AWARE_CONDITION_FIELDS = (
 export function fieldsAvailableFor(context: TriggerContext | null): ConditionField[] {
   const fields = Object.keys(CONDITION_FIELDS) as ConditionField[];
   if (context === null) return fields;
-  return fields.filter(
-    (field) =>
-      TRIGGER_CONTEXT_RANK[CONDITION_FIELDS[field].requires] <= TRIGGER_CONTEXT_RANK[context]
-  );
+  return fields.filter((field) => contextSupplies(context, CONDITION_FIELDS[field].requires));
 }

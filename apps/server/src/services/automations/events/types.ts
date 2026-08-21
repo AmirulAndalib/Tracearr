@@ -7,6 +7,7 @@ import type {
 import type { db } from '../../../db/client.js';
 import type { sessions } from '../../../db/schema.js';
 import type { ActionResult } from '../executors/index.js';
+import type { MediaQuality, MediaSubject } from '../types.js';
 import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -113,6 +114,22 @@ export interface AccountInactiveForEvent extends BaseEvent {
   session: null;
 }
 
+interface MediaEventBase extends BaseEvent {
+  server: EvaluationServer;
+  media: MediaSubject;
+}
+
+export interface MediaAddedEvent extends MediaEventBase {
+  type: 'media.added';
+}
+
+export interface MediaUpgradedEvent extends MediaEventBase {
+  type: 'media.upgraded';
+  /** The signature before the sync, and the fields of it that moved. */
+  from: MediaQuality;
+  changed: (keyof MediaQuality)[];
+}
+
 export interface ServerDownEvent extends BaseEvent {
   type: 'server.down';
   server: EvaluationServer;
@@ -154,6 +171,8 @@ export type RuleEvent =
   | SessionStoppedEvent
   | SessionRefEvent
   | AccountInactiveForEvent
+  | MediaAddedEvent
+  | MediaUpgradedEvent
   | ServerDownEvent
   | ServerUpEvent
   | PluginUpdateEvent

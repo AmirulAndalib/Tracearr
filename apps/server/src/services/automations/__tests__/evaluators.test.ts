@@ -7,7 +7,7 @@ import type {
   Server,
   EngineAutomation,
 } from '@tracearr/shared';
-import type { EvaluatorResult, SessionEvaluationContext } from '../types.js';
+import type { EvaluatorResult, MediaQuality, SessionEvaluationContext } from '../types.js';
 import { synthesizeTriggers } from '../triggers.js';
 import {
   evaluatorRegistry,
@@ -190,6 +190,7 @@ function createTestContext(
     session,
     serverUser,
     server,
+    media: null,
     subjectKey: session.id,
     activeSessions: [session],
     recentSessions: [session],
@@ -3118,5 +3119,86 @@ describe('Rule server scope in identity aggregation', () => {
     );
     expect(uniqueIps.matched).toBe(true);
     expect(uniqueIps.actual).toBe(2);
+  });
+});
+
+describe('Media Evaluators', () => {
+  const mediaContext = (quality: Partial<MediaQuality> = {}, libraryName = 'Movies') =>
+    createTestContext({
+      session: null as unknown as SessionEvaluationContext['session'],
+      serverUser: null as unknown as SessionEvaluationContext['serverUser'],
+      media: {
+        libraryItemId: 'item-1',
+        title: 'Cars',
+        type: 'movie',
+        year: 2006,
+        libraryId: '1',
+        libraryName,
+        quality: {
+          resolution: '4k',
+          dynamicRange: 'hdr10',
+          videoCodec: 'HEVC',
+          audioCodec: 'TRUEHD',
+          audioChannels: 8,
+          fileSize: 42_000_000_000,
+          ...quality,
+        },
+      },
+    });
+
+  function run(
+    field: keyof typeof evaluatorRegistry,
+    condition: Partial<Condition>,
+    ctx = mediaContext()
+  ) {
+    const result = evaluatorRegistry[field](ctx, createCondition({ field, ...condition }));
+    if (result instanceof Promise) throw new Error('media evaluators are synchronous');
+    return result;
+  }
+
+  it('ranks the stored resolution against the picked label', () => {
+    expect(run('resolution_after', { operator: 'gte', value: '1080p' }).matched).toBe(true);
+    expect(run('resolution_after', { operator: 'gt', value: '4K' }).matched).toBe(false);
+    expect(
+      run(
+        'resolution_after',
+        { operator: 'gte', value: '1080p' },
+        mediaContext({ resolution: null })
+      ).matched
+    ).toBe(false);
+  });
+
+  it('folds case on the video codec', () => {
+    expect(run('video_codec_after', { operator: 'eq', value: 'hevc' }).matched).toBe(true);
+    expect(run('video_codec_after', { operator: 'contains', value: 'AV1' }).matched).toBe(false);
+  });
+
+  it('divides the stored bytes into gigabytes', () => {
+    const result = run('file_size_after', { operator: 'gte', value: 30 });
+    expect(result.matched).toBe(true);
+    expect(result.actual).toBeCloseTo(39.1, 1);
+    expect(run('file_size_after', { operator: 'gte', value: 50 }).matched).toBe(false);
+  });
+
+  it('matches the dynamic range, the item type and the library by name', () => {
+    expect(run('dynamic_range_after', { operator: 'in', value: ['hdr10', 'hdr10+'] }).matched).toBe(
+      true
+    );
+    expect(run('library_item_type', { operator: 'in', value: ['movie'] }).matched).toBe(true);
+    expect(run('library_name', { operator: 'contains', value: 'movie' }).matched).toBe(true);
+    expect(run('audio_channels_after', { operator: 'gte', value: 6 }).matched).toBe(true);
+  });
+
+  it('matches nothing when the column or the context is empty', () => {
+    const noRange = mediaContext({ dynamicRange: null, audioChannels: null, fileSize: null });
+    expect(run('dynamic_range_after', { operator: 'neq', value: 'sdr' }, noRange).matched).toBe(
+      false
+    );
+    expect(run('audio_channels_after', { operator: 'lte', value: 2 }, noRange).matched).toBe(false);
+    expect(run('file_size_after', { operator: 'lte', value: 1 }, noRange).matched).toBe(false);
+
+    const session = createTestContext();
+    expect(run('library_name', { operator: 'eq', value: 'Movies' }, session).matched).toBe(false);
+    expect(run('resolution_after', { operator: 'gte', value: '4K' }, session).actual).toBeNull();
   });
 });

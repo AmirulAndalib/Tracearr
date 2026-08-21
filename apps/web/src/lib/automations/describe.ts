@@ -77,6 +77,8 @@ export const TRIGGER_KEYS = {
   'session.paused': 'sessionPaused',
   'session.held_for': 'sessionHeldFor',
   'account.inactive_for': 'accountInactiveFor',
+  'media.added': 'mediaAdded',
+  'media.upgraded': 'mediaUpgraded',
   'server.down': 'serverDown',
   'server.up': 'serverUp',
   'plugin.update_available': 'pluginUpdateAvailable',

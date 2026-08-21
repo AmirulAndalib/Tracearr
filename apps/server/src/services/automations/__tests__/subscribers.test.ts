@@ -62,10 +62,12 @@ vi.mock('../runRecorder.js', () => ({
     kind: string;
     sessionId?: string;
     serverUserId?: string;
+    libraryItemId?: string;
     serverId?: string;
   }) => {
     if (scope.kind === 'session') return scope.sessionId;
     if (scope.kind === 'account') return scope.serverUserId;
+    if (scope.kind === 'media') return `media:${scope.libraryItemId ?? ''}`;
     if (scope.kind === 'server') return `server:${scope.serverId ?? ''}`;
     return 'install';
   },
@@ -97,6 +99,7 @@ import {
   runRulePipeline,
 } from '../events/subscribers.js';
 import { firingNodeFor, type UserEvaluatingEvent } from '../events/evaluate.js';
+import type { MediaQuality, MediaSubject } from '../types.js';
 import { dispatch, resetDispatcherForTests } from '../events/dispatcher.js';
 import { toRuleSession } from '../events/contextAssembly.js';
 import { pickLiveSessionFields } from '../../../jobs/poller/sessionMapper.js';
@@ -2198,6 +2201,39 @@ describe('edgeKeyOf', () => {
     ).toBe('2.2.0');
   });
 
+  it('an added item has no edge, and an upgrade carries the quality it landed on', () => {
+    const media = mediaSubject();
+    expect(edgeKeyOf({ type: 'media.added', at, server, media }, null)).toBeNull();
+    expect(
+      edgeKeyOf(
+        {
+          type: 'media.upgraded',
+          at,
+          server,
+          media,
+          from: mediaQuality({ resolution: '1080p', fileSize: null }),
+          changed: ['resolution', 'fileSize'],
+        },
+        null
+      )
+    ).toBe('4k|hdr10|HEVC|TRUEHD|8|42000000000');
+    expect(
+      edgeKeyOf(
+        {
+          type: 'media.upgraded',
+          at,
+          server,
+          media: mediaSubject({
+            quality: mediaQuality({ dynamicRange: null, audioChannels: null }),
+          }),
+          from: mediaQuality(),
+          changed: ['dynamicRange'],
+        },
+        null
+      )
+    ).toBe('4k||HEVC|TRUEHD||42000000000');
+  });
+
   it('a held_for automation with no enabled node has no edge', () => {
     const unstamped = createPauseRule({ triggers: [] });
     expect(keyFor(heldForEvent(pauseInput), unstamped)).toBeNull();
@@ -2314,5 +2350,134 @@ describe('server and install triggers', () => {
     expect(context.serverUser).toBeNull();
     expect(context.server).toMatchObject({ id: 'server-1' });
     expect(context.subjectKey).toBe('server:server-1');
+  });
+});
+
+// ============================================================================
+// Media triggers
+// ============================================================================
+
+const mediaQuality = (overrides: Partial<MediaQuality> = {}): MediaQuality => ({
+  resolution: '4k',
+  dynamicRange: 'hdr10',
+  videoCodec: 'HEVC',
+  audioCodec: 'TRUEHD',
+  audioChannels: 8,
+  fileSize: 42_000_000_000,
+  ...overrides,
+});
+
+const mediaSubject = (overrides: Partial<MediaSubject> = {}): MediaSubject => ({
+  libraryItemId: 'item-1',
+  title: 'Cars',
+  type: 'movie',
+  year: 2006,
+  libraryId: '1',
+  libraryName: 'Movies',
+  quality: mediaQuality(),
+  ...overrides,
+});
+
+describe('media triggers', () => {
+  const mediaAutomation = (
+    type: 'media.added' | 'media.upgraded',
+    overrides: Partial<EngineAutomation> = {}
+  ): EngineAutomation =>
+    migrated(
+      {
+        id: type,
+        name: type,
+        description: null,
+        serverId: null,
+        serverUserId: null,
+        userId: null,
+        enforceAcrossServers: false,
+        severity: 'warning',
+        isActive: true,
+        conditions: { groups: [] },
+        actions: { actions: [{ type: 'send', to: ['d1'] }] },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        kind: 'notification',
+        triggers: [{ id: `${type}-node`, type, enabled: true }],
+        ...overrides,
+      }
+    );
+
+  const mediaInputs = (activeAutomations: EngineAutomation[]): EvaluationInputs => ({
+    activeAutomations,
+    activeSessions: [],
+    recentSessions: [],
+  });
+
+  beforeEach(() => {
+    resetDispatcherForTests();
+    resetRuleSubscribersForTests();
+    registerRuleSubscribers();
+    mockRecordRun.mockResolvedValue({ ...transcodeViolation, id: 'run-media' });
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'media.added',
+        ruleName: 'media.added',
+        matched: true,
+        matchedGroups: [],
+        actions: [],
+      },
+    ]);
+  });
+
+  it('records an add against the library item with no account behind it', async () => {
+    const event = {
+      type: 'media.added' as const,
+      at: new Date(),
+      server,
+      media: mediaSubject(),
+    };
+
+    const result = await dispatch(event, mediaInputs([mediaAutomation('media.added')]));
+
+    expect(result.outcomes).toEqual([{ subscriber: 'media-rules', ok: true }]);
+    expect(mockRecordRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'media', libraryItemId: 'item-1' },
+        serverUserId: null,
+        serverId: 'server-1',
+        session: null,
+      })
+    );
+    const [[recorded]] = mockRecordRun.mock.calls as [[{ trigger: { edgeKey: string | null } }]];
+    expect(recorded.trigger.edgeKey).toBeNull();
+    expect(result.violations).toEqual([]);
+  });
+
+  it('evaluates the media context with the item on it and no user', async () => {
+    const event = {
+      type: 'media.added' as const,
+      at: new Date(),
+      server,
+      media: mediaSubject(),
+    };
+
+    await dispatch(event, mediaInputs([mediaAutomation('media.added')]));
+
+    const [context] = mockEvaluateRulesAsync.mock.calls[0] as [Record<string, unknown>];
+    expect(context.session).toBeNull();
+    expect(context.serverUser).toBeNull();
+    expect(context.media).toMatchObject({ libraryItemId: 'item-1', libraryName: 'Movies' });
+    expect(context.subjectKey).toBe('media:item-1');
+  });
+
+  it('leaves an automation scoped to an account out of the candidates', async () => {
+    const automation = mediaAutomation('media.added', { serverUserId: 'user-1' });
+
+    await dispatch(
+      { type: 'media.added', at: new Date(), server, media: mediaSubject() },
+      mediaInputs([automation])
+    );
+
+    expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
+    expect(mockRecordRun).not.toHaveBeenCalled();
   });
 });

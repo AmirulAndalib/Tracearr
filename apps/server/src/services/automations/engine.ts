@@ -2,7 +2,7 @@ import {
   CONDITION_FIELDS,
   CONDITION_FIELD_LABELS,
   OPERATOR_LABELS,
-  TRIGGER_CONTEXT_RANK,
+  contextSupplies,
 } from '@tracearr/shared';
 import type {
   AutomationConditions,
@@ -73,6 +73,7 @@ export interface AllGroupsResult {
 function contextOf(context: EvaluationContext): TriggerContext {
   if (context.session) return 'session';
   if (context.serverUser) return 'account';
+  if (context.media) return 'media';
   if (context.server) return 'server';
   return 'install';
 }
@@ -106,7 +107,7 @@ async function evaluateConditionAsync(
   }
 
   // Defensive: the definition schema rejects a field the enabled triggers cannot supply.
-  if (TRIGGER_CONTEXT_RANK[descriptor.requires] > TRIGGER_CONTEXT_RANK[contextOf(context)]) {
+  if (!contextSupplies(contextOf(context), descriptor.requires)) {
     return unmatchedEvidence(condition);
   }
 

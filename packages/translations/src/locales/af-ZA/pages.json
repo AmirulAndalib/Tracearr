@@ -247,6 +247,7 @@
       "groups": {
         "accounts": "Accounts",
         "control": "Control flow",
+        "library": "Library",
         "notify": "Notify",
         "policy": "Policy",
         "servers": "Servers",
@@ -259,6 +260,14 @@
           "description": "An account has watched nothing for the set number of days.",
           "label": "An account goes quiet",
           "synonyms": "inactive, dormant, unused, stale, cleanup"
+        },
+        "mediaAdded": {
+          "description": "A library item shows up on a server for the first time.",
+          "synonyms": "new, added, library, movie, episode, import"
+        },
+        "mediaUpgraded": {
+          "description": "A library item that was already there changes quality.",
+          "synonyms": "upgrade, quality, replaced, remux, 4k, resolution"
         },
         "pluginUpdateAvailable": {
           "description": "The Tracearr plugin on a server has a newer release.",
@@ -305,6 +314,7 @@
     },
     "categories": {
       "device_client": "Device & Client",
+      "media": "Media",
       "network_location": "Network & Location",
       "scope": "Scope",
       "session_behavior": "Session Behavior",
@@ -348,19 +358,25 @@
       "fields": {
         "account_age_days": "the account age",
         "active_session_distance_km": "the distance between streams",
+        "audio_channels_after": "the audio channels",
         "client_name": "the player",
         "concurrent_streams": "the stream count",
         "country": "the country",
         "current_pause_minutes": "the current pause",
         "device_type": "the device type",
+        "dynamic_range_after": "the dynamic range",
+        "file_size_after": "the file size",
         "inactive_days": "the time since the last stream",
         "ip_in_range": "the IP address",
         "is_local_network": "the local network",
         "is_transcode_downgrade": "the downgrade",
         "is_transcoding": "the transcoding",
+        "library_item_type": "the item type",
+        "library_name": "the library",
         "media_type": "the media type",
         "output_resolution": "the output resolution",
         "platform": "the platform",
+        "resolution_after": "the resolution",
         "server_id": "the server",
         "source_bitrate_mbps": "the source bitrate",
         "source_resolution": "the source resolution",
@@ -369,7 +385,8 @@
         "trust_score": "the trust score",
         "unique_devices_in_window": "the number of devices",
         "unique_ips_in_window": "the number of IP addresses",
-        "user_id": "the user"
+        "user_id": "the user",
+        "video_codec_after": "the video codec"
       },
       "includesSameDevice": "includes same device",
       "more_one": "+{{count}} more",
@@ -428,6 +445,8 @@
       "then": "then {{text}}",
       "triggers": {
         "accountInactiveFor": "an account has been inactive for {{duration}}",
+        "mediaAdded": "media is added",
+        "mediaUpgraded": "media is upgraded",
         "pluginUpdateAvailable": "a plugin update is available",
         "serverDown": "a server goes down",
         "serverUp": "a server comes back up",
@@ -486,6 +505,10 @@
         "description": "Distance between simultaneous sessions",
         "label": "Distance Between Sessions"
       },
+      "audio_channels_after": {
+        "description": "Audio channel count the item ends up with",
+        "label": "Audio Channels"
+      },
       "client_name": {
         "description": "Media player application",
         "label": "Client/Player",
@@ -508,6 +531,14 @@
         "description": "Type of device used",
         "label": "Device Type"
       },
+      "dynamic_range_after": {
+        "description": "HDR format the item ends up with",
+        "label": "Dynamic Range"
+      },
+      "file_size_after": {
+        "description": "Size the item ends up at, across every copy",
+        "label": "File Size"
+      },
       "inactive_days": {
         "description": "Days since last activity",
         "label": "Days Inactive"
@@ -529,6 +560,15 @@
         "description": "Whether video or audio streams are being transcoded",
         "label": "Is Transcoding"
       },
+      "library_item_type": {
+        "description": "What kind of library item it is",
+        "label": "Item Type"
+      },
+      "library_name": {
+        "description": "Name of the library it landed in",
+        "label": "Library",
+        "placeholder": "Movies"
+      },
       "media_type": {
         "description": "Type of content",
         "label": "Media Type"
@@ -540,6 +580,10 @@
       "platform": {
         "description": "Operating system",
         "label": "Platform/OS"
+      },
+      "resolution_after": {
+        "description": "Resolution the item ends up at",
+        "label": "Resolution"
       },
       "server_id": {
         "description": "Specific media server",
@@ -578,6 +622,10 @@
         "description": "Specific users by account",
         "label": "User",
         "placeholder": "Select users..."
+      },
+      "video_codec_after": {
+        "description": "Video codec the item ends up with",
+        "label": "Video Codec"
       }
     },
     "kind": {
@@ -605,16 +653,25 @@
     },
     "options": {
       "1080p": "1080p",
+      "1440p": "1440p",
       "480p": "480p",
       "4K": "4K (2160p)",
       "720p": "720p",
+      "8K": "8K",
       "SD": "SD",
+      "album": "Album",
       "android": "Android",
       "androidtv": "Android TV",
+      "artist": "Artist",
       "audio": "Audio",
       "browser": "Browser",
       "desktop": "Desktop",
+      "dolby vision": "Dolby Vision",
       "episode": "TV Episode",
+      "hdr": "HDR",
+      "hdr10": "HDR10",
+      "hdr10+": "HDR10+",
+      "hlg": "HLG",
       "ios": "iOS",
       "linux": "Linux",
       "live": "Live TV",
@@ -624,6 +681,9 @@
       "neither": "Neither (Direct Play)",
       "photo": "Photo",
       "roku": "Roku",
+      "sdr": "SDR",
+      "season": "Season",
+      "show": "Show",
       "tablet": "Tablet",
       "tizen": "Tizen",
       "track": "Music",
@@ -686,6 +746,7 @@
     "tryAdjustingFilters": "Try adjusting your filters.",
     "units": {
       "days": "days",
+      "gb": "GB",
       "hours": "hours",
       "km": "km",
       "kmh": "km/h",

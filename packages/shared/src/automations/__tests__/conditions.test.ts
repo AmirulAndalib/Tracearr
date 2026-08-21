@@ -25,8 +25,23 @@ describe('condition field descriptors', () => {
     const account = fieldsAvailableFor('account');
     expect(account).toContain('inactive_days');
     expect(account).not.toContain('is_transcoding');
-    expect(fieldsAvailableFor('session')).toEqual(Object.keys(CONDITION_FIELDS));
+    expect(fieldsAvailableFor('session')).toContain('is_transcoding');
+    expect(fieldsAvailableFor('session')).not.toContain('library_name');
     expect(fieldsAvailableFor(null)).toEqual(Object.keys(CONDITION_FIELDS));
+  });
+
+  it('offers a media trigger its own fields and the server it names', () => {
+    expect(fieldsAvailableFor('media')).toEqual([
+      'server_id',
+      'library_item_type',
+      'library_name',
+      'resolution_after',
+      'dynamic_range_after',
+      'video_codec_after',
+      'audio_channels_after',
+      'file_size_after',
+    ]);
+    expect(fieldsAvailableFor('server')).toEqual(['server_id']);
   });
 });
 

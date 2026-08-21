@@ -166,6 +166,7 @@ function createTestContext(
     session,
     serverUser,
     server,
+    media: null,
     subjectKey: session.id,
     activeSessions: [session],
     recentSessions: [session],
@@ -862,6 +863,56 @@ describe('a field the context cannot supply', () => {
     expect(result.matched).toBe(true);
   });
 
+  it('reads a media field on a media context and nothing about a session', async () => {
+    const mediaContext = (rule: EngineAutomation) => ({
+      ...createTestContext(rule),
+      session: null,
+      serverUser: null,
+      subjectKey: 'media:item-1',
+      activeSessions: [],
+      recentSessions: [],
+      media: {
+        libraryItemId: 'item-1',
+        title: 'Cars',
+        type: 'movie',
+        year: 2006,
+        libraryId: '1',
+        libraryName: 'Movies',
+        quality: {
+          resolution: '4k',
+          dynamicRange: 'hdr10',
+          videoCodec: 'HEVC',
+          audioCodec: 'TRUEHD',
+          audioChannels: 8,
+          fileSize: 42_000_000_000,
+        },
+      },
+    });
+
+    const ranked = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'resolution_after', operator: 'gte', value: '4K' }] }],
+      },
+    });
+    expect((await evaluateRuleAsync(mediaContext(ranked))).matched).toBe(true);
+
+    const tooHigh = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'resolution_after', operator: 'gte', value: '8K' }] }],
+      },
+    });
+    expect((await evaluateRuleAsync(mediaContext(tooHigh))).matched).toBe(false);
+
+    const sessionField = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gte', value: 2 }] }],
+      },
+    });
+    const result = await evaluateRuleAsync(mediaContext(sessionField));
+    expect(result.matched).toBe(false);
+    expect(result.stoppedBy?.conditions[0]).toMatchObject({ actual: null, matched: false });
+  });
+
   it('leaves an install context with nothing to read', async () => {
     const rule = createMockRule({
       conditions: {
@@ -916,6 +967,7 @@ describe('evaluateRulesAsync', () => {
         session,
         serverUser,
         server,
+        media: null,
         subjectKey: session.id,
         activeSessions: [session],
         recentSessions: [session],
@@ -950,6 +1002,7 @@ describe('evaluateRulesAsync', () => {
         session,
         serverUser,
         server,
+        media: null,
         subjectKey: session.id,
         activeSessions: [session],
         recentSessions: [session],
@@ -989,6 +1042,7 @@ describe('evaluateRulesAsync', () => {
         session,
         serverUser,
         server,
+        media: null,
         subjectKey: session.id,
         activeSessions: [session],
         recentSessions: [session],
@@ -1028,6 +1082,7 @@ describe('evaluateRulesAsync', () => {
         session,
         serverUser,
         server,
+        media: null,
         subjectKey: session.id,
         activeSessions: [session],
         recentSessions: [session],
@@ -1065,6 +1120,7 @@ describe('evaluateRulesAsync', () => {
         session: sessionA,
         serverUser: serverUserOnA,
         server: serverA,
+        media: null,
         subjectKey: sessionA.id,
         activeSessions: [sessionA],
         recentSessions: [sessionA],
@@ -1076,6 +1132,7 @@ describe('evaluateRulesAsync', () => {
         session: sessionB,
         serverUser: serverUserOnB,
         server: serverB,
+        media: null,
         subjectKey: sessionB.id,
         activeSessions: [sessionB],
         recentSessions: [sessionB],
@@ -1115,6 +1172,7 @@ describe('evaluateRulesAsync', () => {
       session,
       serverUser,
       server,
+      media: null,
       subjectKey: session.id,
       activeSessions: [session],
       recentSessions: [session],
@@ -1161,6 +1219,7 @@ describe('evaluateRulesAsync', () => {
           session,
           serverUser,
           server,
+          media: null,
           subjectKey: session.id,
           activeSessions: [session],
           recentSessions: [session],
@@ -1184,6 +1243,7 @@ describe('ruleAppliesTo', () => {
       session,
       serverUser,
       server,
+      media: null,
       subjectKey: session.id,
       activeSessions: [session],
       recentSessions: [session],

@@ -25,6 +25,8 @@ export type RunScope =
   /** fresh: the session id was created in this transaction; nothing can contend it, so no lock and no gate. */
   | { kind: 'session'; sessionId: string; fresh?: boolean }
   | { kind: 'account'; serverUserId: string }
+  /** The library item copy the diff ran against, unique per (server, rating key). */
+  | { kind: 'media'; libraryItemId: string }
   | { kind: 'server'; serverId: string }
   | { kind: 'install' };
 
@@ -71,6 +73,8 @@ export const subjectKeyOf = (scope: RunScope): string => {
       return scope.sessionId;
     case 'account':
       return scope.serverUserId;
+    case 'media':
+      return `media:${scope.libraryItemId}`;
     case 'server':
       return `server:${scope.serverId}`;
     case 'install':
@@ -171,7 +175,7 @@ function gateFor(args: RecordRunArgs): SQL | undefined {
     );
   }
 
-  if (scope.kind === 'server' || scope.kind === 'install') {
+  if (scope.kind === 'media' || scope.kind === 'server' || scope.kind === 'install') {
     // Validation keeps policy automations on session and account triggers, so a
     // policy run here has no subject the violation gate could key on.
     throw new Error(`policy automation ${automation.id} cannot run on a ${scope.kind} subject`);

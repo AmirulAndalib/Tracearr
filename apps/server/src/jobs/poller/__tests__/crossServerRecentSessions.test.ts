@@ -305,6 +305,7 @@ function createTestContext(
     session,
     serverUser,
     server,
+    media: null,
     subjectKey: session.id,
     activeSessions: [session],
     recentSessions: [session],

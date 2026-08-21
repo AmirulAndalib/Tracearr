@@ -427,6 +427,9 @@ export const UNIT_CONVERSION = {
   MILES_TO_KM: 1.60934,
 } as const;
 
+/** Base 1024, matching the byte formatter the dashboard renders file sizes with. */
+export const BYTES_PER_GB = 1024 ** 3;
+
 // Unit system types and utilities
 export type UnitSystem = 'metric' | 'imperial';
 

@@ -174,6 +174,7 @@ function createMockContext(
     session,
     server: createMockServer(),
     serverUser: createMockServerUser(),
+    media: null,
     subjectKey: session.id,
     rule: createMockRule(),
     activeSessions: [session],

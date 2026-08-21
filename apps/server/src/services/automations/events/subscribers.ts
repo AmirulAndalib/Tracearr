@@ -24,7 +24,8 @@ import {
   type ContextEvaluatingEvent,
   type SessionEvaluatingEvent,
 } from './evaluate.js';
-import type { EvaluationContext, EvaluationResult } from '../types.js';
+import { MEDIA_QUALITY_FIELDS } from '../types.js';
+import type { EvaluationContext, EvaluationResult, MediaQuality } from '../types.js';
 import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
 import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 
@@ -82,11 +83,19 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
   return all;
 }
 
+/** The quality an upgrade left behind, so a library flapping between two of them re-announces neither. */
+function afterSignature(quality: MediaQuality): string {
+  return MEDIA_QUALITY_FIELDS.map((field) => quality[field] ?? '').join('|');
+}
+
 /** What makes this firing a distinct edge for the notification gate; the node is the one that fired. */
 export function edgeKeyOf(event: ContextEvaluatingEvent, node: TriggerNode | null): string | null {
   switch (event.type) {
     case 'session.started':
+    case 'media.added':
       return null;
+    case 'media.upgraded':
+      return afterSignature(event.media.quality);
     case 'session.transcode_changed':
       return `${event.next.videoDecision ?? 'none'}/${event.next.audioDecision ?? 'none'}`;
     case 'session.paused':
@@ -267,6 +276,8 @@ function sessionRules(marker?: Record<string, true>, fresh?: boolean) {
   };
 }
 
+const MEDIA_TRIGGERS = ['media.added', 'media.upgraded'] as const;
+
 const SERVER_TRIGGERS = [
   'server.down',
   'server.up',
@@ -296,6 +307,15 @@ export function registerRuleSubscribers(): void {
     subscribe(trigger, 'server-rules', async (event, inputs, opts) => {
       if (!inputs) return;
       return runRulePipeline(event, inputs, opts, { kind: 'server', serverId: event.server.id });
+    });
+  }
+  for (const trigger of MEDIA_TRIGGERS) {
+    subscribe(trigger, 'media-rules', async (event, inputs, opts) => {
+      if (!inputs) return;
+      return runRulePipeline(event, inputs, opts, {
+        kind: 'media',
+        libraryItemId: event.media.libraryItemId,
+      });
     });
   }
   subscribe('tracearr.update_available', 'install-rules', async (event, inputs, opts) => {

@@ -543,7 +543,8 @@
       "user_attributes": "User Attributes",
       "device_client": "Device & Client",
       "network_location": "Network & Location",
-      "scope": "Scope"
+      "scope": "Scope",
+      "media": "Media"
     },
     "createAutomation": "Create Automation",
     "createDescription": "Set up a new automation for your media servers.",
@@ -584,6 +585,8 @@
         "sessionHeldFor": "a stream has been paused for {{duration}}",
         "sessionHeldForTotal": "a stream has been paused for {{duration}} in total",
         "accountInactiveFor": "an account has been inactive for {{duration}}",
+        "mediaAdded": "media is added",
+        "mediaUpgraded": "media is upgraded",
         "serverDown": "a server goes down",
         "serverUp": "a server comes back up",
         "pluginUpdateAvailable": "a plugin update is available",
@@ -626,7 +629,14 @@
         "country": "the country",
         "ip_in_range": "the IP address",
         "server_id": "the server",
-        "media_type": "the media type"
+        "media_type": "the media type",
+        "library_item_type": "the item type",
+        "library_name": "the library",
+        "resolution_after": "the resolution",
+        "dynamic_range_after": "the dynamic range",
+        "video_codec_after": "the video codec",
+        "audio_channels_after": "the audio channels",
+        "file_size_after": "the file size"
       },
       "states": {
         "is_local_network": {
@@ -812,6 +822,35 @@
       "media_type": {
         "label": "Media Type",
         "description": "Type of content"
+      },
+      "library_item_type": {
+        "label": "Item Type",
+        "description": "What kind of library item it is"
+      },
+      "library_name": {
+        "label": "Library",
+        "description": "Name of the library it landed in",
+        "placeholder": "Movies"
+      },
+      "resolution_after": {
+        "label": "Resolution",
+        "description": "Resolution the item ends up at"
+      },
+      "dynamic_range_after": {
+        "label": "Dynamic Range",
+        "description": "HDR format the item ends up with"
+      },
+      "video_codec_after": {
+        "label": "Video Codec",
+        "description": "Video codec the item ends up with"
+      },
+      "audio_channels_after": {
+        "label": "Audio Channels",
+        "description": "Audio channel count the item ends up with"
+      },
+      "file_size_after": {
+        "label": "File Size",
+        "description": "Size the item ends up at, across every copy"
       }
     },
     "kind": {
@@ -868,7 +907,19 @@
       "video": "Video",
       "audio": "Audio",
       "video_or_audio": "Video or Audio",
-      "neither": "Neither (Direct Play)"
+      "neither": "Neither (Direct Play)",
+      "show": "Show",
+      "season": "Season",
+      "artist": "Artist",
+      "album": "Album",
+      "8K": "8K",
+      "1440p": "1440p",
+      "sdr": "SDR",
+      "hdr": "HDR",
+      "hdr10": "HDR10",
+      "hdr10+": "HDR10+",
+      "hlg": "HLG",
+      "dolby vision": "Dolby Vision"
     },
     "recordsOnly": "Records runs only",
     "scope": {
@@ -924,7 +975,8 @@
       "mbps": "Mbps",
       "days": "days",
       "minutes": "minutes",
-      "hours": "hours"
+      "hours": "hours",
+      "gb": "GB"
     },
     "updateAutomation": "Update Automation",
     "updateDescription": "Update this automation below.",
@@ -932,6 +984,7 @@
       "groups": {
         "sessions": "Sessions",
         "accounts": "Accounts",
+        "library": "Library",
         "servers": "Servers",
         "updates": "Updates",
         "notify": "Notify",
@@ -965,6 +1018,14 @@
           "label": "An account goes quiet",
           "description": "An account has watched nothing for the set number of days.",
           "synonyms": "inactive, dormant, unused, stale, cleanup"
+        },
+        "mediaAdded": {
+          "description": "A library item shows up on a server for the first time.",
+          "synonyms": "new, added, library, movie, episode, import"
+        },
+        "mediaUpgraded": {
+          "description": "A library item that was already there changes quality.",
+          "synonyms": "upgrade, quality, replaced, remux, 4k, resolution"
         },
         "serverDown": {
           "description": "A media server stops answering.",

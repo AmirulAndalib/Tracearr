@@ -10,6 +10,7 @@ import {
   Bell,
   Clock,
   Globe,
+  Library,
   MapPin,
   MessageSquare,
   Monitor,
@@ -54,6 +55,7 @@ const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, LucideIcon>> = {
 const TRIGGER_GROUP_ICONS = {
   sessions: Play,
   accounts: UserRound,
+  library: Library,
   servers: Server,
   updates: ArrowUpFromLine,
 } as const satisfies Record<(typeof TRIGGERS)[TriggerType]['group'], LucideIcon>;

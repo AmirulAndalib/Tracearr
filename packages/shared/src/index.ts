@@ -327,6 +327,8 @@ export type {
   // Condition family
   Operator,
   ScopeField,
+  MediaField,
+  LibraryItemType,
   ConditionField,
   ConditionValue,
   TranscodingConditionValue,
@@ -362,7 +364,6 @@ export {
   AUTOMATION_KINDS,
   TRIGGERS,
   TRIGGER_TYPES,
-  TRIGGER_CONTEXT_RANK,
   CONDITION_FIELDS,
   operatorSchema,
   conditionValueSchema,
@@ -387,6 +388,7 @@ export {
   NEAR_MISS_REASONS,
   nearMissEntrySchema,
   contextOf,
+  contextSupplies,
   fieldsAvailableFor,
   TEMPLATE_GROUPS,
   TEMPLATE_SCHEMA_VERSION,
@@ -625,6 +627,7 @@ export {
   SSE_STATE,
   // Unit conversion
   UNIT_CONVERSION,
+  BYTES_PER_GB,
   kmToMiles,
   milesToKm,
   formatDistance,

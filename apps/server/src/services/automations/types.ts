@@ -9,14 +9,47 @@ import type {
 } from '@tracearr/shared';
 import type { ContextEvaluatingEvent } from './events/evaluate.js';
 
+/** The six library_items rollup columns a media trigger compares and renders. */
+export interface MediaQuality {
+  resolution: string | null;
+  dynamicRange: string | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  audioChannels: number | null;
+  fileSize: number | null;
+}
+
+/** The signature's fields, in the order the upgrade edge key joins them. */
+export const MEDIA_QUALITY_FIELDS = [
+  'resolution',
+  'dynamicRange',
+  'videoCodec',
+  'audioCodec',
+  'audioChannels',
+  'fileSize',
+] as const satisfies readonly (keyof MediaQuality)[];
+
+/** The library item a media trigger is about, as it stands after the sync. */
+export interface MediaSubject {
+  libraryItemId: string;
+  title: string;
+  type: string;
+  year: number | null;
+  libraryId: string;
+  libraryName: string;
+  quality: MediaQuality;
+}
+
 export interface EvaluationContext {
-  /** null outside a playback session: account, server and install triggers. */
+  /** null outside a playback session: account, media, server and install triggers. */
   session: Session | null;
-  /** null for server and install triggers, which are about no one. */
+  /** null for media, server and install triggers, which are about no one. */
   serverUser: ServerUser | null;
   /** null for install triggers, the only context with no server behind it. */
   server: Server | null;
-  /** What the run is about, as the recorder keys it: session id, server user id, `server:<id>` or `install`. */
+  /** Set only by the two media triggers; every other context leaves it null. */
+  media: MediaSubject | null;
+  /** What the run is about, as the recorder keys it: session id, server user id, `media:<id>`, `server:<id>` or `install`. */
   subjectKey: string;
   /** The event being evaluated; absent for kill re-verification, which runs no send. */
   trigger?: ContextEvaluatingEvent;
@@ -40,8 +73,9 @@ export interface EvaluatorResult {
   details?: Record<string, unknown>;
 }
 
-/** The contexts by rank: each one supplies everything the narrower ones do and more. */
+/** The contexts by depth: each one supplies everything its parent does and more. */
 export type ServerEvaluationContext = EvaluationContext & { server: Server };
+export type MediaEvaluationContext = ServerEvaluationContext & { media: MediaSubject };
 export type AccountEvaluationContext = ServerEvaluationContext & { serverUser: ServerUser };
 export type SessionEvaluationContext = AccountEvaluationContext & { session: Session };
 

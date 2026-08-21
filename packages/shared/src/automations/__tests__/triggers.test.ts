@@ -1,21 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import {
-  TRIGGERS,
-  TRIGGER_CONTEXT_RANK,
-  TRIGGER_TYPES,
-  contextOf,
-  variablesFor,
-} from '../index.js';
+import { TRIGGERS, TRIGGER_TYPES, contextOf, contextSupplies, variablesFor } from '../index.js';
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const started = { id: id(1), type: 'session.started', enabled: true } as const;
 const down = { id: id(2), type: 'server.down', enabled: true } as const;
+const added = { id: id(3), type: 'media.added', enabled: true } as const;
+const upgraded = { id: id(4), type: 'media.upgraded', enabled: true } as const;
 
 describe('trigger contexts', () => {
-  it('ranks the contexts from the narrowest subject to the whole install', () => {
-    expect(TRIGGER_CONTEXT_RANK.session).toBeGreaterThan(TRIGGER_CONTEXT_RANK.account);
-    expect(TRIGGER_CONTEXT_RANK.account).toBeGreaterThan(TRIGGER_CONTEXT_RANK.server);
-    expect(TRIGGER_CONTEXT_RANK.server).toBeGreaterThan(TRIGGER_CONTEXT_RANK.install);
+  it('walks the parent chain to say what a context supplies', () => {
+    expect(contextSupplies('media', 'server')).toBe(true);
+    expect(contextSupplies('media', 'account')).toBe(false);
+    expect(contextSupplies('session', 'media')).toBe(false);
+    expect(contextSupplies('session', 'account')).toBe(true);
+    expect(contextSupplies('server', 'server')).toBe(true);
+    expect(contextSupplies('install', 'server')).toBe(false);
+  });
+
+  it('meets a media trigger and a session one at the server they share', () => {
+    expect(contextOf([started, added])).toBe('server');
+    expect(contextOf([added, upgraded])).toBe('media');
+    expect(contextOf([added])).toBe('media');
+    expect(contextOf([started, down])).toBe('server');
   });
 
   it('lists every catalog key', () => {

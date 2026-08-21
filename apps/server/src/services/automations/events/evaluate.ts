@@ -7,6 +7,8 @@ import type { EvaluationContext } from '../types.js';
 import type {
   AccountInactiveForEvent,
   EvaluationInputs,
+  MediaAddedEvent,
+  MediaUpgradedEvent,
   PluginUpdateEvent,
   ServerDownEvent,
   ServerUpdateEvent,
@@ -34,9 +36,12 @@ export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEve
 export type ServerEvaluatingEvent =
   ServerDownEvent | ServerUpEvent | PluginUpdateEvent | ServerUpdateEvent;
 
+/** The events about one library item on a server. */
+export type MediaEvaluatingEvent = MediaAddedEvent | MediaUpgradedEvent;
+
 /** One per catalog trigger: every event that carries a context to evaluate in. */
 export type ContextEvaluatingEvent =
-  UserEvaluatingEvent | ServerEvaluatingEvent | TracearrUpdateEvent;
+  UserEvaluatingEvent | MediaEvaluatingEvent | ServerEvaluatingEvent | TracearrUpdateEvent;
 
 // The seam declares three trigger types the catalog does not: resumed, media_changed and
 // ended only cancel wakes and must never reach evaluation even if a stored node names one.
@@ -112,7 +117,7 @@ export interface TriggerCandidates {
   baseContext: Omit<EvaluationContext, 'rule'>;
 }
 
-/** The context an event carries: everything below its own rank is null. */
+/** The context an event carries: whatever it does not name is null. */
 function baseContextOf(
   event: ContextEvaluatingEvent,
   inputs: EvaluationInputs,
@@ -123,6 +128,7 @@ function baseContextOf(
       session: null,
       serverUser: null,
       server: 'server' in event ? toRuleServer(event.server) : null,
+      media: 'media' in event ? event.media : null,
       subjectKey,
       trigger: event,
       activeSessions: inputs.activeSessions,
@@ -135,6 +141,7 @@ function baseContextOf(
     session,
     serverUser: toRuleServerUser(event.serverUser, event.server.id),
     server: toRuleServer(event.server),
+    media: null,
     subjectKey,
     trigger: event,
     activeSessions: session

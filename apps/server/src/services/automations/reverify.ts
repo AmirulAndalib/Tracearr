@@ -316,6 +316,7 @@ export async function reverifyKillCondition(
     session: contextSession,
     serverUser: contextSession.serverUser,
     server: contextSession.server,
+    media: null,
     subjectKey: contextSession.id,
     activeSessions,
     recentSessions,

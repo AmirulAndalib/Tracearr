@@ -23,6 +23,8 @@ const held = {
   enabled: true,
   params: { minutes: 30, measure: 'current' },
 } as const;
+const mediaAdded = { id: id(4), type: 'media.added', enabled: true } as const;
+const mediaUpgraded = { id: id(5), type: 'media.upgraded', enabled: true } as const;
 const base = {
   name: 'x',
   kind: 'notification',
@@ -32,15 +34,17 @@ const base = {
 };
 
 describe('catalog', () => {
-  it('has eleven triggers with a context and a group', () => {
-    expect(TRIGGER_TYPES).toHaveLength(11);
+  it('has thirteen triggers with a context and a group', () => {
+    expect(TRIGGER_TYPES).toHaveLength(13);
     for (const t of TRIGGER_TYPES)
-      expect(TRIGGERS[t].context).toMatch(/session|account|server|install/);
+      expect(TRIGGERS[t].context).toMatch(/session|account|media|server|install/);
     expect(TRIGGERS['server.down'].context).toBe('server');
     expect(TRIGGERS['tracearr.update_available'].context).toBe('install');
+    expect(TRIGGERS['media.added'].context).toBe('media');
+    expect(TRIGGERS['media.upgraded'].group).toBe('library');
   });
-  it('has 24 condition fields each with requires and operators', () => {
-    expect(Object.keys(CONDITION_FIELDS)).toHaveLength(24);
+  it('has 31 condition fields each with requires and operators', () => {
+    expect(Object.keys(CONDITION_FIELDS)).toHaveLength(31);
     expect(CONDITION_FIELDS.server_id.requires).toBe('server');
     expect(CONDITION_FIELDS.inactive_days.requires).toBe('account');
     expect(CONDITION_FIELDS.is_transcoding.requires).toBe('session');
@@ -221,6 +225,54 @@ describe('definition refinements', () => {
         triggers: [started],
       }).success
     ).toBe(true);
+  });
+  it('rejects a session condition on a media trigger', () => {
+    const def = {
+      ...base,
+      triggers: [mediaAdded],
+      conditions: {
+        groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gte', value: 2 }] }],
+      },
+    };
+    const r = automationDefinitionSchema.safeParse(def);
+    expect(r.success).toBe(false);
+    expect(r.success ? '' : r.error.issues[0]?.path.join('.')).toBe(
+      'conditions.groups.0.conditions.0.field'
+    );
+  });
+  it('keeps a media trigger off a policy, which is about a user', () => {
+    const r = automationDefinitionSchema.safeParse({
+      ...base,
+      kind: 'policy',
+      severity: 'warning',
+      triggers: [mediaAdded],
+    });
+    expect(r.success).toBe(false);
+    expect(r.success ? '' : r.error.issues[0]?.path.join('.')).toBe('triggers');
+  });
+  it('offers the media variables to a send and nothing about a user', () => {
+    const send = (body: string) => ({ type: 'send', to: [id(9)], body });
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [mediaUpgraded],
+        actions: { actions: [send('{{media.title}}: {{media.to.resolution}}')] },
+      }).success
+    ).toBe(true);
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [mediaUpgraded],
+        actions: { actions: [send('{{user.username}}')] },
+      }).success
+    ).toBe(false);
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [mediaAdded],
+        actions: { actions: [send('{{media.to.resolution}}')] },
+      }).success
+    ).toBe(false);
   });
   it('accepts match on groups and defaults it to any for legacy rows', () => {
     const grp = {

@@ -14,8 +14,8 @@ import { ACTIONS, automationActionsSchema } from './actions.js';
 import { CONDITION_FIELDS, automationConditionsSchema } from './conditions.js';
 import {
   TRIGGERS,
-  TRIGGER_CONTEXT_RANK,
   contextOf,
+  contextSupplies,
   triggerNodeSchema,
   variablesFor,
 } from './triggers.js';
@@ -108,10 +108,7 @@ function definitionRefinements(
   const context = contextOf(triggers);
   if (
     def.kind === 'policy' &&
-    enabled.some(
-      (trigger) =>
-        TRIGGER_CONTEXT_RANK[TRIGGERS[trigger.type].context] < TRIGGER_CONTEXT_RANK.account
-    )
+    enabled.some((trigger) => !contextSupplies(TRIGGERS[trigger.type].context, 'account'))
   ) {
     ctx.addIssue({
       code: 'custom',
@@ -127,7 +124,7 @@ function definitionRefinements(
         if (
           condition.enabled !== false &&
           context !== null &&
-          TRIGGER_CONTEXT_RANK[descriptor.requires] > TRIGGER_CONTEXT_RANK[context]
+          !contextSupplies(context, descriptor.requires)
         ) {
           ctx.addIssue({
             code: 'custom',
@@ -157,7 +154,7 @@ function definitionRefinements(
   const checkAction = (action: Action, path: (string | number)[]) => {
     if (action.enabled !== false) {
       const need = ACTIONS[action.type].requires;
-      if (context !== null && TRIGGER_CONTEXT_RANK[need] > TRIGGER_CONTEXT_RANK[context]) {
+      if (context !== null && !contextSupplies(context, need)) {
         ctx.addIssue({
           code: 'custom',
           path: [...path, 'type'],

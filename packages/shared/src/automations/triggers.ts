@@ -1,14 +1,35 @@
 import { z } from 'zod';
 
-export type TriggerContext = 'session' | 'account' | 'server' | 'install';
+export type TriggerContext = 'session' | 'account' | 'media' | 'server' | 'install';
 
-/** A context outranks another when it supplies everything the other does and more. */
-export const TRIGGER_CONTEXT_RANK: Record<TriggerContext, number> = {
-  session: 3,
-  account: 2,
-  server: 1,
-  install: 0,
+/**
+ * What each context sits under. `media` names a server and no account, so the
+ * contexts are a tree rather than a line and `install` is its root.
+ */
+const TRIGGER_CONTEXT_PARENT: Record<TriggerContext, TriggerContext | null> = {
+  session: 'account',
+  account: 'server',
+  media: 'server',
+  server: 'install',
+  install: null,
 };
+
+/** Whether a trigger of this context carries everything `requires` names. */
+export function contextSupplies(context: TriggerContext, requires: TriggerContext): boolean {
+  for (let at: TriggerContext | null = context; at; at = TRIGGER_CONTEXT_PARENT[at]) {
+    if (at === requires) return true;
+  }
+  return false;
+}
+
+/** The narrowest context both supply: their lowest common ancestor in the tree. */
+function meet(a: TriggerContext, b: TriggerContext): TriggerContext {
+  for (let at: TriggerContext | null = b; at; at = TRIGGER_CONTEXT_PARENT[at]) {
+    if (contextSupplies(a, at)) return at;
+  }
+  // Unreachable: every chain ends at the root, which supplies nothing and is shared.
+  return 'install';
+}
 
 const SESSION_VARS = [
   'user.username',
@@ -19,6 +40,30 @@ const SESSION_VARS = [
   'server.type',
 ] as const;
 const SERVER_VARS = ['server.name', 'server.type'] as const;
+/** `server.name` doubles `media.server` so an automation that also carries a server trigger keeps one. */
+const MEDIA_VARS = [
+  'media.title',
+  'media.type',
+  'media.year',
+  'media.library',
+  'media.server',
+  'server.name',
+  'server.type',
+] as const;
+const MEDIA_QUALITY_VARS = [
+  'media.from.resolution',
+  'media.to.resolution',
+  'media.from.dynamicRange',
+  'media.to.dynamicRange',
+  'media.from.videoCodec',
+  'media.to.videoCodec',
+  'media.from.audioCodec',
+  'media.to.audioCodec',
+  'media.from.audioChannels',
+  'media.to.audioChannels',
+  'media.from.fileSize',
+  'media.to.fileSize',
+] as const;
 
 export const TRIGGERS = {
   'session.started': { context: 'session', group: 'sessions', variables: SESSION_VARS },
@@ -38,6 +83,12 @@ export const TRIGGERS = {
     context: 'account',
     group: 'accounts',
     variables: ['user.username', 'user.identityName', 'server.name', 'server.type', 'days'],
+  },
+  'media.added': { context: 'media', group: 'library', variables: MEDIA_VARS },
+  'media.upgraded': {
+    context: 'media',
+    group: 'library',
+    variables: [...MEDIA_VARS, ...MEDIA_QUALITY_VARS],
   },
   'server.down': { context: 'server', group: 'servers', variables: SERVER_VARS },
   'server.up': { context: 'server', group: 'servers', variables: SERVER_VARS },
@@ -60,7 +111,7 @@ export const TRIGGERS = {
   string,
   {
     context: TriggerContext;
-    group: 'sessions' | 'accounts' | 'servers' | 'updates';
+    group: 'sessions' | 'accounts' | 'library' | 'servers' | 'updates';
     variables: readonly string[];
   }
 >;
@@ -100,13 +151,13 @@ export type TriggerNode = z.infer<typeof triggerNodeSchema>;
 
 /** The most demanding context every enabled trigger can satisfy; null when nothing is enabled. */
 export function contextOf(triggers: readonly TriggerNode[]): TriggerContext | null {
-  let min: TriggerContext | null = null;
+  let shared: TriggerContext | null = null;
   for (const trigger of triggers) {
     if (!trigger.enabled) continue;
     const context = TRIGGERS[trigger.type].context;
-    if (min === null || TRIGGER_CONTEXT_RANK[context] < TRIGGER_CONTEXT_RANK[min]) min = context;
+    shared = shared === null ? context : meet(shared, context);
   }
-  return min;
+  return shared;
 }
 
 /** The variables every enabled trigger offers, so a template renders whichever one fired. */

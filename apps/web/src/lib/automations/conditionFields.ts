@@ -11,9 +11,12 @@ import {
   type ConditionField,
   type ConditionFieldDescriptor,
   type DeviceType,
+  type DynamicRangeToken,
+  type LibraryItemType,
   type MediaTypeEnum,
   type Operator,
   type Platform,
+  type ResolutionLabel,
   type TranscodingConditionValue,
   type VideoResolution,
 } from '@tracearr/shared';
@@ -37,6 +40,7 @@ export const FIELD_CATEGORIES = [
   'device_client',
   'network_location',
   'scope',
+  'media',
 ] as const satisfies readonly FieldCategory[];
 
 /** Fields whose control carries a placeholder at `fields.<field>.placeholder`. */
@@ -46,6 +50,7 @@ const PLACEHOLDER_FIELDS = [
   'country',
   'ip_in_range',
   'server_id',
+  'library_name',
 ] as const satisfies readonly ConditionField[];
 
 type PlaceholderField = (typeof PLACEHOLDER_FIELDS)[number];
@@ -94,7 +99,14 @@ export function operatorLabel(t: Translate, operator: string): string {
 
 /** Every value an enum condition field stores; the catalog's `options` are exactly these. */
 export type FieldOptionValue =
-  VideoResolution | DeviceType | Platform | MediaTypeEnum | TranscodingConditionValue;
+  | VideoResolution
+  | DeviceType
+  | Platform
+  | MediaTypeEnum
+  | TranscodingConditionValue
+  | LibraryItemType
+  | DynamicRangeToken
+  | ResolutionLabel;
 
 /** Display text for one of an enum field's stored option values. */
 export function optionLabel(t: Translate, value: FieldOptionValue): string {
@@ -119,6 +131,7 @@ export function fieldsByCategory(): Record<FieldCategory, ConditionField[]> {
     device_client: [],
     network_location: [],
     scope: [],
+    media: [],
   };
 
   for (const field of Object.keys(CONDITION_FIELDS) as ConditionField[]) {
