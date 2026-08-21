@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleV2, Session } from '@tracearr/shared';
 import type { SQL } from 'drizzle-orm';
 import { PgDialect } from 'drizzle-orm/pg-core';
-import type { EvaluationResult } from '../rules/types.js';
+import type { EvaluationResult } from '../automations/types.js';
 
 const mockExecute = vi.fn();
 const mockSelectLimit = vi.fn();

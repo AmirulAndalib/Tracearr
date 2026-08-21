@@ -20,7 +20,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Redis } from 'ioredis';
 import { setRedisPrefix, REDIS_KEYS } from '@tracearr/shared';
 import { initPushRateLimiter } from '../../src/services/pushRateLimiter.js';
-import { createActionExecutorDeps } from '../../src/services/rules/v2Integration.js';
+import { createActionExecutorDeps } from '../../src/services/automations/v2Integration.js';
 
 const TEST_PREFIX = 'test_prefix_';
 

@@ -9,7 +9,7 @@ import {
 } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { destinations, automations, settings } from '../../db/schema.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
 import { resetSettingsCache } from '../settings.js';
 import { encryptConfig } from './destinationCrypto.js';
@@ -395,7 +395,7 @@ export async function runDestinationsMigration(): Promise<void> {
     );
     return true;
   });
-  invalidateRulesCache();
+  invalidateAutomationsCache();
   invalidateDestinationsCache();
   resetSettingsCache();
   if (changed) await publishDestinationsChanged();

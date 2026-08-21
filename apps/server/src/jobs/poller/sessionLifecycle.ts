@@ -17,9 +17,9 @@ import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db/client.js';
 import { serverUsers, sessions, users } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
-import { toRuleSession } from '../../services/rules/events/contextAssembly.js';
-import { dispatch } from '../../services/rules/events/dispatcher.js';
-import type { ActionResult } from '../../services/rules/executors/index.js';
+import { toRuleSession } from '../../services/automations/events/contextAssembly.js';
+import { dispatch } from '../../services/automations/events/dispatcher.js';
+import type { ActionResult } from '../../services/automations/executors/index.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
 import { pickStreamDetailFields } from './sessionMapper.js';
@@ -634,7 +634,7 @@ export async function createSessionWithRulesAtomic(
     server,
     serverUser,
     geo,
-    activeRulesV2,
+    activeAutomations,
     activeSessions,
     recentSessions,
     preGeneratedId,
@@ -869,7 +869,7 @@ export async function createSessionWithRulesAtomic(
               session,
             },
             {
-              activeRulesV2,
+              activeAutomations,
               // The quality-change twin was stopped in STEP 1 but still sits in the caller's snapshot.
               activeSessions: qualityChange
                 ? activeSessions.filter((s) => s.id !== qualityChange.stoppedSession.id)
@@ -936,7 +936,7 @@ export interface ConfirmPendingSessionInput {
   /** Pending session data from Redis */
   pendingData: PendingSessionData;
   /** Active V2 rules to evaluate */
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   /** Active sessions for rule context */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation */
@@ -956,7 +956,7 @@ export interface ConfirmPendingSessionInput {
 export async function confirmAndPersistSession(
   input: ConfirmPendingSessionInput
 ): Promise<SessionCreationResult> {
-  const { pendingData, activeRulesV2, activeSessions, recentSessions } = input;
+  const { pendingData, activeAutomations, activeSessions, recentSessions } = input;
   const { processed, server, serverUser, geo } = pendingData;
 
   // Delegate to createSessionWithRulesAtomic for atomic rule evaluation
@@ -973,7 +973,7 @@ export async function confirmAndPersistSession(
     server,
     serverUser,
     geo,
-    activeRulesV2,
+    activeAutomations,
     activeSessions,
     recentSessions,
     // Use the pre-generated UUID - ensures same ID from pending to confirmed state
@@ -1147,7 +1147,7 @@ export async function handleMediaChangeAtomic(
     server,
     serverUser,
     geo,
-    activeRulesV2,
+    activeAutomations,
     activeSessions,
     recentSessions,
   } = input;
@@ -1184,7 +1184,7 @@ export async function handleMediaChangeAtomic(
       server,
       serverUser,
       geo,
-      activeRulesV2,
+      activeAutomations,
       // The old-media session was stopped above; the caller's snapshot
       // predates that stop.
       activeSessions: activeSessions.filter((s) => s.id !== existingSession.id),

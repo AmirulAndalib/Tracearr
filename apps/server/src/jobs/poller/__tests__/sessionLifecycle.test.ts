@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_STREAM_DETAILS, type Session } from '@tracearr/shared';
-import type { ActionResult } from '../../../services/rules/executors/index.js';
+import type { ActionResult } from '../../../services/automations/executors/index.js';
 import type { GeoLocation } from '../../../services/geoip.js';
 import type { BuildActiveSessionInput } from '../sessionLifecycle.js';
 

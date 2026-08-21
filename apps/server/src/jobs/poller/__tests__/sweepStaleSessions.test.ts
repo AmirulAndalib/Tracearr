@@ -56,8 +56,8 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
-  onActiveRulesRefill: vi.fn(),
-  getActiveRulesV2: vi.fn().mockResolvedValue([]),
+  onActiveAutomationsRefill: vi.fn(),
+  getActiveAutomations: vi.fn().mockResolvedValue([]),
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   widenRecentSessionsForMergedIdentities: vi.fn(),
@@ -82,7 +82,7 @@ vi.mock('../sessionLifecycle.js', () => ({
 }));
 
 const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });
-vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...args: unknown[]) => mockDispatch(...args),
   subscribe: vi.fn(),
 }));

@@ -6,11 +6,11 @@ const { mockReverifyKillCondition, mockStoreActionResults } = vi.hoisted(() => (
   mockStoreActionResults: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../../services/rules/reverify.js', () => ({
+vi.mock('../../services/automations/reverify.js', () => ({
   reverifyKillCondition: mockReverifyKillCondition,
 }));
 
-vi.mock('../../services/rules/v2Integration.js', () => ({
+vi.mock('../../services/automations/v2Integration.js', () => ({
   storeActionResults: mockStoreActionResults,
 }));
 
@@ -49,7 +49,7 @@ import {
   setActionExecutorDeps,
   resetActionExecutorDeps,
   type ActionExecutorDeps,
-} from '../../services/rules/executors/index.js';
+} from '../../services/automations/executors/index.js';
 import type { Job } from 'bullmq';
 
 function makeJob(data: KillJobData, attemptsMade = 0, attempts = 3): Job<KillJobData> {

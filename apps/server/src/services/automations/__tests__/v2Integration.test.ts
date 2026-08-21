@@ -21,7 +21,7 @@ vi.mock('../../../jobs/notificationQueue.js', () => ({
 vi.mock('../../../db/client.js', () => ({ db: {} }));
 
 vi.mock('../../../jobs/poller/database.js', () => ({
-  invalidateRulesCache: vi.fn(),
+  invalidateAutomationsCache: vi.fn(),
 }));
 
 vi.mock('../../userService.js', () => ({

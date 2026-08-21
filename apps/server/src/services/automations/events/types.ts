@@ -106,7 +106,7 @@ export type EventOf<T extends TriggerType> = RuleEvent extends infer E
 
 /** Tick-scoped, in-process; passed alongside the event, never part of it. Arrays are by reference. */
 export interface EvaluationInputs {
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   activeSessions: Session[];
   recentSessions: Session[];
   identityServerUserIds?: string[];

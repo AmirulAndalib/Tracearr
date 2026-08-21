@@ -2,9 +2,9 @@ import { and, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm';
 import type { Action, KillStreamAction, RuleActions } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { createLogger } from '../../utils/logger.js';
-import { convertV1Rule } from '../rules/v2Integration.js';
+import { convertV1Rule } from './v2Integration.js';
 import { stampNodes, synthesizeTriggers } from './triggers.js';
 import { automationDefinition } from './versions.js';
 
@@ -267,7 +267,7 @@ export async function runAutomationModelMigration(): Promise<void> {
   });
 
   if (!summary) return;
-  invalidateRulesCache();
+  invalidateAutomationsCache();
   if (summary.duplicateSubjects > 0) {
     logger.info(
       `Acknowledged ${summary.duplicateSubjects} duplicate active run(s) sharing a subject key`

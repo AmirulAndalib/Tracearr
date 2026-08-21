@@ -22,7 +22,7 @@ import { db } from '../../src/db/client.js';
 import { automations, automationRuns } from '../../src/db/schema.js';
 import { recordRun, type RunTrigger } from '../../src/services/automations/runRecorder.js';
 import { resynthesizeTriggers } from '../../src/services/automations/triggers.js';
-import type { EvaluationResult } from '../../src/services/rules/types.js';
+import type { EvaluationResult } from '../../src/services/automations/types.js';
 
 const matched: EvaluationResult = {
   ruleId: 'unused',

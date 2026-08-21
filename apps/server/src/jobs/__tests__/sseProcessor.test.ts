@@ -70,7 +70,7 @@ vi.mock('../poller/database.js', () => ({
   getServerUserIdByExternalId: vi.fn(() => {
     throw new Error('getServerUserIdByExternalId not configured in this test');
   }),
-  getActiveRulesV2: vi.fn(),
+  getActiveAutomations: vi.fn(),
   batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn(),
   mergeRecentSessionsForIdentity: (map: Map<string, unknown[]>, ids: string[]) =>
@@ -91,14 +91,14 @@ vi.mock('../poller/sessionLifecycle.js', () => ({
   confirmAndPersistSession: vi.fn(),
 }));
 
-vi.mock('../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...args: unknown[]) => mockDispatch(...args),
   subscribe: vi.fn(),
 }));
-vi.mock('../../services/rules/events/contextAssembly.js', () => ({
+vi.mock('../../services/automations/events/contextAssembly.js', () => ({
   loadEvaluationContext: vi.fn().mockResolvedValue(null),
   assembleEvaluationInputs: vi.fn().mockResolvedValue({
-    activeRulesV2: [],
+    activeAutomations: [],
     activeSessions: [],
     recentSessions: [],
     identityServerUserIds: [],

@@ -15,10 +15,10 @@ import { db } from '../../db/client.js';
 import { automationRuns } from '../../db/schema.js';
 import { getRedis } from '../../lib/redisShared.js';
 import { getPubSubService, type PubSubService } from '../cache.js';
-import { armCooldown, isCoolingDown } from '../rules/v2Integration.js';
+import { armCooldown, isCoolingDown } from './v2Integration.js';
 import { recomputeIdentityAggregatesForServerUser } from '../userService.js';
-import type { DbTx, TriggerType } from '../rules/events/types.js';
-import type { EvaluationResult } from '../rules/types.js';
+import type { DbTx, TriggerType } from './events/types.js';
+import type { EvaluationResult } from './types.js';
 
 export type AutomationRunRow = typeof automationRuns.$inferSelect;
 

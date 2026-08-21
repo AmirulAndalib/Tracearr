@@ -26,9 +26,9 @@ import {
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns } from '../../src/db/schema.js';
 import { mergeUsers } from '../../src/services/mergeService.js';
-import { evaluateRulesAsync } from '../../src/services/rules/engine.js';
-import { getActiveRulesV2 } from '../../src/jobs/poller/database.js';
-import { resolveTargetSessions } from '../../src/services/rules/executors/targeting.js';
+import { evaluateRulesAsync } from '../../src/services/automations/engine.js';
+import { getActiveAutomations } from '../../src/jobs/poller/database.js';
+import { resolveTargetSessions } from '../../src/services/automations/executors/targeting.js';
 import { automationRoutes } from '../../src/routes/automations.js';
 
 // A condition that always matches, so tests exercise scope filtering only.
@@ -175,8 +175,8 @@ describe('identity-scoped automations', () => {
 
     const rule = await insertRule({ name: 'Person rule', userId: target.id });
 
-    const activeRulesV2 = await getActiveRulesV2();
-    const scopedRule = activeRulesV2.find((r) => r.id === rule.id);
+    const activeAutomations = await getActiveAutomations();
+    const scopedRule = activeAutomations.find((r) => r.id === rule.id);
     expect(scopedRule?.userId).toBe(target.id);
 
     const serverAObj = mockServer({ id: serverA.id, type: 'plex' });
@@ -199,7 +199,7 @@ describe('identity-scoped automations', () => {
           activeSessions: [session],
           recentSessions: [session],
         },
-        activeRulesV2
+        activeAutomations
       );
 
       expect(results.some((r) => r.ruleId === rule.id)).toBe(true);
@@ -238,7 +238,7 @@ describe('identity-scoped automations', () => {
         activeSessions: [unrelatedSession],
         recentSessions: [unrelatedSession],
       },
-      activeRulesV2
+      activeAutomations
     );
     expect(unrelatedResults.some((r) => r.ruleId === rule.id)).toBe(false);
 
@@ -264,7 +264,7 @@ describe('identity-scoped automations', () => {
     const [ruleAfterMerge] = await db.select().from(automations).where(eq(automations.id, rule.id));
     expect(ruleAfterMerge?.userId).toBe(target.id);
 
-    const activeRulesV2 = await getActiveRulesV2();
+    const activeAutomations = await getActiveAutomations();
     const serverObj = mockServer({ id: server.id, type: 'plex' });
     const sessionRow = await createTestSession({ serverId: server.id, serverUserId: targetSu.id });
     const session = toEvaluationSession(sessionRow);
@@ -282,7 +282,7 @@ describe('identity-scoped automations', () => {
         activeSessions: [session],
         recentSessions: [session],
       },
-      activeRulesV2
+      activeAutomations
     );
     expect(results.some((r) => r.ruleId === rule.id)).toBe(true);
   });
@@ -419,8 +419,8 @@ describe('account-scoped automations', () => {
     const rule = response.json();
     expect(rule.serverUserId).toBe(targetSu.id);
 
-    const activeRulesV2 = await getActiveRulesV2();
-    const scopedRule = activeRulesV2.find((r) => r.id === rule.id);
+    const activeAutomations = await getActiveAutomations();
+    const scopedRule = activeAutomations.find((r) => r.id === rule.id);
     expect(scopedRule?.serverUserId).toBe(targetSu.id);
 
     const serverObj = mockServer({ id: server.id, type: 'plex' });
@@ -445,7 +445,7 @@ describe('account-scoped automations', () => {
         activeSessions: [targetSession],
         recentSessions: [targetSession],
       },
-      activeRulesV2
+      activeAutomations
     );
     expect(targetResults.some((r) => r.ruleId === rule.id)).toBe(true);
 
@@ -482,7 +482,7 @@ describe('account-scoped automations', () => {
         activeSessions: [otherSession],
         recentSessions: [otherSession],
       },
-      activeRulesV2
+      activeAutomations
     );
     expect(otherResults.some((r) => r.ruleId === rule.id)).toBe(false);
 

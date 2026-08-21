@@ -13,7 +13,7 @@ vi.mock('../../db/client.js', () => ({ db: { transaction: vi.fn() } }));
 vi.mock('../../db/schema.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
 }));
-vi.mock('../../jobs/poller/database.js', () => ({ invalidateRulesCache: vi.fn() }));
+vi.mock('../../jobs/poller/database.js', () => ({ invalidateAutomationsCache: vi.fn() }));
 vi.mock('../settings.js', () => ({ resetSettingsCache: vi.fn() }));
 vi.mock('../notifications/destinationStore.js', () => ({
   invalidateDestinationsCache: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('../notifications/destinationStore.js', () => ({
 
 import { db } from '../../db/client.js';
 import { destinations, automations, settings } from '../../db/schema.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import {
   initDestinationCrypto,
   resetDestinationCryptoForTests,
@@ -434,7 +434,7 @@ describe('runDestinationsMigration', () => {
     });
 
     expect(harness.deletes).toEqual([settings]);
-    expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+    expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     expect(invalidateDestinationsCache).toHaveBeenCalledTimes(1);
     expect(resetSettingsCache).toHaveBeenCalledTimes(1);
     expect(publishDestinationsChanged).toHaveBeenCalledTimes(1);
@@ -558,7 +558,7 @@ describe('runDestinationsMigration', () => {
       cb(harness.tx)) as unknown as typeof db.transaction);
 
     await expect(runDestinationsMigration()).rejects.toThrow('insert exploded');
-    expect(invalidateRulesCache).not.toHaveBeenCalled();
+    expect(invalidateAutomationsCache).not.toHaveBeenCalled();
   });
 
   it('throws when the built-in rows are missing after seeding', async () => {

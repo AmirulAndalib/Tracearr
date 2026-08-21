@@ -30,13 +30,13 @@ import {
   fetchRecentSessionsForIdentity,
   setContextAssemblyDeps,
   toRuleSession,
-} from '../../services/rules/events/contextAssembly.js';
-import { dispatch } from '../../services/rules/events/dispatcher.js';
-import { registerRuleSubscribers } from '../../services/rules/events/subscribers.js';
+} from '../../services/automations/events/contextAssembly.js';
+import { dispatch } from '../../services/automations/events/dispatcher.js';
+import { registerRuleSubscribers } from '../../services/automations/events/subscribers.js';
 import {
   registerPauseWakeSubscriptions,
   setPauseWakeDeps,
-} from '../../services/rules/wakes/pauseWakes.js';
+} from '../../services/automations/wakes/pauseWakes.js';
 import { registerService, unregisterService } from '../../services/serviceTracker.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { sseManager } from '../../services/sseManager.js';
@@ -47,7 +47,7 @@ import {
   batchGetIdentityServerUserIds,
   batchGetLibraryItemIdentity,
   batchGetRecentUserSessions,
-  getActiveRulesV2,
+  getActiveAutomations,
   getCachedServers,
   widenRecentSessionsForMergedIdentities,
 } from './database.js';
@@ -350,7 +350,7 @@ async function resolveVanishedPendingSession(
         return null;
       }
 
-      const activeRulesV2 = await getActiveRulesV2();
+      const activeAutomations = await getActiveAutomations();
       const activeSessions = excludeUncountableSessions(
         await cache.getAllActiveSessions(),
         gracePeriodSessionIds()
@@ -362,7 +362,7 @@ async function resolveVanishedPendingSession(
 
       const persisted = await confirmAndPersistSession({
         pendingData: stillPending,
-        activeRulesV2,
+        activeAutomations,
         activeSessions,
         recentSessions,
       });
@@ -608,7 +608,7 @@ async function resolvePendingSession(
     pendingKey,
     processed,
     userDetail,
-    activeRulesV2,
+    activeAutomations,
     activeSessions,
     recentSessions,
     usePlexGeoip,
@@ -664,7 +664,7 @@ async function resolvePendingSession(
       // corrects startedAt/pausedDurationMs/progressMs from updatedData's own fields.
       return confirmAndPersistSession({
         pendingData: { ...updatedData, processed, server, serverUser: userDetail, geo },
-        activeRulesV2,
+        activeAutomations,
         activeSessions,
         recentSessions,
       });
@@ -723,7 +723,7 @@ async function resolvePendingSession(
  */
 async function processServerSessions(
   server: ServerWithToken,
-  activeRulesV2: RuleV2[],
+  activeAutomations: RuleV2[],
   cachedSessionKeys: Set<string>,
   activeSessions: ActiveSession[] = []
 ): Promise<ServerProcessingResult> {
@@ -966,7 +966,7 @@ async function processServerSessions(
     // Skipped when there are no V2 rules to evaluate.
     const identityUserIds = [...new Set(Array.from(serverUserById.values()).map((u) => u.userId))];
     const identityServerUserIdsMap =
-      activeRulesV2.length > 0
+      activeAutomations.length > 0
         ? await batchGetIdentityServerUserIds(identityUserIds)
         : new Map<string, string[]>();
 
@@ -1070,7 +1070,7 @@ async function processServerSessions(
             pendingKey,
             processed,
             userDetail,
-            activeRulesV2,
+            activeAutomations,
             activeSessions: ruleEvalSessions,
             recentSessions: recentSessionsMap.get(serverUserId) ?? [],
             usePlexGeoip,
@@ -1276,7 +1276,7 @@ async function processServerSessions(
               pendingKey,
               processed,
               userDetail,
-              activeRulesV2,
+              activeAutomations,
               activeSessions: ruleEvalSessions,
               recentSessions: await getOrFetchRecentSessions(recentSessionsMap, serverUserId),
               usePlexGeoip,
@@ -1440,7 +1440,7 @@ async function processServerSessions(
                   server: { id: server.id, name: server.name, type: server.type },
                   serverUser: userDetail,
                   geo,
-                  activeRulesV2,
+                  activeAutomations,
                   activeSessions: ruleEvalSessions,
                   recentSessions,
                 });
@@ -1517,7 +1517,7 @@ async function processServerSessions(
               server: { id: server.id, name: server.name, type: server.type },
               serverUser: userDetail,
               geo,
-              activeRulesV2,
+              activeAutomations,
               activeSessions: ruleEvalSessions,
               recentSessions,
             });
@@ -1687,7 +1687,7 @@ async function processServerSessions(
           // If transcode state changed, re-evaluate rules that have transcode-related conditions.
           // Gated by the wasStoppedConcurrently guard above (like the pause re-eval below) so a
           // session stopped mid-tick cannot still earn a violation row or a kill enqueue.
-          if (transcodeStateChanged && activeRulesV2.length > 0) {
+          if (transcodeStateChanged && activeAutomations.length > 0) {
             try {
               const recentSessions = await getOrFetchRecentSessions(
                 recentSessionsMap,
@@ -1709,7 +1709,7 @@ async function processServerSessions(
                   },
                   session: toRuleSession(existingSession, pickLiveSessionFields(processed)),
                 },
-                { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
+                { activeAutomations, activeSessions: ruleEvalSessions, recentSessions }
               );
               if (violations.length > 0 && pubSubService) {
                 await broadcastViolations(violations, existingSession.id, pubSubService);
@@ -1722,7 +1722,7 @@ async function processServerSessions(
             }
           }
 
-          if (previousState !== 'paused' && newState === 'paused' && activeRulesV2.length > 0) {
+          if (previousState !== 'paused' && newState === 'paused' && activeAutomations.length > 0) {
             try {
               const recentSessions = await getOrFetchRecentSessions(
                 recentSessionsMap,
@@ -1744,7 +1744,7 @@ async function processServerSessions(
                     pausedDurationMs: pauseResult.pausedDurationMs,
                   }),
                 },
-                { activeRulesV2, activeSessions: ruleEvalSessions, recentSessions }
+                { activeAutomations, activeSessions: ruleEvalSessions, recentSessions }
               );
               if (violations.length > 0 && pubSubService) {
                 await broadcastViolations(violations, existingSession.id, pubSubService);
@@ -1918,7 +1918,7 @@ async function pollServers(): Promise<void> {
     );
 
     // Get active V2 rules
-    const activeRulesV2 = await getActiveRulesV2();
+    const activeAutomations = await getActiveAutomations();
 
     // Collect results from all servers
     const allNewSessions: ActiveSession[] = [];
@@ -1952,7 +1952,7 @@ async function pollServers(): Promise<void> {
           confirmedFromPendingIds,
         } = await processServerSessions(
           serverWithToken,
-          activeRulesV2,
+          activeAutomations,
           cachedSessionKeys,
           cachedSessions
         );
@@ -2356,7 +2356,7 @@ export async function triggerServerPoll(serverId: string): Promise<void> {
       })
     );
 
-    const activeRulesV2 = await getActiveRulesV2();
+    const activeAutomations = await getActiveAutomations();
     const {
       newSessions,
       stoppedSessionKeys,
@@ -2365,7 +2365,7 @@ export async function triggerServerPoll(serverId: string): Promise<void> {
       confirmedFromPendingIds,
     } = await processServerSessions(
       server as ServerWithToken,
-      activeRulesV2,
+      activeAutomations,
       cachedSessionKeys,
       cachedSessions
     );
@@ -2441,7 +2441,7 @@ export async function triggerReconciliationPoll(): Promise<void> {
     );
 
     // Get active V2 rules
-    const activeRulesV2 = await getActiveRulesV2();
+    const activeAutomations = await getActiveAutomations();
 
     // Collect results from all SSE servers
     const allNewSessions: ActiveSession[] = [];
@@ -2470,7 +2470,7 @@ export async function triggerReconciliationPoll(): Promise<void> {
           confirmedFromPendingIds,
         } = await processServerSessions(
           serverWithToken,
-          activeRulesV2,
+          activeAutomations,
           cachedSessionKeys,
           cachedSessions
         );

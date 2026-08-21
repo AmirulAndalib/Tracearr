@@ -10,10 +10,10 @@ import type { Redis } from 'ioredis';
 import { TIME_MS } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { serverUsers, users, servers } from '../db/schema.js';
-import { dispatch } from '../services/rules/events/dispatcher.js';
-import { matchesTrigger } from '../services/rules/events/evaluate.js';
+import { dispatch } from '../services/automations/events/dispatcher.js';
+import { matchesTrigger } from '../services/automations/events/evaluate.js';
 import { isMaintenance } from '../serverState.js';
-import { batchGetIdentityServerUserIds, getActiveRulesV2 } from './poller/database.js';
+import { batchGetIdentityServerUserIds, getActiveAutomations } from './poller/database.js';
 import { broadcastViolations } from './poller/violations.js';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 
@@ -149,7 +149,7 @@ export async function scheduleInactivityChecks(): Promise<void> {
     await inactivityQueue.removeJobScheduler(scheduler.key);
   }
 
-  const activeRules = (await getActiveRulesV2()).filter((r) =>
+  const activeRules = (await getActiveAutomations()).filter((r) =>
     matchesTrigger(r, 'account.inactive_for')
   );
 
@@ -204,7 +204,7 @@ interface CandidateRow {
 async function processInactivityCheck(job: Job<InactivityCheckJobData>): Promise<void> {
   console.log(`[Inactivity] Processing check (job ${job.id})`);
 
-  const activeRules = (await getActiveRulesV2()).filter(
+  const activeRules = (await getActiveAutomations()).filter(
     (r) =>
       matchesTrigger(r, 'account.inactive_for') && (!job.data.ruleId || r.id === job.data.ruleId)
   );
@@ -270,7 +270,7 @@ async function processInactivityCheck(job: Job<InactivityCheckJobData>): Promise
           session: null,
         },
         {
-          activeRulesV2: activeRules,
+          activeAutomations: activeRules,
           activeSessions: [],
           recentSessions: [],
           identityServerUserIds,

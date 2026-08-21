@@ -24,11 +24,13 @@ import { POLLING_INTERVALS, type ActiveSession } from '@tracearr/shared';
 import type { CacheService, PubSubService } from '../../../services/cache.js';
 
 const mockDbSelect = vi.fn();
-const { mockCreateMediaServerClient, mockGetActiveRulesV2, mockIsInFallback } = vi.hoisted(() => ({
-  mockCreateMediaServerClient: vi.fn(),
-  mockGetActiveRulesV2: vi.fn().mockResolvedValue([]),
-  mockIsInFallback: vi.fn().mockReturnValue(true),
-}));
+const { mockCreateMediaServerClient, mockGetActiveAutomations, mockIsInFallback } = vi.hoisted(
+  () => ({
+    mockCreateMediaServerClient: vi.fn(),
+    mockGetActiveAutomations: vi.fn().mockResolvedValue([]),
+    mockIsInFallback: vi.fn().mockReturnValue(true),
+  })
+);
 
 vi.mock('../../../db/client.js', () => ({
   db: { select: (...args: unknown[]) => mockDbSelect(...args) },
@@ -77,9 +79,9 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
-  onActiveRulesRefill: vi.fn(),
+  onActiveAutomationsRefill: vi.fn(),
   getCachedServers: () => mockDbSelect().from(servers),
-  getActiveRulesV2: mockGetActiveRulesV2,
+  getActiveAutomations: mockGetActiveAutomations,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   widenRecentSessionsForMergedIdentities: vi.fn(),
@@ -104,7 +106,7 @@ vi.mock('../sessionLifecycle.js', () => ({
 }));
 
 const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });
-vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...args: unknown[]) => mockDispatch(...args),
   subscribe: vi.fn(),
 }));
@@ -230,7 +232,7 @@ let pubSubService: ReturnType<typeof createPubSubService>;
 beforeEach(() => {
   vi.clearAllMocks();
   stopPoller();
-  mockGetActiveRulesV2.mockResolvedValue([]);
+  mockGetActiveAutomations.mockResolvedValue([]);
   mockIsInFallback.mockReturnValue(true);
   allServersRows = [serverRow1];
   currentCachedSessions = [];

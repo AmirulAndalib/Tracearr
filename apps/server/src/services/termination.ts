@@ -10,7 +10,7 @@ import { db } from '../db/client.js';
 import { terminationLogs, sessions } from '../db/schema.js';
 import { createMediaServerClient } from './mediaServer/index.js';
 import { getCacheService, getPubSubService } from './cache.js';
-import { dispatch } from './rules/events/dispatcher.js';
+import { dispatch } from './automations/events/dispatcher.js';
 import { clearDbWriteTracking } from '../jobs/poller/dbWriteThrottle.js';
 
 // ============================================================================

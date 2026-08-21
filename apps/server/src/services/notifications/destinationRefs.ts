@@ -23,7 +23,7 @@ export interface DestinationRef {
   isActive: boolean;
 }
 
-/** Every rule, active or not; getActiveRulesV2 is cached and filters inactive rows, which must still block a delete. */
+/** Every rule, active or not; getActiveAutomations is cached and filters inactive rows, which must still block a delete. */
 export async function rulesReferencingDestinations(): Promise<Map<string, DestinationRef[]>> {
   const rows = await db
     .select({

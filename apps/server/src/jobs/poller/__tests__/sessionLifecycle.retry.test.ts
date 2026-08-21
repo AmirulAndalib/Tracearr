@@ -26,7 +26,7 @@ vi.mock('../../../services/settings.js', () => ({
   getWatchedThreshold: vi.fn().mockResolvedValue(0.85),
 }));
 
-vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../../services/automations/events/dispatcher.js', () => ({
   dispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
 }));
 
@@ -176,7 +176,7 @@ describe('stopSessionAtomic session.stopped dispatch', () => {
   it('dispatches session.stopped only when the row was actually stopped', async () => {
     const { db } = await import('../../../db/client.js');
     const mockUpdate = db.update as ReturnType<typeof vi.fn>;
-    const { dispatch } = await import('../../../services/rules/events/dispatcher.js');
+    const { dispatch } = await import('../../../services/automations/events/dispatcher.js');
     const mockDispatch = dispatch as ReturnType<typeof vi.fn>;
 
     mockUpdate.mockImplementation(() => ({

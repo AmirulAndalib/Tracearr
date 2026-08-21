@@ -26,8 +26,8 @@ import {
   loadEvaluationContext,
   loadEvaluationServerUser,
   toRuleSession,
-} from '../services/rules/events/contextAssembly.js';
-import { dispatch } from '../services/rules/events/dispatcher.js';
+} from '../services/automations/events/contextAssembly.js';
+import { dispatch } from '../services/automations/events/dispatcher.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
 import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
@@ -36,7 +36,7 @@ import { createLogger } from '../utils/logger.js';
 import { enqueueNotification } from './notificationQueue.js';
 import {
   batchGetLibraryItemIdentity,
-  getActiveRulesV2,
+  getActiveAutomations,
   getServerUserIdByExternalId,
 } from './poller/database.js';
 import {
@@ -1193,10 +1193,10 @@ async function handleMediaChange(
     return;
   }
 
-  const activeRulesV2 = await getActiveRulesV2();
+  const activeAutomations = await getActiveAutomations();
   const serverRef = { id: server.id, name: server.name, type: server.type };
   const inputs = await assembleEvaluationInputs({
-    rules: activeRulesV2,
+    rules: activeAutomations,
     server: serverRef,
     serverUser: { ...serverUser, identityServerUserIds: [] },
   });
@@ -1208,7 +1208,7 @@ async function handleMediaChange(
     server: serverRef,
     serverUser: { ...serverUser, identityServerUserIds },
     geo,
-    activeRulesV2,
+    activeAutomations,
     activeSessions: inputs.activeSessions,
     recentSessions: inputs.recentSessions,
   });
@@ -1353,12 +1353,12 @@ async function updateExistingSession(
 
   if (transcodeStateChanged || pauseEdge) {
     try {
-      const activeRulesV2 = await getActiveRulesV2();
-      if (activeRulesV2.length > 0) {
+      const activeAutomations = await getActiveAutomations();
+      if (activeAutomations.length > 0) {
         const ctx = await loadEvaluationContext(
           existingSession.serverId,
           existingSession.serverUserId,
-          activeRulesV2
+          activeAutomations
         );
 
         if (ctx) {
@@ -1676,16 +1676,16 @@ async function confirmPendingSessionAndPersist(
       return null;
     }
 
-    const activeRulesV2 = await getActiveRulesV2();
+    const activeAutomations = await getActiveAutomations();
     const inputs = await assembleEvaluationInputs({
-      rules: activeRulesV2,
+      rules: activeAutomations,
       server: pendingData.server,
       serverUser: pendingData.serverUser,
     });
 
     const persisted = await confirmAndPersistSession({
       pendingData,
-      activeRulesV2,
+      activeAutomations,
       activeSessions: inputs.activeSessions,
       recentSessions: inputs.recentSessions,
     });

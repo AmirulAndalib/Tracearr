@@ -163,8 +163,8 @@ import {
 import { initHeavyOpsLock } from './jobs/heavyOpsLock.js';
 import { startConnectionBudget, stopConnectionBudget } from './services/connectionBudget.js';
 import { initPushRateLimiter } from './services/pushRateLimiter.js';
-import { initializeV2Rules } from './services/rules/v2Integration.js';
-import { rehydratePauseWakes, stopPauseWakes } from './services/rules/wakes/pauseWakes.js';
+import { initializeV2Rules } from './services/automations/v2Integration.js';
+import { rehydratePauseWakes, stopPauseWakes } from './services/automations/wakes/pauseWakes.js';
 import { processPushReceipts } from './services/pushNotification.js';
 import { cleanupMobileTokens } from './jobs/cleanupMobileTokens.js';
 import { db, checkDatabaseConnection } from './db/client.js';

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
 import type { EvaluationContext } from '../types.js';
-import { synthesizeTriggers } from '../../automations/triggers.js';
+import { synthesizeTriggers } from '../triggers.js';
 import {
   evaluateRuleAsync,
   evaluateRulesAsync,

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Condition, Operator, Session, ServerUser, Server, RuleV2 } from '@tracearr/shared';
 import type { EvaluatorResult, SessionEvaluationContext } from '../types.js';
-import { synthesizeTriggers } from '../../automations/triggers.js';
+import { synthesizeTriggers } from '../triggers.js';
 import {
   evaluatorRegistry,
   getResolution,

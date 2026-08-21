@@ -11,7 +11,7 @@ import {
   subjectKeyOf,
   type AutomationRunRow,
   type RunScope,
-} from '../../automations/runRecorder.js';
+} from '../runRecorder.js';
 import { rulesLogger } from '../../../utils/logger.js';
 import { evaluateRulesAsync, PAUSE_CONDITION_FIELDS } from '../engine.js';
 import { executeActions, type ActionResult } from '../executors/index.js';

@@ -61,7 +61,7 @@ export function triggerCandidates(
     recentSessions: inputs.recentSessions,
     identityServerUserIds: inputs.identityServerUserIds ?? event.serverUser.identityServerUserIds,
   };
-  const rules = rulesForTrigger(event.type, inputs.activeRulesV2).filter((rule) =>
+  const rules = rulesForTrigger(event.type, inputs.activeAutomations).filter((rule) =>
     ruleAppliesTo(rule, baseContext)
   );
   return { rules, baseContext };

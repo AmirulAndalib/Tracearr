@@ -23,11 +23,11 @@ vi.mock('../../../db/client.js', () => ({
 vi.mock('../../../db/schema.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
 }));
-const mockGetActiveRulesV2 = vi.fn();
-const mockOnActiveRulesRefill = vi.fn();
+const mockGetActiveAutomations = vi.fn();
+const mockOnActiveAutomationsRefill = vi.fn();
 vi.mock('../../../jobs/poller/database.js', () => ({
-  getActiveRulesV2: (...args: unknown[]) => mockGetActiveRulesV2(...args),
-  onActiveRulesRefill: (...args: unknown[]) => mockOnActiveRulesRefill(...args),
+  getActiveAutomations: (...args: unknown[]) => mockGetActiveAutomations(...args),
+  onActiveAutomationsRefill: (...args: unknown[]) => mockOnActiveAutomationsRefill(...args),
 }));
 const mockLoadContext = vi.fn();
 vi.mock('../events/contextAssembly.js', () => ({
@@ -118,13 +118,13 @@ describe('pauseWakes', () => {
     resetPauseWakesForTests();
     setPauseWakeDeps({ pubSubService: null });
     mockIsLeader.mockReturnValue(true);
-    mockGetActiveRulesV2.mockResolvedValue([pauseRule(10)]);
+    mockGetActiveAutomations.mockResolvedValue([pauseRule(10)]);
     mockSelectLimit.mockResolvedValue([pausedRow()]);
     mockSelectWhere.mockImplementation(async () => [pausedRow()]);
     mockLoadContext.mockResolvedValue({
       ...refs,
       inputs: {
-        activeRulesV2: [pauseRule(10)],
+        activeAutomations: [pauseRule(10)],
         activeSessions: [],
         recentSessions: [],
         identityServerUserIds: [],
@@ -199,7 +199,7 @@ describe('pauseWakes', () => {
   });
 
   it('chains to the next threshold after a fire', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([pauseRule(5, 'a'), pauseRule(10, 'b')]);
+    mockGetActiveAutomations.mockResolvedValue([pauseRule(5, 'a'), pauseRule(10, 'b')]);
     schedulePauseWake(pausedRow(), [pauseRule(5, 'a'), pauseRule(10, 'b')]);
     await vi.advanceTimersByTimeAsync(5 * MIN + 1001);
     expect(mockDispatch).toHaveBeenCalledTimes(1);
@@ -313,7 +313,7 @@ describe('registerPauseWakeSubscriptions', () => {
     resetPauseWakesForTests();
     setPauseWakeDeps({ pubSubService: null });
     mockIsLeader.mockReturnValue(true);
-    mockGetActiveRulesV2.mockResolvedValue([pauseRule(10)]);
+    mockGetActiveAutomations.mockResolvedValue([pauseRule(10)]);
     mockSelectLimit.mockResolvedValue([pausedRow()]);
     mockSelectWhere.mockImplementation(async () => [pausedRow()]);
     mockDispatch.mockResolvedValue({ violations: [], outcomes: [] });
@@ -325,7 +325,7 @@ describe('registerPauseWakeSubscriptions', () => {
   });
 
   const inputs = {
-    activeRulesV2: [pauseRule(10)],
+    activeAutomations: [pauseRule(10)],
     activeSessions: [],
     recentSessions: [],
   };
@@ -357,7 +357,7 @@ describe('registerPauseWakeSubscriptions', () => {
   );
 
   it('rehydrates only when a pause-rule change follows the baseline fill, on the leader', async () => {
-    const refill = mockOnActiveRulesRefill.mock.calls[0]?.[0] as (rules: RuleV2[]) => void;
+    const refill = mockOnActiveAutomationsRefill.mock.calls[0]?.[0] as (rules: RuleV2[]) => void;
 
     refill([pauseRule(10)]);
     await vi.advanceTimersByTimeAsync(0);

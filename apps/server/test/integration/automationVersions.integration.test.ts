@@ -13,7 +13,10 @@ import { describe, it, expect } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, automationVersions } from '../../src/db/schema.js';
-import { getActiveRulesV2, invalidateRulesCache } from '../../src/jobs/poller/database.js';
+import {
+  getActiveAutomations,
+  invalidateAutomationsCache,
+} from '../../src/jobs/poller/database.js';
 import {
   automationDefinition,
   insertAutomationVersion,
@@ -59,8 +62,8 @@ describe('automation versions', () => {
       .where(eq(automationVersions.automationId, other.id));
     expect(otherRows[0]?.version).toBe(1);
 
-    invalidateRulesCache();
-    const cached = await getActiveRulesV2();
+    invalidateAutomationsCache();
+    const cached = await getActiveAutomations();
     expect(cached.find((rule) => rule.id === first.id)?.currentVersionId).toBe(v2);
     expect(cached.find((rule) => rule.id === other.id)?.currentVersionId).toBe(otherV1);
   });

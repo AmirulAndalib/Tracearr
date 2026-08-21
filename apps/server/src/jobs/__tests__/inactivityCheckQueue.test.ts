@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleConditions, RuleV2 } from '@tracearr/shared';
 
-const mockGetActiveRulesV2 = vi.fn();
+const mockGetActiveAutomations = vi.fn();
 const mockBatchIdentity = vi.fn();
 vi.mock('../poller/database.js', () => ({
-  getActiveRulesV2: (...a: unknown[]) => mockGetActiveRulesV2(...a),
+  getActiveAutomations: (...a: unknown[]) => mockGetActiveAutomations(...a),
   batchGetIdentityServerUserIds: (...a: unknown[]) => mockBatchIdentity(...a),
 }));
 const mockWhere = vi.fn();
@@ -24,7 +24,7 @@ vi.mock('../../db/schema.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
 }));
 const mockDispatch = vi.fn();
-vi.mock('../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...a: unknown[]) => mockDispatch(...a),
 }));
 const mockBroadcast = vi.fn();
@@ -106,7 +106,7 @@ describe('processInactivityCheck', () => {
   });
 
   it('dispatches account.inactive_for once per distinct candidate across rule scopes', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([
+    mockGetActiveAutomations.mockResolvedValue([
       inactivityRule('a'),
       inactivityRule('b', { serverId: 'srv1' }),
     ]);
@@ -118,15 +118,14 @@ describe('processInactivityCheck', () => {
     for (const call of mockDispatch.mock.calls) {
       expect(call[0]).toMatchObject({ type: 'account.inactive_for', session: null });
       expect(call[1]).toMatchObject({ activeSessions: [], recentSessions: [] });
-      expect((call[1] as { activeRulesV2: RuleV2[] }).activeRulesV2.map((r) => r.id)).toEqual([
-        'a',
-        'b',
-      ]);
+      expect(
+        (call[1] as { activeAutomations: RuleV2[] }).activeAutomations.map((r) => r.id)
+      ).toEqual(['a', 'b']);
     }
   });
 
   it('broadcasts returned violations keyed by the server user', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([inactivityRule('a')]);
+    mockGetActiveAutomations.mockResolvedValue([inactivityRule('a')]);
     mockWhere.mockResolvedValueOnce([candidate('su1')]);
     mockDispatch.mockResolvedValue({
       violations: [{ violation: { id: 'v1' }, rule: { id: 'a', name: 'a', type: null } }],
@@ -144,7 +143,7 @@ describe('processInactivityCheck', () => {
     const conditions: RuleConditions = {
       groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
     };
-    mockGetActiveRulesV2.mockResolvedValue([
+    mockGetActiveAutomations.mockResolvedValue([
       { ...inactivityRule('x'), conditions, triggers: synthesizeTriggers(conditions) },
     ]);
     await processInactivityCheckForTests(job);
@@ -152,14 +151,14 @@ describe('processInactivityCheck', () => {
   });
 
   it('skips a rule whose triggers were never stamped', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([inactivityRule('x', { triggers: [] })]);
+    mockGetActiveAutomations.mockResolvedValue([inactivityRule('x', { triggers: [] })]);
     await processInactivityCheckForTests(job);
     expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   it('skips a rule whose account.inactive_for node is disabled', async () => {
     const disabled = inactivityRule('x');
-    mockGetActiveRulesV2.mockResolvedValue([
+    mockGetActiveAutomations.mockResolvedValue([
       inactivityRule('x', {
         triggers: (disabled.triggers ?? []).map((node) => ({ ...node, enabled: false })),
       }),
@@ -169,7 +168,7 @@ describe('processInactivityCheck', () => {
   });
 
   it('honours a job scoped to one rule', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([inactivityRule('a'), inactivityRule('b')]);
+    mockGetActiveAutomations.mockResolvedValue([inactivityRule('a'), inactivityRule('b')]);
     mockWhere.mockResolvedValueOnce([candidate('su1')]);
     await processInactivityCheckForTests({
       id: 'j2',
@@ -177,14 +176,14 @@ describe('processInactivityCheck', () => {
     } as never);
     expect(mockWhere).toHaveBeenCalledTimes(1);
     expect(
-      (mockDispatch.mock.calls[0]?.[1] as { activeRulesV2: RuleV2[] }).activeRulesV2.map(
+      (mockDispatch.mock.calls[0]?.[1] as { activeAutomations: RuleV2[] }).activeAutomations.map(
         (r) => r.id
       )
     ).toEqual(['b']);
   });
 
   it('a failing dispatch for one candidate does not stop the others', async () => {
-    mockGetActiveRulesV2.mockResolvedValue([inactivityRule('a')]);
+    mockGetActiveAutomations.mockResolvedValue([inactivityRule('a')]);
     mockWhere.mockResolvedValueOnce([candidate('su1'), candidate('su2', 'u2')]);
     mockDispatch
       .mockRejectedValueOnce(new Error('boom'))
@@ -204,7 +203,7 @@ describe('scheduleInactivityChecks', () => {
     queueRef.current.getJobSchedulers.mockResolvedValue([
       { key: 'inactivity-check-repeatable', name: 'scheduled-check' },
     ]);
-    mockGetActiveRulesV2.mockResolvedValue([]);
+    mockGetActiveAutomations.mockResolvedValue([]);
 
     await scheduleInactivityChecks();
 

@@ -11,7 +11,7 @@ import type {
   MessageClientAction,
 } from '@tracearr/shared';
 import { rulesLogger } from '../../../utils/logger.js';
-import { synthesizeTriggers } from '../../automations/triggers.js';
+import { synthesizeTriggers } from '../triggers.js';
 import {
   setActionExecutorDeps,
   resetActionExecutorDeps,

@@ -94,7 +94,7 @@ describe('assembleEvaluationInputs', () => {
   it('short-circuits with empty arrays when there are no rules', async () => {
     const result = await assembleEvaluationInputs({ rules: [], server, serverUser });
     expect(result).toEqual({
-      activeRulesV2: [],
+      activeAutomations: [],
       activeSessions: [],
       recentSessions: [],
       identityServerUserIds: serverUser.identityServerUserIds,
@@ -110,7 +110,7 @@ describe('assembleEvaluationInputs', () => {
 
     const result = await assembleEvaluationInputs({ rules, server, serverUser });
 
-    expect(result.activeRulesV2).toBe(rules);
+    expect(result.activeAutomations).toBe(rules);
     expect(result.activeSessions.map((s) => s.id)).toEqual(['a']);
     expect(mockGetIdentityServerUserIds).toHaveBeenCalledWith('u1');
     expect(result.identityServerUserIds).toEqual(['su1', 'su2']);

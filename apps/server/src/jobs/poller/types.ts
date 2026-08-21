@@ -369,7 +369,7 @@ export interface SessionCreationInput {
   /** GeoIP location data */
   geo: GeoLocation;
   /** Active V2 rules to evaluate */
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation context */
@@ -439,7 +439,7 @@ export interface ResolvePendingSessionInput {
   /** Server user info (matches SessionCreationInput.serverUser) */
   userDetail: SessionCreationInput['serverUser'];
   /** Active V2 rules to evaluate on confirmation */
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: ActiveSession[];
   /** Recent sessions for rule evaluation context */
@@ -515,7 +515,7 @@ export interface MediaChangeInput {
   /** GeoIP location data */
   geo: GeoLocation;
   /** Active V2 rules to evaluate */
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   /** Active sessions for rule context (e.g., concurrent streams) */
   activeSessions: Session[];
   /** Recent sessions for rule evaluation context */

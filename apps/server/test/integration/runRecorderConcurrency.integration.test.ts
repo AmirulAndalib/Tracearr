@@ -23,7 +23,7 @@ import type { RuleV2 } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, users } from '../../src/db/schema.js';
 import { recordRun } from '../../src/services/automations/runRecorder.js';
-import type { EvaluationResult } from '../../src/services/rules/types.js';
+import type { EvaluationResult } from '../../src/services/automations/types.js';
 
 const matched: EvaluationResult = {
   ruleId: 'unused',

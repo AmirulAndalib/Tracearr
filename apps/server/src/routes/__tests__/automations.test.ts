@@ -25,7 +25,7 @@ vi.mock('../../db/client.js', () => ({
   },
 }));
 
-vi.mock('../../jobs/poller/database.js', () => ({ invalidateRulesCache: vi.fn() }));
+vi.mock('../../jobs/poller/database.js', () => ({ invalidateAutomationsCache: vi.fn() }));
 vi.mock('../../jobs/inactivityCheckQueue.js', () => ({ scheduleInactivityChecks: vi.fn() }));
 vi.mock('../../services/notifications/destinationRefs.js', () => ({
   unknownDestinationIds: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock('../../services/userService.js', () => ({
 }));
 
 import { db } from '../../db/client.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { unknownDestinationIds } from '../../services/notifications/destinationRefs.js';
 import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { automationRoutes } from '../automations.js';
@@ -350,7 +350,7 @@ describe('Automation routes', () => {
       const version = harness.insertedValues[1] as { version: unknown; definition: unknown };
       expect(harness.inserts).toHaveLength(2);
       expect(version.definition).toMatchObject({ name: 'pause watch', kind: 'policy' });
-      expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
 
     it('preserves ids the builder already assigned', async () => {
@@ -448,7 +448,7 @@ describe('Automation routes', () => {
       const update = harness.updateSets[0] as { triggers: Array<{ type: string }> };
       expect(update.triggers.map((trigger) => trigger.type)).toEqual(['account.inactive_for']);
       expect(harness.inserts).toHaveLength(1);
-      expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
 
     it('writes no version for a bare active toggle', async () => {
@@ -649,7 +649,7 @@ describe('Automation routes', () => {
 
       expect(response.statusCode).toBe(409);
       expect(db.transaction).toHaveBeenCalledTimes(2);
-      expect(invalidateRulesCache).not.toHaveBeenCalled();
+      expect(invalidateAutomationsCache).not.toHaveBeenCalled();
     });
 
     it('rejects a scope that only conflicts once merged with the stored row', async () => {
@@ -717,7 +717,7 @@ describe('Automation routes', () => {
 
       expect(response.statusCode).toBe(204);
       expect(renderCall(deleteChain).params).toEqual([AUTOMATION_ID]);
-      expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
 
     it('restates the identities whose violation counts the cascade removed', async () => {
@@ -777,7 +777,7 @@ describe('Automation routes', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({ success: true, updated: 2 });
       expect(renderCall(updateChain).params).toEqual([AUTOMATION_ID, OTHER_ID]);
-      expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
 
     it('deletes every requested automation and reports the count', async () => {
@@ -793,7 +793,7 @@ describe('Automation routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json()).toEqual({ success: true, deleted: 1 });
-      expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
 
     it('leaves the cache alone when nothing matched', async () => {
@@ -809,7 +809,7 @@ describe('Automation routes', () => {
       });
 
       expect(response.json()).toEqual({ success: true, deleted: 0 });
-      expect(invalidateRulesCache).not.toHaveBeenCalled();
+      expect(invalidateAutomationsCache).not.toHaveBeenCalled();
     });
 
     it('is owner only', async () => {

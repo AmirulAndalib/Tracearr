@@ -110,9 +110,9 @@ export function maxWindowHoursFromRules(rulesList: RuleV2[]): number {
   return Math.min(max, MAX_RULE_WINDOW_HOURS);
 }
 
-/** History window implied by the cached active rules; 24h until the cache fills. */
+/** History window implied by the cached active automations; 24h until the cache fills. */
 export function defaultRecentSessionWindowHours(): number {
-  return rulesCache ? maxWindowHoursFromRules(rulesCache.data) : 24;
+  return automationsCache ? maxWindowHoursFromRules(automationsCache.data) : 24;
 }
 
 /**
@@ -328,28 +328,28 @@ export async function getSessionsTerminatedByViolation(violationId: string): Pro
 }
 
 // ============================================================================
-// Rule Loading
+// Automation Loading
 // ============================================================================
 
-// TTL fallback for multi-instance deployments: another instance's invalidation isn't visible here, so a rule change can take up to this long to apply.
-const RULES_CACHE_TTL_MS = 10_000;
+// TTL fallback for multi-instance deployments: another instance's invalidation isn't visible here, so an automation change can take up to this long to apply.
+const AUTOMATIONS_CACHE_TTL_MS = 10_000;
 
-let rulesCache: { data: RuleV2[]; expiresAt: number } | null = null;
+let automationsCache: { data: RuleV2[]; expiresAt: number } | null = null;
 
-/** Invalidate the active V2 rules cache. Call from every rule create/update/delete/toggle path. */
-export function invalidateRulesCache(): void {
-  rulesCache = null;
+/** Invalidate the active automations cache. Call from every automation create/update/delete/toggle path. */
+export function invalidateAutomationsCache(): void {
+  automationsCache = null;
 }
 
-type RulesRefillListener = (rules: RuleV2[]) => void;
-const refillListeners: RulesRefillListener[] = [];
+type AutomationsRefillListener = (rules: RuleV2[]) => void;
+const refillListeners: AutomationsRefillListener[] = [];
 
-/** Called after every rules-cache fill on this instance; listeners must not throw. */
-export function onActiveRulesRefill(listener: RulesRefillListener): void {
+/** Called after every automations-cache fill on this instance; listeners must not throw. */
+export function onActiveAutomationsRefill(listener: AutomationsRefillListener): void {
   refillListeners.push(listener);
 }
 
-// Same TTL story as the rules cache: a server change on another instance can
+// Same TTL story as the automations cache: a server change on another instance can
 // take up to this long to reach this instance's poll loop.
 const SERVERS_CACHE_TTL_MS = 10_000;
 
@@ -376,19 +376,19 @@ export async function getCachedServers(): Promise<(typeof servers.$inferSelect)[
 }
 
 // A row the boot migration never stamped matches no trigger, so warn once per id rather than per tick.
-const warnedUntriggeredRuleIds = new Set<string>();
+const warnedUntriggeredAutomationIds = new Set<string>();
 
 /**
- * Map a raw `rules` table row (V2 columns) to the shared RuleV2 shape.
- * Shared by getActiveRulesV2 and the kill-queue reverify path so both build
- * an identical RuleV2 from the same row.
+ * Map an `automations` row to the shared RuleV2 shape. Shared by
+ * getActiveAutomations and the kill-queue reverify path so both build an
+ * identical RuleV2 from the same row.
  */
-export function mapRuleRowToRuleV2(
+export function mapAutomationRow(
   r: typeof automations.$inferSelect,
   currentVersionId: string | null
 ): RuleV2 {
-  if (!r.triggers && !warnedUntriggeredRuleIds.has(r.id)) {
-    warnedUntriggeredRuleIds.add(r.id);
+  if (!r.triggers && !warnedUntriggeredAutomationIds.has(r.id)) {
+    warnedUntriggeredAutomationIds.add(r.id);
     rulesLogger.warn('Automation has no stored triggers and will never evaluate', {
       automationId: r.id,
       name: r.name,
@@ -428,21 +428,13 @@ const CURRENT_VERSION_ID = sql<string | null>`(
 )`;
 
 /**
- * Get all active V2 rules (rules with conditions/actions defined).
- *
- * V2 rules use the new conditions/actions format instead of the legacy type/params.
- * These rules are evaluated by the session lifecycle event system.
- *
- * @returns Array of active RuleV2 objects
- *
- * @example
- * const rulesV2 = await getActiveRulesV2();
- * // Evaluate session events against these rules
+ * Active automations with conditions defined, evaluated by the session
+ * lifecycle event system. Cached in-process for AUTOMATIONS_CACHE_TTL_MS.
  */
-export async function getActiveRulesV2(): Promise<RuleV2[]> {
+export async function getActiveAutomations(): Promise<RuleV2[]> {
   const now = Date.now();
-  if (rulesCache && rulesCache.expiresAt > now) {
-    return rulesCache.data;
+  if (automationsCache && automationsCache.expiresAt > now) {
+    return automationsCache.data;
   }
 
   // Ordered so every evaluation takes its per-run advisory locks in the same
@@ -453,9 +445,9 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
     .where(and(eq(automations.isActive, true), isNotNull(automations.conditions)))
     .orderBy(automations.id);
 
-  const mapped = activeRules.map((row) => mapRuleRowToRuleV2(row.automation, row.currentVersionId));
+  const mapped = activeRules.map((row) => mapAutomationRow(row.automation, row.currentVersionId));
 
-  rulesCache = { data: mapped, expiresAt: now + RULES_CACHE_TTL_MS };
+  automationsCache = { data: mapped, expiresAt: now + AUTOMATIONS_CACHE_TTL_MS };
   for (const listener of refillListeners) listener(mapped);
   return mapped;
 }

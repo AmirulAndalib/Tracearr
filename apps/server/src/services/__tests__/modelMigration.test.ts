@@ -15,14 +15,14 @@ vi.mock('../../db/client.js', () => ({ db: { transaction: vi.fn(), execute: vi.f
 vi.mock('../../db/schema.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
 }));
-vi.mock('../../jobs/poller/database.js', () => ({ invalidateRulesCache: vi.fn() }));
-vi.mock('../rules/v2Integration.js', () => ({ convertV1Rule: vi.fn() }));
+vi.mock('../../jobs/poller/database.js', () => ({ invalidateAutomationsCache: vi.fn() }));
+vi.mock('../automations/v2Integration.js', () => ({ convertV1Rule: vi.fn() }));
 
 import { db } from '../../db/client.js';
 import { automations, automationVersions } from '../../db/schema.js';
-import { invalidateRulesCache } from '../../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { runAutomationModelMigration } from '../automations/modelMigration.js';
-import { convertV1Rule } from '../rules/v2Integration.js';
+import { convertV1Rule } from '../automations/v2Integration.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -173,7 +173,7 @@ describe('runAutomationModelMigration', () => {
     await runAutomationModelMigration();
 
     expect(db.transaction).not.toHaveBeenCalled();
-    expect(invalidateRulesCache).not.toHaveBeenCalled();
+    expect(invalidateAutomationsCache).not.toHaveBeenCalled();
     expect(infos).toEqual([]);
   });
 
@@ -186,7 +186,7 @@ describe('runAutomationModelMigration', () => {
     expect(harness.log).toEqual(['lock', 'count']);
     expect(harness.updates).toEqual([]);
     expect(harness.inserted).toEqual([]);
-    expect(invalidateRulesCache).not.toHaveBeenCalled();
+    expect(invalidateAutomationsCache).not.toHaveBeenCalled();
     expect(infos).toEqual([]);
   });
 
@@ -418,7 +418,7 @@ describe('runAutomationModelMigration', () => {
       'execute:UPDATE automation_runs SET finished_at = created_at',
       "execute:UPDATE automation_runs SET steps = jsonb_build_array(jsonb_build_object('step',",
     ]);
-    expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+    expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     expect(infos).toHaveLength(1);
     expect(infos[0]).toContain('6 subject key(s)');
     expect(infos[0]).toContain('4 version link(s)');
@@ -493,7 +493,7 @@ describe('runAutomationModelMigration', () => {
 
     await expect(runAutomationModelMigration()).rejects.toThrow('unknown V1 type');
     expect(harness.updates).toEqual([]);
-    expect(invalidateRulesCache).not.toHaveBeenCalled();
+    expect(invalidateAutomationsCache).not.toHaveBeenCalled();
     expect(infos).toEqual([]);
   });
 });

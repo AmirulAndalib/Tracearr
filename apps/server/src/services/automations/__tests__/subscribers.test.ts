@@ -45,7 +45,7 @@ const mockNoteRunFailure = vi.fn();
 const mockRecordNearMiss = vi.fn();
 const mockCoolingDown = vi.fn();
 const mockPublishRunFinished = vi.fn();
-vi.mock('../../automations/runRecorder.js', () => ({
+vi.mock('../runRecorder.js', () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
   appendRunSteps: (...args: unknown[]) => mockAppendRunSteps(...args),
   noteRunFailure: (...args: unknown[]) => mockNoteRunFailure(...args),
@@ -80,7 +80,7 @@ vi.mock('../../geoip.js', () => ({
   },
 }));
 
-import { synthesizeTriggers } from '../../automations/triggers.js';
+import { synthesizeTriggers } from '../triggers.js';
 import {
   registerRuleSubscribers,
   resetRuleSubscribersForTests,
@@ -401,7 +401,7 @@ interface TriggerInput {
   processed: ProcessedSession;
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
-  activeRulesV2: RuleV2[];
+  activeAutomations: RuleV2[];
   activeSessions: Session[];
   recentSessions: Session[];
 }
@@ -416,7 +416,7 @@ function createTranscodeInput(overrides: Partial<TriggerInput> = {}): TriggerInp
     processed: createMockProcessedSession(),
     server,
     serverUser,
-    activeRulesV2: [createTranscodeRule(), createConcurrentStreamsRule()],
+    activeAutomations: [createTranscodeRule(), createConcurrentStreamsRule()],
     activeSessions: [],
     recentSessions: [],
     ...overrides,
@@ -435,7 +435,7 @@ function createPauseInput(overrides: Partial<PauseTriggerInput> = {}): PauseTrig
     },
     server,
     serverUser,
-    activeRulesV2: [createPauseRule(), createConcurrentStreamsRule()],
+    activeAutomations: [createPauseRule(), createConcurrentStreamsRule()],
     activeSessions: [],
     recentSessions: [],
     ...overrides,
@@ -507,7 +507,7 @@ function accountInactiveEvent(): AccountInactiveForEvent {
 
 function inputsOf(input: TriggerInput): EvaluationInputs {
   return {
-    activeRulesV2: input.activeRulesV2,
+    activeAutomations: input.activeAutomations,
     activeSessions: input.activeSessions,
     recentSessions: input.recentSessions,
     identityServerUserIds: input.serverUser.identityServerUserIds,
@@ -602,7 +602,7 @@ describe('session.transcode_changed pipeline', () => {
     });
 
     it('returns empty array when no rules have transcode conditions', async () => {
-      const input = createTranscodeInput({ activeRulesV2: [createConcurrentStreamsRule()] });
+      const input = createTranscodeInput({ activeAutomations: [createConcurrentStreamsRule()] });
 
       const { violations } = await runTranscode(input);
 
@@ -611,7 +611,7 @@ describe('session.transcode_changed pipeline', () => {
     });
 
     it('returns empty array when there are no active rules', async () => {
-      const input = createTranscodeInput({ activeRulesV2: [] });
+      const input = createTranscodeInput({ activeAutomations: [] });
 
       const { violations } = await runTranscode(input);
 
@@ -788,7 +788,7 @@ describe('session.transcode_changed pipeline', () => {
       mockExecuteActions.mockResolvedValue([{ action: 'kill_stream', success: true }]);
 
       const input = createTranscodeInput({
-        activeRulesV2: [rule, createConcurrentStreamsRule()],
+        activeAutomations: [rule, createConcurrentStreamsRule()],
       });
       await runTranscode(input);
 
@@ -844,7 +844,7 @@ describe('session.transcode_changed pipeline', () => {
   describe('false positive prevention', () => {
     it('does NOT evaluate concurrent_streams rules on transcode change', async () => {
       const input = createTranscodeInput({
-        activeRulesV2: [
+        activeAutomations: [
           createConcurrentStreamsRule(),
           createTranscodeRule(),
           // Another non-transcode rule
@@ -900,7 +900,7 @@ describe('session.transcode_changed pipeline', () => {
       });
 
       const input = createTranscodeInput({
-        activeRulesV2: [outputResRule, createConcurrentStreamsRule()],
+        activeAutomations: [outputResRule, createConcurrentStreamsRule()],
       });
 
       await runTranscode(input);
@@ -931,7 +931,7 @@ describe('session.transcode_changed pipeline', () => {
         updatedAt: new Date(),
       });
 
-      const input = createTranscodeInput({ activeRulesV2: [downgradeRule] });
+      const input = createTranscodeInput({ activeAutomations: [downgradeRule] });
 
       await runTranscode(input);
 
@@ -960,7 +960,11 @@ describe('session.paused pipeline', () => {
 
     it('evaluates both current_pause and total_pause rules', async () => {
       const input = createPauseInput({
-        activeRulesV2: [createPauseRule(), createTotalPauseRule(), createConcurrentStreamsRule()],
+        activeAutomations: [
+          createPauseRule(),
+          createTotalPauseRule(),
+          createConcurrentStreamsRule(),
+        ],
       });
 
       await runPause(input);
@@ -972,7 +976,7 @@ describe('session.paused pipeline', () => {
 
     it('returns empty array when no rules have pause conditions', async () => {
       const input = createPauseInput({
-        activeRulesV2: [createConcurrentStreamsRule(), createTranscodeRule()],
+        activeAutomations: [createConcurrentStreamsRule(), createTranscodeRule()],
       });
 
       const { violations } = await runPause(input);
@@ -982,7 +986,7 @@ describe('session.paused pipeline', () => {
     });
 
     it('returns empty array when there are no active rules', async () => {
-      const input = createPauseInput({ activeRulesV2: [] });
+      const input = createPauseInput({ activeAutomations: [] });
 
       const { violations } = await runPause(input);
 
@@ -1050,7 +1054,9 @@ describe('session.paused pipeline', () => {
 
       // The writer reads severity off the rule, so it has to be the rule the engine matched
       const rule = createPauseRule();
-      await runPause(createPauseInput({ activeRulesV2: [rule, createConcurrentStreamsRule()] }));
+      await runPause(
+        createPauseInput({ activeAutomations: [rule, createConcurrentStreamsRule()] })
+      );
 
       expect(mockRecordRun.mock.calls[0]?.[0]?.automation).toBe(rule);
     });
@@ -1175,7 +1181,7 @@ describe('session.paused pipeline', () => {
 
       mockExecuteActions.mockResolvedValue([{ action: 'kill_stream', success: true }]);
 
-      const input = createPauseInput({ activeRulesV2: [rule, createConcurrentStreamsRule()] });
+      const input = createPauseInput({ activeAutomations: [rule, createConcurrentStreamsRule()] });
       await runPause(input);
 
       expect(mockExecuteActions).toHaveBeenCalledTimes(1);
@@ -1245,7 +1251,11 @@ describe('session.paused pipeline', () => {
   describe('false positive prevention', () => {
     it('does NOT evaluate concurrent_streams rules on pause re-eval', async () => {
       const input = createPauseInput({
-        activeRulesV2: [createConcurrentStreamsRule(), createPauseRule(), createTranscodeRule()],
+        activeAutomations: [
+          createConcurrentStreamsRule(),
+          createPauseRule(),
+          createTranscodeRule(),
+        ],
       });
 
       await runPause(input);
@@ -1278,7 +1288,7 @@ describe('session.paused pipeline', () => {
       });
 
       const input = createPauseInput({
-        activeRulesV2: [mixedRule, createConcurrentStreamsRule()],
+        activeAutomations: [mixedRule, createConcurrentStreamsRule()],
       });
 
       await runPause(input);
@@ -1322,7 +1332,7 @@ describe('runRulePipeline', () => {
     ]);
 
     const input = createTranscodeInput({
-      activeRulesV2: [createTranscodeRule({ id: 'r1', name: 'Deferred' })],
+      activeAutomations: [createTranscodeRule({ id: 'r1', name: 'Deferred' })],
     });
     const res = await runRulePipeline(
       transcodeEvent(input),
@@ -1390,7 +1400,7 @@ describe('runRulePipeline', () => {
     mockRecordRun.mockResolvedValueOnce({ id: 'v1' }).mockResolvedValueOnce({ id: 'v2' });
 
     const input = createTranscodeInput({
-      activeRulesV2: [
+      activeAutomations: [
         createTranscodeRule({ id: 'r1', name: 'First' }),
         createTranscodeRule({ id: 'r2', name: 'Second' }),
       ],
@@ -1448,7 +1458,7 @@ describe('runRulePipeline', () => {
       });
 
     const input = createTranscodeInput({
-      activeRulesV2: [
+      activeAutomations: [
         createTranscodeRule({ id: 'r1', name: 'First' }),
         createTranscodeRule({ id: 'r2', name: 'Second' }),
       ],
@@ -1513,7 +1523,7 @@ describe('runRulePipeline', () => {
     ]);
 
     const input = createTranscodeInput({
-      activeRulesV2: [
+      activeAutomations: [
         createTranscodeRule({ id: 'r1', name: 'First' }),
         createTranscodeRule({ id: 'r2', name: 'Second' }),
       ],
@@ -1575,7 +1585,7 @@ describe('runRulePipeline', () => {
     mockRecordRun.mockResolvedValue({ id: 'run-1' });
 
     const input = createTranscodeInput({
-      activeRulesV2: [createTranscodeRule({ kind: 'notification' })],
+      activeAutomations: [createTranscodeRule({ kind: 'notification' })],
     });
     const { violations } = await runRulePipeline(
       transcodeEvent(input),
@@ -1624,7 +1634,7 @@ describe('runRulePipeline', () => {
         actions: [],
       },
     ]);
-    const input = createPauseInput({ activeRulesV2: [createTotalPauseRule()] });
+    const input = createPauseInput({ activeAutomations: [createTotalPauseRule()] });
 
     await runHeldFor(input, 30.4);
     await runHeldFor(input, 47.9);
@@ -1658,8 +1668,8 @@ describe('runRulePipeline', () => {
       },
     });
 
-    await runHeldFor(createPauseInput({ activeRulesV2: [laterGroup] }), 60);
-    await runHeldFor(createPauseInput({ activeRulesV2: [nonNumeric] }), 60);
+    await runHeldFor(createPauseInput({ activeAutomations: [laterGroup] }), 60);
+    await runHeldFor(createPauseInput({ activeAutomations: [nonNumeric] }), 60);
 
     expect(recordedEdgeKeys()).toEqual(['45', null]);
   });
@@ -1675,7 +1685,7 @@ describe('runRulePipeline', () => {
       },
     ]);
     const inputs: EvaluationInputs = {
-      activeRulesV2: [createInactivityRule()],
+      activeAutomations: [createInactivityRule()],
       activeSessions: [],
       recentSessions: [],
       identityServerUserIds: serverUser.identityServerUserIds,
@@ -1737,7 +1747,7 @@ describe('runRulePipeline', () => {
     mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
 
     const input = createTranscodeInput({
-      activeRulesV2: [
+      activeAutomations: [
         createTranscodeRule({ id: 'r1', name: 'First' }),
         createTranscodeRule({ id: 'r2', name: 'Second' }),
       ],
@@ -1774,7 +1784,7 @@ describe('runRulePipeline', () => {
     mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
 
     const input = createTranscodeInput({
-      activeRulesV2: [
+      activeAutomations: [
         createTranscodeRule({ id: 'r1', name: 'First' }),
         createTranscodeRule({ id: 'r2', name: 'Second' }),
       ],
@@ -1881,7 +1891,7 @@ describe('registerRuleSubscribers', () => {
     ]);
 
     const result = await dispatch(accountInactiveEvent(), {
-      activeRulesV2: [createInactivityRule(), createTranscodeRule()],
+      activeAutomations: [createInactivityRule(), createTranscodeRule()],
       activeSessions: [],
       recentSessions: [],
       identityServerUserIds: serverUser.identityServerUserIds,

@@ -54,7 +54,7 @@ import {
   batchGetRecentUserSessions,
   maxWindowHoursFromRules,
   getSessionsTerminatedByViolation,
-  mapRuleRowToRuleV2,
+  mapAutomationRow,
   widenRecentSessionsForMergedIdentities,
 } from '../../jobs/poller/database.js';
 import { excludeUncountableSessions } from '../../jobs/poller/utils.js';
@@ -148,7 +148,7 @@ export async function reverifyKillCondition(
   }
 
   // No version id: re-verification decides a kill against the live definition and records no run.
-  const rule = mapRuleRowToRuleV2(ruleRow, null);
+  const rule = mapAutomationRow(ruleRow, null);
 
   // Sessions this same violation already terminated (see module header). Used
   // both to tell a self-inflicted trigger stop apart from a genuine one and to

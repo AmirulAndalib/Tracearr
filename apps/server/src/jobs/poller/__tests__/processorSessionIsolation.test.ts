@@ -15,9 +15,9 @@ import type { CacheService, PubSubService } from '../../../services/cache.js';
 import type { ProcessedSession } from '../types.js';
 
 const mockDbSelect = vi.fn();
-const { mockCreateMediaServerClient, mockGetActiveRulesV2 } = vi.hoisted(() => ({
+const { mockCreateMediaServerClient, mockGetActiveAutomations } = vi.hoisted(() => ({
   mockCreateMediaServerClient: vi.fn(),
-  mockGetActiveRulesV2: vi.fn().mockResolvedValue([]),
+  mockGetActiveAutomations: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('../../../db/client.js', () => ({
@@ -67,9 +67,9 @@ vi.mock('../../notificationQueue.js', () => ({
 }));
 
 vi.mock('../database.js', () => ({
-  onActiveRulesRefill: vi.fn(),
+  onActiveAutomationsRefill: vi.fn(),
   getCachedServers: () => mockDbSelect().from(servers),
-  getActiveRulesV2: mockGetActiveRulesV2,
+  getActiveAutomations: mockGetActiveAutomations,
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
   batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
@@ -98,7 +98,7 @@ vi.mock('../sessionLifecycle.js', () => ({
 }));
 
 const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });
-vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...args: unknown[]) => mockDispatch(...args),
   subscribe: vi.fn(),
 }));
@@ -300,7 +300,7 @@ describe('per-session error isolation in processServerSessions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stopPoller();
-    mockGetActiveRulesV2.mockResolvedValue([]);
+    mockGetActiveAutomations.mockResolvedValue([]);
     mockUpdatePendingSession.mockImplementation(() => ({
       updatedData: { id: 'pending-b-data' },
       isConfirmed: false,

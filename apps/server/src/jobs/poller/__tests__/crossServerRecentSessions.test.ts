@@ -13,8 +13,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { Session, Condition, RuleV2, ServerUser, Server } from '@tracearr/shared';
 import { synthesizeTriggers } from '../../../services/automations/triggers.js';
-import { evaluatorRegistry } from '../../../services/rules/evaluators/index.js';
-import type { SessionEvaluationContext } from '../../../services/rules/types.js';
+import { evaluatorRegistry } from '../../../services/automations/evaluators/index.js';
+import type { SessionEvaluationContext } from '../../../services/automations/types.js';
 
 // ============================================================================
 // DB mock - only exercised by widenRecentSessionsForMergedIdentities'

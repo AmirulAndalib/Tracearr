@@ -34,7 +34,7 @@ vi.mock('../mediaServer/index.js', () => ({
   createMediaServerClient: vi.fn(),
 }));
 
-vi.mock('../rules/events/dispatcher.js', () => ({
+vi.mock('../automations/events/dispatcher.js', () => ({
   dispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
 }));
 
@@ -42,7 +42,7 @@ vi.mock('../rules/events/dispatcher.js', () => ({
 import { db } from '../../db/client.js';
 import { getCacheService, getPubSubService } from '../cache.js';
 import { createMediaServerClient } from '../mediaServer/index.js';
-import { dispatch } from '../rules/events/dispatcher.js';
+import { dispatch } from '../automations/events/dispatcher.js';
 import { terminateSession } from '../termination.js';
 
 // Type for the mock session findFirst function (returns partial session for tests)

@@ -132,8 +132,8 @@ vi.mock('../../../services/serviceTracker.js', () => ({
 vi.mock('../../../services/sseManager.js', () => ({ sseManager: mockSseManager }));
 vi.mock('../../notificationQueue.js', () => ({ enqueueNotification: mockEnqueueNotification }));
 vi.mock('../database.js', () => ({
-  onActiveRulesRefill: vi.fn(),
-  getActiveRulesV2: vi.fn().mockResolvedValue([]),
+  onActiveAutomationsRefill: vi.fn(),
+  getActiveAutomations: vi.fn().mockResolvedValue([]),
   batchGetIdentityServerUserIds: vi.fn().mockResolvedValue(new Map()),
   batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn().mockResolvedValue(new Map()),
@@ -155,7 +155,7 @@ vi.mock('../sessionLifecycle.js', () => ({
   stopSessionAtomic: vi.fn(),
 }));
 const mockDispatch = vi.fn().mockResolvedValue({ violations: [], outcomes: [] });
-vi.mock('../../../services/rules/events/dispatcher.js', () => ({
+vi.mock('../../../services/automations/events/dispatcher.js', () => ({
   dispatch: (...args: unknown[]) => mockDispatch(...args),
   subscribe: vi.fn(),
 }));
@@ -166,7 +166,7 @@ vi.mock('../sessionMapper.js', () => ({
 vi.mock('../violations.js', () => ({ broadcastViolations: vi.fn() }));
 
 import { initializePoller, triggerServerPoll } from '../processor.js';
-import { evaluateRulesAsync } from '../../../services/rules/engine.js';
+import { evaluateRulesAsync } from '../../../services/automations/engine.js';
 
 function createPendingSessionData(): PendingSessionData {
   const now = Date.now();

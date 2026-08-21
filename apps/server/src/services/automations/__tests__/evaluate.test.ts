@@ -19,7 +19,7 @@ vi.mock('../../../utils/logger.js', () => ({
   rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-import { synthesizeTriggers } from '../../automations/triggers.js';
+import { synthesizeTriggers } from '../triggers.js';
 import { matchesTrigger, rulesForTrigger, triggerCandidates } from '../events/evaluate.js';
 
 /** A rule the boot migration would have produced from these conditions. */
@@ -153,7 +153,7 @@ describe('triggerCandidates', () => {
   it('builds the context around the event session and appends it to activeSessions by reference', () => {
     const other = { id: 's2', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
     const inputs: EvaluationInputs = {
-      activeRulesV2: all,
+      activeAutomations: all,
       activeSessions: [other],
       recentSessions: [],
       identityServerUserIds: ['su1', 'su2'],
@@ -181,7 +181,7 @@ describe('triggerCandidates', () => {
 
   it('does not double-append when the session is already in activeSessions', () => {
     const inputs: EvaluationInputs = {
-      activeRulesV2: all,
+      activeAutomations: all,
       activeSessions: [session],
       recentSessions: [],
     };
@@ -200,7 +200,7 @@ describe('triggerCandidates', () => {
   it('builds a session-less context for account.inactive_for and leaves activeSessions alone', () => {
     const other = { id: 's2', serverId: 'srv1', serverUserId: 'su1', state: 'playing' } as Session;
     const inputs: EvaluationInputs = {
-      activeRulesV2: all,
+      activeAutomations: all,
       activeSessions: [other],
       recentSessions: [],
     };
@@ -221,7 +221,7 @@ describe('triggerCandidates', () => {
 
   it('returns no candidates when no rule matches the trigger', () => {
     const inputs: EvaluationInputs = {
-      activeRulesV2: [concurrentRule],
+      activeAutomations: [concurrentRule],
       activeSessions: [],
       recentSessions: [],
     };
@@ -238,7 +238,7 @@ describe('triggerCandidates', () => {
 
   it('drops rules the scope filters exclude before anything is evaluated', () => {
     const inputs: EvaluationInputs = {
-      activeRulesV2: [
+      activeAutomations: [
         { ...concurrentRule, id: 'inactive', isActive: false },
         { ...concurrentRule, id: 'other-server', serverId: 'srv2' },
         { ...concurrentRule, id: 'other-account', serverUserId: 'su9' },

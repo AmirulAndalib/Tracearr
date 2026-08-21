@@ -16,7 +16,7 @@ const stoppedEvent: SessionRefEvent = {
 };
 
 function inputs(): EvaluationInputs {
-  return { activeRulesV2: [], activeSessions: [], recentSessions: [] };
+  return { activeAutomations: [], activeSessions: [], recentSessions: [] };
 }
 
 describe('dispatch', () => {

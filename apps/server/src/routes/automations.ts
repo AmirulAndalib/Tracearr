@@ -48,7 +48,7 @@ import { db } from '../db/client.js';
 import { isUniqueViolation } from '../db/pg.js';
 import { automationRuns, automations, serverUsers, servers, users } from '../db/schema.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
-import { invalidateRulesCache } from '../jobs/poller/database.js';
+import { invalidateAutomationsCache } from '../jobs/poller/database.js';
 import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
 import {
@@ -63,7 +63,7 @@ import {
   sameDefinition,
 } from '../services/automations/versions.js';
 import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
-import { hasInactivityCondition } from '../services/rules/engine.js';
+import { hasInactivityCondition } from '../services/automations/engine.js';
 import { recomputeIdentityAggregatesForServerUser } from '../services/userService.js';
 import { buildOrderBy, likePattern, type SortKey } from '../utils/listQuery.js';
 import { buildMultiServerFragment } from '../utils/serverFiltering.js';
@@ -328,7 +328,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
 
     if (!created) return reply.internalServerError('Failed to create automation');
 
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     if (hasInactivityCondition(created)) void scheduleInactivityChecks();
 
     return reply.code(201).send(toAutomation(created));
@@ -440,7 +440,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
 
     if (!updated) return reply.internalServerError('Failed to update automation');
 
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     if (hasInactivityCondition(existing) || hasInactivityCondition(updated)) {
       void scheduleInactivityChecks();
     }
@@ -464,7 +464,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     await db.delete(automations).where(eq(automations.id, existing.id));
     await restateIdentities(counted);
 
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     if (hasInactivityCondition(existing)) void scheduleInactivityChecks();
 
     return reply.code(204).send();
@@ -485,7 +485,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       .where(inArray(automations.id, parsed.data.ids))
       .returning({ id: automations.id });
 
-    if (updated.length > 0) invalidateRulesCache();
+    if (updated.length > 0) invalidateAutomationsCache();
     return { success: true, updated: updated.length };
   });
 
@@ -505,7 +505,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       .returning({ id: automations.id });
     await restateIdentities(counted);
 
-    if (deleted.length > 0) invalidateRulesCache();
+    if (deleted.length > 0) invalidateAutomationsCache();
     return { success: true, deleted: deleted.length };
   });
 

@@ -121,7 +121,7 @@ export async function assembleEvaluationInputs(args: {
   const { rules, serverUser } = args;
   if (rules.length === 0) {
     return {
-      activeRulesV2: rules,
+      activeAutomations: rules,
       activeSessions: [],
       recentSessions: [],
       identityServerUserIds: serverUser.identityServerUserIds,
@@ -151,7 +151,7 @@ export async function assembleEvaluationInputs(args: {
     maxWindowHoursFromRules(rules)
   );
 
-  return { activeRulesV2: rules, activeSessions, recentSessions, identityServerUserIds };
+  return { activeAutomations: rules, activeSessions, recentSessions, identityServerUserIds };
 }
 
 /** History for windowed rules across every server_user of the identity; a failed wide read falls back to this server alone. */

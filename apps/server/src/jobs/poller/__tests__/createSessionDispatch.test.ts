@@ -123,7 +123,7 @@ vi.mock('../../../db/schema.js', async (importOriginal) => ({
 }));
 
 const mockEvaluateRulesAsync = vi.fn();
-vi.mock('../../../services/rules/engine.js', async (importOriginal) => ({
+vi.mock('../../../services/automations/engine.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   evaluateRulesAsync: (...args: unknown[]) => mockEvaluateRulesAsync(...args),
 }));
@@ -147,12 +147,12 @@ vi.mock('../../../services/automations/runRecorder.js', () => ({
 }));
 
 const mockExecuteActions = vi.fn();
-vi.mock('../../../services/rules/executors/index.js', () => ({
+vi.mock('../../../services/automations/executors/index.js', () => ({
   executeActions: (...args: unknown[]) => mockExecuteActions(...args),
 }));
 
 const mockStoreActionResults = vi.fn();
-vi.mock('../../../services/rules/v2Integration.js', () => ({
+vi.mock('../../../services/automations/v2Integration.js', () => ({
   storeActionResults: (...args: unknown[]) => mockStoreActionResults(...args),
 }));
 
@@ -170,11 +170,11 @@ vi.mock('../../../services/geoip.js', () => ({
 }));
 
 import { createSessionWithRulesAtomic } from '../sessionLifecycle.js';
-import { resetDispatcherForTests } from '../../../services/rules/events/dispatcher.js';
+import { resetDispatcherForTests } from '../../../services/automations/events/dispatcher.js';
 import {
   registerRuleSubscribers,
   resetRuleSubscribersForTests,
-} from '../../../services/rules/events/subscribers.js';
+} from '../../../services/automations/events/subscribers.js';
 
 // ============================================================================
 // Fixtures
@@ -253,13 +253,13 @@ function killResults(enqueuedSessionIds: string[]) {
   ];
 }
 
-function create(activeRulesV2: RuleV2[] = [rule]) {
+function create(activeAutomations: RuleV2[] = [rule]) {
   return createSessionWithRulesAtomic({
     processed,
     server,
     serverUser,
     geo,
-    activeRulesV2,
+    activeAutomations,
     activeSessions: [],
     recentSessions: [],
   });

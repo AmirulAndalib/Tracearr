@@ -2,7 +2,7 @@ import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { RuleV2 } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import { sessions } from '../../../db/schema.js';
-import { getActiveRulesV2, onActiveRulesRefill } from '../../../jobs/poller/database.js';
+import { getActiveAutomations, onActiveAutomationsRefill } from '../../../jobs/poller/database.js';
 import { broadcastViolations } from '../../../jobs/poller/violations.js';
 import { rulesLogger } from '../../../utils/logger.js';
 import { isLeader } from '../../leaderLease.js';
@@ -115,7 +115,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
       return;
     }
 
-    const rules = await getActiveRulesV2();
+    const rules = await getActiveAutomations();
     if (!owned(sessionId, gen)) return;
     if (row.lastPausedAt.getTime() !== entry.anchor) {
       schedulePauseWake(row, rules);
@@ -154,7 +154,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
 /** Every paused row gets a wake; crossings already behind us evaluate now. Leader acquire and pause-rule changes. */
 export async function rehydratePauseWakes(): Promise<void> {
   if (!isLeader()) return;
-  const rules = await getActiveRulesV2();
+  const rules = await getActiveAutomations();
   const rows = await db
     .select()
     .from(sessions)
@@ -188,11 +188,11 @@ export function registerPauseWakeSubscriptions(): void {
   registered = true;
 
   subscribe('session.paused', 'pause-wakes', async (event, inputs) => {
-    if (inputs) schedulePauseWake(event.session, inputs.activeRulesV2);
+    if (inputs) schedulePauseWake(event.session, inputs.activeAutomations);
   });
   subscribe('session.started', 'pause-wakes', async (event, inputs) => {
     if (inputs && event.session.state === 'paused' && event.session.lastPausedAt) {
-      schedulePauseWake(event.session, inputs.activeRulesV2);
+      schedulePauseWake(event.session, inputs.activeAutomations);
     }
   });
   subscribe('session.resumed', 'pause-wakes', async (event) => cancelPauseWake(event.sessionId));
@@ -201,7 +201,7 @@ export function registerPauseWakeSubscriptions(): void {
     cancelPauseWake(event.sessionId)
   );
 
-  onActiveRulesRefill((rules) => {
+  onActiveAutomationsRefill((rules) => {
     const fp = pauseRulesFingerprint(rules);
     if (fp === lastFingerprint) return;
     // The first fill is a baseline, not a change; startProducers already rehydrates.

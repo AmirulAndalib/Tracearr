@@ -1,7 +1,7 @@
 /**
- * Rules cache tests
+ * Automations cache tests
  *
- * getActiveRulesV2 caches its result in-process to avoid a full rules SELECT
+ * getActiveAutomations caches its result in-process to avoid a full automations SELECT
  * on every poll tick / reconciliation / SSE event. Verifies write-through
  * invalidation and the TTL fallback for instances that never see another
  * instance's invalidation.
@@ -32,9 +32,9 @@ vi.mock('../../../utils/logger.js', () => ({
 
 import {
   defaultRecentSessionWindowHours,
-  getActiveRulesV2,
-  invalidateRulesCache,
-  mapRuleRowToRuleV2,
+  getActiveAutomations,
+  invalidateAutomationsCache,
+  mapAutomationRow,
   maxWindowHoursFromRules,
 } from '../database.js';
 import type { RuleV2 } from '@tracearr/shared';
@@ -73,10 +73,10 @@ function mockRulesResult(
   });
 }
 
-describe('getActiveRulesV2 cache', () => {
+describe('getActiveAutomations cache', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     vi.useFakeTimers();
   });
 
@@ -87,36 +87,36 @@ describe('getActiveRulesV2 cache', () => {
   it('only queries the database once for repeated reads within the TTL', async () => {
     mockRulesResult([ruleRow('r1')]);
 
-    await getActiveRulesV2();
-    await getActiveRulesV2();
-    await getActiveRulesV2();
+    await getActiveAutomations();
+    await getActiveAutomations();
+    await getActiveAutomations();
 
     expect(mockDbSelect).toHaveBeenCalledTimes(1);
   });
 
   it('reflects a mutation immediately in-process once invalidated', async () => {
     mockRulesResult([ruleRow('r1')]);
-    const first = await getActiveRulesV2();
+    const first = await getActiveAutomations();
     expect(first).toHaveLength(1);
 
     // Simulate a rule mutation route calling the invalidator after writing.
     mockRulesResult([ruleRow('r1'), ruleRow('r2')]);
-    invalidateRulesCache();
+    invalidateAutomationsCache();
 
-    const second = await getActiveRulesV2();
+    const second = await getActiveAutomations();
     expect(second).toHaveLength(2);
     expect(mockDbSelect).toHaveBeenCalledTimes(2);
   });
 
   it('refetches once the TTL expires even without explicit invalidation', async () => {
     mockRulesResult([ruleRow('r1')]);
-    await getActiveRulesV2();
+    await getActiveAutomations();
     expect(mockDbSelect).toHaveBeenCalledTimes(1);
 
     vi.advanceTimersByTime(10_001);
 
     mockRulesResult([ruleRow('r1'), ruleRow('r2')]);
-    const afterTtl = await getActiveRulesV2();
+    const afterTtl = await getActiveAutomations();
     expect(afterTtl).toHaveLength(2);
     expect(mockDbSelect).toHaveBeenCalledTimes(2);
   });
@@ -127,16 +127,16 @@ describe('getActiveRulesV2 cache', () => {
     });
     mockRulesResult([row]);
 
-    const first = await getActiveRulesV2();
-    invalidateRulesCache();
+    const first = await getActiveAutomations();
+    invalidateAutomationsCache();
     mockRulesResult([row]);
-    const second = await getActiveRulesV2();
+    const second = await getActiveAutomations();
 
     expect(second).toEqual(first);
   });
 
   it('derives the default recent-session window from the cached rules', async () => {
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     expect(defaultRecentSessionWindowHours()).toBe(24);
 
     mockRulesResult([
@@ -157,15 +157,15 @@ describe('getActiveRulesV2 cache', () => {
         },
       }),
     ]);
-    await getActiveRulesV2();
+    await getActiveAutomations();
     expect(defaultRecentSessionWindowHours()).toBe(72);
 
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     expect(defaultRecentSessionWindowHours()).toBe(24);
   });
 });
 
-describe('mapRuleRowToRuleV2 triggers', () => {
+describe('mapAutomationRow triggers', () => {
   beforeEach(() => {
     mockWarn.mockClear();
   });
@@ -178,8 +178,8 @@ describe('mapRuleRowToRuleV2 triggers', () => {
         enabled: true,
       },
     ];
-    const mapped = mapRuleRowToRuleV2(
-      ruleRow('r1', { triggers }) as unknown as Parameters<typeof mapRuleRowToRuleV2>[0],
+    const mapped = mapAutomationRow(
+      ruleRow('r1', { triggers }) as unknown as Parameters<typeof mapAutomationRow>[0],
       null
     );
     expect(mapped.triggers).toEqual(triggers);
@@ -187,22 +187,22 @@ describe('mapRuleRowToRuleV2 triggers', () => {
   });
 
   it('carries the automation version a run will be stamped with', async () => {
-    invalidateRulesCache();
+    invalidateAutomationsCache();
     mockRulesResult([ruleRow('r1')], 'ver-9');
 
-    const [rule] = await getActiveRulesV2();
+    const [rule] = await getActiveAutomations();
 
     expect(rule?.currentVersionId).toBe('ver-9');
   });
 
   it('treats a row the migration never stamped as inert and warns once per rule', () => {
     const row = ruleRow('unmigrated', { triggers: null }) as unknown as Parameters<
-      typeof mapRuleRowToRuleV2
+      typeof mapAutomationRow
     >[0];
 
-    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
-    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
-    expect(mapRuleRowToRuleV2(row, null).triggers).toEqual([]);
+    expect(mapAutomationRow(row, null).triggers).toEqual([]);
+    expect(mapAutomationRow(row, null).triggers).toEqual([]);
+    expect(mapAutomationRow(row, null).triggers).toEqual([]);
 
     expect(mockWarn).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledWith(expect.any(String), {
