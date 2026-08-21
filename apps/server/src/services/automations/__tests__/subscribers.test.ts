@@ -2141,9 +2141,15 @@ describe('edgeKeyOf', () => {
   });
 
   it('a stop edge is the instant it stopped', () => {
-    expect(
-      edgeKeyOf({ type: 'session.stopped', at, sessionId: 'session-1', serverId: 'server-1' }, null)
-    ).toBe(at.toISOString());
+    const stopped = {
+      type: 'session.stopped' as const,
+      at,
+      server,
+      serverUser,
+      session: toRuleSession(createPausedSession()),
+      durationMs: 600_000,
+    };
+    expect(edgeKeyOf(stopped, null)).toBe(at.toISOString());
   });
 
   it('server health edges are the instant the state changed', () => {

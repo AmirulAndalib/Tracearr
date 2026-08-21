@@ -20,9 +20,19 @@ vi.mock('../../../utils/logger.js', () => ({
   automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
+const mockServerRows = vi.fn();
+vi.mock('../../../db/client.js', () => ({
+  db: {
+    select: () => ({
+      from: () => ({ where: () => ({ limit: () => Promise.resolve(mockServerRows()) }) }),
+    }),
+  },
+}));
+
 import {
   assembleEvaluationInputs,
   assembleServerInputs,
+  loadServerContext,
   setContextAssemblyDeps,
   toRuleServer,
   toRuleServerUser,
@@ -173,6 +183,39 @@ describe('assembleServerInputs', () => {
     const result = await assembleServerInputs({ rules: [], server });
 
     expect(result.activeSessions).toEqual([]);
+  });
+});
+
+describe('loadServerContext', () => {
+  const cached: ActiveSession[] = [];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    cached.length = 0;
+    setContextAssemblyDeps({
+      getAllActiveSessions: async () => cached,
+      gracePeriodSessionIds: () => new Set<string>(),
+    });
+  });
+
+  it('reads the row by id and assembles the inputs its triggers evaluate in', async () => {
+    mockServerRows.mockReturnValue([
+      { id: 'srv1', name: 'Plex', type: 'plex', url: 'http://localhost:32400' },
+    ]);
+    cached.push(session('a'), session('elsewhere', { serverId: 'srv2' }));
+    const rules = [{ id: 'r1' } as EngineAutomation];
+
+    const result = await loadServerContext('srv1', rules);
+
+    expect(result?.server).toEqual({ id: 'srv1', name: 'Plex', type: 'plex' });
+    expect(result?.inputs.activeAutomations).toBe(rules);
+    expect(result?.inputs.activeSessions.map((s) => s.id)).toEqual(['a']);
+  });
+
+  it('returns null when the server row is gone', async () => {
+    mockServerRows.mockReturnValue([]);
+
+    expect(await loadServerContext('srv1', [{ id: 'r1' } as EngineAutomation])).toBeNull();
   });
 });
 

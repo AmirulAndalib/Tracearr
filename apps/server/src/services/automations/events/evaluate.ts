@@ -21,7 +21,11 @@ import type {
 } from './types.js';
 
 export type SessionEvaluatingEvent =
-  SessionStartedEvent | SessionTranscodeChangedEvent | SessionPausedEvent | SessionHeldForEvent;
+  | SessionStartedEvent
+  | SessionStoppedEvent
+  | SessionTranscodeChangedEvent
+  | SessionPausedEvent
+  | SessionHeldForEvent;
 
 /** The events that carry the account a run is about. */
 export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
@@ -30,15 +34,12 @@ export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEve
 export type ServerEvaluatingEvent =
   ServerDownEvent | ServerUpEvent | PluginUpdateEvent | ServerUpdateEvent;
 
-/** Every event that carries a context to evaluate in; only the stopped ref is left out. */
+/** One per catalog trigger: every event that carries a context to evaluate in. */
 export type ContextEvaluatingEvent =
   UserEvaluatingEvent | ServerEvaluatingEvent | TracearrUpdateEvent;
 
-/** One per catalog trigger. The stopped event still reaches the seam as a ref, with nothing to evaluate. */
-export type EvaluatingEvent = ContextEvaluatingEvent | SessionStoppedEvent;
-
-// The seam declares two trigger types the catalog does not: resumed and media_changed
-// only cancel wakes and must never reach evaluation even if a stored node names one.
+// The seam declares three trigger types the catalog does not: resumed, media_changed and
+// ended only cancel wakes and must never reach evaluation even if a stored node names one.
 const EVALUATING_TRIGGERS: ReadonlySet<string> = new Set(TRIGGER_TYPES);
 
 /** The enabled stored node that makes this rule run for the trigger, if it has one. */

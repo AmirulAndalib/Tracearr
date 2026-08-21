@@ -32,6 +32,7 @@ import {
   toRuleSession,
 } from '../../services/automations/events/contextAssembly.js';
 import { dispatch } from '../../services/automations/events/dispatcher.js';
+import { dispatchServerHealth } from '../../services/automations/events/producers.js';
 import { registerRuleSubscribers } from '../../services/automations/events/subscribers.js';
 import {
   registerPauseWakeSubscriptions,
@@ -261,6 +262,8 @@ async function handleFirstMisses(
  * stop. Shared by sweepGracePeriod (DB-confirmed stop) and
  * pruneMissedPollTracking (server deleted, so there is no DB row left to
  * confirm against - the notification comes from the retained snapshot alone).
+ * No session.stopped dispatch here: the snapshot is not a row to build a
+ * context from, and the DB-confirmed path already dispatched from stopSessionAtomic.
  */
 async function sendGracePeriodStopNotification(
   key: string,
@@ -1959,6 +1962,7 @@ async function pollServers(): Promise<void> {
 
         // Track health state and notify on transitions (with consecutive-failure threshold)
         if (cacheService) {
+          const healthServer = { id: server.id, name: server.name, type: server.type };
           if (success) {
             const wasDown = wasHealthy === false;
             await cacheService.setServerHealth(server.id, true);
@@ -1970,6 +1974,7 @@ async function pollServers(): Promise<void> {
                 type: 'server_up',
                 payload: { serverName: server.name, serverId: server.id },
               });
+              await dispatchServerHealth('server.up', healthServer, new Date());
             }
           } else {
             const failCount = await cacheService.incrServerFailCount(server.id);
@@ -1985,6 +1990,7 @@ async function pollServers(): Promise<void> {
                   type: 'server_down',
                   payload: { serverName: server.name, serverId: server.id },
                 });
+                await dispatchServerHealth('server.down', healthServer, new Date());
               }
             }
           }

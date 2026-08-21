@@ -24,6 +24,11 @@ vi.mock('../../db/client.js', () => ({
   db: { select: () => ({ from: mockDbServers }) },
 }));
 
+const mockDispatchPluginUpdate = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../services/automations/events/producers.js', () => ({
+  dispatchPluginUpdate: (...args: unknown[]) => mockDispatchPluginUpdate(...args),
+}));
+
 import { runPluginUpdateCheck, _resetNudgeStateForTests } from '../pluginUpdateChecker.js';
 
 const MANIFEST = [
@@ -59,6 +64,23 @@ describe('runPluginUpdateCheck', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]![0].payload.serverId).toBe('s1');
     expect(calls[0]![0].payload.latestVersion).toBe('0.2.0.0');
+  });
+
+  it('dispatches the trigger beside the notification, deduped the same way', async () => {
+    mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
+    await runPluginUpdateCheck();
+    await runPluginUpdateCheck();
+
+    expect(mockDispatchPluginUpdate).toHaveBeenCalledTimes(1);
+    expect(mockDispatchPluginUpdate).toHaveBeenCalledWith({
+      server: { id: 's1', name: 'JF', type: 'jellyfin' },
+      installedVersion: '0.1.0.0',
+      latestVersion: '0.2.0.0',
+      downloadUrl: 'https://github.com/Tracearr/Media-Server-SSE/releases/latest',
+    });
+    expect(
+      mockEnqueueNotification.mock.calls.filter((c) => c[0].type === 'plugin_update_available')
+    ).toHaveLength(1);
   });
 
   it('re-arms when a newer version appears', async () => {

@@ -115,6 +115,34 @@ export async function loadEvaluationContext(
   return { server, serverUser, inputs };
 }
 
+/** The server row plus the inputs its triggers evaluate in; null when the row is already gone. */
+export async function loadServerContext(
+  serverId: string,
+  rules: EngineAutomation[]
+): Promise<{ server: EvaluationServer; inputs: EvaluationInputs } | null> {
+  const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1);
+  if (!srv) return null;
+  return serverContextFor({ id: srv.id, name: srv.name, type: srv.type }, rules);
+}
+
+/** For the producers that already hold the row (the poller tick, the plugin checker). */
+export async function serverContextFor(
+  server: EvaluationServer,
+  rules: EngineAutomation[]
+): Promise<{ server: EvaluationServer; inputs: EvaluationInputs }> {
+  return { server, inputs: await assembleServerInputs({ rules, server }) };
+}
+
+/** The install context has no server and no account: the automations and nothing else. */
+export function installInputs(rules: EngineAutomation[]): EvaluationInputs {
+  return {
+    activeAutomations: rules,
+    activeSessions: [],
+    recentSessions: [],
+    identityServerUserIds: [],
+  };
+}
+
 /**
  * The SSE processor and the wake scheduler have no tick; this builds the inputs the poller
  * carries per tick. Failed identity/recent lookups degrade to this server_user only.
@@ -173,14 +201,7 @@ export async function assembleServerInputs(args: {
   server: EvaluationServer;
 }): Promise<EvaluationInputs> {
   const { rules, server } = args;
-  if (rules.length === 0) {
-    return {
-      activeAutomations: rules,
-      activeSessions: [],
-      recentSessions: [],
-      identityServerUserIds: [],
-    };
-  }
+  if (rules.length === 0) return installInputs(rules);
   if (!deps) throw new Error('setContextAssemblyDeps has not been called');
 
   const activeSessions = excludeUncountableSessions(

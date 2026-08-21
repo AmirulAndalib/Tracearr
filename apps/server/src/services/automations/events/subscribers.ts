@@ -22,7 +22,6 @@ import {
   paramsPass,
   triggerCandidates,
   type ContextEvaluatingEvent,
-  type EvaluatingEvent,
   type SessionEvaluatingEvent,
 } from './evaluate.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
@@ -84,7 +83,7 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
 }
 
 /** What makes this firing a distinct edge for the notification gate; the node is the one that fired. */
-export function edgeKeyOf(event: EvaluatingEvent, node: TriggerNode | null): string | null {
+export function edgeKeyOf(event: ContextEvaluatingEvent, node: TriggerNode | null): string | null {
   switch (event.type) {
     case 'session.started':
       return null;
@@ -282,6 +281,7 @@ export function registerRuleSubscribers(): void {
   registered = true;
 
   subscribe('session.started', 'session-rules', sessionRules(undefined, true));
+  subscribe('session.stopped', 'session-rules', sessionRules());
   subscribe('session.transcode_changed', 'session-rules', sessionRules({ transcodeReEval: true }));
   subscribe('session.paused', 'session-rules', sessionRules({ pauseReEval: true }));
   subscribe('session.held_for', 'session-rules', sessionRules({ heldFor: true }));

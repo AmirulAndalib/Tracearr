@@ -2,6 +2,7 @@ import { fetchJson } from '../utils/http.js';
 import { maxVersion, compareVersions } from '../utils/pluginVersion.js';
 import { sseManager } from '../services/sseManager.js';
 import { getSettings } from '../services/settings.js';
+import { dispatchPluginUpdate } from '../services/automations/events/producers.js';
 import { enqueueNotification } from './notificationQueue.js';
 import { db } from '../db/client.js';
 import { servers } from '../db/schema.js';
@@ -75,6 +76,12 @@ export async function runPluginUpdateCheck(): Promise<void> {
           latestVersion: latest,
           downloadUrl: RELEASES_URL,
         },
+      });
+      await dispatchPluginUpdate({
+        server: { id: server.id, name: server.name, type: server.type },
+        installedVersion: installed,
+        latestVersion: latest,
+        downloadUrl: RELEASES_URL,
       });
       console.log(
         `[PluginUpdate] ${server.name}: plugin ${installed ?? 'pre-0.2.0'} -> ${latest} available`

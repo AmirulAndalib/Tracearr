@@ -10,6 +10,7 @@ import type { Redis } from 'ioredis';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 import { isMaintenance } from '../serverState.js';
 import { REDIS_KEYS, CACHE_TTL, WS_EVENTS } from '@tracearr/shared';
+import { dispatchTracearrUpdate } from '../services/automations/events/producers.js';
 import { getCurrentVersion } from '../utils/buildInfo.js';
 
 // Queue name
@@ -379,9 +380,18 @@ export async function processVersionCheck(job: Job<VersionCheckJobData>): Promis
     // Check if update is available
     const updateAvailable = isNewerVersion(version, currentVersion);
 
-    if (updateAvailable && pubSubPublish) {
+    if (updateAvailable) {
       // Broadcast update availability to connected clients
-      await pubSubPublish(WS_EVENTS.VERSION_UPDATE, {
+      if (pubSubPublish) {
+        await pubSubPublish(WS_EVENTS.VERSION_UPDATE, {
+          current: currentVersion,
+          latest: version,
+          releaseUrl: latestData.releaseUrl,
+        });
+      }
+      // This worker runs on every instance; the cooldown above and the run gate's
+      // edge key (the latest version) bound the duplicate dispatches.
+      await dispatchTracearrUpdate({
         current: currentVersion,
         latest: version,
         releaseUrl: latestData.releaseUrl,

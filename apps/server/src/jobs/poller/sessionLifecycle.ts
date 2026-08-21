@@ -19,6 +19,7 @@ import { serverUsers, sessions, users } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
 import { toRuleSession } from '../../services/automations/events/contextAssembly.js';
 import { dispatch } from '../../services/automations/events/dispatcher.js';
+import { dispatchSessionStopped } from '../../services/automations/events/producers.js';
 import type { ActionResult } from '../../services/automations/executors/index.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
@@ -679,6 +680,7 @@ export async function createSessionWithRulesAtomic(
         session: existingActiveSession,
         stoppedAt: now,
         preserveWatched: true,
+        reason: 'quality_change',
       });
 
       // Only proceed with quality change if we actually stopped the session
@@ -1031,7 +1033,13 @@ export async function confirmAndPersistSession(
  * Implements bounded retry logic for transient DB failures.
  */
 export async function stopSessionAtomic(input: SessionStopInput): Promise<SessionStopResult> {
-  const { session, stoppedAt, forceStopped = false, preserveWatched = false } = input;
+  const {
+    session,
+    stoppedAt,
+    forceStopped = false,
+    preserveWatched = false,
+    reason = 'ended',
+  } = input;
 
   const { durationMs, finalPausedDurationMs } = calculateStopDuration(
     {
@@ -1060,6 +1068,8 @@ export async function stopSessionAtomic(input: SessionStopInput): Promise<Sessio
 
   // Retry loop for transient DB failures (connection errors, timeouts, etc.)
   let lastError: unknown;
+  // null until a write attempt lands; then whether this call is the one that stopped the row.
+  let wasUpdated: boolean | null = null;
   for (let attempt = 1; attempt <= SESSION_WRITE_RETRY.IMMEDIATE_RETRIES; attempt++) {
     try {
       // Use conditional update for idempotency - only stop if not already stopped
@@ -1079,22 +1089,8 @@ export async function stopSessionAtomic(input: SessionStopInput): Promise<Sessio
         .where(and(eq(sessions.id, session.id), isNull(sessions.stoppedAt)))
         .returning({ id: sessions.id });
 
-      // Return whether the update was applied (for caller to skip cache/broadcast if already stopped)
-      const wasUpdated = result.length > 0;
-
-      if (wasUpdated) {
-        console.log(
-          `[SessionLifecycle] Session stopped: "${session.mediaTitle}" after ${Math.round(durationMs / 1000)}s (watched=${watched}${forceStopped ? ', forced' : ''})`
-        );
-        await dispatch({
-          type: 'session.stopped',
-          at: stoppedAt,
-          sessionId: session.id,
-          serverId: session.serverId,
-        });
-      }
-
-      return { durationMs, watched, shortSession, wasUpdated };
+      wasUpdated = result.length > 0;
+      break;
     } catch (error) {
       lastError = error;
       if (attempt < SESSION_WRITE_RETRY.IMMEDIATE_RETRIES) {
@@ -1107,20 +1103,44 @@ export async function stopSessionAtomic(input: SessionStopInput): Promise<Sessio
     }
   }
 
-  // All retries failed - return needsRetry for caller to queue for later processing
-  console.error(
-    `[SessionLifecycle] All ${SESSION_WRITE_RETRY.IMMEDIATE_RETRIES} attempts failed for session ${session.id}:`,
-    lastError
-  );
+  if (wasUpdated === null) {
+    // All retries failed - return needsRetry for caller to queue for later processing
+    console.error(
+      `[SessionLifecycle] All ${SESSION_WRITE_RETRY.IMMEDIATE_RETRIES} attempts failed for session ${session.id}:`,
+      lastError
+    );
 
-  return {
-    durationMs,
-    watched,
-    shortSession,
-    wasUpdated: false,
-    needsRetry: true,
-    retryData: { stoppedAt: stoppedAt.getTime(), forceStopped },
-  };
+    return {
+      durationMs,
+      watched,
+      shortSession,
+      wasUpdated: false,
+      needsRetry: true,
+      retryData: { stoppedAt: stoppedAt.getTime(), forceStopped },
+    };
+  }
+
+  if (wasUpdated) {
+    console.log(
+      `[SessionLifecycle] Session stopped: "${session.mediaTitle}" after ${Math.round(durationMs / 1000)}s (watched=${watched}${forceStopped ? ', forced' : ''})`
+    );
+    // Outside the retry loop: the row is stopped, and a failed dispatch must not re-run the write.
+    await dispatchSessionStopped(
+      toRuleSession(session, {
+        state: 'stopped',
+        stoppedAt,
+        durationMs,
+        pausedDurationMs: finalPausedDurationMs,
+        lastPausedAt: null,
+        watched,
+      }),
+      durationMs,
+      stoppedAt,
+      reason
+    );
+  }
+
+  return { durationMs, watched, shortSession, wasUpdated };
 }
 
 // ============================================================================
@@ -1161,6 +1181,7 @@ export async function handleMediaChangeAtomic(
   const { wasUpdated } = await stopSessionAtomic({
     session: existingSession,
     stoppedAt: now,
+    reason: 'media_change',
   });
 
   if (!wasUpdated) {

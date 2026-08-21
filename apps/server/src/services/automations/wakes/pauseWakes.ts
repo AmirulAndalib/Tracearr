@@ -196,7 +196,7 @@ export function registerPauseWakeSubscriptions(): void {
     }
   });
   subscribe('session.resumed', 'pause-wakes', async (event) => cancelPauseWake(event.sessionId));
-  subscribe('session.stopped', 'pause-wakes', async (event) => cancelPauseWake(event.sessionId));
+  subscribe('session.ended', 'pause-wakes', async (event) => cancelPauseWake(event.sessionId));
   subscribe('session.media_changed', 'pause-wakes', async (event) =>
     cancelPauseWake(event.sessionId)
   );

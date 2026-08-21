@@ -8,8 +8,8 @@ vi.mock('../../../utils/logger.js', () => ({
   automationsLogger: { info: vi.fn(), warn: vi.fn(), error: errorLog, debug: vi.fn() },
 }));
 
-const stoppedEvent: SessionRefEvent = {
-  type: 'session.stopped',
+const endedEvent: SessionRefEvent = {
+  type: 'session.ended',
   at: new Date(),
   sessionId: 's1',
   serverId: 'srv1',
@@ -27,7 +27,7 @@ describe('dispatch', () => {
 
   it('runs subscribers in registration order and concatenates their violations', async () => {
     const order: string[] = [];
-    subscribe('session.stopped', 'a', async () => {
+    subscribe('session.ended', 'a', async () => {
       order.push('a');
       return {
         violations: [
@@ -35,7 +35,7 @@ describe('dispatch', () => {
         ],
       };
     });
-    subscribe('session.stopped', 'b', async () => {
+    subscribe('session.ended', 'b', async () => {
       order.push('b');
       return {
         violations: [
@@ -44,7 +44,7 @@ describe('dispatch', () => {
       };
     });
 
-    const result = await dispatch(stoppedEvent, inputs());
+    const result = await dispatch(endedEvent, inputs());
 
     expect(order).toEqual(['a', 'b']);
     expect(result.violations.map((v) => v.violation.id)).toEqual(['v1', 'v2']);
@@ -56,13 +56,13 @@ describe('dispatch', () => {
 
   it('isolates a throwing subscriber when there is no tx and keeps going', async () => {
     const boom = new Error('boom');
-    subscribe('session.stopped', 'a', async () => {
+    subscribe('session.ended', 'a', async () => {
       throw boom;
     });
     const b = vi.fn(async () => undefined);
-    subscribe('session.stopped', 'b', b);
+    subscribe('session.ended', 'b', b);
 
-    const result = await dispatch(stoppedEvent, inputs());
+    const result = await dispatch(endedEvent, inputs());
 
     expect(b).toHaveBeenCalledTimes(1);
     expect(result.outcomes).toEqual([
@@ -73,7 +73,7 @@ describe('dispatch', () => {
     expect(errorLog).toHaveBeenCalledWith(
       'Rule subscriber failed',
       expect.objectContaining({
-        trigger: 'session.stopped',
+        trigger: 'session.ended',
         subscriber: 'a',
         subject: 's1',
         error: boom,
@@ -147,11 +147,11 @@ describe('dispatch', () => {
   });
 
   it('propagates a throwing subscriber when opts.tx is set', async () => {
-    subscribe('session.stopped', 'a', async () => {
+    subscribe('session.ended', 'a', async () => {
       throw new Error('serialization failure');
     });
 
-    await expect(dispatch(stoppedEvent, inputs(), { tx: {} as never })).rejects.toThrow(
+    await expect(dispatch(endedEvent, inputs(), { tx: {} as never })).rejects.toThrow(
       'serialization failure'
     );
   });
@@ -161,10 +161,10 @@ describe('dispatch', () => {
       { action: { type: 'trust', mode: 'reset' }, success: true } as never,
     ]);
     const ranB = vi.fn(async () => [{ action: { type: 'send' }, success: true } as never]);
-    subscribe('session.stopped', 'a', async () => ({ violations: [], deferredActions: ranA }));
-    subscribe('session.stopped', 'b', async () => ({ violations: [], deferredActions: ranB }));
+    subscribe('session.ended', 'a', async () => ({ violations: [], deferredActions: ranA }));
+    subscribe('session.ended', 'b', async () => ({ violations: [], deferredActions: ranB }));
 
-    const result = await dispatch(stoppedEvent, inputs(), { deferActions: true });
+    const result = await dispatch(endedEvent, inputs(), { deferActions: true });
 
     expect(ranA).not.toHaveBeenCalled();
     expect(ranB).not.toHaveBeenCalled();
@@ -177,17 +177,17 @@ describe('dispatch', () => {
   it('passes inputs by reference', async () => {
     const shared = inputs();
     let seen: EvaluationInputs | undefined;
-    subscribe('session.stopped', 'a', async (_e, i) => {
+    subscribe('session.ended', 'a', async (_e, i) => {
       seen = i;
     });
 
-    await dispatch(stoppedEvent, shared);
+    await dispatch(endedEvent, shared);
 
     expect(seen).toBe(shared);
   });
 
   it('returns an empty result when nothing is subscribed', async () => {
-    const result = await dispatch(stoppedEvent, inputs());
+    const result = await dispatch(endedEvent, inputs());
     expect(result).toEqual({ violations: [], outcomes: [] });
   });
 });

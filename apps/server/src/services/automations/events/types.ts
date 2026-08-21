@@ -12,8 +12,9 @@ import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type SessionRow = typeof sessions.$inferSelect;
 
-/** The catalog plus the two types that only cancel wakes and are never stored on an automation. */
-export type TriggerType = CatalogTriggerType | 'session.resumed' | 'session.media_changed';
+/** The catalog plus the three types that only cancel wakes and are never stored on an automation. */
+export type TriggerType =
+  CatalogTriggerType | 'session.resumed' | 'session.media_changed' | 'session.ended';
 
 /** What every producer already holds about the server; matches SessionCreationInput['server']. */
 export interface EvaluationServer {
@@ -87,12 +88,23 @@ export interface SessionMediaChangedEvent extends SessionRefBase {
   type: 'session.media_changed';
 }
 
-/** Still ref-shaped: the two stop producers hold no context to carry server, user, session and durationMs. */
-export interface SessionStoppedEvent extends SessionRefBase {
-  type: 'session.stopped';
+/**
+ * Why a row was stopped. The two continuations keep playing under a new row, so they
+ * cancel the wake but end no stream.
+ */
+export type SessionStopReason = 'ended' | 'quality_change' | 'media_change';
+
+/** The ref twin of session.stopped: every stop cancels wakes, so this one never pays for a context. */
+export interface SessionEndedEvent extends SessionRefBase {
+  type: 'session.ended';
 }
 
-export type SessionRefEvent = SessionResumedEvent | SessionMediaChangedEvent | SessionStoppedEvent;
+export type SessionRefEvent = SessionResumedEvent | SessionMediaChangedEvent | SessionEndedEvent;
+
+export interface SessionStoppedEvent extends SessionEventBase {
+  type: 'session.stopped';
+  durationMs: number;
+}
 
 export interface AccountInactiveForEvent extends BaseEvent {
   type: 'account.inactive_for';
@@ -139,6 +151,7 @@ export type RuleEvent =
   | SessionTranscodeChangedEvent
   | SessionPausedEvent
   | SessionHeldForEvent
+  | SessionStoppedEvent
   | SessionRefEvent
   | AccountInactiveForEvent
   | ServerDownEvent

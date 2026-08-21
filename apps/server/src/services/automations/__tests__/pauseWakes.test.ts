@@ -364,7 +364,7 @@ describe('registerPauseWakeSubscriptions', () => {
     expect(pendingWakeCount()).toBe(1);
   });
 
-  it.each(['session.resumed', 'session.stopped', 'session.media_changed'])(
+  it.each(['session.resumed', 'session.ended', 'session.media_changed'])(
     '%s cancels the wake',
     async (trigger) => {
       schedulePauseWake(pausedRow(), [pauseRule(10)]);

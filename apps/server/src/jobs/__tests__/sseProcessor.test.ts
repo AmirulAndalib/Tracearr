@@ -11,15 +11,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { EventEmitter } from 'events';
 
 // Create mocks using vi.hoisted - must require EventEmitter inside for hoisting to work
-const { mockSseManager, mockEnqueueNotification, mockDispatch } = vi.hoisted(() => {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { EventEmitter: EE } = require('events');
-  return {
-    mockSseManager: new EE() as EventEmitter,
-    mockEnqueueNotification: vi.fn().mockResolvedValue('job-id'),
-    mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
-  };
-});
+const { mockSseManager, mockEnqueueNotification, mockDispatch, mockGetActiveAutomations } =
+  vi.hoisted(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EventEmitter: EE } = require('events');
+    return {
+      mockSseManager: new EE() as EventEmitter,
+      mockEnqueueNotification: vi.fn().mockResolvedValue('job-id'),
+      mockDispatch: vi.fn().mockResolvedValue({ violations: [], outcomes: [] }),
+      mockGetActiveAutomations: vi.fn().mockResolvedValue([]),
+    };
+  });
 
 // Mock the sseManager
 vi.mock('../../services/sseManager.js', () => ({
@@ -70,7 +72,7 @@ vi.mock('../poller/database.js', () => ({
   getServerUserIdByExternalId: vi.fn(() => {
     throw new Error('getServerUserIdByExternalId not configured in this test');
   }),
-  getActiveAutomations: vi.fn(),
+  getActiveAutomations: mockGetActiveAutomations,
   batchGetLibraryItemIdentity: vi.fn().mockResolvedValue(new Map()),
   batchGetRecentUserSessions: vi.fn(),
   mergeRecentSessionsForIdentity: (map: Map<string, unknown[]>, ids: string[]) =>
@@ -97,6 +99,17 @@ vi.mock('../../services/automations/events/dispatcher.js', () => ({
 }));
 vi.mock('../../services/automations/events/contextAssembly.js', () => ({
   loadEvaluationContext: vi.fn().mockResolvedValue(null),
+  loadServerContext: vi.fn(async (serverId: string) => ({
+    server: { id: serverId, name: 'Test Server', type: 'plex' },
+    inputs: {
+      activeAutomations: [],
+      activeSessions: [],
+      recentSessions: [],
+      identityServerUserIds: [],
+    },
+  })),
+  serverContextFor: vi.fn(),
+  installInputs: vi.fn(),
   assembleEvaluationInputs: vi.fn().mockResolvedValue({
     activeAutomations: [],
     activeSessions: [],
@@ -140,6 +153,7 @@ describe('SSE Processor - Server Health Notifications', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mockGetActiveAutomations.mockResolvedValue([]);
     mockSseManager.removeAllListeners();
 
     // Initialize and start the processor
@@ -172,6 +186,46 @@ describe('SSE Processor - Server Health Notifications', () => {
         type: 'server_down',
         payload: { serverName: 'Test Server', serverId: 'server-1' },
       });
+    });
+
+    it('dispatches server.down with the server row beside the notification', async () => {
+      mockGetActiveAutomations.mockResolvedValue([
+        { id: 'a1', triggers: [{ id: 'n1', type: 'server.down', enabled: true }] },
+      ]);
+
+      mockSseManager.emit('fallback:activated', {
+        serverId: 'server-1',
+        serverName: 'Test Server',
+      });
+
+      await vi.advanceTimersByTimeAsync(59_000);
+      expect(mockDispatch).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(mockDispatch).toHaveBeenCalledWith(
+        {
+          type: 'server.down',
+          at: expect.any(Date),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+        },
+        expect.objectContaining({ activeSessions: [] })
+      );
+      expect(mockEnqueueNotification).toHaveBeenCalledWith({
+        type: 'server_down',
+        payload: { serverName: 'Test Server', serverId: 'server-1' },
+      });
+    });
+
+    it('dispatches nothing when no automation listens for server.down', async () => {
+      mockSseManager.emit('fallback:activated', {
+        serverId: 'server-1',
+        serverName: 'Test Server',
+      });
+
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(mockDispatch).not.toHaveBeenCalled();
+      expect(mockEnqueueNotification).toHaveBeenCalled();
     });
 
     it('should handle multiple servers going down independently', () => {
@@ -277,6 +331,38 @@ describe('SSE Processor - Server Health Notifications', () => {
       // Need to flush promises for the async handler
       await vi.runAllTimersAsync();
 
+      expect(mockEnqueueNotification).toHaveBeenCalledWith({
+        type: 'server_up',
+        payload: { serverName: 'Test Server', serverId: 'server-1' },
+      });
+    });
+
+    it('dispatches server.up with the server row beside the notification', async () => {
+      mockGetActiveAutomations.mockResolvedValue([
+        { id: 'a1', triggers: [{ id: 'n1', type: 'server.up', enabled: true }] },
+      ]);
+      mockSseManager.emit('fallback:activated', {
+        serverId: 'server-1',
+        serverName: 'Test Server',
+      });
+      await vi.advanceTimersByTimeAsync(60_000);
+      mockDispatch.mockClear();
+      mockEnqueueNotification.mockClear();
+
+      mockSseManager.emit('fallback:deactivated', {
+        serverId: 'server-1',
+        serverName: 'Test Server',
+      });
+      await vi.runAllTimersAsync();
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        {
+          type: 'server.up',
+          at: expect.any(Date),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+        },
+        expect.objectContaining({ activeSessions: [] })
+      );
       expect(mockEnqueueNotification).toHaveBeenCalledWith({
         type: 'server_up',
         payload: { serverName: 'Test Server', serverId: 'server-1' },

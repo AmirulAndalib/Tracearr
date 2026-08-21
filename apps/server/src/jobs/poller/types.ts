@@ -16,6 +16,7 @@ import type { sessions } from '../../db/schema.js';
 import type { SessionIdentity as MediaItemIdentity } from './database.js';
 import type { CacheService, PubSubService } from '../../services/cache.js';
 import type { GeoLocation } from '../../services/geoip.js';
+import type { SessionStopReason } from '../../services/automations/events/types.js';
 import type { ViolationInsertResult } from './violations.js';
 
 // ============================================================================
@@ -466,6 +467,8 @@ export interface SessionStopInput {
    * Use for quality changes where playback continues in a new session.
    */
   preserveWatched?: boolean;
+  /** What ended the row; the two continuations fire no stream-ended trigger. Defaults to 'ended'. */
+  reason?: SessionStopReason;
 }
 
 /**

@@ -57,6 +57,11 @@ vi.mock('bullmq', () => {
 
 vi.mock('../../serverState.js', () => ({ isMaintenance: vi.fn().mockReturnValue(false) }));
 
+const mockDispatchTracearrUpdate = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../services/automations/events/producers.js', () => ({
+  dispatchTracearrUpdate: (...args: unknown[]) => mockDispatchTracearrUpdate(...args),
+}));
+
 const mockGetCurrentVersion = vi.fn().mockReturnValue('1.4.0');
 vi.mock('../../utils/buildInfo.js', () => ({
   getCurrentVersion: () => mockGetCurrentVersion(),
@@ -538,6 +543,7 @@ describe('processVersionCheck', () => {
     mockFetch.mockReset();
     sharedRedis.exists.mockReset();
     sharedRedis.set.mockReset().mockResolvedValue('OK');
+    mockDispatchTracearrUpdate.mockClear();
     mockGetCurrentVersion.mockReturnValue('1.4.0');
   });
 
@@ -604,6 +610,52 @@ describe('processVersionCheck', () => {
       'EX',
       15 * 60
     );
+  });
+
+  it('dispatches tracearr.update_available when the release is newer', async () => {
+    sharedRedis.exists.mockResolvedValue(0);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        tag_name: 'v1.5.0',
+        html_url: 'https://github.com/test/releases/tag/v1.5.0',
+        published_at: '2024-01-01T00:00:00Z',
+        name: 'v1.5.0',
+        body: null,
+        prerelease: false,
+        draft: false,
+      } satisfies GitHubRelease),
+    });
+
+    await processVersionCheck(makeJob(false));
+
+    expect(mockDispatchTracearrUpdate).toHaveBeenCalledWith({
+      current: '1.4.0',
+      latest: '1.5.0',
+      releaseUrl: 'https://github.com/test/releases/tag/v1.5.0',
+    });
+  });
+
+  it('dispatches nothing when the release is not newer', async () => {
+    sharedRedis.exists.mockResolvedValue(0);
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        tag_name: 'v1.4.0',
+        html_url: 'https://github.com/test/releases/tag/v1.4.0',
+        published_at: '2024-01-01T00:00:00Z',
+        name: 'v1.4.0',
+        body: null,
+        prerelease: false,
+        draft: false,
+      } satisfies GitHubRelease),
+    });
+
+    await processVersionCheck(makeJob(false));
+
+    expect(mockDispatchTracearrUpdate).not.toHaveBeenCalled();
   });
 
   it('rethrows non-rate-limit errors and does not set a cooldown', async () => {

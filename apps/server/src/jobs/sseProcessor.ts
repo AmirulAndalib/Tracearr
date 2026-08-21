@@ -28,6 +28,7 @@ import {
   toRuleSession,
 } from '../services/automations/events/contextAssembly.js';
 import { dispatch } from '../services/automations/events/dispatcher.js';
+import { dispatchServerHealthById } from '../services/automations/events/producers.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
 import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
@@ -892,6 +893,9 @@ function handleFallbackActivated(event: FallbackEvent): void {
     }).catch((error: unknown) => {
       console.error(`[SSEProcessor] Error enqueueing server_down notification:`, error);
     });
+
+    // The closure holds no row: the automations and the server are read when the timer fires.
+    void dispatchServerHealthById('server.down', serverId, new Date());
   }, SERVER_DOWN_THRESHOLD_MS);
 
   pendingServerDownNotifications.set(serverId, timeout);
@@ -944,6 +948,8 @@ async function handleFallbackDeactivated(event: FallbackEvent): Promise<void> {
   } catch (error) {
     console.error(`[SSEProcessor] Error enqueueing server_up notification:`, error);
   }
+
+  await dispatchServerHealthById('server.up', serverId, new Date());
 }
 
 /**
