@@ -396,13 +396,14 @@ describe('Automation routes', () => {
       name: 'pause watch',
       kind: 'policy' as const,
       severity: 'warning' as const,
+      triggers: [{ id: TRIGGER_ID, type: 'session.paused' as const, enabled: true }],
       conditions: {
         groups: [{ conditions: [{ field: 'total_pause_minutes', operator: 'gt', value: 30 }] }],
       },
       actions: { actions: [{ type: 'kill_stream' as const }] },
     };
 
-    it('stamps nodes, synthesizes triggers and writes version 1 in the same transaction', async () => {
+    it('stamps nodes and writes version 1 in the same transaction', async () => {
       app = await buildTestApp(ownerUser);
       const created = automationRow({ id: OTHER_ID, name: 'pause watch' });
       const harness = setupTransaction([[created], [{ id: 'ver-1' }]]);
@@ -416,16 +417,10 @@ describe('Automation routes', () => {
       const values = harness.insertedValues[0] as {
         conditions: AutomationConditions;
         actions: AutomationActions;
-        triggers: Array<{ type: string }>;
       };
       const condition = values.conditions.groups[0]?.conditions[0];
       expect(condition).toMatchObject({ id: expect.any(String), enabled: true });
       expect(values.actions.actions[0]).toMatchObject({ id: expect.any(String), enabled: true });
-      expect(values.triggers.map((trigger) => trigger.type)).toEqual([
-        'session.started',
-        'session.paused',
-        'session.held_for',
-      ]);
 
       const version = harness.insertedValues[1] as { version: unknown; definition: unknown };
       expect(harness.inserts).toHaveLength(2);
@@ -608,18 +603,15 @@ describe('Automation routes', () => {
   });
 
   describe('PATCH /automations/:id', () => {
-    it('versions a definition change and re-synthesizes triggers', async () => {
+    it('versions a condition change and leaves the stored triggers where they are', async () => {
       app = await buildTestApp(ownerUser);
-      // kill_stream needs a session trigger, and this edit leaves only an account one.
-      const stored = automationRow({
-        actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -5 }] },
-      });
+      const stored = automationRow();
       setupSelect([stored]);
       const nextConditions = {
-        groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
+        groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 4 }] }],
       };
       const harness = setupTransaction([
-        [automationRow({ conditions: nextConditions, triggers: [] })],
+        [automationRow({ conditions: nextConditions })],
         [{ id: 'ver-2' }],
       ]);
 
@@ -630,8 +622,7 @@ describe('Automation routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const update = harness.updateSets[0] as { triggers: Array<{ type: string }> };
-      expect(update.triggers.map((trigger) => trigger.type)).toEqual(['account.inactive_for']);
+      expect(harness.updateSets[0]).not.toHaveProperty('triggers');
       expect(harness.inserts).toHaveLength(1);
       expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
     });
@@ -725,41 +716,6 @@ describe('Automation routes', () => {
       // Fresh trigger ids on an unchanged definition would version the automation on every save.
       expect(harness.updateSets[0]).not.toHaveProperty('triggers');
       expect(harness.inserts).toEqual([]);
-    });
-
-    it('carries the surviving trigger node ids through a real condition change', async () => {
-      app = await buildTestApp(ownerUser);
-      const startedId = randomUUID();
-      const stored = automationRow({
-        triggers: [{ id: startedId, type: 'session.started', enabled: true }],
-      });
-      setupSelect([stored]);
-      const harness = setupTransaction([[stored], [{ id: 'ver-2' }]]);
-
-      const response = await app.inject({
-        method: 'PATCH',
-        url: `/automations/${AUTOMATION_ID}`,
-        payload: {
-          conditions: {
-            groups: [
-              { conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }] },
-            ],
-          },
-        },
-      });
-
-      expect(response.statusCode).toBe(200);
-      const update = harness.updateSets[0] as { triggers: TriggerNode[] };
-      const started = update.triggers.find((trigger) => trigger.type === 'session.started');
-      // The notification gate keys on the node id; re-minting it re-notifies everything.
-      expect(started?.id).toBe(startedId);
-      expect(update.triggers.map((trigger) => trigger.type)).toEqual([
-        'session.started',
-        'session.paused',
-        'session.held_for',
-      ]);
-      const minted = update.triggers.filter((trigger) => trigger.id !== startedId);
-      expect(new Set(minted.map((trigger) => trigger.id)).size).toBe(2);
     });
 
     it('stamps the action nodes a payload changes', async () => {
@@ -1123,7 +1079,7 @@ describe('Automation routes', () => {
   });
 
   describe('explicit triggers', () => {
-    it('stores the trigger set the payload carried instead of synthesizing one', async () => {
+    it('stores the trigger set the payload carried', async () => {
       app = await buildTestApp(ownerUser);
       const harness = setupTransaction([[automationRow()], [{ id: 'ver-1' }]]);
       setupSelect([automationRow()]);
@@ -1149,6 +1105,47 @@ describe('Automation routes', () => {
       expect(response.statusCode).toBe(201);
       const values = harness.insertedValues[0] as { triggers: TriggerNode[] };
       expect(values.triggers).toEqual([{ id: triggerId, type: 'session.paused', enabled: true }]);
+    });
+
+    it('rejects a create that names no trigger', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations',
+        payload: {
+          name: 'pause watch',
+          kind: 'policy',
+          severity: 'warning',
+          conditions: {
+            groups: [
+              { conditions: [{ field: 'current_pause_minutes', operator: 'gt', value: 30 }] },
+            ],
+          },
+          actions: { actions: [{ type: 'kill_stream' }] },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects an edit that takes away the last enabled trigger', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = automationRow({
+        triggers: [{ id: TRIGGER_ID, type: 'session.started', enabled: true }],
+      });
+      setupSelect([stored]);
+      const harness = setupTransaction([[stored]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { triggers: [] },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(harness.updateSets).toEqual([]);
     });
   });
 

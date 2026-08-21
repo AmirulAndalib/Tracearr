@@ -1,23 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import {
-  ChevronDown,
-  Pencil,
-  Plus,
-  Power,
-  PowerOff,
-  Settings2,
-  Sparkles,
-  Trash2,
-  Workflow,
-} from 'lucide-react';
-import type {
-  Automation,
-  AutomationKind,
-  AutomationSortField,
-  CreateAutomationInput,
-} from '@tracearr/shared';
+import { Pencil, Plus, Power, PowerOff, Trash2, Workflow } from 'lucide-react';
+import type { Automation, AutomationKind, AutomationSortField } from '@tracearr/shared';
 import { AUTOMATION_SORT_FIELDS, listPageCount } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { BulkActionsToolbar, type BulkAction } from '@/components/ui/bulk-actions-toolbar';
@@ -35,34 +20,18 @@ import {
   useDataTable,
   type SortingState,
 } from '@/components/ui/data-table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { countActiveFilters, FilterBar, useFilterState } from '@/components/ui/filters';
 import type { FilterDescriptor } from '@/components/ui/filters';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
-import { ScopeChip, toBuilderInput } from '@/components/automations';
-import { AutomationBuilderDialog } from '@/components/automations/legacy';
+import { ScopeChip } from '@/components/automations';
 import {
   useAutomations,
   useBulkDeleteAutomations,
   useBulkToggleAutomations,
-  useCreateAutomation,
   useDeleteAutomation,
   useSettings,
   useToggleAutomation,
-  useUpdateAutomation,
 } from '@/hooks/queries';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useRowSelection } from '@/hooks/useRowSelection';
@@ -71,8 +40,6 @@ import {
   automationIcon,
   describeAutomation,
   describeText,
-  CLASSIC_RULE_TEMPLATES,
-  type ClassicRuleTemplate,
   type DescribeRefs,
 } from '@/lib/automations';
 import {
@@ -108,10 +75,6 @@ export function Automations() {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [editing, setEditing] = useState<Automation | undefined>();
-  const [template, setTemplate] = useState<ClassicRuleTemplate | undefined>();
 
   const unitSystem = settings?.unitSystem ?? 'metric';
 
@@ -171,8 +134,6 @@ export function Automations() {
   });
   const { data: filterOptions } = useAutomationFilterOptions();
 
-  const createAutomation = useCreateAutomation();
-  const updateAutomation = useUpdateAutomation();
   const toggleAutomation = useToggleAutomation();
   const deleteAutomation = useDeleteAutomation();
   const bulkToggle = useBulkToggleAutomations();
@@ -233,29 +194,6 @@ export function Automations() {
     },
     [clearSelection]
   );
-
-  const openCreateDialog = () => {
-    setTemplate(undefined);
-    setEditing(undefined);
-    setBuilderOpen(true);
-  };
-
-  const handleTemplateSelect = (selected: ClassicRuleTemplate) => {
-    setTemplate(selected);
-    setTemplatePickerOpen(false);
-    setEditing(undefined);
-    setBuilderOpen(true);
-  };
-
-  const handleSave = async (payload: CreateAutomationInput) => {
-    if (editing) {
-      await updateAutomation.mutateAsync({ id: editing.id, data: payload });
-    } else {
-      await createAutomation.mutateAsync(payload);
-    }
-    setBuilderOpen(false);
-    setEditing(undefined);
-  };
 
   const handleBulkToggle = (isActive: boolean) => {
     bulkToggle.mutate({ ids: Array.from(selectedIds), isActive }, { onSuccess: clearSelection });
@@ -356,11 +294,7 @@ export function Automations() {
                   variant="ghost"
                   size="icon"
                   aria-label={t('common:actions.edit')}
-                  onClick={() => {
-                    setTemplate(undefined);
-                    setEditing(automation);
-                    setBuilderOpen(true);
-                  }}
+                  onClick={() => void navigate(`/automations/${automation.id}/edit`)}
                 >
                   <Pencil />
                 </Button>
@@ -436,26 +370,11 @@ export function Automations() {
 
   const hasActiveFilters = countActiveFilters(descriptors, filters) > 0;
 
-  const addMenu = (align: 'start' | 'end') => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button>
-          <Plus />
-          {t('pages:automations.addAutomation')}
-          <ChevronDown />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={align}>
-        <DropdownMenuItem onClick={() => setTemplatePickerOpen(true)}>
-          <Settings2 />
-          {t('pages:automations.fromTemplate')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={openCreateDialog}>
-          <Sparkles />
-          {t('pages:automations.custom')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+  const addButton = (
+    <Button onClick={() => void navigate('/automations/new')}>
+      <Plus />
+      {t('pages:automations.addAutomation')}
+    </Button>
   );
 
   return (
@@ -465,7 +384,7 @@ export function Automations() {
           <h1 className="text-3xl font-bold">{t('pages:automations.title')}</h1>
           <p className="text-muted-foreground">{t('pages:automations.description')}</p>
         </div>
-        {addMenu('end')}
+        {addButton}
       </div>
 
       <Card>
@@ -515,7 +434,7 @@ export function Automations() {
                           ? t('pages:automations.tryAdjustingFilters')
                           : t('pages:automations.createFirstAutomation')
                       }
-                      action={hasActiveFilters ? undefined : addMenu('start')}
+                      action={hasActiveFilters ? undefined : addButton}
                     />
                   }
                 />
@@ -567,61 +486,6 @@ export function Automations() {
           }
         }}
         isLoading={deleteAutomation.isPending}
-      />
-
-      <Dialog open={templatePickerOpen} onOpenChange={setTemplatePickerOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t('pages:automations.chooseTemplate')}</DialogTitle>
-            <DialogDescription>{t('pages:automations.chooseTemplateDesc')}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            {CLASSIC_RULE_TEMPLATES.map((entry) => (
-              <button
-                key={entry.type}
-                onClick={() => handleTemplateSelect(entry)}
-                className="hover:bg-accent flex items-center gap-4 rounded-lg border p-4 text-left transition-colors"
-              >
-                <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-                  {automationIcon({ conditions: entry.conditions, actions: entry.actions })}
-                </div>
-                <div>
-                  <div className="font-medium">{entry.label}</div>
-                  <div className="text-muted-foreground text-sm">{entry.description}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <AutomationBuilderDialog
-        open={builderOpen}
-        onOpenChange={(open) => {
-          setBuilderOpen(open);
-          if (!open) {
-            setTemplate(undefined);
-            setEditing(undefined);
-          }
-        }}
-        automation={
-          editing
-            ? toBuilderInput(editing)
-            : template
-              ? {
-                  id: '',
-                  name: template.defaultName,
-                  description: template.description,
-                  severity: template.severity,
-                  isActive: true,
-                  conditions: template.conditions,
-                  actions: template.actions,
-                }
-              : undefined
-        }
-        onSave={handleSave}
-        isLoading={createAutomation.isPending || updateAutomation.isPending}
-        filterOptions={filterOptions}
       />
     </div>
   );

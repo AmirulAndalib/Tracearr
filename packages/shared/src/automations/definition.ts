@@ -50,7 +50,7 @@ const automationFieldsSchema = z.strictObject({
   description: z.string().max(500).nullable().optional(),
   kind: z.enum(AUTOMATION_KINDS),
   severity: violationSeveritySchema.nullable(),
-  triggers: z.array(triggerNodeSchema).optional(),
+  triggers: z.array(triggerNodeSchema),
   conditions: automationConditionsSchema,
   actions: automationActionsSchema,
   serverId: uuidSchema.nullable().optional(),
@@ -90,16 +90,15 @@ function valueMatches(
 function definitionRefinements(
   def: {
     kind: AutomationKind;
-    triggers?: TriggerNode[];
+    triggers: TriggerNode[];
     conditions: AutomationConditions;
     actions: AutomationActions;
   },
-  ctx: z.RefinementCtx,
-  opts: { requireTriggers: boolean }
+  ctx: z.RefinementCtx
 ): void {
-  const triggers = def.triggers ?? [];
+  const { triggers } = def;
   const enabled = triggers.filter((trigger) => trigger.enabled);
-  if (opts.requireTriggers && enabled.length === 0) {
+  if (enabled.length === 0) {
     ctx.addIssue({
       code: 'custom',
       path: ['triggers'],
@@ -191,9 +190,7 @@ function definitionRefinements(
   });
 }
 
-export const automationDefinitionSchema = automationFieldsSchema.superRefine((def, ctx) =>
-  definitionRefinements(def, ctx, { requireTriggers: false })
-);
+export const automationDefinitionSchema = automationFieldsSchema.superRefine(definitionRefinements);
 
 export const createAutomationSchema = automationDefinitionSchema
   .refine(hasAtMostOneScope, scopeRefinement)

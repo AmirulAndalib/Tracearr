@@ -27,7 +27,6 @@ import type {
   AutomationConditions,
 } from './conditions.js';
 import type { CreateAutomationInput } from './definition.js';
-import type { TriggerNode } from './triggers.js';
 
 const placeholder = z.strictObject({ $input: z.string().min(1).max(64) });
 
@@ -538,7 +537,7 @@ const camelCase = (field: ConditionField) =>
   field.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 
 /** Strips this install's ids and destinations out of a definition, declaring an input for each. */
-export function liftAutomation(automation: CreateAutomationInput & { triggers: TriggerNode[] }): {
+export function liftAutomation(automation: CreateAutomationInput): {
   inputs: TemplateInput[];
   definition: TemplateDefinition;
 } {

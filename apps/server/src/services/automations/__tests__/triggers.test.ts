@@ -11,7 +11,7 @@ vi.mock('../../../utils/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
-import { resynthesizeTriggers, synthesizeTriggers } from '../triggers.js';
+import { carryTriggerIds, synthesizeTriggers } from '../triggers.js';
 
 beforeEach(() => {
   mockWarn.mockClear();
@@ -166,7 +166,7 @@ describe('synthesizeTriggers inactive_for params', () => {
   });
 });
 
-describe('resynthesizeTriggers', () => {
+describe('carryTriggerIds', () => {
   it('the first node of a type keeps its id and the rest are new', () => {
     const existing = synthesizeTriggers(
       one({ field: 'current_pause_minutes', operator: 'gte', value: 15 })
@@ -174,10 +174,12 @@ describe('resynthesizeTriggers', () => {
     const priorHeldForId = heldFor(existing)[0]?.id;
     const priorPausedId = nodesOf(existing, 'session.paused')[0]?.id;
 
-    const next = resynthesizeTriggers(
-      conditions(
-        [{ field: 'current_pause_minutes', operator: 'gte', value: 20 }],
-        [{ field: 'total_pause_minutes', operator: 'gte', value: 45 }]
+    const next = carryTriggerIds(
+      synthesizeTriggers(
+        conditions(
+          [{ field: 'current_pause_minutes', operator: 'gte', value: 20 }],
+          [{ field: 'total_pause_minutes', operator: 'gte', value: 45 }]
+        )
       ),
       existing
     );
@@ -199,10 +201,12 @@ describe('resynthesizeTriggers', () => {
         [{ field: 'total_pause_minutes', operator: 'gte', value: 45 }]
       )
     );
-    const next = resynthesizeTriggers(
-      conditions(
-        [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }],
-        [{ field: 'total_pause_minutes', operator: 'gte', value: 60 }]
+    const next = carryTriggerIds(
+      synthesizeTriggers(
+        conditions(
+          [{ field: 'current_pause_minutes', operator: 'gte', value: 15 }],
+          [{ field: 'total_pause_minutes', operator: 'gte', value: 60 }]
+        )
       ),
       existing
     );

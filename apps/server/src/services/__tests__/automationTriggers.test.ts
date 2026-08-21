@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ConditionField, AutomationConditions, TriggerNode } from '@tracearr/shared';
-import { resynthesizeTriggers, stampNodes, synthesizeTriggers } from '../automations/triggers.js';
+import type { ConditionField, AutomationConditions } from '@tracearr/shared';
+import { stampNodes, synthesizeTriggers } from '../automations/triggers.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -167,34 +167,5 @@ describe('stampNodes', () => {
       operator: 'lt',
       value: 50,
     });
-  });
-});
-
-describe('resynthesizeTriggers', () => {
-  const stored: TriggerNode[] = [
-    { id: 'started-node', type: 'session.started', enabled: true },
-    { id: 'paused-node', type: 'session.paused', enabled: true },
-  ];
-
-  it('keeps the node id of every trigger type the edit leaves in place', () => {
-    const triggers = resynthesizeTriggers(conditionsFor('current_pause_minutes'), stored);
-
-    const byType = new Map(triggers.map((trigger) => [trigger.type, trigger.id]));
-    expect(byType.get('session.started')).toBe('started-node');
-    expect(byType.get('session.paused')).toBe('paused-node');
-    expect(byType.get('session.held_for')).toMatch(UUID);
-  });
-
-  it('mints a node for a trigger type the automation did not have', () => {
-    const triggers = resynthesizeTriggers(conditionsFor('inactive_days'), stored);
-
-    expect(triggers.map((trigger) => trigger.type)).toEqual(['account.inactive_for']);
-    expect(triggers[0]?.id).toMatch(UUID);
-  });
-
-  it('mints everything when the automation has no stored triggers', () => {
-    const triggers = resynthesizeTriggers(conditionsFor('is_transcoding'), null);
-
-    for (const trigger of triggers) expect(trigger.id).toMatch(UUID);
   });
 });

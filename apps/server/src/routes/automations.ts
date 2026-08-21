@@ -59,15 +59,9 @@ import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
 import { exportEnvelope } from '../services/automations/templates/lift.js';
 import { materializeInstance } from '../services/automations/templates/materialize.js';
 import { getTemplate, getTemplateVersion } from '../services/automations/templates/store.js';
-import {
-  carryTriggerIds,
-  resynthesizeTriggers,
-  stampNodes,
-  synthesizeTriggers,
-} from '../services/automations/triggers.js';
+import { carryTriggerIds, stampNodes } from '../services/automations/triggers.js';
 import {
   automationDefinition,
-  canonicalEqual,
   insertAutomationVersion,
   sameDefinition,
   storedSeverity,
@@ -304,8 +298,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
           severity: storedSeverity(input.severity),
           conditions: stamped.conditions,
           actions: stamped.actions,
-          // Until the builder sends its own, the trigger set is read off the conditions.
-          triggers: input.triggers ?? synthesizeTriggers(stamped.conditions),
+          triggers: input.triggers,
           serverId: input.serverId,
           serverUserId: input.serverUserId,
           userId: input.userId,
@@ -434,21 +427,12 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (rebound) {
       updateData.conditions = rebound.definition.conditions;
       updateData.actions = rebound.definition.actions;
-      updateData.triggers = carryTriggerIds(rebound.definition.triggers ?? [], existing.triggers);
+      updateData.triggers = carryTriggerIds(rebound.definition.triggers, existing.triggers);
       Object.assign(updateData, definitionScope(rebound.definition));
       updateData.templateInputs = rebound.inputs;
     } else {
       if (patch.conditions !== undefined && stamped.conditions) {
         updateData.conditions = stamped.conditions;
-        // The payload comes back from zod in its own key order and the stored row in
-        // jsonb's, so only a canonical compare can tell a restatement from an edit.
-        if (!canonicalEqual(stamped.conditions, existing.conditions)) {
-          updateData.triggers = resynthesizeTriggers(
-            stamped.conditions,
-            existing.triggers,
-            existing.id
-          );
-        }
       }
       if (patch.actions !== undefined) updateData.actions = stamped.actions;
       if (patch.triggers !== undefined) updateData.triggers = patch.triggers;

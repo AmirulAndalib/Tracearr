@@ -21,7 +21,7 @@ import type { EngineAutomation, TriggerNode } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns } from '../../src/db/schema.js';
 import { recordRun, type RunTrigger } from '../../src/services/automations/runRecorder.js';
-import { resynthesizeTriggers } from '../../src/services/automations/triggers.js';
+import { carryTriggerIds } from '../../src/services/automations/triggers.js';
 import type { EvaluationResult } from '../../src/services/automations/types.js';
 
 const matched: EvaluationResult = {
@@ -171,8 +171,11 @@ describe('recordRun notification gate', () => {
 
     const priorId = stored[0]?.id ?? null;
     const first = await record(priorId);
-    // A save re-synthesizes the set but keeps the id of every type that survived it.
-    const afterSave = resynthesizeTriggers(conditions, stored);
+    // A template rebind rebuilds the set but keeps the id of every type that survived it.
+    const afterSave = carryTriggerIds(
+      [{ id: randomUUID(), type: 'session.transcode_changed', enabled: true }],
+      stored
+    );
     const carriedId =
       afterSave.find((trigger) => trigger.type === 'session.transcode_changed')?.id ?? null;
     const carried = await record(carriedId);

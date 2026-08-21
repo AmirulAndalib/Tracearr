@@ -61,7 +61,12 @@ describe('builderIssues', () => {
     const off = builderReducer(added, { type: 'toggleNode', id });
 
     expect(builderIssues(added, t)).toEqual([]);
-    expect(builderIssues(off, t).map((issue) => issue.nodeId)).toEqual([BUILDER_SECTIONS.triggers]);
+    expect(builderIssues(off, t)).toEqual([
+      {
+        nodeId: BUILDER_SECTIONS.triggers,
+        message: 'Pick at least one trigger, or switch one back on',
+      },
+    ]);
   });
 
   it('names the trigger a condition is not available for, on that condition row', () => {

@@ -18,7 +18,6 @@ import type {
   TemplateEnvelope,
   TemplateInput,
 } from '../../index.js';
-import type { TriggerNode } from '../triggers.js';
 
 const sha256Hex = (text: string) => createHash('sha256').update(text).digest('hex');
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
@@ -201,7 +200,7 @@ describe('materializeTemplate', () => {
 
 describe('liftAutomation', () => {
   it('turns scope ids, destinations and network values into required inputs', () => {
-    const automation: CreateAutomationInput & { triggers: TriggerNode[] } = {
+    const automation: CreateAutomationInput = {
       name: 'Kill VPN streams',
       kind: 'policy',
       severity: 'warning',
@@ -234,7 +233,7 @@ describe('liftAutomation', () => {
   });
 
   it('gives each differing send list its own input', () => {
-    const automation: CreateAutomationInput & { triggers: TriggerNode[] } = {
+    const automation: CreateAutomationInput = {
       name: 'Two sends',
       kind: 'notification',
       severity: null,
@@ -260,7 +259,7 @@ describe('liftAutomation', () => {
 
 describe('lift and materialize', () => {
   it('round-trips an automation through an envelope and back to its ids', () => {
-    const automation: CreateAutomationInput & { triggers: TriggerNode[] } = {
+    const automation: CreateAutomationInput = {
       name: 'Kill VPN streams',
       kind: 'policy',
       severity: 'warning',

@@ -179,15 +179,6 @@ export function carryTriggerIds(
   });
 }
 
-/** Re-synthesis for a save, with the surviving node ids carried across. */
-export function resynthesizeTriggers(
-  conditions: AutomationConditions | null | undefined,
-  existing: TriggerNode[] | null | undefined,
-  automationId?: string
-): TriggerNode[] {
-  return carryTriggerIds(synthesizeTriggers(conditions, automationId), existing);
-}
-
 const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({
   ...item,
   id: item.id ?? randomUUID(),

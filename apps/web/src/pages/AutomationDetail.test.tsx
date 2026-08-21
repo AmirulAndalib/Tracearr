@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import type * as ReactRouter from 'react-router';
 import type { Automation, AutomationRun, AutomationRunSummary } from '@tracearr/shared';
 import { AutomationDetail } from './AutomationDetail';
@@ -98,7 +98,10 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={['/automations/a-1']}>
-      <AutomationDetail />
+      <Routes>
+        <Route path="/automations/:id" element={<AutomationDetail />} />
+        <Route path="/automations/:id/edit" element={<p>the builder page</p>} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -157,6 +160,15 @@ describe('AutomationDetail', () => {
     renderDetail();
 
     expect(screen.getByText('pages:automations.detail.notFound')).toBeInTheDocument();
+  });
+
+  it('sends the edit action to the builder page', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(screen.getByRole('button', { name: 'common:actions.edit' }));
+
+    expect(screen.getByText('the builder page')).toBeInTheDocument();
   });
 
   it('names the person a person-scoped automation targets', () => {

@@ -250,8 +250,12 @@ describe('definition refinements', () => {
       }).success
     ).toBe(true);
   });
-  it('still accepts a definition with no triggers while synthesis is live', () => {
-    expect(automationDefinitionSchema.safeParse(base).success).toBe(true);
+  it('needs a trigger, and an enabled one', () => {
+    expect(automationDefinitionSchema.safeParse(base).success).toBe(false);
+    expect(
+      automationDefinitionSchema.safeParse({ ...base, triggers: [{ ...started, enabled: false }] })
+        .success
+    ).toBe(false);
   });
 });
 
@@ -262,7 +266,7 @@ describe('automation payloads', () => {
 
   it('create requires name/kind/conditions/actions; update is partial', () => {
     expect(AUTOMATION_KINDS).toEqual(['policy', 'notification']);
-    const payload = { ...base, conditions };
+    const payload = { ...base, triggers: [started], conditions };
     expect(createAutomationSchema.safeParse(payload).success).toBe(true);
     expect(updateAutomationSchema.safeParse({ isActive: false }).success).toBe(true);
     expect(createAutomationSchema.safeParse({ ...payload, kind: 'other' }).success).toBe(false);
@@ -274,6 +278,7 @@ describe('automation payloads', () => {
   it('takes at most one scope', () => {
     const payload = {
       ...base,
+      triggers: [started],
       kind: 'policy',
       severity: 'warning',
       conditions,
@@ -289,7 +294,13 @@ describe('automation payloads', () => {
   });
 
   it('a server-scoped automation cannot enforce across servers', () => {
-    const payload = { ...base, kind: 'policy', severity: 'warning', conditions };
+    const payload = {
+      ...base,
+      triggers: [started],
+      kind: 'policy',
+      severity: 'warning',
+      conditions,
+    };
     expect(
       createAutomationSchema.safeParse({
         ...payload,

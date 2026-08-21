@@ -384,9 +384,6 @@
       "errors": {
         "sendNeedsDestination": "Pick at least one destination",
         "nameRequired": "Automation name is required",
-        "title": "Please fix the following errors:",
-        "groupRequired": "At least one condition group is required",
-        "conditionRequired": "Each condition group must have at least one condition",
         "scopeIncomplete": "Pick a target for the selected scope",
         "triggerRequired": "Pick at least one trigger, or switch one back on",
         "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
@@ -430,14 +427,7 @@
         "enforceAcrossServersDescription": "Acts on the person's sessions on any of their servers, not only the one that triggered it. Off by default."
       },
       "conditions": {
-        "title": "Conditions",
-        "description": "Define when this automation runs. Groups are combined with AND logic.",
-        "groupLabel": "Group {{number}}",
-        "groupHint": "conditions match with OR logic",
-        "removeGroup": "Remove group",
-        "addCondition": "Add OR condition",
         "addGroup": "and also…",
-        "removeCondition": "Remove condition",
         "fieldPlaceholder": "Select field",
         "operatorPlaceholder": "Operator",
         "windowPrefix": "in",
@@ -468,12 +458,7 @@
         "addFirst": "Add a condition"
       },
       "actions": {
-        "title": "Actions",
-        "description": "Optional side effects when the conditions match. The run is recorded either way.",
         "add": "Add action",
-        "remove": "Remove action",
-        "typePlaceholder": "Select action",
-        "typeLabel": "Action",
         "sectionTitle": "Do this…",
         "empty": "Nothing happens yet. Pick what this automation should do.",
         "moveUp": "Move {{name}} up",
@@ -560,12 +545,9 @@
       "network_location": "Network & Location",
       "scope": "Scope"
     },
-    "chooseTemplate": "Choose a Template",
-    "chooseTemplateDesc": "Select a pre-configured automation to get started quickly.",
     "createAutomation": "Create Automation",
     "createDescription": "Set up a new automation for your media servers.",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
-    "custom": "Custom Automation",
     "customAutomation": "Custom automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomation_one": "Delete Automation",
@@ -832,7 +814,6 @@
         "description": "Type of content"
       }
     },
-    "fromTemplate": "From a Template",
     "kind": {
       "policy": "Policy",
       "notification": "Notification",

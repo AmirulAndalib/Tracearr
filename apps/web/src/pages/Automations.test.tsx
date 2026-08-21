@@ -87,7 +87,6 @@ function bodyRows() {
 }
 
 function renderAutomations(path = '/automations') {
-  // The builder dialog reaches for destinations the moment it opens.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -96,7 +95,9 @@ function renderAutomations(path = '/automations') {
         <MemoryRouter initialEntries={[path]}>
           <Routes>
             <Route path="/automations" element={<Automations />} />
+            <Route path="/automations/new" element={<p>the builder page</p>} />
             <Route path="/automations/:id" element={<p>the automation detail</p>} />
+            <Route path="/automations/:id/edit" element={<p>the builder page</p>} />
           </Routes>
         </MemoryRouter>
       </TooltipProvider>
@@ -105,6 +106,7 @@ function renderAutomations(path = '/automations') {
 }
 
 const openedDetail = () => screen.queryByText('the automation detail');
+const openedBuilder = () => screen.queryByText('the builder page');
 
 describe('Automations', () => {
   beforeEach(() => {
@@ -198,14 +200,23 @@ describe('Automations', () => {
     expect(openedDetail()).not.toBeInTheDocument();
   });
 
-  it('keeps the row actions from opening the automation', async () => {
+  it('sends the row edit action to the builder page rather than the automation', async () => {
     const user = userEvent.setup();
     renderAutomations();
 
     await user.click(screen.getByRole('button', { name: 'common:actions.edit' }));
 
+    expect(openedBuilder()).toBeInTheDocument();
     expect(openedDetail()).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('starts a new automation on the builder page', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    await user.click(screen.getByRole('button', { name: /pages:automations.addAutomation/ }));
+
+    expect(openedBuilder()).toBeInTheDocument();
   });
 
   it('asks for confirmation before deleting a single automation', async () => {

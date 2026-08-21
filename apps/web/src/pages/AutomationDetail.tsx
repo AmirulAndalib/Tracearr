@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import type { AutomationKind, CreateAutomationInput } from '@tracearr/shared';
+import type { AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,11 +14,9 @@ import {
   EvaluationsList,
   RunDetail,
   ScopeChip,
-  toBuilderInput,
 } from '@/components/automations';
-import { AutomationBuilderDialog } from '@/components/automations/legacy';
 import { automationIcon } from '@/lib/automations';
-import { useAutomation, useToggleAutomation, useUpdateAutomation } from '@/hooks/queries';
+import { useAutomation, useToggleAutomation } from '@/hooks/queries';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useServer } from '@/hooks/useServer';
@@ -31,23 +29,16 @@ const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
 export function AutomationDetail() {
   const { t } = useTranslation(['pages', 'common']);
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { servers } = useServer();
 
-  const [builderOpen, setBuilderOpen] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const { data: automation, isLoading } = useAutomation(id);
   const { data: filterOptions } = useAutomationFilterOptions();
   const toggleAutomation = useToggleAutomation();
-  const updateAutomation = useUpdateAutomation();
 
   usePageTitle(automation?.name);
-
-  const handleSave = async (payload: CreateAutomationInput) => {
-    if (!automation) return;
-    await updateAutomation.mutateAsync({ id: automation.id, data: payload });
-    setBuilderOpen(false);
-  };
 
   if (isLoading) {
     return (
@@ -110,7 +101,10 @@ export function AutomationDetail() {
             }}
             aria-label={t('pages:automations.toggleAutomation', { name: automation.name })}
           />
-          <Button variant="outline" onClick={() => setBuilderOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => void navigate(`/automations/${automation.id}/edit`)}
+          >
             <Pencil />
             {t('common:actions.edit')}
           </Button>
@@ -158,15 +152,6 @@ export function AutomationDetail() {
         onOpenChange={(open) => {
           if (!open) setSelectedRunId(null);
         }}
-      />
-
-      <AutomationBuilderDialog
-        open={builderOpen}
-        onOpenChange={setBuilderOpen}
-        automation={toBuilderInput(automation)}
-        onSave={handleSave}
-        isLoading={updateAutomation.isPending}
-        filterOptions={filterOptions}
       />
     </div>
   );

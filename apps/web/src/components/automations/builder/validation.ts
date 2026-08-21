@@ -159,8 +159,12 @@ function messageFor(
     case 'serverUserId':
     case 'userId':
       return t('automations.builder.errors.scopeIncomplete');
+    // Both trigger refinements land on the same path, and only one can hold at a time:
+    // the policy check needs an enabled trigger to have anything to object to.
     case 'triggers':
-      return t('automations.builder.errors.policyNeedsSubject');
+      return state.triggers.some((trigger) => trigger.enabled)
+        ? t('automations.builder.errors.policyNeedsSubject')
+        : t('automations.builder.errors.triggerRequired');
     default:
       return fallback;
   }
@@ -183,13 +187,6 @@ export function builderIssues(state: BuilderState, t: Translate): BuilderIssue[]
     }
   }
 
-  // The schema accepts a definition with no triggers so a template can leave them out.
-  if (!state.triggers.some((trigger) => trigger.enabled)) {
-    issues.push({
-      nodeId: BUILDER_SECTIONS.triggers,
-      message: t('automations.builder.errors.triggerRequired'),
-    });
-  }
   return issues;
 }
 
