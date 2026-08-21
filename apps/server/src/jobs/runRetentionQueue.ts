@@ -2,19 +2,20 @@
  * Run Retention Queue - BullMQ-based daily purge of aged automation runs
  *
  * Completed runs age out on their kind's window (notification 30 days, policy
- * 365) unless the automation overrides it with retention_days. Non-completed
- * runs gate nothing and are written per candidate automation per event, so they
- * go at 30 days flat whatever the kind or the override says.
+ * 365) unless the automation overrides it with retention_days, and only
+ * session-bound ones go. Account-keyed completed runs are excluded for both
+ * kinds: inactivity dedup blocks on any row for user + automation, and
+ * account.inactive_for notifications carry a constant edgeKey, so deleting the
+ * row re-fires the automation every cycle.
  *
- * Only session-bound rows are purged. Account-keyed runs (session_id NULL) are
- * excluded for both kinds: inactivity dedup blocks on any row for user +
- * automation, and account.inactive_for notifications carry a constant edgeKey,
- * so deleting the row re-fires the automation every cycle. A session-bound row
- * is safe to delete - the session ended months ago and can never re-evaluate.
+ * Non-completed runs are diagnostics, written per candidate automation per
+ * event: they go at 30 days flat whatever the kind, the override or the session
+ * binding says. Nothing gates on them, so purging one can re-arm nothing, and
+ * the hourly account sweep writes them by the million.
  */
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
-import { sql, type SQL } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import {
   AUTOMATION_KINDS,
   RETENTION_DEFAULTS,
@@ -24,6 +25,8 @@ import {
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 import { isMaintenance } from '../serverState.js';
 import { db } from '../db/client.js';
+import { automations } from '../db/schema.js';
+import { recomputeIdentityAggregatesForServerUser } from '../services/userService.js';
 
 const QUEUE_NAME = 'run-retention';
 // Pre-rename queue; its repeatable survives the upgrade with nothing to consume it.
@@ -177,49 +180,108 @@ export interface RunRetentionResult {
   diagnosticPurged: number;
 }
 
-async function deleteBatched(where: SQL): Promise<number> {
+/** The identities whose rows one batch removed, so the caller can restate their rollups. */
+type BatchListener = (serverUserIds: string[]) => Promise<void>;
+
+async function deleteBatched(where: SQL, onBatch?: BatchListener): Promise<number> {
   let total = 0;
   for (;;) {
     const result = await db.execute(sql`
       DELETE FROM automation_runs
       WHERE id IN (
         SELECT ar.id FROM automation_runs ar
-        JOIN automations a ON a.id = ar.rule_id
-        WHERE ar.status = 'finished' AND ar.session_id IS NOT NULL AND (${where})
+        WHERE ar.status = 'finished' AND (${where})
         LIMIT ${DELETE_BATCH_SIZE}
       )
+      RETURNING server_user_id
     `);
     const deleted = result.rowCount ?? 0;
     total += deleted;
+    if (onBatch) {
+      const touched = new Set<string>();
+      for (const row of result.rows) {
+        const serverUserId = row.server_user_id;
+        if (typeof serverUserId === 'string') touched.add(serverUserId);
+      }
+      if (touched.size > 0) await onBatch([...touched]);
+    }
     if (deleted < DELETE_BATCH_SIZE) break;
   }
   return total;
 }
 
-function completedOfKind(kind: AutomationKind, defaultDays: number): SQL {
-  return sql`ar.kind = ${kind} AND ar.outcome = 'completed'
-    AND ar.finished_at < now() - make_interval(days => COALESCE(a.retention_days, ${defaultDays}))`;
+/** One window's automations and the instant their runs age out. */
+interface RetentionGroup {
+  cutoff: Date;
+  automationIds: string[];
+}
+
+const cutoffOf = (days: number): Date => new Date(Date.now() - days * TIME_MS.DAY);
+
+/**
+ * Group a kind's automations by effective window. A per-row COALESCE over the
+ * joined automation makes the cutoff join-dependent, which costs the scan its
+ * index; one constant cutoff per group keeps it a range read.
+ */
+async function completedGroups(
+  kind: AutomationKind,
+  defaultDays: number
+): Promise<RetentionGroup[]> {
+  const rows = await db
+    .select({ id: automations.id, retentionDays: automations.retentionDays })
+    .from(automations)
+    .where(eq(automations.kind, kind));
+
+  const byWindow = new Map<number, string[]>();
+  for (const row of rows) {
+    const days = row.retentionDays ?? defaultDays;
+    const ids = byWindow.get(days);
+    if (ids) ids.push(row.id);
+    else byWindow.set(days, [row.id]);
+  }
+
+  return [...byWindow].map(([days, automationIds]) => ({ cutoff: cutoffOf(days), automationIds }));
+}
+
+function completedOfGroup(kind: AutomationKind, group: RetentionGroup): SQL {
+  const ids = sql.join(
+    group.automationIds.map((id) => sql`${id}`),
+    sql`, `
+  );
+  return sql`ar.kind = ${kind} AND ar.outcome = 'completed' AND ar.session_id IS NOT NULL
+    AND ar.rule_id IN (${ids}) AND ar.finished_at < ${group.cutoff}`;
 }
 
 // Kind-scoped so the (kind, finished_at) index serves the scan; every kind is swept.
 function diagnosticsOfKind(kind: AutomationKind): SQL {
   return sql`ar.kind = ${kind} AND ar.outcome <> 'completed'
-    AND ar.finished_at < now() - make_interval(days => ${DIAGNOSTIC_RETENTION_DAYS})`;
+    AND ar.finished_at < ${cutoffOf(DIAGNOSTIC_RETENTION_DAYS)}`;
+}
+
+/** The purge removes rows users.total_violations counts, so its identities are restated. */
+async function recomputeIdentities(serverUserIds: string[]): Promise<void> {
+  for (const serverUserId of serverUserIds) {
+    await recomputeIdentityAggregatesForServerUser(serverUserId);
+  }
 }
 
 /**
- * Hard-delete session-bound runs past their retention window.
+ * Hard-delete runs past their retention window.
  */
 export async function processRunRetention(): Promise<RunRetentionResult> {
-  const notificationPurged = await deleteBatched(
-    completedOfKind('notification', RETENTION_DEFAULTS.notification)
-  );
-  const policyPurged = await deleteBatched(completedOfKind('policy', RETENTION_DEFAULTS.policy));
+  let notificationPurged = 0;
+  for (const group of await completedGroups('notification', RETENTION_DEFAULTS.notification)) {
+    notificationPurged += await deleteBatched(completedOfGroup('notification', group));
+  }
+
+  let policyPurged = 0;
+  for (const group of await completedGroups('policy', RETENTION_DEFAULTS.policy)) {
+    policyPurged += await deleteBatched(completedOfGroup('policy', group), recomputeIdentities);
+  }
 
   let diagnosticPurged = 0;
   for (const kind of AUTOMATION_KINDS) {
-    const purged = await deleteBatched(diagnosticsOfKind(kind));
-    diagnosticPurged += purged;
+    diagnosticPurged += await deleteBatched(diagnosticsOfKind(kind));
   }
 
   return { notificationPurged, policyPurged, diagnosticPurged };

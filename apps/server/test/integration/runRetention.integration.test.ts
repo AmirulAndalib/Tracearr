@@ -16,9 +16,11 @@ import {
   createTestSession,
 } from '@tracearr/test-utils/factories';
 import type { AutomationKind, RunOutcome, RunStatus } from '@tracearr/shared';
+import { eq } from 'drizzle-orm';
 import { db } from '../../src/db/client.js';
-import { automations, automationRuns } from '../../src/db/schema.js';
+import { automations, automationRuns, users } from '../../src/db/schema.js';
 import { processRunRetention } from '../../src/jobs/runRetentionQueue.js';
+import { recomputeIdentityAggregatesForServerUser } from '../../src/services/userService.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const daysAgo = (days: number): Date => new Date(Date.now() - days * DAY_MS);
@@ -78,12 +80,24 @@ async function survivors(): Promise<Set<string>> {
   return new Set(rows.map((row) => row.id));
 }
 
-async function seedSubject(): Promise<{ serverUserId: string; sessionId: string }> {
+async function seedSubject(): Promise<{
+  serverUserId: string;
+  sessionId: string;
+  userId: string;
+}> {
   const owner = await createTestUser({ role: 'owner' });
   const server = await createTestServer({ type: 'plex' });
   const serverUser = await createTestServerUser({ userId: owner.id, serverId: server.id });
   const session = await createTestSession({ serverId: server.id, serverUserId: serverUser.id });
-  return { serverUserId: serverUser.id, sessionId: session.id };
+  return { serverUserId: serverUser.id, sessionId: session.id, userId: owner.id };
+}
+
+async function totalViolationsOf(userId: string): Promise<number | null> {
+  const rows = await db
+    .select({ total: users.totalViolations })
+    .from(users)
+    .where(eq(users.id, userId));
+  return rows[0]?.total ?? null;
 }
 
 describe('processRunRetention', () => {
@@ -159,7 +173,7 @@ describe('processRunRetention', () => {
     expect(left.has(keptLonger)).toBe(true);
   });
 
-  it('purges non-completed runs at 30 days whatever the kind or override says', async () => {
+  it('purges non-completed runs at 30 days whatever the kind, override or session binding says', async () => {
     const { serverUserId, sessionId } = await seedSubject();
     const policy = await seedAutomation('policy', 400);
     const notify = await seedAutomation('notification', 400);
@@ -168,6 +182,15 @@ describe('processRunRetention', () => {
       automationId: policy,
       serverUserId,
       sessionId,
+      kind: 'policy',
+      outcome: 'stopped_by_condition',
+      finishedAt: daysAgo(31),
+    });
+    // The hourly account sweep writes one of these per candidate automation per cycle.
+    const stoppedAccount = await seedRun({
+      automationId: policy,
+      serverUserId,
+      sessionId: null,
       kind: 'policy',
       outcome: 'stopped_by_condition',
       finishedAt: daysAgo(31),
@@ -192,13 +215,14 @@ describe('processRunRetention', () => {
     const result = await processRunRetention();
     const left = await survivors();
 
-    expect(result.diagnosticPurged).toBe(2);
+    expect(result.diagnosticPurged).toBe(3);
     expect(left.has(stoppedPolicy)).toBe(false);
+    expect(left.has(stoppedAccount)).toBe(false);
     expect(left.has(erroredNotification)).toBe(false);
     expect(left.has(recentError)).toBe(true);
   });
 
-  it('never touches running or account-keyed rows and ignores ack or dismiss state', async () => {
+  it('never touches running or account-keyed completed rows and ignores ack or dismiss state', async () => {
     const { serverUserId, sessionId } = await seedSubject();
     const policy = await seedAutomation('policy');
     const notify = await seedAutomation('notification');
@@ -225,14 +249,6 @@ describe('processRunRetention', () => {
       kind: 'notification',
       finishedAt: daysAgo(400),
     });
-    const accountDiagnostic = await seedRun({
-      automationId: notify,
-      serverUserId,
-      sessionId: null,
-      kind: 'notification',
-      outcome: 'stopped_by_condition',
-      finishedAt: daysAgo(400),
-    });
     const acknowledged = await seedRun({
       automationId: policy,
       serverUserId,
@@ -256,8 +272,37 @@ describe('processRunRetention', () => {
     expect(left.has(running)).toBe(true);
     expect(left.has(accountPolicy)).toBe(true);
     expect(left.has(accountNotification)).toBe(true);
-    expect(left.has(accountDiagnostic)).toBe(true);
     expect(left.has(acknowledged)).toBe(false);
     expect(left.has(dismissed)).toBe(false);
+  });
+
+  it('restates the violation rollup of every identity the policy purge touched', async () => {
+    const { serverUserId, sessionId, userId } = await seedSubject();
+    const policy = await seedAutomation('policy', 1);
+
+    for (const age of [10, 11, 12]) {
+      await seedRun({
+        automationId: policy,
+        serverUserId,
+        sessionId,
+        kind: 'policy',
+        finishedAt: daysAgo(age),
+      });
+    }
+    const kept = await seedRun({
+      automationId: policy,
+      serverUserId,
+      sessionId,
+      kind: 'policy',
+      finishedAt: new Date(),
+    });
+    await recomputeIdentityAggregatesForServerUser(serverUserId);
+    expect(await totalViolationsOf(userId)).toBe(4);
+
+    const result = await processRunRetention();
+
+    expect(result.policyPurged).toBe(3);
+    expect((await survivors()).has(kept)).toBe(true);
+    expect(await totalViolationsOf(userId)).toBe(1);
   });
 });

@@ -46,9 +46,10 @@ import {
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { isUniqueViolation } from '../db/pg.js';
-import { automations, serverUsers, servers, users } from '../db/schema.js';
+import { automationRuns, automations, serverUsers, servers, users } from '../db/schema.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateRulesCache } from '../jobs/poller/database.js';
+import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
 import { stampNodes, synthesizeTriggers } from '../services/automations/triggers.js';
 import {
@@ -58,6 +59,7 @@ import {
 } from '../services/automations/versions.js';
 import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
 import { hasInactivityCondition } from '../services/rules/engine.js';
+import { recomputeIdentityAggregatesForServerUser } from '../services/userService.js';
 import { buildOrderBy, likePattern, type SortKey } from '../utils/listQuery.js';
 import { buildMultiServerFragment } from '../utils/serverFiltering.js';
 import { firstIssueMessage } from '../utils/zod.js';
@@ -150,6 +152,30 @@ async function loadAutomation(id: string, authUser: AuthUser) {
     .where(and(eq(automations.id, id), visibleAutomations(authUser)))
     .limit(1);
   return rows[0];
+}
+
+/**
+ * Deleting an automation cascades its runs, and completed policy runs are what
+ * `users.total_violations` counts, so the identities behind them are restated
+ * afterward. The ids have to be read before the delete takes the rows away.
+ */
+async function countedIdentitiesOf(automationIds: string[]): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ serverUserId: automationRuns.serverUserId })
+    .from(automationRuns)
+    .where(
+      and(
+        inArray(automationRuns.automationId, automationIds),
+        ...violationAliasConditions({ requireUser: true })
+      )
+    );
+  return rows.map((row) => row.serverUserId).filter((id): id is string => id !== null);
+}
+
+async function restateIdentities(serverUserIds: string[]): Promise<void> {
+  for (const serverUserId of serverUserIds) {
+    await recomputeIdentityAggregatesForServerUser(serverUserId);
+  }
 }
 
 /** The scope trio and enforcement flag as they will read after the patch lands. */
@@ -426,7 +452,9 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     const existing = await loadAutomation(params.data.id, request.user);
     if (!existing) return reply.notFound('Automation not found');
 
+    const counted = await countedIdentitiesOf([existing.id]);
     await db.delete(automations).where(eq(automations.id, existing.id));
+    await restateIdentities(counted);
 
     invalidateRulesCache();
     if (hasInactivityCondition(existing)) void scheduleInactivityChecks();
@@ -462,10 +490,12 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('Invalid request body');
     }
 
+    const counted = await countedIdentitiesOf(parsed.data.ids);
     const deleted = await db
       .delete(automations)
       .where(inArray(automations.id, parsed.data.ids))
       .returning({ id: automations.id });
+    await restateIdentities(counted);
 
     if (deleted.length > 0) invalidateRulesCache();
     return { success: true, deleted: deleted.length };

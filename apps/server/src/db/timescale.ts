@@ -727,20 +727,11 @@ async function createPartialIndexes(): Promise<void> {
     WHERE geo_lat IS NOT NULL AND geo_lon IS NOT NULL
   `);
 
-  // Partial index for unacknowledged violations by user (hot path for user-specific alerts)
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_automation_runs_unacked_partial
-    ON automation_runs (server_user_id, created_at DESC)
-    WHERE acknowledged_at IS NULL
-  `);
-
-  // Partial index for unacknowledged violations list (hot path for main violations list)
-  // This index is optimized for the common query: ORDER BY created_at DESC WHERE acknowledged_at IS NULL
-  await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS idx_automation_runs_unacked_list
-    ON automation_runs (created_at DESC)
-    WHERE acknowledged_at IS NULL
-  `);
+  // The two unacked partials predate the runs table: diagnostics are all unacked
+  // and outnumber violations 20:1, so the predicate stopped selecting anything and
+  // the planner abandoned them. The alias partial in schema.ts serves both reads.
+  await db.execute(sql`DROP INDEX IF EXISTS idx_automation_runs_unacked_partial`);
+  await db.execute(sql`DROP INDEX IF EXISTS idx_automation_runs_unacked_list`);
 
   // idx_sessions_active_partial removed - live "now playing" reads come from the
   // Redis cache, and the one matching query (violations detail) plans onto the

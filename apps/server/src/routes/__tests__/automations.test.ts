@@ -17,6 +17,7 @@ import { queryChain, renderCall } from '../../test/helpers.js';
 vi.mock('../../db/client.js', () => ({
   db: {
     select: vi.fn(),
+    selectDistinct: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
@@ -29,10 +30,14 @@ vi.mock('../../jobs/inactivityCheckQueue.js', () => ({ scheduleInactivityChecks:
 vi.mock('../../services/notifications/destinationRefs.js', () => ({
   unknownDestinationIds: vi.fn(),
 }));
+vi.mock('../../services/userService.js', () => ({
+  recomputeIdentityAggregatesForServerUser: vi.fn(),
+}));
 
 import { db } from '../../db/client.js';
 import { invalidateRulesCache } from '../../jobs/poller/database.js';
 import { unknownDestinationIds } from '../../services/notifications/destinationRefs.js';
+import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { automationRoutes } from '../automations.js';
 
 const conditions: RuleConditions = {
@@ -128,6 +133,13 @@ function setupListMocks(rows: unknown[], total: number) {
   return { pageChain, countChain };
 }
 
+/** The distinct server users a delete's cascade would drop counted runs for. */
+function setupCountedIdentities(rows: Array<{ serverUserId: string | null }>) {
+  const chain = queryChain(vi.fn, rows);
+  vi.mocked(db.selectDistinct as unknown as ReturnType<typeof vi.fn>).mockReturnValue(chain);
+  return chain;
+}
+
 /** One select, for the by-id load a write path does first. */
 function setupSelect(...results: unknown[][]) {
   const chains = results.map((rows) => queryChain(vi.fn, rows));
@@ -194,6 +206,7 @@ describe('Automation routes', () => {
     // Reset, not clear: an unconsumed mockReturnValueOnce would answer the next test's query.
     vi.resetAllMocks();
     vi.mocked(unknownDestinationIds).mockResolvedValue([]);
+    setupCountedIdentities([]);
   });
 
   afterEach(async () => {
@@ -663,6 +676,30 @@ describe('Automation routes', () => {
       expect(response.statusCode).toBe(204);
       expect(renderCall(deleteChain).params).toEqual([AUTOMATION_ID]);
       expect(invalidateRulesCache).toHaveBeenCalledTimes(1);
+    });
+
+    it('restates the identities whose violation counts the cascade removed', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+      const counted = setupCountedIdentities([
+        { serverUserId: 'su-1' },
+        { serverUserId: null },
+        { serverUserId: 'su-2' },
+      ]);
+      const deleteChain = queryChain(vi.fn, []);
+      vi.mocked(db.delete as unknown as ReturnType<typeof vi.fn>).mockReturnValue(deleteChain);
+
+      const response = await app.inject({ method: 'DELETE', url: `/automations/${AUTOMATION_ID}` });
+
+      expect(response.statusCode).toBe(204);
+      // Only completed policy runs are counted, so only they can move the rollup.
+      expect(renderCall(counted).text).toContain(
+        'automation_runs.kind = $2 and automation_runs.outcome = $3'
+      );
+      expect(renderCall(counted).params).toEqual([AUTOMATION_ID, 'policy', 'completed']);
+      expect(recomputeIdentityAggregatesForServerUser).toHaveBeenCalledTimes(2);
+      expect(recomputeIdentityAggregatesForServerUser).toHaveBeenCalledWith('su-1');
+      expect(recomputeIdentityAggregatesForServerUser).toHaveBeenCalledWith('su-2');
     });
 
     it('404s on an automation that is not there', async () => {

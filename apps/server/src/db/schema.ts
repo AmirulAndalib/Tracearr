@@ -565,6 +565,13 @@ export const automationRuns = pgTable(
     index('automation_runs_notification_gate_idx')
       .on(table.automationId, table.subjectKey)
       .where(sql`kind = 'notification' AND outcome = 'completed'`),
+    // Every violation count and list composes the alias; diagnostics outnumber it 20:1.
+    // The id column is the list's paging tiebreak, so the scan needs no sort on top.
+    index('automation_runs_violation_alias_idx')
+      .on(table.createdAt.desc().nullsFirst(), table.id)
+      .where(sql`kind = 'policy' AND outcome = 'completed'`),
+    // The runs list default sort; null placement and tiebreak match its ORDER BY.
+    index('automation_runs_started_at_idx').on(table.startedAt.desc().nullsLast(), table.id),
   ]
 );
 
