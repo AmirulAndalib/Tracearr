@@ -55,7 +55,7 @@ export function ActionRow({
       {...rowProps}
       data-pulse={pulsing}
       className={cn(
-        '@container items-start',
+        'bg-card-raised @container items-start',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
         !enabled && 'opacity-60'
       )}
@@ -83,7 +83,7 @@ export function ActionRow({
         {hint && <RowWarning message={hint} />}
         <RowIssues issues={issues} />
       </ItemContent>
-      <ItemActions>
+      <ItemActions className="shrink-0">
         <RowActions
           name={name}
           enabled={enabled}

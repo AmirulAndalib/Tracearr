@@ -105,6 +105,7 @@ export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: Tri
       {...rowProps}
       data-pulse={pulsing}
       className={cn(
+        'bg-card-raised',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
         !trigger.enabled && 'opacity-60'
       )}
@@ -116,7 +117,7 @@ export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: Tri
         </ItemTitle>
         <RowIssues issues={issues} />
       </ItemContent>
-      <ItemActions>
+      <ItemActions className="shrink-0">
         <RowActions
           name={name}
           enabled={trigger.enabled}

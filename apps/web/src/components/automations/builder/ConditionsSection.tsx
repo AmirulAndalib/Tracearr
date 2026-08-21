@@ -34,6 +34,8 @@ export function ConditionsSection({
   const { groups } = conditions;
   const hasFields = fieldsAvailableFor(contextOf(refs.triggers)).length > 0;
   const sectionIssues = issues.get(BUILDER_SECTIONS.conditions);
+  // A second set puts its own add button in each card, so the step keeps one only while there is one set.
+  const soleGroup = groups.length === 1 ? groups[0] : undefined;
 
   const addFirst = (
     <Button
@@ -80,33 +82,49 @@ export function ConditionsSection({
         </Item>
       ) : (
         <>
-          {groups.map((group, index) => (
-            <Fragment key={idOf(group)}>
-              {index > 0 && (
-                <FieldSeparator align="start" role="presentation">
-                  {t('automations.builder.conditions.groupSeparator')}
-                </FieldSeparator>
-              )}
-              <ConditionGroupCard
-                group={group}
-                refs={refs}
-                issues={issues}
-                pulseId={pulseId}
-                dispatch={dispatch}
-              />
-            </Fragment>
-          ))}
+          <div className="space-y-2">
+            {groups.map((group, index) => (
+              <Fragment key={idOf(group)}>
+                {index > 0 && (
+                  <FieldSeparator align="start" role="presentation">
+                    {t('automations.builder.conditions.groupSeparator')}
+                  </FieldSeparator>
+                )}
+                <ConditionGroupCard
+                  group={group}
+                  refs={refs}
+                  issues={issues}
+                  pulseId={pulseId}
+                  bare={groups.length === 1}
+                  dispatch={dispatch}
+                />
+              </Fragment>
+            ))}
+          </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground mt-3"
-            onClick={() => dispatch({ type: 'addConditionGroup' })}
-          >
-            <Plus />
-            {t('automations.builder.conditions.addGroup')}
-          </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {soleGroup && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => dispatch({ type: 'addCondition', groupId: idOf(soleGroup) })}
+              >
+                <Plus />
+                {t('automations.builder.conditions.addFirst')}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => dispatch({ type: 'addConditionGroup' })}
+            >
+              <Plus />
+              {t('automations.builder.conditions.addGroup')}
+            </Button>
+          </div>
         </>
       )}
 

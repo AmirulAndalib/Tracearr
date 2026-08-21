@@ -54,22 +54,15 @@ function Section({
   dispatch: BuilderDispatch;
 }) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
-  const [elses, setElses] = useState<ReadonlySet<string>>(() => new Set());
-  const flip = (
-    set: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void,
-    id: string
-  ) =>
-    set((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
 
   const expansion: BranchExpansion = {
     isOpen: (id) => !closed.has(id),
-    isElseOpen: (id) => elses.has(id),
-    toggle: (id) => flip(setClosed, id),
-    toggleElse: (id) => flip(setElses, id),
+    toggle: (id) =>
+      setClosed((current) => {
+        const next = new Set(current);
+        if (!next.delete(id)) next.add(id);
+        return next;
+      }),
   };
   const refs: BuilderRefs = {
     triggers: [started],
@@ -130,16 +123,34 @@ describe('ActionsSection', () => {
     expect(screen.queryByRole('radio', { name: 'A violation' })).not.toBeInTheDocument();
   });
 
-  it('shows the then rows and keeps Otherwise folded away until asked', async () => {
+  it('shows both sides of the fork under their own labels', () => {
+    renderSection(branching);
+
+    expect(screen.getByText('then')).toBeInTheDocument();
+    expect(screen.getByText('Otherwise…')).toBeInTheDocument();
+    expect(screen.getByText('Kill Stream')).toBeInTheDocument();
+    expect(screen.getByText('Trust Score')).toBeInTheDocument();
+  });
+
+  it('says what happens on the other side while it holds nothing', () => {
+    renderSection({
+      actions: [
+        { id: 'if-2', enabled: true, type: 'if', conditions: { groups: [] }, then: [], else: [] },
+      ],
+    });
+
+    expect(screen.getByText('Nothing — the automation carries on.')).toBeInTheDocument();
+  });
+
+  it('reads the branch back while it is folded away', async () => {
     const user = userEvent.setup();
     renderSection(branching);
 
-    expect(screen.getByText('Kill Stream')).toBeInTheDocument();
-    expect(screen.queryByText('Trust Score')).not.toBeInTheDocument();
+    expect(screen.queryByText('If nothing yet')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Otherwise/ }));
+    await user.click(screen.getByRole('button', { name: /Hide this branch/ }));
 
-    expect(screen.getByText('Trust Score')).toBeInTheDocument();
+    expect(screen.getByText('If nothing yet')).toBeInTheDocument();
   });
 
   it('warns that a branch does not decide the flag on a policy', () => {

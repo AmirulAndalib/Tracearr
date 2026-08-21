@@ -24,7 +24,5 @@ export interface BuilderRefs {
  */
 export interface BranchExpansion {
   isOpen: (ifId: string) => boolean;
-  isElseOpen: (ifId: string) => boolean;
   toggle: (ifId: string) => void;
-  toggleElse: (ifId: string) => void;
 }

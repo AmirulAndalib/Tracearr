@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   contextOf,
@@ -8,6 +8,7 @@ import {
   type Operator,
 } from '@tracearr/shared';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { Item, ItemActions } from '@/components/ui/item';
 import {
   Select,
   SelectContent,
@@ -40,8 +41,6 @@ import type { BuilderIssue } from './validation';
 
 interface ConditionRowProps {
   condition: Condition;
-  /** The cell that opens the row: "Where", the logic toggle, or the logic in words. */
-  lead: ReactNode;
   refs: BuilderRefs;
   issues: BuilderIssue[] | undefined;
   pulsing: boolean;
@@ -51,7 +50,6 @@ interface ConditionRowProps {
 
 export function ConditionRow({
   condition,
-  lead,
   refs,
   issues,
   pulsing,
@@ -121,27 +119,25 @@ export function ConditionRow({
   const enabled = condition.enabled !== false;
 
   return (
-    <div
+    <Item
       role="listitem"
       id={nodeDomId(id)}
+      variant="outline"
+      size="sm"
       {...rowProps}
       data-pulse={pulsing}
       data-orphaned={orphaned.length > 0}
       className={cn(
-        'rounded-md p-1 outline-none',
+        'bg-card-raised items-center',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
-        'data-[orphaned=true]:ring-warning/50 data-[orphaned=true]:ring-1',
+        'data-[orphaned=true]:border-l-warning data-[orphaned=true]:bg-warning/5 data-[orphaned=true]:border-l-2',
         !enabled && 'opacity-60'
       )}
     >
-      <div className="flex flex-wrap items-start gap-2">
-        <div className="text-muted-foreground flex h-9 w-28 shrink-0 items-center text-sm">
-          {lead}
-        </div>
-
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 @max-lg:order-1 @max-lg:basis-full">
         <Combobox
           aria-label={t('automations.builder.conditions.fieldLabel')}
-          className="w-full @sm:w-52"
+          className="min-w-40 flex-1 @max-lg:basis-full"
           value={condition.field}
           options={options}
           onChange={changeField}
@@ -152,7 +148,7 @@ export function ConditionRow({
 
         <Select value={condition.operator} onValueChange={changeOperator}>
           <SelectTrigger
-            className="w-full @sm:w-40"
+            className="w-auto @max-lg:w-full"
             aria-label={t('automations.builder.conditions.operatorLabel')}
           >
             <SelectValue placeholder={t('automations.builder.conditions.operatorPlaceholder')} />
@@ -166,7 +162,7 @@ export function ConditionRow({
           </SelectContent>
         </Select>
 
-        <div className="min-w-36 flex-1">
+        <div className="min-w-36 flex-1 @max-lg:basis-full">
           <FieldControl
             spec={view.spec}
             value={view.value}
@@ -177,18 +173,22 @@ export function ConditionRow({
 
         <ConditionParams condition={condition} descriptor={descriptor} onChange={change} />
 
-        <div className="flex items-center gap-1">
-          <RowActions
-            name={name}
-            enabled={enabled}
-            onToggle={() => dispatch({ type: 'toggleNode', id })}
-            onRemove={() => dispatch({ type: 'removeNode', id })}
-          />
-        </div>
+        {(issues !== undefined || unreachable !== null) && (
+          <div className="basis-full">
+            <RowIssues issues={issues} />
+            {unreachable && <RowWarning message={unreachable} />}
+          </div>
+        )}
       </div>
 
-      <RowIssues issues={issues} />
-      {unreachable && <RowWarning message={unreachable} />}
-    </div>
+      <ItemActions className="shrink-0 @max-lg:order-first @max-lg:ml-auto">
+        <RowActions
+          name={name}
+          enabled={enabled}
+          onToggle={() => dispatch({ type: 'toggleNode', id })}
+          onRemove={() => dispatch({ type: 'removeNode', id })}
+        />
+      </ItemActions>
+    </Item>
   );
 }

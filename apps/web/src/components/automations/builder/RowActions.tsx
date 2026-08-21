@@ -45,9 +45,10 @@ export function RowActions({ name, enabled, onToggle, onRemove, children }: RowA
 
 /** A row that will not do what it looks like it does, said in plain words. */
 export function RowWarning({ message }: { message: string }) {
+  // The amber is the icon and the row's border; the words stay at reading contrast.
   return (
-    <p className="text-warning mt-1.5 flex items-start gap-1.5 text-xs">
-      <TriangleAlert className="mt-0.5 size-3 shrink-0" />
+    <p className="text-foreground mt-1.5 flex items-start gap-1.5 text-xs">
+      <TriangleAlert className="text-warning mt-0.5 size-3 shrink-0" />
       {message}
     </p>
   );

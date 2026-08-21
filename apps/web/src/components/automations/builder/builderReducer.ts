@@ -334,24 +334,18 @@ function moveAction(
   return moved ? { actions: next } : null;
 }
 
-/** Which branch a node sits in, so a collapsed `if` can be opened before it is focused. */
-export interface NodeBranch {
-  ifId: string;
-  /** null when the node is the `if` itself or one of its own conditions. */
-  side: 'then' | 'else' | null;
-}
-
-export function branchOf(actions: AutomationActions, nodeId: string): NodeBranch | null {
+/** Which `if` holds a node, so a collapsed one can be opened before it is focused. */
+export function branchOf(actions: AutomationActions, nodeId: string): string | null {
   for (const action of actions.actions) {
     if (action.type !== 'if') continue;
-    const ifId = idOf(action);
-    if (action.then.some((leaf) => leaf.id === nodeId)) return { ifId, side: 'then' };
-    if (action.else.some((leaf) => leaf.id === nodeId)) return { ifId, side: 'else' };
-    const owned = action.conditions.groups.some(
-      (group) =>
-        group.id === nodeId || group.conditions.some((condition) => condition.id === nodeId)
-    );
-    if (owned) return { ifId, side: null };
+    const holds =
+      action.then.some((leaf) => leaf.id === nodeId) ||
+      action.else.some((leaf) => leaf.id === nodeId) ||
+      action.conditions.groups.some(
+        (group) =>
+          group.id === nodeId || group.conditions.some((condition) => condition.id === nodeId)
+      );
+    if (holds) return idOf(action);
   }
   return null;
 }

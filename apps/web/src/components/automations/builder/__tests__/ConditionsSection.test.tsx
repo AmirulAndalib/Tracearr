@@ -82,7 +82,7 @@ describe('ConditionsSection', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'addConditionGroup' });
   });
 
-  it('leads the first row with Where and the second with the logic toggle', async () => {
+  it('joins the second check with a word the reader can change', async () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection(
       group([
@@ -91,16 +91,26 @@ describe('ConditionsSection', () => {
       ])
     );
 
-    expect(screen.getByText('Where')).toBeInTheDocument();
-    expect(screen.getByRole('radio', { name: 'all of these' })).toHaveAttribute('data-state', 'on');
+    const connective = screen.getByRole('combobox', { name: 'How these conditions combine' });
+    expect(connective).toHaveTextContent('all of these');
 
-    await user.click(screen.getByRole('radio', { name: 'any of these' }));
+    await user.click(connective);
+    await user.click(await screen.findByRole('option', { name: /any one check is enough/ }));
 
     expect(dispatch).toHaveBeenCalledWith({
       type: 'setConditionMatch',
       groupId: 'group-1',
       match: 'any',
     });
+  });
+
+  it('says nothing about joining while there is only one check', () => {
+    renderSection(group([condition({ id: 'c-1' })]));
+
+    expect(
+      screen.queryByRole('combobox', { name: 'How these conditions combine' })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Where')).not.toBeInTheDocument();
   });
 
   it('offers only the comparisons the picked field has', async () => {
@@ -149,7 +159,19 @@ describe('ConditionsSection', () => {
       ])
     );
 
-    expect(screen.getByText('Not available for: A server goes down')).toHaveClass('text-warning');
+    expect(rows()[0]).toHaveAttribute('data-orphaned', 'true');
+    // The amber carries on the row; the note itself stays at reading contrast.
+    expect(screen.getByText('Not available for: A server goes down')).toHaveClass(
+      'text-foreground'
+    );
+  });
+
+  it('lifts a line’s controls onto their own row when the column is narrow', () => {
+    renderSection(group([condition({ id: 'c-1' })]));
+
+    const actions = rows()[0]?.querySelector('[data-slot="item-actions"]');
+    expect(actions?.className).toContain('@max-lg:order-first');
+    expect(actions?.className).toContain('@max-lg:ml-auto');
   });
 
   it('says so when a threshold sits past the trigger that would fire it', () => {

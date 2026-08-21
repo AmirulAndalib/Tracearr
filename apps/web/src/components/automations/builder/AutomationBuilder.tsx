@@ -107,9 +107,8 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
   const [submitted, setSubmitted] = useState(false);
   const [pulseId, setPulseId] = useState<string | null>(null);
-  // An `if` body opens by default and its else branch does not; these hold the exceptions.
+  // An `if` body opens by default; this holds the ones the reader folded away.
   const [closedIfs, setClosedIfs] = useState<ReadonlySet<string>>(() => new Set());
-  const [openElses, setOpenElses] = useState<ReadonlySet<string>>(() => new Set());
   const [focusTarget, setFocusTarget] = useState<{ id: string; seq: number } | null>(null);
   const focusSeq = useRef(0);
   const [rejected, setRejected] = useState<BuilderIssue[]>([]);
@@ -234,24 +233,17 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
     [issues, submitted, touched]
   );
 
-  const toggleIn = (
-    set: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void,
-    id: string
-  ) =>
-    set((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-
   const expansion = useMemo<BranchExpansion>(
     () => ({
       isOpen: (ifId) => !closedIfs.has(ifId),
-      isElseOpen: (ifId) => openElses.has(ifId),
-      toggle: (ifId) => toggleIn(setClosedIfs, ifId),
-      toggleElse: (ifId) => toggleIn(setOpenElses, ifId),
+      toggle: (ifId) =>
+        setClosedIfs((current) => {
+          const next = new Set(current);
+          if (!next.delete(ifId)) next.add(ifId);
+          return next;
+        }),
     }),
-    [closedIfs, openElses]
+    [closedIfs]
   );
 
   // Radix unmounts a closed branch, so whatever holds the node is opened first and the
@@ -259,18 +251,13 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const focusNode = (nodeId: string) => {
     setPulseId(nodeId);
     const owner = branchOf(state.actions, nodeId);
-    if (owner) {
+    if (owner !== null) {
       setClosedIfs((current) => {
-        if (!current.has(owner.ifId)) return current;
+        if (!current.has(owner)) return current;
         const next = new Set(current);
-        next.delete(owner.ifId);
+        next.delete(owner);
         return next;
       });
-      if (owner.side === 'else') {
-        setOpenElses((current) =>
-          current.has(owner.ifId) ? current : new Set(current).add(owner.ifId)
-        );
-      }
     }
     focusSeq.current += 1;
     setFocusTarget({ id: nodeId, seq: focusSeq.current });

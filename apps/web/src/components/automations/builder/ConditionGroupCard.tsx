@@ -1,12 +1,12 @@
-import { useRef } from 'react';
+import { Fragment, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { ConditionGroup, ConditionMatch } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ItemGroup } from '@/components/ui/item';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { idOf, type BuilderDispatch } from './builderReducer';
 import { ConditionRow } from './ConditionRow';
+import { ConnectiveSelect } from './ConnectiveSelect';
 import { useRowKeyboard } from './useRowKeyboard';
 import type { BuilderRefs } from './builderRefs';
 import type { NodeIssues } from './validation';
@@ -16,15 +16,18 @@ interface ConditionGroupCardProps {
   refs: BuilderRefs;
   issues: NodeIssues;
   pulseId: string | null;
+  /** The lines on their own: no card, no remove, and the caller offers the add button. */
+  bare?: boolean;
   dispatch: BuilderDispatch;
 }
 
-/** One card of conditions that stand or fall together. */
+/** Checks that stand or fall together, joined by the word between them. */
 export function ConditionGroupCard({
   group,
   refs,
   issues,
   pulseId,
+  bare = false,
   dispatch,
 }: ConditionGroupCardProps) {
   const { t } = useTranslation('pages');
@@ -43,46 +46,48 @@ export function ConditionGroupCard({
     },
   });
 
-  const matchToggle = (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      value={match}
-      aria-label={t('automations.builder.conditions.matchLabel')}
-      onValueChange={(next) => {
-        if (next === 'all' || next === 'any') {
-          dispatch({ type: 'setConditionMatch', groupId, match: next });
-        }
-      }}
-    >
-      <ToggleGroupItem value="all">{t('automations.builder.conditions.all')}</ToggleGroupItem>
-      <ToggleGroupItem value="any">{t('automations.builder.conditions.any')}</ToggleGroupItem>
-    </ToggleGroup>
-  );
-
-  const lead = (index: number) => {
-    if (index === 0) return t('automations.builder.conditions.where');
-    if (index === 1) return matchToggle;
-    return t(`automations.builder.conditions.${match}`);
-  };
-
-  return (
-    <div ref={cardRef} className="bg-card @container space-y-2 rounded-lg border p-3">
-      <ItemGroup className="gap-2">
-        {group.conditions.map((condition, index) => (
+  const lines = (
+    <ItemGroup className="gap-2">
+      {group.conditions.map((condition, index) => (
+        <Fragment key={idOf(condition)}>
+          {index > 0 && (
+            <ConnectiveSelect
+              match={match}
+              onChange={(next) => dispatch({ type: 'setConditionMatch', groupId, match: next })}
+            />
+          )}
           <ConditionRow
-            key={idOf(condition)}
             condition={condition}
-            lead={lead(index)}
             refs={refs}
             issues={issues.get(idOf(condition))}
             pulsing={pulseId === idOf(condition)}
             rowProps={rows.rowProps(index)}
             dispatch={dispatch}
           />
-        ))}
-      </ItemGroup>
+        </Fragment>
+      ))}
+    </ItemGroup>
+  );
+
+  if (bare) {
+    return <div ref={cardRef}>{lines}</div>;
+  }
+
+  return (
+    <div ref={cardRef} className="@container space-y-2 rounded-lg border p-3">
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t('automations.builder.conditions.removeGroup')}
+          onClick={() => dispatch({ type: 'removeNode', id: groupId })}
+        >
+          <X />
+        </Button>
+      </div>
+
+      {lines}
 
       <Button
         type="button"

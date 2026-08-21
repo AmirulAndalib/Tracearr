@@ -222,6 +222,7 @@ describe('AutomationBuilder', () => {
       })
     );
 
+    await user.click(screen.getByRole('button', { name: /Hide this branch/ }));
     expect(screen.queryByText('Send Notification')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /1 problem/ }));

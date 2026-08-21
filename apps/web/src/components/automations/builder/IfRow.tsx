@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { IfAction, LeafActionType } from '@tracearr/shared';
 import { LEAF_ACTION_TYPES } from '@tracearr/shared';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { FieldSeparator } from '@/components/ui/field';
 import {
   Item,
   ItemActions,
@@ -65,8 +65,9 @@ export function IfRow({
   const { t } = useTranslation('pages');
   const id = idOf(action);
   const open = expansion.isOpen(id);
-  const elseOpen = expansion.isElseOpen(id);
   const enabled = action.enabled !== false;
+  const groups = action.conditions.groups;
+  const firstGroup = groups[0];
 
   const summary = useMemo(() => {
     const fragments = describeConditions(
@@ -91,7 +92,7 @@ export function IfRow({
       {...rowProps}
       data-pulse={pulseId === id}
       className={cn(
-        'flex-col items-stretch gap-3',
+        'bg-card-raised @container flex-col items-stretch gap-3',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
         !enabled && 'opacity-60'
       )}
@@ -99,9 +100,11 @@ export function IfRow({
       <div className="flex w-full items-start gap-3">
         <ItemMedia variant="icon">{actionIcon('if')}</ItemMedia>
         <ItemContent>
-          <ItemTitle className="flex-wrap">{summary}</ItemTitle>
+          <ItemTitle className="flex-wrap">
+            {open ? t('automations.builder.actions.ifTitle') : summary}
+          </ItemTitle>
         </ItemContent>
-        <ItemActions>
+        <ItemActions className="shrink-0">
           <Button
             type="button"
             variant="ghost"
@@ -117,7 +120,7 @@ export function IfRow({
             <ChevronDown className={cn('transition-transform', open && 'rotate-180')} />
           </Button>
           <RowActions
-            name={t('automations.catalog.actions.if.label')}
+            name={t('automations.builder.actions.branchName')}
             enabled={enabled}
             onToggle={() => dispatch({ type: 'toggleNode', id })}
             onRemove={onRemove}
@@ -128,40 +131,43 @@ export function IfRow({
       </div>
 
       <Collapsible open={open} onOpenChange={() => expansion.toggle(id)}>
-        <CollapsibleContent className="border-primary/40 ml-2 space-y-4 border-l-2 pl-4">
-          <div className="space-y-2">
-            <p className="text-muted-foreground text-xs font-medium">
-              {t('automations.builder.actions.ifConditions')}
-            </p>
-            {action.conditions.groups.map((group) => (
-              <ConditionGroupCard
-                key={idOf(group)}
-                group={group}
-                refs={refs}
-                issues={issues}
-                pulseId={pulseId}
-                dispatch={dispatch}
-              />
-            ))}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => dispatch({ type: 'addConditionGroup', ifId: id })}
-            >
-              <Plus />
-              {action.conditions.groups.length === 0
-                ? t('automations.builder.conditions.addFirst')
-                : t('automations.builder.conditions.addGroup')}
-            </Button>
-            <RowIssues issues={issues.get(id)} />
-          </div>
+        <CollapsibleContent className="border-primary/40 ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
+          {/* The header said "If", so the checks go straight underneath with no second label. */}
+          {groups.map((group) => (
+            <ConditionGroupCard
+              key={idOf(group)}
+              group={group}
+              refs={refs}
+              issues={issues}
+              pulseId={pulseId}
+              bare={groups.length === 1}
+              dispatch={dispatch}
+            />
+          ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={() =>
+              firstGroup
+                ? dispatch({ type: 'addCondition', groupId: idOf(firstGroup) })
+                : dispatch({ type: 'addConditionGroup', ifId: id })
+            }
+          >
+            <Plus />
+            {t('automations.builder.actions.ifAddCheck')}
+          </Button>
+          <RowIssues issues={issues.get(id)} />
 
+          <FieldSeparator align="start" surface="raised">
+            <span className="text-foreground font-medium">
+              {t('automations.builder.actions.branchThen')}
+            </span>
+          </FieldSeparator>
           <Branch
             ifId={id}
             side="then"
-            label={t('automations.builder.actions.branchThen')}
             actions={action.then}
             issues={issues}
             pulseId={pulseId}
@@ -169,27 +175,21 @@ export function IfRow({
             dispatch={dispatch}
           />
 
-          <Collapsible open={elseOpen} onOpenChange={() => expansion.toggleElse(id)}>
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground">
-                <ChevronDown className={cn('transition-transform', elseOpen && 'rotate-180')} />
-                {t('automations.builder.actions.branchElse')}
-                {action.else.length > 0 && <Badge variant="secondary">{action.else.length}</Badge>}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              <Branch
-                ifId={id}
-                side="else"
-                label={null}
-                actions={action.else}
-                issues={issues}
-                pulseId={pulseId}
-                onRemoveBranchAction={onRemoveBranchAction}
-                dispatch={dispatch}
-              />
-            </CollapsibleContent>
-          </Collapsible>
+          <FieldSeparator align="start" surface="raised">
+            <span className="text-foreground font-medium">
+              {t('automations.builder.actions.branchElse')}
+            </span>
+          </FieldSeparator>
+          <Branch
+            ifId={id}
+            side="else"
+            actions={action.else}
+            emptyText={t('automations.builder.actions.branchElseEmpty')}
+            issues={issues}
+            pulseId={pulseId}
+            onRemoveBranchAction={onRemoveBranchAction}
+            dispatch={dispatch}
+          />
 
           {refs.kind === 'policy' && (
             <p className="text-muted-foreground text-xs">
@@ -205,8 +205,9 @@ export function IfRow({
 interface BranchProps {
   ifId: string;
   side: 'then' | 'else';
-  label: string | null;
   actions: IfAction['then'];
+  /** What this side does while it holds nothing, said in words rather than left blank. */
+  emptyText?: string;
   issues: NodeIssues;
   pulseId: string | null;
   onRemoveBranchAction: (id: string, reclaim: () => void) => void;
@@ -217,8 +218,8 @@ interface BranchProps {
 function Branch({
   ifId,
   side,
-  label,
   actions,
+  emptyText,
   issues,
   pulseId,
   onRemoveBranchAction,
@@ -247,8 +248,6 @@ function Branch({
 
   return (
     <div ref={branchRef} className="space-y-2">
-      {label !== null && <p className="text-muted-foreground text-xs font-medium">{label}</p>}
-
       {actions.length > 0 && (
         <ItemGroup className="gap-2">
           {actions.map((action, index) => (
@@ -265,16 +264,21 @@ function Branch({
         </ItemGroup>
       )}
 
-      <NodePicker
-        entries={entries}
-        suggested={suggested}
-        label={t('automations.builder.actions.addBranch')}
-        onSelect={(value) => {
-          if (isLeafActionType(value)) {
-            dispatch({ type: 'addAction', actionType: value, branch: { ifId, side } });
-          }
-        }}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        {actions.length === 0 && emptyText !== undefined && (
+          <span className="text-muted-foreground text-sm">{emptyText}</span>
+        )}
+        <NodePicker
+          entries={entries}
+          suggested={suggested}
+          label={t('automations.builder.actions.addBranch')}
+          onSelect={(value) => {
+            if (isLeafActionType(value)) {
+              dispatch({ type: 'addAction', actionType: value, branch: { ifId, side } });
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }
