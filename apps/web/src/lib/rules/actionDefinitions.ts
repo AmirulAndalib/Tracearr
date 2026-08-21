@@ -233,6 +233,12 @@ export const COMPACT_ACTION_LABELS: Record<ActionType, string> = {
   message_client: 'Message',
 };
 
+/** Run steps name their action as a plain string, including types this build never knew. */
+export function compactActionLabel(action: string): string {
+  const labels: Record<string, string> = COMPACT_ACTION_LABELS;
+  return labels[action] ?? action;
+}
+
 /** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */
 export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>> = {
   adjust: { amount: -10 },

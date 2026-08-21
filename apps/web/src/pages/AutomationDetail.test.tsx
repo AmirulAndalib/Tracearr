@@ -229,7 +229,7 @@ describe('AutomationDetail activity', () => {
     expect(steps).toHaveLength(3);
     expect(steps[0]).toHaveTextContent('automations.activity.triggeredBy');
     expect(steps[0]).toHaveTextContent('edge-7');
-    expect(steps[1]).toHaveTextContent('kill_stream');
+    expect(steps[1]).toHaveTextContent('Kill stream');
     expect(steps[2]).toHaveTextContent('webhook refused');
   });
 });

@@ -85,16 +85,16 @@
         "message": "{{name}} finished successfully"
       },
       "ruleCreated": {
-        "title": "Rule Created",
-        "message": "The rule has been created successfully"
+        "title": "Automation Created",
+        "message": "The automation has been created successfully"
       },
       "ruleUpdated": {
-        "title": "Rule Updated",
-        "message": "The rule has been updated successfully"
+        "title": "Automation Updated",
+        "message": "The automation has been updated successfully"
       },
       "ruleDeleted": {
-        "title": "Rule Deleted",
-        "message": "The rule has been deleted successfully"
+        "title": "Automation Deleted",
+        "message": "The automation has been deleted successfully"
       },
       "streamTerminated": {
         "title": "Stream Terminated",
@@ -175,9 +175,9 @@
       "dismissFailed": "Failed to dismiss violation",
       "authFailed": "Authentication failed",
       "webhookTestFailed": "Webhook test failed",
-      "ruleCreateFailed": "Failed to create rule",
-      "ruleUpdateFailed": "Failed to update rule",
-      "ruleDeleteFailed": "Failed to delete rule",
+      "ruleCreateFailed": "Failed to create automation",
+      "ruleUpdateFailed": "Failed to update automation",
+      "ruleDeleteFailed": "Failed to delete automation",
       "streamTerminateFailed": "Failed to terminate stream",
       "serverUrlUpdateFailed": "Failed to update server URL",
       "serverUpdateFailed": "Failed to update server",

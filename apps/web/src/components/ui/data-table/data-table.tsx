@@ -212,6 +212,9 @@ export function DataTableRow<TData extends object>({
       onKeyDown={
         clickable
           ? (event) => {
+              // Cells hold their own controls; a key pressed on one of those
+              // activates it rather than opening the row.
+              if (event.target !== event.currentTarget) return;
               if (event.key !== 'Enter' && event.key !== ' ') return;
               event.preventDefault();
               onRowClick(row.original);

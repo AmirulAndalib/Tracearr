@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { trustActionSchema } from '@tracearr/shared';
-import { applyActionFieldChange, createDefaultAction } from '../actionDefinitions';
+import {
+  applyActionFieldChange,
+  compactActionLabel,
+  createDefaultAction,
+} from '../actionDefinitions';
 
 describe('applyActionFieldChange', () => {
   it('swaps trust parameters when the mode changes, so every mode stays savable', () => {
@@ -41,5 +45,16 @@ describe('applyActionFieldChange', () => {
       type: 'kill_stream',
       cooldown_minutes: 30,
     });
+  });
+});
+
+describe('compactActionLabel', () => {
+  it('reads a stored action type as its label', () => {
+    expect(compactActionLabel('kill_stream')).toBe('Kill stream');
+    expect(compactActionLabel('message_client')).toBe('Message');
+  });
+
+  it('falls back to the stored value for an action this build does not know', () => {
+    expect(compactActionLabel('quarantine')).toBe('quarantine');
   });
 });

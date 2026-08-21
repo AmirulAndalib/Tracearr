@@ -59,6 +59,7 @@ vi.mock('@/lib/api', () => ({
 import { WS_EVENTS } from '@tracearr/shared';
 import { toast } from 'sonner';
 import { DESTINATIONS_KEY } from './queries/useDestinations';
+import { RUNS_KEY } from './queries/useRuns';
 import { SocketProvider, useSocket } from './useSocket';
 
 const startedSession = {
@@ -178,6 +179,30 @@ describe('SocketProvider', () => {
     fire(WS_EVENTS.DESTINATIONS_CHANGED);
 
     expect(invalidate).toHaveBeenCalledWith({ queryKey: DESTINATIONS_KEY });
+  });
+
+  it('coalesces a burst of finished runs into one refetch', () => {
+    vi.useFakeTimers();
+    try {
+      const { invalidate } = setup();
+
+      for (let i = 0; i < 19; i++) fire(WS_EVENTS.RUN_FINISHED);
+      expect(invalidate).not.toHaveBeenCalledWith({ queryKey: RUNS_KEY });
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: RUNS_KEY });
+      expect(invalidate.mock.calls.filter(([args]) => args?.queryKey === RUNS_KEY)).toHaveLength(1);
+
+      fire(WS_EVENTS.RUN_FINISHED);
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(invalidate.mock.calls.filter(([args]) => args?.queryKey === RUNS_KEY)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders a rule toast from the notification payload', () => {

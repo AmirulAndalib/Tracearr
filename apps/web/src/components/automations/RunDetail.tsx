@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRun } from '@/hooks/queries/useRuns';
+import { compactActionLabel } from '@/lib/rules';
 
 /** Step zero, as the recorder writes it. */
 interface TriggerStep {
@@ -140,7 +141,7 @@ function StepLabel({ step, isTrigger }: { step: unknown; isTrigger: boolean }) {
   const note = action.skipped ? action.skipReason : action.success ? null : action.message;
   return (
     <>
-      <p className="text-sm font-medium">{action.action}</p>
+      <p className="text-sm font-medium">{compactActionLabel(action.action)}</p>
       {note && <p className="text-muted-foreground text-xs">{note}</p>}
     </>
   );

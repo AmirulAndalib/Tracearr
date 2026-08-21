@@ -34,15 +34,22 @@ export function ScopeChip({ automation, servers, filterOptions }: ScopeChipProps
     );
   }
 
-  const userOption = filterOptions?.users.find((user) => user.id === automation.serverUserId);
-  const server = userOption ? servers.find((s) => s.id === userOption.serverId) : undefined;
+  // One option per person, keyed by a representative account. Only that
+  // representative carries a username and a server the scope can claim.
+  const account = automation.serverUserId;
+  const userOption = account
+    ? filterOptions?.users.find((user) => user.serverUserIds.includes(account))
+    : undefined;
+  const representative = userOption?.id === account ? userOption : undefined;
+  const server = representative ? servers.find((s) => s.id === representative.serverId) : undefined;
+  const label = representative?.username ?? userOption?.identityName ?? userOption?.username;
 
   return (
     <span className="inline-flex items-center gap-1">
       {server && <ServerBadge server={server} variant="compact" />}
       <Badge variant="secondary">
         <User aria-hidden="true" />
-        {userOption?.username ?? userOption?.identityName ?? t('automations.scope.account')}
+        {label ?? t('automations.scope.account')}
       </Badge>
     </span>
   );

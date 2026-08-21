@@ -179,6 +179,17 @@ describe('Automations', () => {
     expect(openedDetail()).not.toBeInTheDocument();
   });
 
+  it('toggles a row from the keyboard without navigating away from the list', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    screen.getByRole('switch').focus();
+    await user.keyboard('{Enter}');
+
+    expect(toggleMutate).toHaveBeenCalledWith({ id: 'a-1', isActive: false });
+    expect(openedDetail()).not.toBeInTheDocument();
+  });
+
   it('keeps the row actions from opening the automation', async () => {
     const user = userEvent.setup();
     renderAutomations();

@@ -19,12 +19,12 @@ test.describe('Automation Creation', () => {
     await page.getByText('Concurrent Streams').click();
 
     // A template pre-fills the builder, so it opens in its editing mode.
-    await expect(page.getByText('Edit Rule')).toBeVisible();
+    await expect(page.getByText('Edit Automation')).toBeVisible();
     const nameInput = page.locator('#rule-name');
     await nameInput.clear();
     await nameInput.fill(name);
 
-    await page.getByRole('button', { name: 'Update Rule' }).click();
+    await page.getByRole('button', { name: 'Update Automation' }).click();
 
     await expect(page.locator('#rule-name')).toBeHidden();
     await expect(page.getByRole('cell', { name })).toBeVisible();
@@ -45,7 +45,7 @@ test.describe('Automation Creation', () => {
     await page.getByRole('button', { name: 'Add Automation' }).first().click();
     await page.getByRole('menuitem', { name: 'Custom Automation' }).click();
 
-    await expect(page.getByText('Create Rule')).toBeVisible();
+    await expect(page.getByText('Create Automation')).toBeVisible();
 
     await page.locator('#rule-name').fill(name);
     await page.locator('#rule-description').fill('Created by E2E test');
@@ -54,7 +54,7 @@ test.describe('Automation Creation', () => {
     await page.getByRole('option', { name: 'High' }).click();
 
     // The default condition (concurrent_streams) is already set - leave it as-is
-    await page.getByRole('button', { name: 'Create Rule' }).click();
+    await page.getByRole('button', { name: 'Create Automation' }).click();
 
     await expect(page.locator('#rule-name')).toBeHidden();
     await expect(page.getByRole('cell', { name })).toBeVisible();

@@ -167,6 +167,12 @@ describe('Violations', () => {
     expect(screen.getByRole('button', { name: /common:actions.next/ })).toBeEnabled();
   });
 
+  it('offers only policy automations in the rule filter', () => {
+    renderViolations();
+
+    expect(mockUseAutomations).toHaveBeenCalledWith(expect.objectContaining({ kind: 'policy' }));
+  });
+
   it('sends the mapped sort field to the query and returns to page one', async () => {
     const user = userEvent.setup();
     renderViolations();

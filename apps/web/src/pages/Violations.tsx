@@ -88,8 +88,12 @@ export function Violations() {
   const [bulkDismissConfirmOpen, setBulkDismissConfirmOpen] = useState(false);
 
   // One page covers the dropdown: the filter names an automation, it does not
-  // page through them.
-  const { data: automations } = useAutomations({ pageSize: RULE_OPTIONS_PAGE_SIZE });
+  // page through them. Only policy automations reach this list, so the other
+  // kinds would filter it down to nothing.
+  const { data: automations } = useAutomations({
+    kind: 'policy',
+    pageSize: RULE_OPTIONS_PAGE_SIZE,
+  });
   const ruleOptions = useMemo(
     () => automations?.data.map((automation) => ({ value: automation.id, label: automation.name })),
     [automations]

@@ -63,6 +63,9 @@ const SESSION_STOPPED_HISTORY_THROTTLE_MS = 5000;
 // would otherwise drive /tasks/running refetches for hours, so this stays
 // near the old fixed poll cadence.
 const TASKS_REFRESH_THROTTLE_MS = 5000;
+// One session start can finish a run per automation, so the burst collapses
+// into a single refetch of the run list.
+const RUNS_REFRESH_THROTTLE_MS = 2000;
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation(['notifications', 'common']);
@@ -85,6 +88,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const sessionUpdatedThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionStoppedHistoryThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tasksRefreshThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runsRefreshThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasConnectedRef = useRef(false);
 
   useEffect(() => {
@@ -250,7 +254,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     newSocket.on(WS_EVENTS.RUN_FINISHED, () => {
-      void queryClient.invalidateQueries({ queryKey: RUNS_KEY });
+      if (runsRefreshThrottleRef.current) return;
+      runsRefreshThrottleRef.current = setTimeout(() => {
+        runsRefreshThrottleRef.current = null;
+        void queryClient.invalidateQueries({ queryKey: RUNS_KEY });
+      }, RUNS_REFRESH_THROTTLE_MS);
     });
 
     newSocket.on(WS_EVENTS.STATS_UPDATED, (_stats: DashboardStats) => {
@@ -428,6 +436,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (tasksRefreshThrottleRef.current) {
         clearTimeout(tasksRefreshThrottleRef.current);
         tasksRefreshThrottleRef.current = null;
+      }
+      if (runsRefreshThrottleRef.current) {
+        clearTimeout(runsRefreshThrottleRef.current);
+        runsRefreshThrottleRef.current = null;
       }
     };
   }, [isAuthenticated, isInMaintenance, queryClient, isWebToastEnabled]);
