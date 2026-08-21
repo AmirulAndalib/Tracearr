@@ -27,7 +27,7 @@ import {
   Settings2,
   Pause,
 } from 'lucide-react';
-import { COMPACT_ACTION_LABELS } from './actionDefinitions';
+import { compactActionLabel } from './actionDefinitions';
 import {
   COMPACT_FIELD_LABELS,
   DEVICE_TYPE_OPTIONS,
@@ -247,7 +247,7 @@ function formatConditionValue(
 }
 
 function formatAction(action: Action): string {
-  return COMPACT_ACTION_LABELS[action.type];
+  return compactActionLabel(action.type);
 }
 
 /**

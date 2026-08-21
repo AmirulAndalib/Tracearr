@@ -9,7 +9,7 @@ import {
   MessageSquare,
   HelpCircle,
 } from 'lucide-react';
-import type { Action, ActionType, AutomationKind } from '@tracearr/shared';
+import type { Action, AutomationKind, LeafActionType } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import {
@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { DestinationsField } from './DestinationsField';
 import { RuleFieldControl, type RuleControlSpec, type RuleControlValue } from './fields';
 
-const ACTION_ICONS: Record<ActionType, React.ComponentType<{ className?: string }>> = {
+const ACTION_ICONS: Record<LeafActionType, React.ComponentType<{ className?: string }>> = {
   send: Bell,
   trust: TrendingUp,
   kill_stream: XCircle,
@@ -50,6 +50,8 @@ interface ActionRowProps {
 export function ActionRow({ action, kind, onChange, onRemove, showRemove = true }: ActionRowProps) {
   const { t } = useTranslation('pages');
   const typeId = useId();
+  // A control node has no row of its own; its branches carry the effects.
+  if (action.type === 'if') return null;
   const def = ACTION_DEFINITIONS[action.type];
 
   const typeOptions = actionTypesForKind(kind);
@@ -84,7 +86,7 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
           <FieldLabel htmlFor={typeId}>{t('automations.builder.actions.typeLabel')}</FieldLabel>
           <Select
             value={action.type}
-            onValueChange={(type) => onChange(createDefaultAction(type as ActionType))}
+            onValueChange={(type) => onChange(createDefaultAction(type as LeafActionType))}
           >
             <SelectTrigger id={typeId}>
               <SelectValue placeholder={t('automations.builder.actions.typePlaceholder')} />

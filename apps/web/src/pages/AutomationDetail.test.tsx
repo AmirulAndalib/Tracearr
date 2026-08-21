@@ -65,7 +65,9 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     isActive: true,
     cooldownMinutes: null,
     retentionDays: null,
-    identityName: null,
+    scopeRef: null,
+    template: null,
+    origin: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
     ...overrides,
@@ -78,7 +80,6 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
     automationId: 'a-1',
     automationName: 'Concurrent cap',
     kind: 'policy',
-    status: 'finished',
     outcome: 'completed',
     humanSummary: null,
     severity: 'warning',
@@ -160,7 +161,10 @@ describe('AutomationDetail', () => {
 
   it('names the person a person-scoped automation targets', () => {
     mockUseAutomation.mockReturnValue({
-      data: automation({ userId: 'usr-1', identityName: 'Ada' }),
+      data: automation({
+        userId: 'usr-1',
+        scopeRef: { kind: 'person', id: 'usr-1', name: 'Ada' },
+      }),
       isLoading: false,
     } as unknown as ReturnType<typeof useAutomation>);
 

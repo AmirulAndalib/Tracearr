@@ -15,7 +15,7 @@ import {
   createTestServerUser,
   createTestSession,
 } from '@tracearr/test-utils/factories';
-import type { AutomationKind, RunOutcome, RunStatus } from '@tracearr/shared';
+import type { AutomationKind, RunOutcome } from '@tracearr/shared';
 import { eq } from 'drizzle-orm';
 import { db } from '../../src/db/client.js';
 import { automations, automationRuns, users } from '../../src/db/schema.js';
@@ -49,7 +49,7 @@ interface RunSeed {
   sessionId: string | null;
   kind: AutomationKind;
   finishedAt: Date;
-  status?: RunStatus;
+  status?: string;
   outcome?: RunOutcome;
   acknowledgedAt?: Date | null;
   dismissedAt?: Date | null;

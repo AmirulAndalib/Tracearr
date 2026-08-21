@@ -1,7 +1,7 @@
 import { TIME_MS } from '@tracearr/shared';
 import type {
   Action,
-  ActionType,
+  LeafActionType,
   SendAction,
   TrustAction,
   KillStreamAction,
@@ -357,7 +357,7 @@ const executeMessageClient: ActionExecutor = async (
 // Executor Registry
 // ============================================================================
 
-export const executorRegistry: Record<ActionType, ActionExecutor> = {
+export const executorRegistry: Record<LeafActionType, ActionExecutor> = {
   send: executeSend,
   trust: executeTrust,
   kill_stream: executeKillStream,
@@ -390,7 +390,8 @@ export async function executeAction(
   action: Action
 ): Promise<ActionResult> {
   const { rule, serverUser } = context;
-  const executor = executorRegistry[action.type];
+  // `if` is a control node, not an effect, so it has no executor.
+  const executor = action.type === 'if' ? undefined : executorRegistry[action.type];
 
   if (!executor) {
     return {

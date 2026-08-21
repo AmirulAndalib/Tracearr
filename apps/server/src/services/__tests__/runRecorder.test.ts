@@ -703,7 +703,6 @@ describe('toRunSummary', () => {
       automationId: 'r1',
       automationName: 'Rule',
       kind: 'policy',
-      status: 'finished',
       outcome: 'completed',
       humanSummary: null,
       severity: 'high',

@@ -324,11 +324,14 @@ export type {
 // Automation type exports
 export type {
   AutomationKind,
+  TriggerContext,
   TriggerType,
   TriggerNode,
-  RunStatus,
   RunOutcome,
   Automation,
+  AutomationScopeRef,
+  AutomationTemplateRef,
+  AutomationOrigin,
   AutomationRunSummary,
   AutomationRun,
   RunFinishedEvent,
@@ -340,25 +343,41 @@ export type {
   RunListQuery,
   NearMissReason,
   NearMissEntry,
-} from './automations.js';
+  ConditionFieldDescriptor,
+  LeafActionType,
+  LeafAction,
+  IfAction,
+} from './automations/index.js';
 
 // Automation constants and schemas
 export {
   AUTOMATION_KINDS,
+  TRIGGERS,
   TRIGGER_TYPES,
-  RUN_STATUSES,
+  TRIGGER_CONTEXT_RANK,
+  CONDITION_FIELDS,
+  ACTIONS,
+  ACTION_TYPES,
+  LEAF_ACTION_TYPES,
   RUN_OUTCOMES,
   RETENTION_DEFAULTS,
   AUTOMATION_SORT_FIELDS,
   RUN_SORT_FIELDS,
   triggerNodeSchema,
+  heldForParamsSchema,
+  inactiveForParamsSchema,
+  conditionGroupSchema,
+  automationDefinitionSchema,
   createAutomationSchema,
   updateAutomationSchema,
   automationListQuerySchema,
   runListQuerySchema,
   NEAR_MISS_REASONS,
   nearMissEntrySchema,
-} from './automations.js';
+  definitionRefinements,
+  contextOf,
+  fieldsAvailableFor,
+} from './automations/index.js';
 
 // Schema exports
 export {
@@ -414,7 +433,6 @@ export {
   RULE_SCOPE_ERROR_MESSAGE,
   scopeAllowsCrossServerEnforcement,
   RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
-  INACTIVITY_COMPATIBLE_FIELDS,
   // Bulk operations
   bulkUpdateRulesSchema,
   bulkDeleteRulesSchema,

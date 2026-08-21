@@ -1,7 +1,14 @@
 /**
  * Core type definitions for Tracearr
  */
-import type { AutomationKind, RunFinishedEvent, TriggerNode } from './automations.js';
+import type {
+  ActionResult,
+  AutomationKind,
+  GroupEvidence,
+  NodeFields,
+  RunFinishedEvent,
+  TriggerNode,
+} from './automations/index.js';
 import type { NotificationToast } from './destinations.js';
 import type { RuleActions, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
@@ -642,28 +649,12 @@ export type MediaTypeEnum = 'movie' | 'episode' | 'track' | 'photo' | 'live' | '
 // Condition value types
 export type ConditionValue = string | number | boolean | string[] | number[];
 
-// Evidence types for violation diagnostics
-export interface ConditionEvidence {
-  field: ConditionField;
-  operator: Operator;
-  threshold: ConditionValue;
-  actual: unknown;
-  matched: boolean;
-  relatedSessionIds?: string[];
-  details?: Record<string, unknown>;
-}
-
-export interface GroupEvidence {
-  groupIndex: number;
-  matched: boolean;
-  conditions: ConditionEvidence[];
-}
-
-/** Every condition and action node carries these once the builder has stamped it. */
-export interface NodeFields {
-  id?: string;
-  enabled?: boolean;
-}
+export type {
+  ActionResult,
+  ConditionEvidence,
+  GroupEvidence,
+  NodeFields,
+} from './automations/index.js';
 
 // Single condition
 export interface Condition extends NodeFields {
@@ -721,16 +712,6 @@ export interface RuleV2 {
   updatedAt: Date;
 }
 
-// Action result types (for UI display of action execution results)
-export interface ActionResult {
-  actionType: string;
-  success: boolean;
-  skipped?: boolean;
-  skipReason?: string;
-  errorMessage?: string;
-  executedAt?: string;
-}
-
 // Violation types
 export type ViolationSeverity = 'low' | 'warning' | 'high';
 
@@ -784,11 +765,6 @@ export interface ViolationWithDetails extends Violation {
   server?: Pick<Server, 'id' | 'name' | 'type'>;
   session?: ViolationSessionInfo;
   relatedSessions?: ViolationSessionInfo[];
-  userHistory?: {
-    previousIPs: string[];
-    previousDevices: string[];
-    previousLocations: Array<{ city: string | null; country: string | null; ip: string }>;
-  };
   /** Action results from V2 rule execution */
   actionResults?: ActionResult[];
   /** Condition evidence from V2 rule evaluation */

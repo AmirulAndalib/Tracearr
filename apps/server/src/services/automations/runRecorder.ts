@@ -344,7 +344,6 @@ export function toRunSummary(
     | 'id'
     | 'automationId'
     | 'kind'
-    | 'status'
     | 'outcome'
     | 'humanSummary'
     | 'severity'
@@ -365,7 +364,6 @@ export function toRunSummary(
     automationId: row.automationId,
     automationName,
     kind: row.kind,
-    status: row.status,
     outcome: row.outcome,
     humanSummary: row.humanSummary,
     severity: row.severity ?? null,

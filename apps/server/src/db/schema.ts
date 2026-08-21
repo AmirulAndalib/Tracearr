@@ -30,7 +30,6 @@ import {
   type AutomationKind,
   type NotificationEventType,
   type RunOutcome,
-  type RunStatus,
   type TriggerNode,
 } from '@tracearr/shared';
 
@@ -515,7 +514,7 @@ export const automationRuns = pgTable(
     ruleType: varchar('rule_type', { length: 50 }).$type<(typeof ruleTypeEnum)[number] | null>(),
     data: jsonb('data').notNull().$type<Record<string, unknown>>(),
     kind: text('kind').notNull().default('policy').$type<AutomationKind>(),
-    status: text('status').notNull().default('finished').$type<RunStatus>(),
+    status: text('status').notNull().default('finished'),
     outcome: text('outcome').notNull().default('completed').$type<RunOutcome>(),
     humanSummary: text('human_summary'),
     definitionVersionId: uuid('definition_version_id').references(() => automationVersions.id),

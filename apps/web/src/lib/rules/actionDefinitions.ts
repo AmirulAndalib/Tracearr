@@ -1,10 +1,10 @@
 /** The builder's action metadata registry: labels, config fields and per-type defaults. */
 
 import {
-  actionTypeSchema,
-  type Action,
-  type ActionType,
+  LEAF_ACTION_TYPES,
   type AutomationKind,
+  type LeafAction,
+  type LeafActionType,
   type TrustAction,
   type ViolationSeverity,
 } from '@tracearr/shared';
@@ -39,7 +39,7 @@ export interface ConfigField {
 
 // Action definition interface
 export interface ActionDefinition {
-  type: ActionType;
+  type: LeafActionType;
   label: string;
   description: string;
   icon: string; // Lucide icon name
@@ -85,7 +85,7 @@ export const SESSION_TARGET_OPTIONS: ConfigFieldOption[] = [
 ];
 
 // The main action definitions registry
-export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
+export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
   send: {
     type: 'send',
     label: 'Send Notification',
@@ -226,7 +226,7 @@ export const ACTION_DEFINITIONS: Record<ActionType, ActionDefinition> = {
 };
 
 // Short action labels for one-line summaries
-export const COMPACT_ACTION_LABELS: Record<ActionType, string> = {
+export const COMPACT_ACTION_LABELS: Record<LeafActionType, string> = {
   send: 'Send',
   trust: 'Trust score',
   kill_stream: 'Kill stream',
@@ -247,7 +247,7 @@ export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>
 };
 
 /** Trust carries one parameter per mode, so a row shows only that mode's field. */
-export function visibleConfigFields(action: Action): ConfigField[] {
+export function visibleConfigFields(action: LeafAction): ConfigField[] {
   const { configFields } = ACTION_DEFINITIONS[action.type];
   if (action.type !== 'trust') return configFields;
   const params = Object.keys(TRUST_MODE_PARAMS[action.mode]);
@@ -255,7 +255,11 @@ export function visibleConfigFields(action: Action): ConfigField[] {
 }
 
 /** Switching trust mode swaps the parameter set wholesale; the node fields and cooldown survive. */
-export function applyActionFieldChange(action: Action, name: string, value: unknown): Action {
+export function applyActionFieldChange(
+  action: LeafAction,
+  name: string,
+  value: unknown
+): LeafAction {
   if (action.type === 'trust' && name === 'mode') {
     const mode = value as TrustAction['mode'];
     const { id, enabled, cooldown_minutes } = action;
@@ -269,20 +273,20 @@ export function applyActionFieldChange(action: Action, name: string, value: unkn
 }
 
 /** The picker offers whatever the contract declares, so a new action type cannot go unoffered. */
-const OFFERED_ACTION_TYPES: readonly ActionType[] = actionTypeSchema.options;
+const OFFERED_ACTION_TYPES: readonly LeafActionType[] = LEAF_ACTION_TYPES;
 
 /** The action type a freshly added row starts on, for either kind. */
-export const DEFAULT_ACTION_TYPE: ActionType = 'send';
+export const DEFAULT_ACTION_TYPE: LeafActionType = 'send';
 
 /** Both kinds may use every action; a notification automation just leads with `send`. */
-export function actionTypesForKind(kind: AutomationKind): ActionType[] {
-  const types: ActionType[] = [...OFFERED_ACTION_TYPES];
+export function actionTypesForKind(kind: AutomationKind): LeafActionType[] {
+  const types: LeafActionType[] = [...OFFERED_ACTION_TYPES];
   if (kind !== 'notification') return types;
   return ['send', ...types.filter((type) => type !== 'send')];
 }
 
 /** Create a default action of a given type. */
-export function createDefaultAction(type: ActionType): Action {
+export function createDefaultAction(type: LeafActionType): LeafAction {
   switch (type) {
     case 'send':
       return { type: 'send', to: [] };

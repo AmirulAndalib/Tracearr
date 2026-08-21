@@ -65,7 +65,9 @@ function automation(serverUserId: string): Automation {
     isActive: true,
     cooldownMinutes: null,
     retentionDays: null,
-    identityName: null,
+    scopeRef: null,
+    template: null,
+    origin: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
   };

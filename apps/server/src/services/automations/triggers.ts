@@ -18,7 +18,24 @@ const PAUSE_FIELDS: ReadonlySet<ConditionField> = new Set([
   'total_pause_minutes',
 ]);
 
-const node = (type: TriggerType): TriggerNode => ({ id: randomUUID(), type, enabled: true });
+const node = (
+  type: Exclude<TriggerType, 'session.held_for' | 'account.inactive_for'>
+): TriggerNode => ({ id: randomUUID(), type, enabled: true });
+
+// Synthesized params sit at their minimum: the thresholds the engine acts on live in the
+// pause and inactivity conditions, not on the trigger node.
+const heldForNode = (): TriggerNode => ({
+  id: randomUUID(),
+  type: 'session.held_for',
+  enabled: true,
+  params: { minutes: 1, measure: 'current' },
+});
+const inactiveForNode = (): TriggerNode => ({
+  id: randomUUID(),
+  type: 'account.inactive_for',
+  enabled: true,
+  params: { days: 1 },
+});
 
 /**
  * Mirrors the engine's condition sniffing: inactive_days routes to the account trigger and
@@ -35,8 +52,8 @@ export function synthesizeTriggers(conditions: RuleConditions | null | undefined
   const triggers: TriggerNode[] = [];
   if (!fields.has('inactive_days')) triggers.push(node('session.started'));
   if (usesAny(TRANSCODE_FIELDS)) triggers.push(node('session.transcode_changed'));
-  if (usesAny(PAUSE_FIELDS)) triggers.push(node('session.paused'), node('session.held_for'));
-  if (fields.has('inactive_days')) triggers.push(node('account.inactive_for'));
+  if (usesAny(PAUSE_FIELDS)) triggers.push(node('session.paused'), heldForNode());
+  if (fields.has('inactive_days')) triggers.push(inactiveForNode());
   return triggers;
 }
 
@@ -71,6 +88,7 @@ export function stampNodes(definition: {
     conditions: definition.conditions
       ? {
           groups: definition.conditions.groups.map((group) => ({
+            ...group,
             conditions: group.conditions.map((condition) => stamp(condition)),
           })),
         }

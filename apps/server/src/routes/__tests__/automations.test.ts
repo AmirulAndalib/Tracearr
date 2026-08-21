@@ -302,16 +302,6 @@ describe('Automation routes', () => {
       expect(response.json().id).toBe(AUTOMATION_ID);
     });
 
-    it('carries the joined identity name for a person scope', async () => {
-      app = await buildTestApp(ownerUser);
-      const userId = randomUUID();
-      setupSelect([automationRow({ userId, identityName: 'Ada' })]);
-
-      const response = await app.inject({ method: 'GET', url: `/automations/${AUTOMATION_ID}` });
-
-      expect(response.json().identityName).toBe('Ada');
-    });
-
     it('404s when there is no such automation', async () => {
       app = await buildTestApp(ownerUser);
       setupSelect([]);

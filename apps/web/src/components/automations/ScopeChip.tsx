@@ -29,7 +29,8 @@ export function ScopeChip({ automation, servers, filterOptions }: ScopeChipProps
     return (
       <Badge variant="secondary">
         <User aria-hidden="true" />
-        {automation.identityName ?? t('automations.scope.person')}
+        {(automation.scopeRef?.kind === 'person' ? automation.scopeRef.name : null) ??
+          t('automations.scope.person')}
       </Badge>
     );
   }

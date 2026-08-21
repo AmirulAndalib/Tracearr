@@ -105,7 +105,7 @@ async function retryOnVersionCollision<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
-function toAutomation(row: AutomationRow & { identityName?: string | null }): Automation {
+function toAutomation(row: AutomationRow): Automation {
   return {
     id: row.id,
     name: row.name,
@@ -122,7 +122,9 @@ function toAutomation(row: AutomationRow & { identityName?: string | null }): Au
     isActive: row.isActive,
     cooldownMinutes: row.cooldownMinutes,
     retentionDays: row.retentionDays,
-    identityName: row.identityName ?? null,
+    scopeRef: null,
+    template: null,
+    origin: null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

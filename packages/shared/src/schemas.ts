@@ -406,242 +406,74 @@ export const ruleParamsSchema = z.union([
 // Rules Builder V2 - Validation Schemas
 // ============================================
 
-// Operators
-export const comparisonOperatorSchema = z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte']);
-export const arrayOperatorSchema = z.enum(['in', 'not_in']);
-export const stringOperatorSchema = z.enum(['contains', 'not_contains']);
-export const operatorSchema = z.union([
+// The condition and action contract lives in ./automations; re-exported here so
+// importers keep the path they already use.
+export {
   comparisonOperatorSchema,
   arrayOperatorSchema,
   stringOperatorSchema,
-]);
-
-// Condition fields by category
-export const sessionBehaviorFieldSchema = z.enum([
-  'concurrent_streams',
-  'active_session_distance_km',
-  'travel_speed_kmh',
-  'unique_ips_in_window',
-  'unique_devices_in_window',
-  'inactive_days',
-  'current_pause_minutes',
-  'total_pause_minutes',
-]);
-
-export const streamQualityFieldSchema = z.enum([
-  'source_resolution',
-  'output_resolution',
-  'is_transcoding',
-  'is_transcode_downgrade',
-  'source_bitrate_mbps',
-]);
-
-export const transcodingConditionValueSchema = z.enum([
-  'video',
-  'audio',
-  'video_or_audio',
-  'neither',
-]);
-
-export const userAttributeFieldSchema = z.enum(['user_id', 'trust_score', 'account_age_days']);
-
-export const deviceClientFieldSchema = z.enum(['device_type', 'client_name', 'platform']);
-
-export const networkLocationFieldSchema = z.enum(['is_local_network', 'country', 'ip_in_range']);
-
-export const scopeFieldSchema = z.enum(['server_id', 'media_type']);
-
-export const conditionFieldSchema = z.union([
+  operatorSchema,
   sessionBehaviorFieldSchema,
   streamQualityFieldSchema,
+  transcodingConditionValueSchema,
   userAttributeFieldSchema,
   deviceClientFieldSchema,
   networkLocationFieldSchema,
   scopeFieldSchema,
-]);
-
-// Enums
-export const videoResolutionSchema = z.enum(['4K', '1080p', '720p', '480p', 'SD', 'unknown']);
-export const deviceTypeSchema = z.enum(['mobile', 'tablet', 'tv', 'desktop', 'browser', 'unknown']);
-export const platformSchema = z.enum([
-  'ios',
-  'android',
-  'windows',
-  'macos',
-  'linux',
-  'tvos',
-  'androidtv',
-  'roku',
-  'webos',
-  'tizen',
-  'unknown',
-]);
-export const mediaTypeEnumSchema = z.enum([
-  'movie',
-  'episode',
-  'track',
-  'photo',
-  'live',
-  'trailer',
-]);
-
-// Condition value
-export const conditionValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.array(z.string()),
-  z.array(z.number()),
-]);
-
-// Condition and action nodes carry these; zod would strip them from a saved rule otherwise.
-const nodeFieldsShape = {
-  id: uuidSchema.optional(),
-  enabled: z.boolean().optional(),
-};
-
-// Single condition
-export const conditionSchema = z.object({
-  ...nodeFieldsShape,
-  field: conditionFieldSchema,
-  operator: operatorSchema,
-  value: conditionValueSchema,
-  params: z
-    .object({
-      // The history fetch sizes itself from the largest active window; 168h
-      // (7 days) bounds that fetch and matches the sessions hypertable's
-      // compression boundary.
-      window_hours: z
-        .number()
-        .int()
-        .positive()
-        .max(168, 'Window cannot exceed 168 hours (7 days)')
-        .optional(),
-      exclude_same_device: z.boolean().optional(),
-      exclude_same_ip: z.boolean().optional(),
-      count_device_types: z.array(deviceTypeSchema).optional(),
-    })
-    .optional(),
-});
-
-// Condition group (OR logic)
-export const conditionGroupSchema = z.object({
-  conditions: z.array(conditionSchema).min(1),
-});
-
-/**
- * Condition fields evaluable for a dormant account outside a playback
- * session. Rules containing inactive_days run in the hourly inactivity
- * worker, where no session exists, so they may only use these fields.
- */
-export const INACTIVITY_COMPATIBLE_FIELDS = [
-  'inactive_days',
-  'server_id',
-  'user_id',
-  'trust_score',
-  'account_age_days',
-] as const;
-
-function inactivityFieldsCompatible(conditions: {
-  groups: { conditions: { field: string }[] }[];
-}): boolean {
-  const all = conditions.groups.flatMap((g) => g.conditions);
-  if (!all.some((c) => c.field === 'inactive_days')) return true;
-  return all.every((c) => (INACTIVITY_COMPATIBLE_FIELDS as readonly string[]).includes(c.field));
-}
-
-// Rule conditions (AND logic between groups)
-export const ruleConditionsSchema = z
-  .object({
-    groups: z.array(conditionGroupSchema).min(1),
-  })
-  .refine(inactivityFieldsCompatible, {
-    message:
-      'inactive_days rules run outside a playback session, so they can only be combined with server, user, trust score, or account age conditions',
-  });
-
-// Action types
-export const actionTypeSchema = z.enum(['send', 'trust', 'kill_stream', 'message_client']);
-
-// Individual action schemas
-export const sendActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('send'),
-  to: z.array(z.uuid()).min(1),
-  cooldown_minutes: z.number().int().nonnegative().optional(),
-});
-
-export const trustActionSchema = z
-  .object({
-    ...nodeFieldsShape,
-    type: z.literal('trust'),
-    mode: z.enum(['adjust', 'set', 'reset']),
-    amount: z.number().int().min(-100).max(100).optional(),
-    value: z.number().int().min(0).max(100).optional(),
-    cooldown_minutes: z.number().int().nonnegative().optional(),
-  })
-  .superRefine((action, ctx) => {
-    if (action.mode === 'adjust' && action.amount === undefined) {
-      ctx.addIssue({ code: 'custom', message: 'adjust needs an amount' });
-    }
-    if (action.mode === 'set' && action.value === undefined) {
-      ctx.addIssue({ code: 'custom', message: 'set needs a value' });
-    }
-    if (action.mode === 'adjust' && action.value !== undefined) {
-      ctx.addIssue({ code: 'custom', message: 'adjust takes an amount, not a value' });
-    }
-    if (action.mode === 'set' && action.amount !== undefined) {
-      ctx.addIssue({ code: 'custom', message: 'set takes a value, not an amount' });
-    }
-    if (action.mode === 'reset' && (action.amount !== undefined || action.value !== undefined)) {
-      ctx.addIssue({ code: 'custom', message: 'reset takes no parameter' });
-    }
-  });
-
-export const sessionTargetSchema = z.enum([
-  'triggering',
-  'oldest',
-  'newest',
-  'all_except_one',
-  'all_user',
-]);
-
-export type SessionTarget = z.infer<typeof sessionTargetSchema>;
-
-export const killStreamActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('kill_stream'),
-  /** Seconds to wait before killing. The kill only fires if the rule condition still holds after the wait; 0 (default) still re-checks once before killing. */
-  delay_seconds: z.number().int().min(0).max(300).optional(),
-  cooldown_minutes: z.number().int().nonnegative().optional(),
-  /** Message to display to user before termination. If omitted, terminates silently. */
-  message: z.string().min(1).max(500).optional(),
-  target: sessionTargetSchema.optional(),
-});
-
-export const messageClientActionSchema = z.object({
-  ...nodeFieldsShape,
-  type: z.literal('message_client'),
-  message: z.string().min(1).max(500),
-  target: sessionTargetSchema.optional(),
-});
-
-// Union of all actions
-export const actionSchema = z.discriminatedUnion('type', [
+  conditionFieldSchema,
+  videoResolutionSchema,
+  deviceTypeSchema,
+  platformSchema,
+  mediaTypeEnumSchema,
+  conditionValueSchema,
+  conditionSchema,
+  conditionGroupSchema,
+  ruleConditionsSchema,
+} from './automations/conditions.js';
+export type {
+  ComparisonOperator,
+  ArrayOperator,
+  StringOperator,
+  Operator,
+  SessionBehaviorField,
+  StreamQualityField,
+  UserAttributeField,
+  DeviceClientField,
+  NetworkLocationField,
+  ScopeField,
+  ConditionField,
+  VideoResolution,
+  DeviceType,
+  Platform,
+  MediaTypeEnum,
+  ConditionValue,
+  Condition,
+  ConditionGroup,
+  RuleConditions,
+} from './automations/conditions.js';
+export {
   sendActionSchema,
   trustActionSchema,
+  sessionTargetSchema,
   killStreamActionSchema,
   messageClientActionSchema,
-]);
-
-// Rule actions container (actions are optional side-effects; violations are always auto-created)
-export const ruleActionsSchema = z.object({
-  actions: z.array(actionSchema),
-});
-
+  actionSchema,
+  actionTypeSchema,
+  ruleActionsSchema,
+} from './automations/actions.js';
+export type {
+  SessionTarget,
+  ActionType,
+  SendAction,
+  TrustAction,
+  KillStreamAction,
+  MessageClientAction,
+  Action,
+  RuleActions,
+} from './automations/actions.js';
 export const violationSeveritySchema = z.enum(['low', 'warning', 'high']);
 
-// A rule may be scoped to at most one of server, account, or person.
+// An automation may be scoped to at most one of server, account, or person.
 export function hasAtMostOneScope(data: {
   serverId?: string | null;
   serverUserId?: string | null;
@@ -651,14 +483,14 @@ export function hasAtMostOneScope(data: {
 }
 
 export const RULE_SCOPE_ERROR_MESSAGE =
-  'A rule can only be scoped to one of server, account, or person';
+  'An automation can only be scoped to one of server, account, or person';
 
 export const scopeRefinement = {
   message: RULE_SCOPE_ERROR_MESSAGE,
 } as const;
 
-// A server-scoped rule detects on that server's sessions only; enforcing its
-// actions across every server would kill sessions the rule cannot see.
+// A server-scoped automation detects on that server's sessions only; enforcing its
+// actions across every server would kill sessions it cannot see.
 export function scopeAllowsCrossServerEnforcement(data: {
   serverId?: string | null;
   enforceAcrossServers?: boolean;
@@ -667,7 +499,7 @@ export function scopeAllowsCrossServerEnforcement(data: {
 }
 
 export const RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE =
-  'A server-scoped rule cannot enforce actions across all servers';
+  'A server-scoped automation cannot enforce actions across all servers';
 
 export const crossServerEnforcementRefinement = {
   message: RULE_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
@@ -675,12 +507,12 @@ export const crossServerEnforcementRefinement = {
 
 // Bulk operations schemas
 export const bulkUpdateRulesSchema = z.object({
-  ids: z.array(uuidSchema).min(1, 'At least one rule ID is required'),
+  ids: z.array(uuidSchema).min(1, 'At least one automation ID is required'),
   isActive: z.boolean(),
 });
 
 export const bulkDeleteRulesSchema = z.object({
-  ids: z.array(uuidSchema).min(1, 'At least one rule ID is required'),
+  ids: z.array(uuidSchema).min(1, 'At least one automation ID is required'),
 });
 
 // ============================================================================
@@ -1293,33 +1125,6 @@ export type HistoryQueryInput = z.infer<typeof historyQuerySchema>;
 export type HistoryAggregatesQueryInput = z.infer<typeof historyAggregatesQuerySchema>;
 export type FilterOptionsQueryInput = z.infer<typeof filterOptionsQuerySchema>;
 
-// Rules Builder V2 types
-export type ComparisonOperator = z.infer<typeof comparisonOperatorSchema>;
-export type ArrayOperator = z.infer<typeof arrayOperatorSchema>;
-export type StringOperator = z.infer<typeof stringOperatorSchema>;
-export type Operator = z.infer<typeof operatorSchema>;
-export type SessionBehaviorField = z.infer<typeof sessionBehaviorFieldSchema>;
-export type StreamQualityField = z.infer<typeof streamQualityFieldSchema>;
-export type UserAttributeField = z.infer<typeof userAttributeFieldSchema>;
-export type DeviceClientField = z.infer<typeof deviceClientFieldSchema>;
-export type NetworkLocationField = z.infer<typeof networkLocationFieldSchema>;
-export type ScopeField = z.infer<typeof scopeFieldSchema>;
-export type ConditionField = z.infer<typeof conditionFieldSchema>;
-export type VideoResolution = z.infer<typeof videoResolutionSchema>;
-export type DeviceType = z.infer<typeof deviceTypeSchema>;
-export type Platform = z.infer<typeof platformSchema>;
-export type MediaTypeEnum = z.infer<typeof mediaTypeEnumSchema>;
-export type ConditionValue = z.infer<typeof conditionValueSchema>;
-export type Condition = z.infer<typeof conditionSchema>;
-export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
-export type RuleConditions = z.infer<typeof ruleConditionsSchema>;
-export type ActionType = z.infer<typeof actionTypeSchema>;
-export type SendAction = z.infer<typeof sendActionSchema>;
-export type TrustAction = z.infer<typeof trustActionSchema>;
-export type KillStreamAction = z.infer<typeof killStreamActionSchema>;
-export type MessageClientAction = z.infer<typeof messageClientActionSchema>;
-export type Action = z.infer<typeof actionSchema>;
-export type RuleActions = z.infer<typeof ruleActionsSchema>;
 export type BulkUpdateRulesInput = z.infer<typeof bulkUpdateRulesSchema>;
 export type BulkDeleteRulesInput = z.infer<typeof bulkDeleteRulesSchema>;
 

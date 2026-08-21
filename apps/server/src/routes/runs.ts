@@ -42,7 +42,6 @@ const runSummaryColumns = {
   automationId: automationRuns.automationId,
   automationName: automations.name,
   kind: automationRuns.kind,
-  status: automationRuns.status,
   outcome: automationRuns.outcome,
   humanSummary: automationRuns.humanSummary,
   severity: automationRuns.severity,
