@@ -50,10 +50,15 @@ const versionParamsSchema = z.object({
   version: z.coerce.number().int().min(1),
 });
 
+// Room above the decoder's own 64 KiB cap, so an over-long code comes back as `too_long`
+// with its reason instead of a bare length error the web cannot name.
+const MAX_CODE_CHARS = 70_000;
+
 const importBodySchema = z.object({
-  code: z.string().min(1).max(65536).optional(),
+  code: z.string().min(1).max(MAX_CODE_CHARS).optional(),
   envelope: z.unknown().optional(),
-  // The envelope never says where it came from; only the request can claim it locally.
+  // The envelope never says where it came from: an import is the default, and only the
+  // export dialog's "save as a template" claims `local`.
   source: z.literal('local').optional(),
   replace: uuidSchema.optional(),
 });

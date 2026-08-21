@@ -158,6 +158,14 @@
     "title": "Ajustes Generales",
     "unitSystem": "Sistema de unidades",
     "unitSystemDesc": "Elegir cómo se muestran las distancias y velocidades",
+    "updateChecks": {
+      "description": "Tracearr looks for new releases every six hours. Notifications come from whatever automation listens for the update triggers.",
+      "plugin": "Realtime plugin",
+      "pluginDesc": "Check for new releases of the Tracearr plugin your Jellyfin and Emby servers stream events through.",
+      "server": "Media servers",
+      "serverDesc": "Compare what each Plex, Jellyfin and Emby server runs with the newest release its makers publish.",
+      "title": "Update checks"
+    },
     "watchedThresholdMovie": "Movie Watched Threshold",
     "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
     "watchedThresholdMusic": "Track Watched Threshold",
@@ -410,7 +418,12 @@
     "testConnection": "Probar conexión",
     "title": "Servidores conectados",
     "updateHint": "O haga clic en Actualizar abajo para guardar sólo el cambio de nombre.",
-    "updating": "Actualizando..."
+    "updating": "Actualizando...",
+    "version": {
+      "installed": "Version {{version}}",
+      "upToDate": "up to date",
+      "updateAvailable": "update {{version}} available"
+    }
   },
   "tabs": {
     "accessControl": "Control de acceso",

@@ -63,6 +63,7 @@ const mockAllSettings: Settings = {
   backupRetentionCount: 7,
   pluginUpdateCheckEnabled: true,
   pluginManifestUrl: null,
+  serverUpdateCheckEnabled: true,
   watchedThresholdMovie: 85,
   watchedThresholdTv: 85,
   watchedThresholdMusic: 85,
@@ -345,6 +346,30 @@ describe('Settings Routes', () => {
       expect(setSettings).toHaveBeenCalledWith({ imagePrecacheEnabled: false });
       const body = response.json();
       expect(body.imagePrecacheEnabled).toBe(false);
+    });
+
+    it('accepts and persists both update-check toggles', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(getAllSettings).mockResolvedValue({
+        ...mockAllSettings,
+        pluginUpdateCheckEnabled: false,
+        serverUpdateCheckEnabled: false,
+      });
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/settings',
+        payload: { pluginUpdateCheckEnabled: false, serverUpdateCheckEnabled: false },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(setSettings).toHaveBeenCalledWith({
+        pluginUpdateCheckEnabled: false,
+        serverUpdateCheckEnabled: false,
+      });
+      const body = response.json();
+      expect(body.pluginUpdateCheckEnabled).toBe(false);
+      expect(body.serverUpdateCheckEnabled).toBe(false);
     });
   });
 });

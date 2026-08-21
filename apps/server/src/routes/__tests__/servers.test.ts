@@ -224,6 +224,35 @@ describe('Server Routes', () => {
       expect(body.data[0].token).toBeUndefined();
     });
 
+    it('carries the installed and latest versions when they are known', async () => {
+      app = await buildTestApp(ownerUser);
+
+      mockDbSelectWhere([
+        {
+          id: mockServer.id,
+          name: mockServer.name,
+          type: mockServer.type,
+          url: mockServer.url,
+          displayOrder: 0,
+          color: '#4B8BFF',
+          version: '10.11.11',
+          latestVersion: '10.11.12',
+          createdAt: mockServer.createdAt,
+          updatedAt: mockServer.updatedAt,
+        },
+      ]);
+
+      const response = await app.inject({ method: 'GET', url: '/servers' });
+
+      expect(response.statusCode).toBe(200);
+      const selected = vi.mocked(db.select).mock.calls[0]?.[0];
+      expect(selected).toHaveProperty('version');
+      expect(selected).toHaveProperty('latestVersion');
+      const body = response.json();
+      expect(body.data[0].version).toBe('10.11.11');
+      expect(body.data[0].latestVersion).toBe('10.11.12');
+    });
+
     it('returns only authorized servers for guest', async () => {
       const guestServerId = randomUUID();
       const guestWithServer: AuthUser = {

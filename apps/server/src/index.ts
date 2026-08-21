@@ -99,6 +99,7 @@ import {
   cleanupOrphanedPendingSessions,
 } from './jobs/sseProcessor.js';
 import { startPluginUpdateChecker, stopPluginUpdateChecker } from './jobs/pluginUpdateChecker.js';
+import { startServerUpdateChecker, stopServerUpdateChecker } from './jobs/serverUpdateChecker.js';
 import { startLeaderLease, stopLeaderLease } from './services/leaderLease.js';
 import { initializeWebSocket, broadcastToSessions } from './websocket/index.js';
 import {
@@ -578,6 +579,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     stopSSEProcessor();
     stopPauseWakes();
     stopPluginUpdateChecker();
+    stopServerUpdateChecker();
     await sseManager.stop();
     await stopLeaderLease();
     await tailscaleService.shutdown();
@@ -1216,6 +1218,7 @@ async function initializePostListen(app: FastifyInstance) {
       await cleanupOrphanedPendingSessions();
       startSSEProcessor(); // Subscribe to SSE events
       startPluginUpdateChecker();
+      startServerUpdateChecker();
       await sseManager.start(); // Start SSE connections
       app.log.info('Real-time SSE connections started');
     } catch (err) {
@@ -1243,6 +1246,7 @@ async function initializePostListen(app: FastifyInstance) {
     stopSSEProcessor();
     stopPauseWakes();
     stopPluginUpdateChecker();
+    stopServerUpdateChecker();
     await sseManager.stop();
   };
 

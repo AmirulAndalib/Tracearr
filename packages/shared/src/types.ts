@@ -53,6 +53,9 @@ export interface Server {
   machineIdentifier?: string | null;
   displayOrder?: number;
   color?: string | null;
+  /** What the server reports running, and the newest release the update checker saw. */
+  version?: string | null;
+  latestVersion?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -887,6 +890,8 @@ export interface Settings {
   // Plugin update check
   pluginUpdateCheckEnabled: boolean;
   pluginManifestUrl: string | null;
+  // Media-server update check
+  serverUpdateCheckEnabled: boolean;
   // Watch completion thresholds (percent, per media type)
   watchedThresholdMovie: number;
   watchedThresholdTv: number;

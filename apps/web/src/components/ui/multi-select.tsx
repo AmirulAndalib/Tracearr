@@ -90,9 +90,9 @@ export function MultiSelectList({
         {!isLoading && !isError && <CommandEmpty>{emptyMessage}</CommandEmpty>}
         {!isLoading &&
           !isError &&
-          grouped.map(([group, groupOptions]) => (
+          grouped.map(([group, items]) => (
             <CommandGroup key={group} heading={group || undefined}>
-              {groupOptions.map((option) => (
+              {items.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}

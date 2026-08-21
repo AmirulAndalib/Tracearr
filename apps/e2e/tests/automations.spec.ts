@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
 import path from 'path';
+import { test, expect, type Page } from '@playwright/test';
 
 test.use({ storageState: path.resolve(import.meta.dirname, '../.auth/user.json') });
 

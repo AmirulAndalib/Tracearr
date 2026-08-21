@@ -75,6 +75,7 @@ import {
   dispatchPluginUpdate,
   dispatchServerHealth,
   dispatchServerHealthById,
+  dispatchServerUpdate,
   dispatchSessionStopped,
   dispatchTracearrUpdate,
 } from '../events/producers.js';
@@ -335,6 +336,40 @@ describe('server and install producers', () => {
       latestVersion: '0.3.0',
       downloadUrl: 'https://example.test/releases',
     });
+  });
+
+  it('carries the media-server versions and the release page', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('server.update_available')])]);
+    const seen = captureEvents('server.update_available');
+
+    await dispatchServerUpdate({
+      server,
+      installedVersion: '10.11.11',
+      latestVersion: '10.11.12',
+      releaseUrl: 'https://example.test/releases',
+    });
+
+    expect(seen[0]?.event).toMatchObject({
+      type: 'server.update_available',
+      server,
+      installedVersion: '10.11.11',
+      latestVersion: '10.11.12',
+      releaseUrl: 'https://example.test/releases',
+    });
+  });
+
+  it('dispatches no media-server update when nothing listens for it', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('server.down')])]);
+    const seen = captureEvents('server.update_available');
+
+    await dispatchServerUpdate({
+      server,
+      installedVersion: '10.11.11',
+      latestVersion: '10.11.12',
+      releaseUrl: 'https://example.test/releases',
+    });
+
+    expect(seen).toEqual([]);
   });
 
   it('carries the install versions with no server and no sessions', async () => {

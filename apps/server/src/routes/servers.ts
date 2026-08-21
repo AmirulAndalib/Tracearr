@@ -42,6 +42,8 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         machineIdentifier: servers.machineIdentifier,
         displayOrder: servers.displayOrder,
         color: servers.color,
+        version: servers.version,
+        latestVersion: servers.latestVersion,
         createdAt: servers.createdAt,
         updatedAt: servers.updatedAt,
       })

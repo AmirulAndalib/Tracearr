@@ -14,6 +14,8 @@ vi.mock('react-i18next', () => ({
 const toggleMutate = vi.fn();
 const deleteMutate = vi.fn();
 
+const { mockUseTemplates } = vi.hoisted(() => ({ mockUseTemplates: vi.fn() }));
+
 vi.mock('@/hooks/queries', () => ({
   useAutomations: vi.fn(),
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
@@ -109,6 +111,12 @@ const openedDetail = () => screen.queryByText('the automation detail');
 describe('Automations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseTemplates.mockReturnValue({
+      data: TEMPLATES,
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
     mockList([automation()]);
   });
 

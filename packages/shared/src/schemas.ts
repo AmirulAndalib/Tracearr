@@ -679,6 +679,9 @@ export const updateSettingsSchema = z.object({
   backupScheduleDayOfWeek: z.number().int().min(0).max(6).optional(),
   backupScheduleDayOfMonth: z.number().int().min(1).max(31).optional(),
   backupRetentionCount: z.number().int().min(1).max(30).optional(),
+  // Update checks
+  pluginUpdateCheckEnabled: z.boolean().optional(),
+  serverUpdateCheckEnabled: z.boolean().optional(),
   // Watch completion thresholds (percent, per media type)
   watchedThresholdMovie: z.number().int().min(1).max(100).optional(),
   watchedThresholdTv: z.number().int().min(1).max(100).optional(),

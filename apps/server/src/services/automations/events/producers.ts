@@ -124,6 +124,20 @@ export async function dispatchPluginUpdate(args: {
   });
 }
 
+export async function dispatchServerUpdate(args: {
+  server: EvaluationServer;
+  installedVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+}): Promise<void> {
+  await guarded('server.update_available', async () => {
+    const rules = await serverListeningRules('server.update_available', args.server.id);
+    if (!rules) return;
+    const { inputs } = await serverContextFor(args.server, rules);
+    await dispatch({ type: 'server.update_available', at: new Date(), ...args }, inputs);
+  });
+}
+
 export async function dispatchTracearrUpdate(args: {
   current: string;
   latest: string;

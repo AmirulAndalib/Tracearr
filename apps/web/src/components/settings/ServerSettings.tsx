@@ -53,6 +53,7 @@ import { AutosaveSelectField } from '@/components/ui/autosave-field';
 import { toast } from 'sonner';
 import { PlexServerSelector } from '@/components/auth/PlexServerSelector';
 import { PlexAccountsManager } from '@/components/settings/PlexAccountsManager';
+import { ServerVersionLine } from '@/components/settings/ServerVersionLine';
 import { SERVER_COLOR_PALETTE, pickServerColor } from '@tracearr/shared';
 import type { Server, ServerConnectionStatus } from '@tracearr/shared';
 import {
@@ -1225,6 +1226,7 @@ function SortableServerCard({
             <p className="text-muted-foreground text-xs">
               {t('servers.added', { date: format(new Date(server.createdAt), 'MMM d, yyyy') })}
             </p>
+            <ServerVersionLine server={server} />
             {/* Connection status — only shown for Jellyfin and Emby */}
             {server.type !== 'plex' && (
               <div className="mt-1">

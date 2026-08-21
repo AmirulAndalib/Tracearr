@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Activity } from 'lucide-react';
 import type { AutomationKind, AutomationRunSummary, RunOutcome } from '@tracearr/shared';
 import { listPageCount } from '@tracearr/shared';
+import { SELECTED_TOGGLE } from '@/components/automations/builder/selection';
 import { Badge } from '@/components/ui/badge';
 import {
   createDataTableColumnHelper,

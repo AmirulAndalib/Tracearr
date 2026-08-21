@@ -158,6 +158,14 @@
     "title": "全般設定",
     "unitSystem": "単位システム",
     "unitSystemDesc": "距離と速度の表示方法を選択します",
+    "updateChecks": {
+      "description": "Tracearr looks for new releases every six hours. Notifications come from whatever automation listens for the update triggers.",
+      "plugin": "Realtime plugin",
+      "pluginDesc": "Check for new releases of the Tracearr plugin your Jellyfin and Emby servers stream events through.",
+      "server": "Media servers",
+      "serverDesc": "Compare what each Plex, Jellyfin and Emby server runs with the newest release its makers publish.",
+      "title": "Update checks"
+    },
     "watchedThresholdMovie": "Movie Watched Threshold",
     "watchedThresholdMovieDesc": "Percentage of a movie that must be watched before it's marked complete",
     "watchedThresholdMusic": "Track Watched Threshold",
@@ -410,7 +418,12 @@
     "testConnection": "接続をテスト",
     "title": "接続されたサーバー",
     "updateHint": "または、下のformat@@0をクリックして、名前の変更だけを保存します。",
-    "updating": "更新中..."
+    "updating": "更新中...",
+    "version": {
+      "installed": "Version {{version}}",
+      "upToDate": "up to date",
+      "updateAvailable": "update {{version}} available"
+    }
   },
   "tabs": {
     "accessControl": "アクセスコントロール",

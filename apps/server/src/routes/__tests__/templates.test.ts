@@ -370,6 +370,22 @@ describe('Template routes', () => {
       });
     });
 
+    it('400s an over-long code with the reason, not a bare length error', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/templates/preview',
+        payload: { code: `tracearr1.${'A'.repeat(66_000)}` },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({
+        message: 'This share code is too long',
+        reason: 'too_long',
+      });
+    });
+
     it('400s on an envelope the schema rejects', async () => {
       app = await buildTestApp(ownerUser);
 

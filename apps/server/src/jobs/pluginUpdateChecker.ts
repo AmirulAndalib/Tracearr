@@ -1,4 +1,5 @@
 import { fetchJson } from '../utils/http.js';
+import { startPeriodic, type PeriodicTimers } from '../utils/periodic.js';
 import { maxVersion, compareVersions } from '../utils/pluginVersion.js';
 import { sseManager } from '../services/sseManager.js';
 import { getSettings } from '../services/settings.js';
@@ -16,8 +17,7 @@ interface ManifestEntry {
   versions?: { version?: string }[];
 }
 
-let checkTimer: NodeJS.Timeout | null = null;
-let initialTimer: NodeJS.Timeout | null = null;
+let timers: PeriodicTimers | null = null;
 // serverId -> latest version already nudged for; re-arms when latest changes
 const nudgedVersions = new Map<string, string>();
 
@@ -81,23 +81,13 @@ export async function runPluginUpdateCheck(): Promise<void> {
 }
 
 export function startPluginUpdateChecker(): void {
-  if (checkTimer || initialTimer) return;
-  // Wait for SSE connections and their hello frames to land before the first check
-  initialTimer = setTimeout(() => {
-    initialTimer = null;
-    void runPluginUpdateCheck();
-  }, INITIAL_DELAY_MS);
-  checkTimer = setInterval(() => void runPluginUpdateCheck(), CHECK_INTERVAL_MS);
+  if (timers) return;
+  // The initial delay waits for SSE connections and their hello frames to land
+  timers = startPeriodic(INITIAL_DELAY_MS, CHECK_INTERVAL_MS, runPluginUpdateCheck);
   console.log('[PluginUpdate] Checker started (every 6h)');
 }
 
 export function stopPluginUpdateChecker(): void {
-  if (initialTimer) {
-    clearTimeout(initialTimer);
-    initialTimer = null;
-  }
-  if (checkTimer) {
-    clearInterval(checkTimer);
-    checkTimer = null;
-  }
+  timers?.stop();
+  timers = null;
 }

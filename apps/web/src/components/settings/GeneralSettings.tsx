@@ -3,6 +3,7 @@
  */
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
+import { UpdateChecksCard } from '@/components/settings/UpdateChecksCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -598,6 +599,9 @@ export function GeneralSettings() {
           </FieldGroup>
         </CardContent>
       </Card>
+
+      {/* Update checks */}
+      <UpdateChecksCard />
 
       {/* API Key */}
       <ApiKeyCard />
