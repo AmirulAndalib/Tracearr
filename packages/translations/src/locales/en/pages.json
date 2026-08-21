@@ -1018,8 +1018,8 @@
         "servers": "Servers",
         "updates": "Updates",
         "notify": "Notify",
-        "policy": "Step in",
-        "control": "Control flow"
+        "policy": "Take action",
+        "control": "If… then"
       },
       "suggested": "Suggested",
       "triggers": {

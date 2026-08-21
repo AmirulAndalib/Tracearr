@@ -102,6 +102,17 @@ function rows() {
   return screen.getAllByRole('listitem').slice(1);
 }
 
+/** Every row answers the narrow column the same way: icon, controls, then the middle. */
+function expectNarrowIdiom(row: HTMLElement | undefined) {
+  expect(row?.querySelector('[data-slot="item-media"]')?.className).toContain('@max-lg:order-1');
+  expect(row?.querySelector('[data-slot="item-actions"]')?.className).toContain('@max-lg:order-2');
+  expect(row?.querySelector('[data-slot="item-actions"]')?.className).toContain('@max-lg:ml-auto');
+  expect(row?.querySelector('[data-slot="item-content"]')?.className).toContain('@max-lg:order-3');
+  expect(row?.querySelector('[data-slot="item-content"]')?.className).toContain(
+    '@max-lg:basis-full'
+  );
+}
+
 describe('ActionsSection', () => {
   it('says what the section is for while it is empty', () => {
     renderSection({ actions: [] });
@@ -201,6 +212,20 @@ describe('ActionsSection', () => {
     const listed = rows();
     expect(listed[0]).toHaveAttribute('aria-keyshortcuts', expect.stringContaining('E'));
     expect(listed[1]?.getAttribute('aria-keyshortcuts')).not.toContain('E');
+  });
+
+  it('stacks an action row when the column is narrow', () => {
+    renderSection(pair);
+
+    expectNarrowIdiom(rows()[0]);
+  });
+
+  it('stacks the if header the same way, and lets it wrap at all', () => {
+    renderSection(branching);
+
+    const header = rows()[0]?.firstElementChild;
+    expect(header?.className).toContain('flex-wrap');
+    expectNarrowIdiom(header instanceof HTMLElement ? header : undefined);
   });
 
   it('adds what the picker was asked for', async () => {

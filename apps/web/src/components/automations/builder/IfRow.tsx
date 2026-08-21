@@ -97,14 +97,16 @@ export function IfRow({
         !enabled && 'opacity-60'
       )}
     >
-      <div className="flex w-full items-start gap-3">
-        <ItemMedia variant="icon">{actionIcon('if')}</ItemMedia>
-        <ItemContent>
+      <div className="flex w-full flex-wrap items-start gap-3">
+        <ItemMedia variant="icon" className="@max-lg:order-1">
+          {actionIcon('if')}
+        </ItemMedia>
+        <ItemContent className="@max-lg:order-3 @max-lg:basis-full">
           <ItemTitle className="flex-wrap">
             {open ? t('automations.builder.actions.ifTitle') : summary}
           </ItemTitle>
         </ItemContent>
-        <ItemActions className="shrink-0">
+        <ItemActions className="shrink-0 @max-lg:order-2 @max-lg:ml-auto">
           <Button
             type="button"
             variant="ghost"
@@ -131,7 +133,7 @@ export function IfRow({
       </div>
 
       <Collapsible open={open} onOpenChange={() => expansion.toggle(id)}>
-        <CollapsibleContent className="border-primary/40 [&_[data-slot=item]]:bg-card ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
+        <CollapsibleContent className="border-primary/40 [&_[data-slot=item]:not([data-orphaned=true])]:bg-card ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
           {/* The header said "If", so the checks go straight underneath with no second label. */}
           {groups.map((group) => (
             <ConditionGroupCard

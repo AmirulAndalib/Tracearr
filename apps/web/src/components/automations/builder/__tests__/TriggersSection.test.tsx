@@ -71,6 +71,17 @@ function rows() {
   return screen.getAllByRole('listitem').slice(1);
 }
 
+/** Every row answers the narrow column the same way: icon, controls, then the middle. */
+function expectNarrowIdiom(row: HTMLElement | undefined) {
+  expect(row?.querySelector('[data-slot="item-media"]')?.className).toContain('@max-lg:order-1');
+  expect(row?.querySelector('[data-slot="item-actions"]')?.className).toContain('@max-lg:order-2');
+  expect(row?.querySelector('[data-slot="item-actions"]')?.className).toContain('@max-lg:ml-auto');
+  expect(row?.querySelector('[data-slot="item-content"]')?.className).toContain('@max-lg:order-3');
+  expect(row?.querySelector('[data-slot="item-content"]')?.className).toContain(
+    '@max-lg:basis-full'
+  );
+}
+
 describe('TriggersSection', () => {
   it('says what the section is for while it is empty', () => {
     renderSection([]);
@@ -168,6 +179,12 @@ describe('TriggersSection', () => {
     const remaining = rows();
     expect(remaining).toHaveLength(1);
     expect(document.activeElement).toBe(remaining[0]);
+  });
+
+  it('stacks a trigger row when the column is narrow, controls still at the right', () => {
+    renderSection([held]);
+
+    expectNarrowIdiom(rows()[0]);
   });
 
   it('shows what a row got wrong', () => {
