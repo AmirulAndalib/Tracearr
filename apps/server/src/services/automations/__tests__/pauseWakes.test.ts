@@ -61,17 +61,21 @@ import {
   stopPauseWakes,
 } from '../wakes/pauseWakes.js';
 
-function pauseRule(minutes: number, id = 'p'): EngineAutomation {
+function pauseRule(minutes: number, id = 'p', enabled = true): EngineAutomation {
   return {
     id,
     name: id,
     isActive: true,
     severity: 'warning',
-    conditions: {
-      groups: [
-        { conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: minutes }] },
-      ],
-    },
+    triggers: [
+      {
+        id: `${id}-held`,
+        type: 'session.held_for',
+        enabled,
+        params: { minutes, measure: 'current' },
+      },
+    ],
+    conditions: { groups: [] },
     actions: { actions: [] },
   } as unknown as EngineAutomation;
 }
@@ -378,5 +382,35 @@ describe('registerPauseWakeSubscriptions', () => {
     refill([pauseRule(30)]);
     await vi.advanceTimersByTimeAsync(0);
     expect(mockSelectWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('a disabled held_for node is a fingerprint change and rehydrates', async () => {
+    const refill = mockOnActiveAutomationsRefill.mock.calls[0]?.[0] as (
+      rules: EngineAutomation[]
+    ) => void;
+
+    refill([pauseRule(10)]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockSelectWhere).not.toHaveBeenCalled();
+
+    refill([pauseRule(10, 'p', false)]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockSelectWhere).toHaveBeenCalledTimes(1);
+  });
+
+  it('a rule with no held_for node leaves the fingerprint alone', async () => {
+    const refill = mockOnActiveAutomationsRefill.mock.calls[0]?.[0] as (
+      rules: EngineAutomation[]
+    ) => void;
+    const started = {
+      ...pauseRule(10, 'other'),
+      triggers: [{ id: 'other-started', type: 'session.started', enabled: true }],
+    } as EngineAutomation;
+
+    refill([pauseRule(10)]);
+    await vi.advanceTimersByTimeAsync(0);
+    refill([pauseRule(10), started]);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockSelectWhere).not.toHaveBeenCalled();
   });
 });

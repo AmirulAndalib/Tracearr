@@ -35,7 +35,9 @@ export function resetDispatcherForTests(): void {
 function subjectOf(event: RuleEvent): string {
   if ('session' in event && event.session) return event.session.id;
   if ('sessionId' in event) return event.sessionId;
-  return event.serverUser.id;
+  if ('serverUser' in event) return event.serverUser.id;
+  if ('server' in event) return `server:${event.server.id}`;
+  return 'install';
 }
 
 /**

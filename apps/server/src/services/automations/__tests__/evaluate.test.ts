@@ -9,6 +9,7 @@ import type {
 import type {
   AccountInactiveForEvent,
   EvaluationInputs,
+  SessionHeldForEvent,
   SessionPausedEvent,
   SessionStartedEvent,
   SessionTranscodeChangedEvent,
@@ -21,7 +22,12 @@ vi.mock('../../../utils/logger.js', () => ({
 }));
 
 import { synthesizeTriggers } from '../triggers.js';
-import { matchesTrigger, rulesForTrigger, triggerCandidates } from '../events/evaluate.js';
+import {
+  matchesTrigger,
+  paramsPass,
+  rulesForTrigger,
+  triggerCandidates,
+} from '../events/evaluate.js';
 
 /** A rule the boot migration would have produced from these conditions. */
 function rule(id: string, ...fields: ConditionField[]): EngineAutomation {
@@ -270,5 +276,83 @@ describe('trigger matching does not read conditions', () => {
     expect(rulesForTrigger('session.paused', [mislabelled]).map((r) => r.id)).toEqual(['t']);
     expect(rulesForTrigger('session.transcode_changed', [mislabelled])).toEqual([]);
     expect(rulesForTrigger('session.started', [mislabelled])).toEqual([]);
+  });
+});
+
+describe('paramsPass', () => {
+  const heldForNode = (minutes: number, measure: 'current' | 'total'): TriggerNode => ({
+    id: '0f5b8d4a-9c6e-4a2b-8d1f-3c7e5a9b1d21',
+    type: 'session.held_for',
+    enabled: true,
+    params: { minutes, measure },
+  });
+  const inactiveForNode = (days: number): TriggerNode => ({
+    id: '0f5b8d4a-9c6e-4a2b-8d1f-3c7e5a9b1d22',
+    type: 'account.inactive_for',
+    enabled: true,
+    params: { days },
+  });
+  const pausedAt = new Date('2026-08-20T10:00:00Z');
+  const heldFor = (elapsedMinutes: number, pausedDurationMs = 0): SessionHeldForEvent => ({
+    type: 'session.held_for',
+    at: new Date(pausedAt.getTime() + elapsedMinutes * 60_000),
+    server,
+    serverUser,
+    session,
+    pauseData: { lastPausedAt: pausedAt, pausedDurationMs },
+    heldMinutes: elapsedMinutes,
+  });
+  const inactiveEvent = (lastActivityAt: Date | null): AccountInactiveForEvent => ({
+    type: 'account.inactive_for',
+    at: new Date('2026-08-20T10:00:00Z'),
+    server,
+    serverUser: { ...serverUser, lastActivityAt },
+    session: null,
+  });
+  const daysAgo = (days: number) =>
+    new Date(new Date('2026-08-20T10:00:00Z').getTime() - days * 24 * 60 * 60 * 1000);
+
+  it('measures current pause time from the last pause', () => {
+    expect(paramsPass(heldForNode(30, 'current'), heldFor(30))).toBe(true);
+    expect(paramsPass(heldForNode(30, 'current'), heldFor(29.9))).toBe(false);
+  });
+
+  it('measures total pause time including what earlier pauses banked', () => {
+    expect(paramsPass(heldForNode(30, 'total'), heldFor(10, 20 * 60_000))).toBe(true);
+    expect(paramsPass(heldForNode(45, 'total'), heldFor(10, 20 * 60_000))).toBe(false);
+  });
+
+  it('fails when the session carries no pause anchor', () => {
+    const event = heldFor(60);
+    expect(
+      paramsPass(heldForNode(30, 'current'), {
+        ...event,
+        pauseData: { lastPausedAt: null, pausedDurationMs: 0 },
+      })
+    ).toBe(false);
+  });
+
+  it('counts inactive days against the account last activity', () => {
+    expect(paramsPass(inactiveForNode(30), inactiveEvent(daysAgo(40)))).toBe(true);
+    expect(paramsPass(inactiveForNode(30), inactiveEvent(daysAgo(30)))).toBe(true);
+    expect(paramsPass(inactiveForNode(30), inactiveEvent(daysAgo(10)))).toBe(false);
+  });
+
+  it('treats an account that was never active as infinitely inactive', () => {
+    expect(paramsPass(inactiveForNode(3650), inactiveEvent(null))).toBe(true);
+  });
+
+  it('a node without params tests nothing', () => {
+    const started: TriggerNode = {
+      id: '0f5b8d4a-9c6e-4a2b-8d1f-3c7e5a9b1d23',
+      type: 'session.started',
+      enabled: true,
+    };
+    expect(paramsPass(started, heldFor(1))).toBe(true);
+  });
+
+  it('a node whose type is not the event fails rather than passing by default', () => {
+    expect(paramsPass(heldForNode(1, 'current'), inactiveEvent(null))).toBe(false);
+    expect(paramsPass(inactiveForNode(1), heldFor(60))).toBe(false);
   });
 });

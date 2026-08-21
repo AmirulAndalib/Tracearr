@@ -8,7 +8,6 @@ import { and, eq, getTableColumns, inArray, isNull, or, sql, type SQL } from 'dr
 import { alias } from 'drizzle-orm/pg-core';
 import {
   type Automation,
-  type AutomationConditions,
   type AutomationOrigin,
   type AutomationScopeRef,
   type AutomationTemplateRef,
@@ -19,7 +18,7 @@ import {
 import { db } from '../../db/client.js';
 import { automationTemplates, automations, serverUsers, servers, users } from '../../db/schema.js';
 import { buildMultiServerFragment } from '../../utils/serverFiltering.js';
-import { hasInactivityCondition } from './engine.js';
+import { matchesTrigger } from './events/evaluate.js';
 import { type TemplateSource } from './templates/store.js';
 import { type AutomationRow } from './versions.js';
 
@@ -165,16 +164,9 @@ export function toAutomation(row: AutomationDetailRow): Automation {
   };
 }
 
-/** The sweep runs for anything that can fire on inactivity, by trigger or by condition. */
-export function needsInactivitySweep(row: {
-  triggers: TriggerNode[] | null;
-  conditions: AutomationConditions | null;
-}): boolean {
-  return (
-    (row.triggers ?? []).some(
-      (trigger) => trigger.type === 'account.inactive_for' && trigger.enabled
-    ) || hasInactivityCondition(row)
-  );
+/** The sweep runs for whatever carries the inactivity trigger; conditions no longer route it. */
+export function needsInactivitySweep(row: { triggers: TriggerNode[] | null }): boolean {
+  return matchesTrigger({ triggers: row.triggers ?? [] }, 'account.inactive_for');
 }
 
 type ScopeRefs = Pick<UpdateAutomationInput, 'serverId' | 'serverUserId' | 'userId'>;

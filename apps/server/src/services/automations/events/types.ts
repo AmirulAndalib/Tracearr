@@ -1,4 +1,9 @@
-import type { EngineAutomation, Session, ViolationSeverity } from '@tracearr/shared';
+import type {
+  EngineAutomation,
+  Session,
+  TriggerType as CatalogTriggerType,
+  ViolationSeverity,
+} from '@tracearr/shared';
 import type { db } from '../../../db/client.js';
 import type { sessions } from '../../../db/schema.js';
 import type { ActionResult } from '../executors/index.js';
@@ -7,15 +12,8 @@ import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type SessionRow = typeof sessions.$inferSelect;
 
-export type TriggerType =
-  | 'session.started'
-  | 'session.transcode_changed'
-  | 'session.paused'
-  | 'session.held_for'
-  | 'session.resumed'
-  | 'session.stopped'
-  | 'session.media_changed'
-  | 'account.inactive_for';
+/** The catalog plus the two types that only cancel wakes and are never stored on an automation. */
+export type TriggerType = CatalogTriggerType | 'session.resumed' | 'session.media_changed';
 
 /** What every producer already holds about the server; matches SessionCreationInput['server']. */
 export interface EvaluationServer {
@@ -73,12 +71,26 @@ export interface SessionHeldForEvent extends SessionEventBase {
   heldMinutes: number;
 }
 
-/** Cancel-only triggers carry ids and no evaluation inputs. */
-export interface SessionRefEvent extends BaseEvent {
-  type: 'session.resumed' | 'session.stopped' | 'session.media_changed';
+/** Wake cancellations carry ids and no evaluation inputs. */
+interface SessionRefBase extends BaseEvent {
   sessionId: string;
   serverId: string;
 }
+
+export interface SessionResumedEvent extends SessionRefBase {
+  type: 'session.resumed';
+}
+
+export interface SessionMediaChangedEvent extends SessionRefBase {
+  type: 'session.media_changed';
+}
+
+/** Still ref-shaped: Task 13a gives the two stop producers a context to carry server, user, session and durationMs. */
+export interface SessionStoppedEvent extends SessionRefBase {
+  type: 'session.stopped';
+}
+
+export type SessionRefEvent = SessionResumedEvent | SessionMediaChangedEvent | SessionStoppedEvent;
 
 export interface AccountInactiveForEvent extends BaseEvent {
   type: 'account.inactive_for';
@@ -87,15 +99,53 @@ export interface AccountInactiveForEvent extends BaseEvent {
   session: null;
 }
 
+export interface ServerDownEvent extends BaseEvent {
+  type: 'server.down';
+  server: EvaluationServer;
+}
+
+export interface ServerUpEvent extends BaseEvent {
+  type: 'server.up';
+  server: EvaluationServer;
+}
+
+export interface PluginUpdateEvent extends BaseEvent {
+  type: 'plugin.update_available';
+  server: EvaluationServer;
+  installedVersion: string | null;
+  latestVersion: string;
+  downloadUrl: string;
+}
+
+export interface ServerUpdateEvent extends BaseEvent {
+  type: 'server.update_available';
+  server: EvaluationServer;
+  installedVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+}
+
+export interface TracearrUpdateEvent extends BaseEvent {
+  type: 'tracearr.update_available';
+  current: string;
+  latest: string;
+  releaseUrl: string;
+}
+
 export type RuleEvent =
   | SessionStartedEvent
   | SessionTranscodeChangedEvent
   | SessionPausedEvent
   | SessionHeldForEvent
   | SessionRefEvent
-  | AccountInactiveForEvent;
+  | AccountInactiveForEvent
+  | ServerDownEvent
+  | ServerUpEvent
+  | PluginUpdateEvent
+  | ServerUpdateEvent
+  | TracearrUpdateEvent;
 
-/** Distributes over the event union by member so the three-trigger SessionRefEvent resolves for each of its types. */
+/** Distributes over the event union by member, which keeps a Subscriber<T> assignable to Subscriber<TriggerType>. */
 export type EventOf<T extends TriggerType> = RuleEvent extends infer E
   ? E extends { type: TriggerType }
     ? T extends E['type']

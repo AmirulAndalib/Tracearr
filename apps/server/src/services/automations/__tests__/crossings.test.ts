@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EngineAutomation } from '@tracearr/shared';
+import type { EngineAutomation, TriggerNode } from '@tracearr/shared';
 import { CROSSING_PAD_MS, HOLD_OPEN_RECHECK_MS, pauseCrossings } from '../wakes/crossings.js';
 
 const MIN = 60_000;
@@ -11,34 +11,48 @@ interface Cond {
   value: number;
 }
 
-function groups(id: string, ...groupConds: Cond[][]): EngineAutomation {
+function heldFor(
+  minutes: number,
+  measure: 'current' | 'total' = 'current',
+  enabled = true
+): TriggerNode {
+  return {
+    id: `n-${measure}-${minutes}`,
+    type: 'session.held_for',
+    enabled,
+    params: { minutes, measure },
+  };
+}
+
+function rule(
+  id: string,
+  triggers: TriggerNode[],
+  groupConds: Cond[][] = [],
+  overrides: Partial<EngineAutomation> = {}
+): EngineAutomation {
   return {
     id,
     name: id,
     isActive: true,
     severity: 'warning',
+    triggers,
     conditions: { groups: groupConds.map((conditions) => ({ conditions })) },
     actions: { actions: [] },
+    ...overrides,
   } as unknown as EngineAutomation;
-}
-function rule(id: string, conds: Cond[]): EngineAutomation {
-  return groups(id, conds);
-}
-function twoGroups(id: string, a: Cond, b: Cond): EngineAutomation {
-  return groups(id, [a], [b]);
 }
 
 describe('pauseCrossings', () => {
-  it('current_pause_minutes gt/gte cross at lastPausedAt + N minutes, plus the pad', () => {
-    const rules = [rule('a', [{ field: 'current_pause_minutes', operator: 'gt', value: 10 }])];
+  it('a current measure crosses at lastPausedAt plus the node minutes, plus the pad', () => {
+    const rules = [rule('a', [heldFor(30)])];
     const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0 + 1000, rules });
-    expect(r.next).toBe(t0 + 10 * MIN + CROSSING_PAD_MS);
-    expect(r.earliest).toBe(t0 + 10 * MIN + CROSSING_PAD_MS);
+    expect(r.next).toBe(t0 + 30 * MIN + CROSSING_PAD_MS);
+    expect(r.earliest).toBe(t0 + 30 * MIN + CROSSING_PAD_MS);
     expect(r.holdOpen).toBe(false);
   });
 
-  it('total_pause_minutes accounts for already accumulated pause time', () => {
-    const rules = [rule('a', [{ field: 'total_pause_minutes', operator: 'gte', value: 30 }])];
+  it('a total measure subtracts the pause time already banked', () => {
+    const rules = [rule('a', [heldFor(30, 'total')])];
     const r = pauseCrossings({
       lastPausedAt: t0,
       pausedDurationMs: 20 * MIN,
@@ -48,8 +62,8 @@ describe('pauseCrossings', () => {
     expect(r.next).toBe(t0 + 10 * MIN + CROSSING_PAD_MS);
   });
 
-  it('a total_pause_minutes threshold already exceeded by accumulated time is a past crossing', () => {
-    const rules = [rule('t', [{ field: 'total_pause_minutes', operator: 'gte', value: 30 }])];
+  it('a total threshold already exceeded by banked time is a past crossing', () => {
+    const rules = [rule('t', [heldFor(30, 'total')])];
     const r = pauseCrossings({
       lastPausedAt: t0,
       pausedDurationMs: 40 * MIN,
@@ -60,60 +74,57 @@ describe('pauseCrossings', () => {
     expect(r.earliest).toBe(t0 + 30 * MIN - 40 * MIN + CROSSING_PAD_MS);
   });
 
-  it('picks the earliest future crossing across rules and conditions', () => {
-    const rules = [
-      rule('a', [{ field: 'current_pause_minutes', operator: 'gt', value: 30 }]),
-      rule('b', [{ field: 'current_pause_minutes', operator: 'gte', value: 5 }]),
-    ];
+  it('picks the earliest future crossing across rules and across the nodes of one rule', () => {
+    const rules = [rule('a', [heldFor(30)]), rule('b', [heldFor(20), heldFor(5)])];
     const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0 + 1000, rules });
     expect(r.next).toBe(t0 + 5 * MIN + CROSSING_PAD_MS);
+    expect(r.earliest).toBe(t0 + 5 * MIN + CROSSING_PAD_MS);
   });
 
   it('drops crossings at or before now from next but keeps them in earliest', () => {
-    const rules = [
-      rule('a', [{ field: 'current_pause_minutes', operator: 'gt', value: 5 }]),
-      rule('b', [{ field: 'current_pause_minutes', operator: 'gt', value: 60 }]),
-    ];
+    const rules = [rule('a', [heldFor(5)]), rule('b', [heldFor(60)])];
     const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0 + 20 * MIN, rules });
     expect(r.next).toBe(t0 + 60 * MIN + CROSSING_PAD_MS);
     expect(r.earliest).toBe(t0 + 5 * MIN + CROSSING_PAD_MS);
   });
 
-  it('eq, lt, lte, neq contribute nothing', () => {
+  it('a pause condition without a held_for node yields no crossing', () => {
     const rules = [
-      rule('a', [{ field: 'current_pause_minutes', operator: 'eq', value: 5 }]),
-      rule('b', [{ field: 'current_pause_minutes', operator: 'lt', value: 5 }]),
-      rule('c', [{ field: 'total_pause_minutes', operator: 'lte', value: 5 }]),
-      rule('d', [{ field: 'total_pause_minutes', operator: 'neq', value: 5 }]),
+      rule(
+        'a',
+        [{ id: 'n-p', type: 'session.paused', enabled: true }],
+        [[{ field: 'current_pause_minutes', operator: 'gte', value: 5 }]]
+      ),
     ];
-    const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0, rules });
-    expect(r).toEqual({ next: null, earliest: null, holdOpen: false });
+    expect(pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0, rules })).toEqual({
+      next: null,
+      earliest: null,
+      holdOpen: false,
+    });
   });
 
-  it('ignores rules without pause conditions and inactive rules', () => {
+  it('ignores a disabled node and an inactive rule', () => {
     const rules = [
-      rule('a', [{ field: 'concurrent_streams', operator: 'gt', value: 2 }]),
-      {
-        ...rule('b', [{ field: 'current_pause_minutes', operator: 'gt', value: 5 }]),
-        isActive: false,
-      } as EngineAutomation,
+      rule('a', [heldFor(5, 'current', false)]),
+      rule('b', [heldFor(5)], [], { isActive: false }),
     ];
     const r = pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0, rules });
     expect(r.next).toBeNull();
+    expect(r.earliest).toBeNull();
   });
 
-  it('holdOpen is true only when a satisfied pause condition shares a rule with a non-pause condition', () => {
-    const compound = twoGroups(
+  it('holds open once the node is satisfied and the rule still has a non-pause condition', () => {
+    const compound = rule(
       'c',
-      { field: 'current_pause_minutes', operator: 'gte', value: 10 },
-      { field: 'concurrent_streams', operator: 'gte', value: 3 }
+      [heldFor(10)],
+      [[{ field: 'concurrent_streams', operator: 'gte', value: 3 }]]
     );
-    const pure = rule('p', [{ field: 'current_pause_minutes', operator: 'gte', value: 10 }]);
 
     expect(
       pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0 + MIN, rules: [compound] })
         .holdOpen
     ).toBe(false);
+
     const after = pauseCrossings({
       lastPausedAt: t0,
       pausedDurationMs: 0,
@@ -122,6 +133,14 @@ describe('pauseCrossings', () => {
     });
     expect(after.holdOpen).toBe(true);
     expect(after.next).toBe(t0 + 15 * MIN + HOLD_OPEN_RECHECK_MS);
+  });
+
+  it('a satisfied node whose rule only tests pause time does not hold open', () => {
+    const pure = rule(
+      'p',
+      [heldFor(10)],
+      [[{ field: 'total_pause_minutes', operator: 'gte', value: 10 }]]
+    );
     expect(
       pauseCrossings({ lastPausedAt: t0, pausedDurationMs: 0, now: t0 + 15 * MIN, rules: [pure] })
     ).toEqual({
@@ -131,50 +150,13 @@ describe('pauseCrossings', () => {
     });
   });
 
-  it('a single group mixing a pause and a non-pause condition does not hold open', () => {
-    const mixed = rule('o', [
-      { field: 'current_pause_minutes', operator: 'gte', value: 10 },
-      { field: 'concurrent_streams', operator: 'gte', value: 3 },
-    ]);
-    const r = pauseCrossings({
-      lastPausedAt: t0,
-      pausedDurationMs: 0,
-      now: t0 + 15 * MIN,
-      rules: [mixed],
-    });
-    expect(r).toEqual({
-      next: null,
-      earliest: t0 + 10 * MIN + CROSSING_PAD_MS,
-      holdOpen: false,
-    });
-  });
-
-  it('an unmet mixed group alongside a met pause group holds open', () => {
-    const mixed = groups(
-      'm',
-      [{ field: 'current_pause_minutes', operator: 'gte', value: 10 }],
-      [
-        { field: 'current_pause_minutes', operator: 'gte', value: 60 },
-        { field: 'concurrent_streams', operator: 'gte', value: 3 },
-      ]
-    );
-    const r = pauseCrossings({
-      lastPausedAt: t0,
-      pausedDurationMs: 0,
-      now: t0 + 15 * MIN,
-      rules: [mixed],
-    });
-    expect(r.holdOpen).toBe(true);
-    expect(r.next).toBe(t0 + 15 * MIN + HOLD_OPEN_RECHECK_MS);
-  });
-
   it('holdOpen recheck does not push out an earlier real crossing', () => {
-    const compound = twoGroups(
+    const compound = rule(
       'c',
-      { field: 'current_pause_minutes', operator: 'gte', value: 1 },
-      { field: 'concurrent_streams', operator: 'gte', value: 3 }
+      [heldFor(1)],
+      [[{ field: 'concurrent_streams', operator: 'gte', value: 3 }]]
     );
-    const later = rule('l', [{ field: 'current_pause_minutes', operator: 'gte', value: 2 }]);
+    const later = rule('l', [heldFor(2)]);
     const r = pauseCrossings({
       lastPausedAt: t0,
       pausedDurationMs: 0,
@@ -186,12 +168,12 @@ describe('pauseCrossings', () => {
   });
 
   it('holdOpen recheck comes first when it is nearer', () => {
-    const compound = twoGroups(
+    const compound = rule(
       'c',
-      { field: 'current_pause_minutes', operator: 'gte', value: 1 },
-      { field: 'concurrent_streams', operator: 'gte', value: 3 }
+      [heldFor(1)],
+      [[{ field: 'concurrent_streams', operator: 'gte', value: 3 }]]
     );
-    const later = rule('l', [{ field: 'current_pause_minutes', operator: 'gte', value: 2 }]);
+    const later = rule('l', [heldFor(2)]);
     const r = pauseCrossings({
       lastPausedAt: t0,
       pausedDurationMs: 0,

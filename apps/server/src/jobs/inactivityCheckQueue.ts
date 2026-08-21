@@ -5,13 +5,13 @@
  */
 
 import { Queue, Worker, type Job, type ConnectionOptions } from 'bullmq';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, lte, or, type SQL } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
-import { TIME_MS } from '@tracearr/shared';
+import { TIME_MS, type EngineAutomation } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { serverUsers, users, servers } from '../db/schema.js';
 import { dispatch } from '../services/automations/events/dispatcher.js';
-import { matchesTrigger } from '../services/automations/events/evaluate.js';
+import { matchesTrigger, triggerNodeFor } from '../services/automations/events/evaluate.js';
 import { isMaintenance } from '../serverState.js';
 import { batchGetIdentityServerUserIds, getActiveAutomations } from './poller/database.js';
 import { broadcastViolations } from './poller/violations.js';
@@ -198,6 +198,13 @@ interface CandidateRow {
   serverType: 'plex' | 'jellyfin' | 'emby';
 }
 
+/** The trigger's own threshold, so an automation only ever sees accounts idle long enough for it. */
+function inactiveSince(rule: EngineAutomation, now: number): Date | null {
+  const node = triggerNodeFor(rule, 'account.inactive_for');
+  if (node?.type !== 'account.inactive_for') return null;
+  return new Date(now - node.params.days * TIME_MS.DAY);
+}
+
 /**
  * Process an inactivity check job
  */
@@ -216,11 +223,18 @@ async function processInactivityCheck(job: Job<InactivityCheckJobData>): Promise
   // One dispatch per distinct account across every rule's scope; the engine's own
   // per-rule scope filters decide which rules apply to which account.
   const candidates = new Map<string, CandidateRow>();
+  const now = Date.now();
   for (const rule of activeRules) {
-    const scopeFilters = [isNull(serverUsers.removedAt)];
+    const since = inactiveSince(rule, now);
+    const scopeFilters: (SQL | undefined)[] = [isNull(serverUsers.removedAt)];
     if (rule.serverUserId) scopeFilters.push(eq(serverUsers.id, rule.serverUserId));
     if (rule.serverId) scopeFilters.push(eq(serverUsers.serverId, rule.serverId));
     if (rule.userId) scopeFilters.push(eq(serverUsers.userId, rule.userId));
+    if (since) {
+      scopeFilters.push(
+        or(isNull(serverUsers.lastActivityAt), lte(serverUsers.lastActivityAt, since))
+      );
+    }
 
     const rows = await db
       .select({

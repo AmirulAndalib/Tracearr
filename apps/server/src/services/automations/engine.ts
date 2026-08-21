@@ -20,37 +20,6 @@ import { evaluatorRegistry } from './evaluators/index.js';
 import { rulesLogger as logger } from '../../utils/logger.js';
 
 /**
- * Condition fields whose evaluated value changes based on pause state/duration.
- * Rules containing these fields are re-evaluated on every poll cycle for paused sessions
- * because the pause duration grows over time even without state transitions.
- */
-export const PAUSE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
-  'current_pause_minutes',
-  'total_pause_minutes',
-]);
-
-/**
- * Check if a rule contains any condition fields that depend on pause state.
- * Used to filter which rules need re-evaluation on each poll for paused sessions.
- */
-export function hasPauseConditions(rule: EngineAutomation): boolean {
-  if (!rule.conditions?.groups) return false;
-  return rule.conditions.groups.some((group) =>
-    group.conditions.some((condition) => PAUSE_CONDITION_FIELDS.has(condition.field))
-  );
-}
-
-/** True when any condition uses inactive_days; the V2 rule routes gate scheduling on it. */
-export function hasInactivityCondition(rule: {
-  conditions: AutomationConditions | null | undefined;
-}): boolean {
-  if (!rule.conditions?.groups) return false;
-  return rule.conditions.groups.some((group) =>
-    group.conditions.some((c) => c.field === 'inactive_days')
-  );
-}
-
-/**
  * Convert an evaluator result to condition evidence.
  */
 function toConditionEvidence(condition: Condition, result: EvaluatorResult): ConditionEvidence {

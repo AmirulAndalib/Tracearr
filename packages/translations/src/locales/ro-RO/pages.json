@@ -179,7 +179,8 @@
       "reasons": {
         "cooldown_active": "Cooldown was active",
         "edge_replayed": "Same edge already handled",
-        "gate_blocked": "An open run already covers this"
+        "gate_blocked": "An open run already covers this",
+        "trigger_filter_failed": "Trigger threshold not reached"
       },
       "title": "Recent evaluations"
     },

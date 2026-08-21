@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type {
   ConditionField,
+  ConditionValue,
   NodeFields,
   AutomationActions,
   AutomationConditions,
@@ -22,24 +23,72 @@ const node = (
   type: Exclude<TriggerType, 'session.held_for' | 'account.inactive_for'>
 ): TriggerNode => ({ id: randomUUID(), type, enabled: true });
 
-// Synthesized params sit at their minimum: the thresholds the engine acts on live in the
-// pause and inactivity conditions, not on the trigger node.
-const heldForNode = (): TriggerNode => ({
-  id: randomUUID(),
-  type: 'session.held_for',
-  enabled: true,
-  params: { minutes: 1, measure: 'current' },
-});
-const inactiveForNode = (): TriggerNode => ({
-  id: randomUUID(),
-  type: 'account.inactive_for',
-  enabled: true,
-  params: { days: 1 },
-});
+const PAUSE_MEASURE: Partial<Record<ConditionField, 'current' | 'total'>> = {
+  current_pause_minutes: 'current',
+  total_pause_minutes: 'total',
+};
+const RISING_OPERATORS: ReadonlySet<string> = new Set(['gt', 'gte']);
+/** What a rule with nothing to derive from gets; disabled, so it fires nothing until someone sets it. */
+const DEFAULT_HELD_FOR = { minutes: 30, measure: 'current' } as const;
+const DEFAULT_INACTIVE_DAYS = 30;
+
+function* enabledConditions(conditions: AutomationConditions | null | undefined) {
+  for (const group of conditions?.groups ?? []) {
+    for (const condition of group.conditions) {
+      if (condition.enabled !== false) yield condition;
+    }
+  }
+}
+
+/** A threshold the trigger schema would reject is no threshold at all. */
+function threshold(value: ConditionValue, max: number): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
+  return value >= 1 && value <= max ? value : null;
+}
+
+/** One node per distinct measure and threshold among the rising pause conditions. */
+function heldForNodes(conditions: AutomationConditions | null | undefined): TriggerNode[] {
+  const nodes: TriggerNode[] = [];
+  const seen = new Set<string>();
+  for (const condition of enabledConditions(conditions)) {
+    const measure = PAUSE_MEASURE[condition.field];
+    if (!measure || !RISING_OPERATORS.has(condition.operator)) continue;
+    const minutes = threshold(condition.value, 1440);
+    if (minutes === null || seen.has(`${measure}:${String(minutes)}`)) continue;
+    seen.add(`${measure}:${String(minutes)}`);
+    nodes.push({
+      id: randomUUID(),
+      type: 'session.held_for',
+      enabled: true,
+      params: { minutes, measure },
+    });
+  }
+  if (nodes.length > 0) return nodes;
+  return [
+    { id: randomUUID(), type: 'session.held_for', enabled: false, params: { ...DEFAULT_HELD_FOR } },
+  ];
+}
+
+/** The first enabled inactive_days threshold, which is what the evaluator applies today. */
+function inactiveForNode(conditions: AutomationConditions | null | undefined): TriggerNode {
+  for (const condition of enabledConditions(conditions)) {
+    if (condition.field !== 'inactive_days') continue;
+    const days = threshold(condition.value, 3650);
+    if (days === null) continue;
+    return { id: randomUUID(), type: 'account.inactive_for', enabled: true, params: { days } };
+  }
+  return {
+    id: randomUUID(),
+    type: 'account.inactive_for',
+    enabled: false,
+    params: { days: DEFAULT_INACTIVE_DAYS },
+  };
+}
 
 /**
  * Mirrors the engine's condition sniffing: inactive_days routes to the account trigger and
  * suppresses session.started, while transcode and pause fields add their edge triggers either way.
+ * The pause and inactivity thresholds move onto the nodes they now belong to.
  */
 export function synthesizeTriggers(
   conditions: AutomationConditions | null | undefined
@@ -54,8 +103,8 @@ export function synthesizeTriggers(
   const triggers: TriggerNode[] = [];
   if (!fields.has('inactive_days')) triggers.push(node('session.started'));
   if (usesAny(TRANSCODE_FIELDS)) triggers.push(node('session.transcode_changed'));
-  if (usesAny(PAUSE_FIELDS)) triggers.push(node('session.paused'), heldForNode());
-  if (fields.has('inactive_days')) triggers.push(inactiveForNode());
+  if (usesAny(PAUSE_FIELDS)) triggers.push(node('session.paused'), ...heldForNodes(conditions));
+  if (fields.has('inactive_days')) triggers.push(inactiveForNode(conditions));
   return triggers;
 }
 
@@ -68,10 +117,16 @@ export function carryTriggerIds(
   next: TriggerNode[],
   existing: TriggerNode[] | null | undefined
 ): TriggerNode[] {
-  const byType = new Map((existing ?? []).map((trigger) => [trigger.type, trigger.id]));
+  const byType = new Map<TriggerNode['type'], string>();
+  for (const trigger of existing ?? []) {
+    if (!byType.has(trigger.type)) byType.set(trigger.type, trigger.id);
+  }
   return next.map((trigger) => {
     const priorId = byType.get(trigger.type);
-    return priorId ? { ...trigger, id: priorId } : trigger;
+    if (priorId === undefined) return trigger;
+    // One id per type: a second node of the same type would collide with the first.
+    byType.delete(trigger.type);
+    return { ...trigger, id: priorId };
   });
 }
 

@@ -6,10 +6,9 @@ import { getActiveAutomations, onActiveAutomationsRefill } from '../../../jobs/p
 import { broadcastViolations } from '../../../jobs/poller/violations.js';
 import { rulesLogger } from '../../../utils/logger.js';
 import { isLeader } from '../../leaderLease.js';
-import { PAUSE_CONDITION_FIELDS } from '../engine.js';
 import { loadEvaluationContext, toRuleSession } from '../events/contextAssembly.js';
 import { dispatch, subscribe } from '../events/dispatcher.js';
-import { pauseCrossings } from './crossings.js';
+import { heldForNodes, pauseCrossings } from './crossings.js';
 import type { PubSubService } from '../../cache.js';
 
 const MAX_TIMER_MS = 2 ** 31 - 1;
@@ -168,16 +167,13 @@ export async function rehydratePauseWakes(): Promise<void> {
   for (const row of rows) schedulePauseWake(row, rules, { evaluateIfPast: true });
 }
 
+/** Only what moves a crossing: which rules hold a held_for node, and on what threshold. */
 function pauseRulesFingerprint(rules: EngineAutomation[]): string {
   const parts: string[] = [];
   for (const rule of rules) {
     if (!rule.isActive) continue;
-    for (const group of rule.conditions?.groups ?? []) {
-      for (const c of group.conditions) {
-        if (PAUSE_CONDITION_FIELDS.has(c.field)) {
-          parts.push(`${rule.id}:${c.field}:${c.operator}:${String(c.value)}`);
-        }
-      }
+    for (const node of heldForNodes(rule)) {
+      parts.push(`${rule.id}:${node.params.measure}:${String(node.params.minutes)}`);
     }
   }
   return parts.sort().join('|');

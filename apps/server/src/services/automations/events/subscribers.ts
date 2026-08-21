@@ -1,4 +1,4 @@
-import type { ConditionField, EngineAutomation, RunFinishedEvent } from '@tracearr/shared';
+import type { EngineAutomation, RunFinishedEvent } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import {
   appendRunSteps,
@@ -13,15 +13,17 @@ import {
   type RunScope,
 } from '../runRecorder.js';
 import { rulesLogger } from '../../../utils/logger.js';
-import { evaluateRulesAsync, PAUSE_CONDITION_FIELDS } from '../engine.js';
+import { evaluateRulesAsync } from '../engine.js';
 import { executeActions, type ActionResult } from '../executors/index.js';
 import { storeActionResults } from '../v2Integration.js';
 import { subscribe } from './dispatcher.js';
 import {
+  paramsPass,
   triggerCandidates,
   triggerNodeFor,
   type EvaluatingEvent,
   type SessionEvaluatingEvent,
+  type UserEvaluatingEvent,
 } from './evaluate.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
@@ -71,10 +73,8 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
   return all;
 }
 
-const INACTIVE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set(['inactive_days']);
-
 /** What makes this firing a distinct edge for the notification gate. */
-function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation): string | null {
+export function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation): string | null {
   switch (event.type) {
     case 'session.started':
       return null;
@@ -82,29 +82,26 @@ function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation): string
       return `${event.next.videoDecision ?? 'none'}/${event.next.audioDecision ?? 'none'}`;
     case 'session.paused':
       return event.pauseData.lastPausedAt?.toISOString() ?? null;
-    case 'session.held_for':
-      return conditionThreshold(automation, PAUSE_CONDITION_FIELDS);
-    case 'account.inactive_for':
-      return conditionThreshold(automation, INACTIVE_CONDITION_FIELDS);
-  }
-}
-
-/**
- * Level-triggered edges key on the threshold the automation crossed, never on the
- * elapsed value: a rehydrated wake replays the same crossing with a larger number.
- */
-function conditionThreshold(
-  automation: EngineAutomation,
-  fields: ReadonlySet<ConditionField>
-): string | null {
-  for (const group of automation.conditions?.groups ?? []) {
-    for (const condition of group.conditions) {
-      if (fields.has(condition.field) && typeof condition.value === 'number') {
-        return String(condition.value);
-      }
+    case 'session.held_for': {
+      // Never the elapsed value: a rehydrated wake replays the same crossing with a larger number.
+      const node = triggerNodeFor(automation, event.type);
+      if (node?.type !== 'session.held_for') return null;
+      return `${node.params.measure}:${String(node.params.minutes)}`;
     }
+    case 'account.inactive_for': {
+      const node = triggerNodeFor(automation, event.type);
+      return node?.type === 'account.inactive_for' ? String(node.params.days) : null;
+    }
+    case 'session.stopped':
+    case 'server.down':
+    case 'server.up':
+      return event.at.toISOString();
+    case 'plugin.update_available':
+    case 'server.update_available':
+      return event.latestVersion;
+    case 'tracearr.update_available':
+      return event.latest;
   }
-  return null;
 }
 
 /**
@@ -113,7 +110,7 @@ function conditionThreshold(
  * follow it, so nothing acts on a run the database has not kept.
  */
 export async function runRulePipeline(
-  event: EvaluatingEvent,
+  event: UserEvaluatingEvent,
   inputs: EvaluationInputs,
   opts: DispatchOptions,
   scope: RunScope,
@@ -126,8 +123,21 @@ export async function runRulePipeline(
   const effects: Array<() => Promise<void>> = [];
   const finished: RunFinishedEvent[] = [];
 
-  const cooling = await Promise.all(rules.map((rule) => automationCoolingDown(rule, subjectKey)));
-  const evaluable = rules.filter((rule, index) => {
+  // The node's own params are part of the trigger: a threshold not yet reached never evaluates.
+  const reached = rules.filter((rule) => {
+    const node = triggerNodeFor(rule, event.type);
+    if (node && paramsPass(node, event)) return true;
+    void recordNearMiss(rule.id, {
+      reason: 'trigger_filter_failed',
+      subjectKey,
+      trigger: event.type,
+    });
+    return false;
+  });
+  if (reached.length === 0) return { violations };
+
+  const cooling = await Promise.all(reached.map((rule) => automationCoolingDown(rule, subjectKey)));
+  const evaluable = reached.filter((rule, index) => {
     if (!cooling[index]) return true;
     void recordNearMiss(rule.id, { reason: 'cooldown_active', subjectKey, trigger: event.type });
     return false;
@@ -237,6 +247,14 @@ function sessionRules(marker?: Record<string, true>, fresh?: boolean) {
   };
 }
 
+const SYSTEM_TRIGGERS = [
+  'server.down',
+  'server.up',
+  'plugin.update_available',
+  'server.update_available',
+  'tracearr.update_available',
+] as const;
+
 let registered = false;
 
 export function registerRuleSubscribers(): void {
@@ -254,6 +272,10 @@ export function registerRuleSubscribers(): void {
       serverUserId: event.serverUser.id,
     });
   });
+  // Server and install events carry no user; Task 12 builds their contexts and evaluates them.
+  for (const trigger of SYSTEM_TRIGGERS) {
+    subscribe(trigger, 'system-rules', async () => ({ violations: [] }));
+  }
 }
 
 export function resetRuleSubscribersForTests(): void {

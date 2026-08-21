@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PgDialect } from 'drizzle-orm/pg-core';
+import type { SQL } from 'drizzle-orm';
 import type { AutomationConditions, EngineAutomation } from '@tracearr/shared';
 
 const mockGetActiveAutomations = vi.fn();
@@ -76,13 +78,13 @@ function inactivityRule(id: string, scope: Partial<EngineAutomation> = {}): Engi
     triggers: scope.triggers !== undefined ? scope.triggers : synthesizeTriggers(conditions),
   } as unknown as EngineAutomation;
 }
-const candidate = (id: string, userId = 'u1') => ({
+const candidate = (id: string, userId = 'u1', lastActivityAt: Date | null = null) => ({
   id,
   userId,
   username: id,
   thumbUrl: null,
   identityName: null,
-  lastActivityAt: null,
+  lastActivityAt,
   trustScore: 100,
   createdAt: new Date(),
   serverId: 'srv1',
@@ -90,6 +92,24 @@ const candidate = (id: string, userId = 'u1') => ({
   serverType: 'plex',
 });
 const job = { id: 'j1', data: { type: 'check' } } as never;
+const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+const dialect = new PgDialect();
+/** The stub applies the query's own cutoff, so the assertion is about the filter and not the mock. */
+function rowsMatching(rows: ReturnType<typeof candidate>[]) {
+  return (filter: unknown) => {
+    const { params } = dialect.sqlToQuery(filter as SQL);
+    const bound = params.find(
+      (p): p is Date | string => p instanceof Date || typeof p === 'string'
+    );
+    const cutoff = bound === undefined ? null : new Date(bound);
+    return Promise.resolve(
+      rows.filter((r) => cutoff === null || r.lastActivityAt === null || r.lastActivityAt <= cutoff)
+    );
+  };
+}
+const dispatchedIds = () =>
+  mockDispatch.mock.calls.map((call) => (call[0] as { serverUser: { id: string } }).serverUser.id);
 
 describe('processInactivityCheck', () => {
   const publish = vi.fn();
@@ -122,6 +142,42 @@ describe('processInactivityCheck', () => {
         (call[1] as { activeAutomations: EngineAutomation[] }).activeAutomations.map((r) => r.id)
       ).toEqual(['a', 'b']);
     }
+  });
+
+  it('leaves out accounts the automation days have not reached', async () => {
+    mockGetActiveAutomations.mockResolvedValue([inactivityRule('a')]);
+    mockWhere.mockImplementation(
+      rowsMatching([
+        candidate('recent', 'u1', daysAgo(10)),
+        candidate('idle', 'u2', daysAgo(40)),
+        candidate('never', 'u1', null),
+      ])
+    );
+
+    await processInactivityCheckForTests(job);
+
+    expect(dispatchedIds()).toEqual(['idle', 'never']);
+  });
+
+  it('each automation filters on its own days', async () => {
+    const yearly = inactivityRule('y', {
+      triggers: [
+        {
+          id: '0f5b8d4a-9c6e-4a2b-8d1f-3c7e5a9b1d24',
+          type: 'account.inactive_for',
+          enabled: true,
+          params: { days: 365 },
+        },
+      ],
+    });
+    mockGetActiveAutomations.mockResolvedValue([yearly]);
+    mockWhere.mockImplementation(
+      rowsMatching([candidate('idle', 'u2', daysAgo(40)), candidate('ancient', 'u1', daysAgo(400))])
+    );
+
+    await processInactivityCheckForTests(job);
+
+    expect(dispatchedIds()).toEqual(['ancient']);
   });
 
   it('broadcasts returned violations keyed by the server user', async () => {

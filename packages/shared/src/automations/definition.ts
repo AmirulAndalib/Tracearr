@@ -240,7 +240,12 @@ export const runListQuerySchema = paginationSchema
   .extend(listSortSchema(RUN_SORT_FIELDS).shape);
 export type RunListQuery = z.infer<typeof runListQuerySchema>;
 
-export const NEAR_MISS_REASONS = ['cooldown_active', 'edge_replayed', 'gate_blocked'] as const;
+export const NEAR_MISS_REASONS = [
+  'cooldown_active',
+  'edge_replayed',
+  'gate_blocked',
+  'trigger_filter_failed',
+] as const;
 export type NearMissReason = (typeof NEAR_MISS_REASONS)[number];
 
 /** One entry of the capped ring: a trigger matched but the pipeline recorded no run. */

@@ -1,18 +1,26 @@
-import type { Condition, ConditionGroup, EngineAutomation } from '@tracearr/shared';
-import { compare } from '../comparisons.js';
-import { hasPauseConditions, PAUSE_CONDITION_FIELDS } from '../engine.js';
+import type { ConditionField, EngineAutomation, TriggerNode } from '@tracearr/shared';
 
 /** Fires after the boundary, never on it: gt N is false at exactly N (evaluators.test.ts, "supports gt operator for strict comparison"). */
 export const CROSSING_PAD_MS = 1000;
 /** Today's reconciliation-poll cadence; used only while a compound pause rule is held open. */
 export const HOLD_OPEN_RECHECK_MS = 30_000;
 
-const RISING_OPERATORS = new Set(['gt', 'gte']);
+/** Conditions on these grow with the pause itself; anything else can only flip from elsewhere. */
+const PAUSE_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set([
+  'current_pause_minutes',
+  'total_pause_minutes',
+]);
 
-export interface PauseCrossingInput {
+type HeldForNode = Extract<TriggerNode, { type: 'session.held_for' }>;
+export type PauseMeasure = HeldForNode['params']['measure'];
+
+export interface PauseState {
   lastPausedAt: number;
   pausedDurationMs: number;
   now: number;
+}
+
+export interface PauseCrossingInput extends PauseState {
   rules: EngineAutomation[];
 }
 
@@ -21,38 +29,46 @@ export interface PauseCrossingResult {
   next: number | null;
   /** Earliest crossing at all, past or future; rehydrate uses it to evaluate immediately. */
   earliest: number | null;
-  /** A satisfied pause condition shares a rule with a non-pause condition; keep rechecking. */
+  /** A satisfied held_for node shares a rule with a non-pause condition; keep rechecking. */
   holdOpen: boolean;
 }
 
-function crossingOf(c: Condition, input: PauseCrossingInput): number | null {
-  if (!PAUSE_CONDITION_FIELDS.has(c.field) || !RISING_OPERATORS.has(c.operator)) return null;
-  if (typeof c.value !== 'number') return null;
-  const thresholdMs = c.value * 60_000;
+/** The one reading of pause time by measure: current is this pause, total adds what earlier pauses banked. */
+export function pauseMinutes(measure: PauseMeasure, state: PauseState): number {
+  const currentMs = state.now - state.lastPausedAt;
+  return (measure === 'current' ? currentMs : state.pausedDurationMs + currentMs) / 60_000;
+}
+
+/** The enabled held_for nodes a wake has to wait for. */
+export function heldForNodes(rule: EngineAutomation): HeldForNode[] {
+  return rule.triggers.filter(
+    (node): node is HeldForNode => node.enabled && node.type === 'session.held_for'
+  );
+}
+
+/** The instant pauseMinutes reaches the node's threshold; the inverse of pauseMinutes. */
+function crossingOf(node: HeldForNode, input: PauseCrossingInput): number {
+  const thresholdMs = node.params.minutes * 60_000;
   const at =
-    c.field === 'current_pause_minutes'
+    node.params.measure === 'current'
       ? input.lastPausedAt + thresholdMs
       : input.lastPausedAt + thresholdMs - input.pausedDurationMs;
   return at + CROSSING_PAD_MS;
 }
 
-function satisfiedNow(c: Condition, input: PauseCrossingInput): boolean {
-  if (!PAUSE_CONDITION_FIELDS.has(c.field)) return false;
-  const currentMs = input.now - input.lastPausedAt;
-  const minutes =
-    c.field === 'current_pause_minutes'
-      ? currentMs / 60_000
-      : (input.pausedDurationMs + currentMs) / 60_000;
-  return compare(minutes, c.operator, c.value);
+function satisfiedNow(node: HeldForNode, input: PauseCrossingInput): boolean {
+  return pauseMinutes(node.params.measure, input) >= node.params.minutes;
 }
 
-/** Groups are AND'd, conditions in a group OR'd: a companion can only flip the rule while every group not already met by a pause condition has one. */
-function holdsOpen(groups: ConditionGroup[], input: PauseCrossingInput): boolean {
-  const unmet = groups.filter((g) => !g.conditions.some((c) => satisfiedNow(c, input)));
-  return (
-    unmet.length > 0 &&
-    unmet.length < groups.length &&
-    unmet.every((g) => g.conditions.some((c) => !PAUSE_CONDITION_FIELDS.has(c.field)))
+/** The trigger has already fired, so only a companion condition is left to flip; those change without a crossing. */
+function holdsOpen(
+  rule: EngineAutomation,
+  nodes: HeldForNode[],
+  input: PauseCrossingInput
+): boolean {
+  if (!nodes.some((node) => satisfiedNow(node, input))) return false;
+  return rule.conditions.groups.some((group) =>
+    group.conditions.some((c) => !PAUSE_CONDITION_FIELDS.has(c.field))
   );
 }
 
@@ -62,15 +78,15 @@ export function pauseCrossings(input: PauseCrossingInput): PauseCrossingResult {
   let holdOpen = false;
 
   for (const rule of input.rules) {
-    if (!rule.isActive || !hasPauseConditions(rule)) continue;
-    const groups = rule.conditions.groups;
-    for (const c of groups.flatMap((g) => g.conditions)) {
-      const at = crossingOf(c, input);
-      if (at === null) continue;
+    if (!rule.isActive) continue;
+    const nodes = heldForNodes(rule);
+    if (nodes.length === 0) continue;
+    for (const node of nodes) {
+      const at = crossingOf(node, input);
       if (earliest === null || at < earliest) earliest = at;
       if (at > input.now && (next === null || at < next)) next = at;
     }
-    if (holdsOpen(groups, input)) holdOpen = true;
+    if (holdsOpen(rule, nodes, input)) holdOpen = true;
   }
 
   if (holdOpen) {
