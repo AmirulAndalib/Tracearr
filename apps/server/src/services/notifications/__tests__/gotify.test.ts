@@ -171,3 +171,26 @@ describe('gotifyType.deliver', () => {
     });
   });
 });
+
+const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
+  destination,
+  source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
+});
+
+describe('gotifyType.render with an automation source', () => {
+  it('keeps the builtin stream text when nothing is overridden', async () => {
+    const message = await render({ type: 'session_started', payload: session }, automationCtx());
+
+    expect(message.title).toBe('Stream Started');
+  });
+
+  it('uses the rendered override for a stream start', async () => {
+    const message = await render(
+      { type: 'session_started', payload: session },
+      automationCtx({ title: 'Heads up', body: '{{user.username}} pressed play' })
+    );
+
+    expect(message.title).toBe('Heads up');
+    expect(message.message).toBe('testuser pressed play');
+  });
+});

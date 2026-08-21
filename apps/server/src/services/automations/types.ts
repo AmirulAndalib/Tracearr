@@ -7,6 +7,7 @@ import type {
   Server,
   GroupEvidence,
 } from '@tracearr/shared';
+import type { ContextEvaluatingEvent } from './events/evaluate.js';
 
 export interface EvaluationContext {
   /** null outside a playback session: account, server and install triggers. */
@@ -17,6 +18,8 @@ export interface EvaluationContext {
   server: Server | null;
   /** What the run is about, as the recorder keys it: session id, server user id, `server:<id>` or `install`. */
   subjectKey: string;
+  /** The event being evaluated; absent for kill re-verification, which runs no send. */
+  trigger?: ContextEvaluatingEvent;
   activeSessions: Session[];
   recentSessions: Session[];
   rule: EngineAutomation;

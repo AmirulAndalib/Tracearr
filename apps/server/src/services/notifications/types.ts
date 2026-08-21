@@ -52,10 +52,38 @@ export interface PluginUpdateContext {
 }
 
 /**
+ * Context provided with media server update notifications
+ */
+export interface ServerUpdateContext {
+  type: 'server_update_available';
+  serverId: string;
+  serverName: string;
+  serverType: string;
+  installedVersion: string;
+  latestVersion: string;
+  releaseUrl: string;
+}
+
+/**
+ * Context provided with Tracearr release notifications
+ */
+export interface TracearrUpdateContext {
+  type: 'tracearr_update_available';
+  current: string;
+  latest: string;
+  releaseUrl: string;
+}
+
+/**
  * Union of all notification contexts
  */
 export type NotificationContext =
-  ViolationContext | SessionContext | ServerContext | PluginUpdateContext;
+  | ViolationContext
+  | SessionContext
+  | ServerContext
+  | PluginUpdateContext
+  | ServerUpdateContext
+  | TracearrUpdateContext;
 
 /**
  * Unified notification payload for all agents
@@ -81,6 +109,9 @@ export interface NotificationPayload {
 
   /** Optional image URL (e.g., poster) */
   imageUrl?: string;
+
+  /** The automation whose send produced this, with whatever text it overrode already rendered. */
+  automation?: { id: string; name: string; title?: string; message?: string };
 }
 
 /**
@@ -148,6 +179,28 @@ export const PayloadBuilders = {
     };
   },
 
+  fromServerUpdate(ctx: Omit<ServerUpdateContext, 'type'>): NotificationPayload {
+    return {
+      event: 'server_update_available',
+      title: 'Server Update Available',
+      message: `${ctx.serverName} can update from ${ctx.installedVersion} to ${ctx.latestVersion}`,
+      severity: 'low',
+      timestamp: new Date().toISOString(),
+      context: { type: 'server_update_available', ...ctx },
+    };
+  },
+
+  fromTracearrUpdate(ctx: Omit<TracearrUpdateContext, 'type'>): NotificationPayload {
+    return {
+      event: 'tracearr_update_available',
+      title: 'Tracearr Update Available',
+      message: `Tracearr ${ctx.latest} is out (running ${ctx.current})`,
+      severity: 'low',
+      timestamp: new Date().toISOString(),
+      context: { type: 'tracearr_update_available', ...ctx },
+    };
+  },
+
   fromPluginUpdate(
     serverId: string,
     serverName: string,
@@ -176,7 +229,84 @@ export const PayloadBuilders = {
   },
 };
 
-/** One NotificationPayload per event; a rule send carries its own title and message. */
+/** Anything the payload holds that a template can name; objects and nulls render as nothing. */
+function scalar(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return '';
+}
+
+/** The TRIGGERS variable vocabulary, read off whatever the event carries. */
+function variablesOf(event: NotificationEvent): Record<string, string> {
+  switch (event.type) {
+    case 'violation': {
+      const v = event.payload;
+      const data = v.data ?? {};
+      return {
+        'user.username': v.user.username,
+        'user.identityName': v.user.identityName ?? v.user.username,
+        'session.mediaTitle': scalar(data.mediaTitle),
+        'session.mediaType': scalar(data.mediaType),
+        'server.name': v.server?.name ?? scalar(data.serverName),
+        'server.type': v.server?.type ?? '',
+        durationMinutes: scalar(data.durationMinutes),
+        minutes: scalar(data.minutes),
+        days: scalar(data.days),
+      };
+    }
+    case 'session_started':
+    case 'session_stopped': {
+      const s = event.payload;
+      return {
+        'user.username': s.user.username,
+        'user.identityName': s.user.identityName ?? s.user.username,
+        'session.mediaTitle': s.mediaTitle,
+        'session.mediaType': s.mediaType,
+        'server.name': s.server.name,
+        'server.type': s.server.type,
+        durationMinutes: s.durationMs === null ? '' : String(Math.round(s.durationMs / 60_000)),
+      };
+    }
+    case 'server_down':
+    case 'server_up':
+      return { 'server.name': event.payload.serverName };
+    case 'plugin_update_available': {
+      const p = event.payload;
+      return {
+        'server.name': p.serverName,
+        'server.type': p.serverType,
+        installedVersion: p.installedVersion ?? '',
+        latestVersion: p.latestVersion,
+        downloadUrl: p.downloadUrl,
+      };
+    }
+    case 'server_update_available': {
+      const p = event.payload;
+      return {
+        'server.name': p.serverName,
+        'server.type': p.serverType,
+        installedVersion: p.installedVersion,
+        latestVersion: p.latestVersion,
+        releaseUrl: p.releaseUrl,
+      };
+    }
+    case 'tracearr_update_available':
+      return {
+        current: event.payload.current,
+        latest: event.payload.latest,
+        releaseUrl: event.payload.releaseUrl,
+      };
+  }
+}
+
+const VARIABLE = /\{\{\s*([\w.]+)\s*\}\}/g;
+
+/** A name the trigger does not offer renders as nothing rather than leaving the braces in. */
+function renderTemplate(template: string, variables: Record<string, string>): string {
+  return template.replace(VARIABLE, (_match, name: string) => variables[name] ?? '');
+}
+
+/** One NotificationPayload per event; an automation's send may override the text. */
 export function toNotificationPayload(
   event: NotificationEvent,
   source: NotificationSource
@@ -204,10 +334,29 @@ export function toNotificationPayload(
           p.downloadUrl
         );
       }
+      case 'server_update_available':
+        return PayloadBuilders.fromServerUpdate(event.payload);
+      case 'tracearr_update_available':
+        return PayloadBuilders.fromTracearrUpdate(event.payload);
     }
   })();
   if (source.kind === 'rule') {
     return { ...base, title: source.title, message: source.message };
   }
-  return base;
+  if (source.kind !== 'automation') return base;
+
+  const variables = variablesOf(event);
+  const title = source.title === undefined ? undefined : renderTemplate(source.title, variables);
+  const message = source.body === undefined ? undefined : renderTemplate(source.body, variables);
+  return {
+    ...base,
+    title: title ?? base.title,
+    message: message ?? base.message,
+    automation: {
+      id: source.automationId,
+      name: source.automationName,
+      ...(title !== undefined && { title }),
+      ...(message !== undefined && { message }),
+    },
+  };
 }

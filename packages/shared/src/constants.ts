@@ -323,6 +323,8 @@ export const NOTIFICATION_EVENTS = {
   SERVER_DOWN: 'server_down',
   SERVER_UP: 'server_up',
   PLUGIN_UPDATE_AVAILABLE: 'plugin_update_available',
+  SERVER_UPDATE_AVAILABLE: 'server_update_available',
+  TRACEARR_UPDATE_AVAILABLE: 'tracearr_update_available',
 } as const;
 
 // API version

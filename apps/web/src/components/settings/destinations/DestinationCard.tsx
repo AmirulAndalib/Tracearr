@@ -74,13 +74,11 @@ export function DestinationCard({ destination, onEdit }: DestinationCardProps) {
           </Badge>
         )}
 
-        <div className="flex flex-wrap gap-1.5">
-          {destination.events.map((event) => (
-            <Badge key={event} variant="outline">
-              {t(`pages:settings.destinations.events.${event}`)}
-            </Badge>
-          ))}
-        </div>
+        {destination.events.includes('violation_detected') && (
+          <Badge variant="outline" className="w-fit">
+            {t('pages:settings.destinations.receiveViolations')}
+          </Badge>
+        )}
 
         {destination.type === 'push' && (
           <p className="text-muted-foreground text-sm">

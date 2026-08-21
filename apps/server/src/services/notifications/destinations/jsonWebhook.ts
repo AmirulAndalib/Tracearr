@@ -6,7 +6,9 @@ import type {
   NotificationPayload,
   PluginUpdateContext,
   ServerContext,
+  ServerUpdateContext,
   SessionContext,
+  TracearrUpdateContext,
   ViolationContext,
 } from '../types.js';
 import type { DeliverContext, DestinationType } from './types.js';
@@ -19,6 +21,8 @@ export interface JsonWebhookBody {
   event: string;
   timestamp: string;
   data: Record<string, unknown>;
+  /** Present when an automation's send produced this, with whatever text it overrode. */
+  automation?: { id: string; name: string; title?: string; message?: string };
 }
 
 function buildViolation(payload: NotificationPayload, ctx: ViolationContext): JsonWebhookBody {
@@ -150,7 +154,41 @@ function buildPluginUpdate(
   };
 }
 
+function buildServerUpdate(
+  payload: NotificationPayload,
+  ctx: ServerUpdateContext
+): JsonWebhookBody {
+  return {
+    event: NOTIFICATION_EVENTS.SERVER_UPDATE_AVAILABLE,
+    timestamp: payload.timestamp,
+    data: {
+      serverId: ctx.serverId,
+      serverName: ctx.serverName,
+      serverType: ctx.serverType,
+      installedVersion: ctx.installedVersion,
+      latestVersion: ctx.latestVersion,
+      releaseUrl: ctx.releaseUrl,
+    },
+  };
+}
+
+function buildTracearrUpdate(
+  payload: NotificationPayload,
+  ctx: TracearrUpdateContext
+): JsonWebhookBody {
+  return {
+    event: NOTIFICATION_EVENTS.TRACEARR_UPDATE_AVAILABLE,
+    timestamp: payload.timestamp,
+    data: { current: ctx.current, latest: ctx.latest, releaseUrl: ctx.releaseUrl },
+  };
+}
+
 function build(payload: NotificationPayload): JsonWebhookBody {
+  const body = bodyOf(payload);
+  return payload.automation ? { ...body, automation: payload.automation } : body;
+}
+
+function bodyOf(payload: NotificationPayload): JsonWebhookBody {
   switch (payload.context.type) {
     case 'violation_detected':
       return buildViolation(payload, payload.context);
@@ -164,6 +202,10 @@ function build(payload: NotificationPayload): JsonWebhookBody {
       return buildServer(payload, payload.context);
     case 'plugin_update_available':
       return buildPluginUpdate(payload, payload.context);
+    case 'server_update_available':
+      return buildServerUpdate(payload, payload.context);
+    case 'tracearr_update_available':
+      return buildTracearrUpdate(payload, payload.context);
   }
 }
 

@@ -13,6 +13,10 @@ const ruleCtx: RenderContext = {
   destination,
   source: { kind: 'rule', title: 'Rule fired', message: 'Too many streams' },
 };
+const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
+  destination,
+  source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
+});
 const deliverCtx = { destination, signal: AbortSignal.timeout(5000) };
 
 const violation: ViolationWithDetails = {
@@ -46,9 +50,7 @@ describe('webToastType.render', () => {
     expect(
       await render({ type: 'server_down', payload: { serverName: 'Plex Server', serverId: 's1' } })
     ).toEqual({
-      kind: 'server',
-      event: 'server:down',
-      data: { serverName: 'Plex Server', serverId: 's1' },
+      server: { event: 'server:down', data: { serverName: 'Plex Server', serverId: 's1' } },
     });
   });
 
@@ -56,41 +58,22 @@ describe('webToastType.render', () => {
     expect(
       await render({ type: 'server_up', payload: { serverName: 'Plex Server', serverId: 's1' } })
     ).toEqual({
-      kind: 'server',
-      event: 'server:up',
-      data: { serverName: 'Plex Server', serverId: 's1' },
+      server: { event: 'server:up', data: { serverName: 'Plex Server', serverId: 's1' } },
     });
   });
 
-  it('renders nothing for stream events', async () => {
-    expect(await render({ type: 'session_started', payload: session })).toEqual({ kind: 'none' });
-    expect(await render({ type: 'session_stopped', payload: session })).toEqual({ kind: 'none' });
+  it('renders nothing for system stream events', async () => {
+    expect(await render({ type: 'session_started', payload: session })).toEqual({});
+    expect(await render({ type: 'session_stopped', payload: session })).toEqual({});
   });
 
   it('renders nothing for a system violation', async () => {
-    expect(await render({ type: 'violation', payload: violation })).toEqual({ kind: 'none' });
-  });
-
-  it('renders nothing for a plugin update', async () => {
-    const rendered = await render({
-      type: 'plugin_update_available',
-      payload: {
-        serverId: 'server-1',
-        serverName: 'Jellyfin',
-        serverType: 'jellyfin',
-        installedVersion: '0.2.0',
-        latestVersion: '0.3.0',
-        downloadUrl: 'https://example.com/plugin.zip',
-      },
-    });
-
-    expect(rendered).toEqual({ kind: 'none' });
+    expect(await render({ type: 'violation', payload: violation })).toEqual({});
   });
 
   it('renders a rule violation as a toast', async () => {
     expect(await render({ type: 'violation', payload: violation }, ruleCtx)).toEqual({
-      kind: 'rule',
-      data: {
+      toast: {
         title: 'Rule fired',
         message: 'Too many streams',
         automationId: 'rule-456',
@@ -98,6 +81,60 @@ describe('webToastType.render', () => {
         severity: 'high',
       },
     });
+  });
+
+  it('toasts an automation-sourced stream start with the automation behind it', async () => {
+    expect(
+      await render(
+        { type: 'session_started', payload: session },
+        automationCtx({ body: '{{user.username}} pressed play' })
+      )
+    ).toEqual({
+      toast: {
+        title: 'Stream Started',
+        message: 'testuser pressed play',
+        automationId: 'a-1',
+        automationName: 'Now playing',
+        severity: 'low',
+      },
+    });
+  });
+
+  it('toasts an automation-sourced violation shape', async () => {
+    expect(await render({ type: 'violation', payload: violation }, automationCtx())).toEqual({
+      toast: {
+        title: 'Violation Detected',
+        message: 'User Test User triggered a rule violation',
+        automationId: 'a-1',
+        automationName: 'Now playing',
+        severity: 'high',
+      },
+    });
+  });
+
+  it('keeps the server data emit alongside an automation toast', async () => {
+    const rendered = await render(
+      { type: 'server_down', payload: { serverName: 'Plex Server', serverId: 's1' } },
+      automationCtx({ title: '{{server.name}} is gone' })
+    );
+
+    expect(rendered.server).toEqual({
+      event: 'server:down',
+      data: { serverName: 'Plex Server', serverId: 's1' },
+    });
+    expect(rendered.toast?.title).toBe('Plex Server is gone');
+  });
+
+  it('toasts a tracearr release the automation asked for', async () => {
+    const rendered = await render(
+      {
+        type: 'tracearr_update_available',
+        payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+      },
+      automationCtx()
+    );
+
+    expect(rendered.toast?.title).toBe('Tracearr Update Available');
   });
 });
 
@@ -112,7 +149,7 @@ describe('webToastType.deliver', () => {
 
   it('publishes server:down with the payload', async () => {
     await webToastType.deliver(
-      { kind: 'server', event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } },
+      { server: { event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } } },
       {},
       deliverCtx
     );
@@ -120,18 +157,8 @@ describe('webToastType.deliver', () => {
     expect(publish).toHaveBeenCalledWith('server:down', { serverName: 'Plex', serverId: 's1' });
   });
 
-  it('publishes server:up with the payload', async () => {
-    await webToastType.deliver(
-      { kind: 'server', event: 'server:up', data: { serverName: 'Plex', serverId: 's1' } },
-      {},
-      deliverCtx
-    );
-
-    expect(publish).toHaveBeenCalledWith('server:up', { serverName: 'Plex', serverId: 's1' });
-  });
-
-  it('publishes the rule toast on notification:toast', async () => {
-    const data = {
+  it('publishes the toast on notification:toast', async () => {
+    const toast = {
       title: 'Rule fired',
       message: 'Too many streams',
       automationId: 'rule-456',
@@ -139,13 +166,32 @@ describe('webToastType.deliver', () => {
       severity: 'high',
     } as const;
 
-    await webToastType.deliver({ kind: 'rule', data }, {}, deliverCtx);
+    await webToastType.deliver({ toast }, {}, deliverCtx);
 
-    expect(publish).toHaveBeenCalledWith('notification:toast', data);
+    expect(publish).toHaveBeenCalledWith('notification:toast', toast);
   });
 
-  it('publishes nothing for a none render', async () => {
-    await webToastType.deliver({ kind: 'none' }, {}, deliverCtx);
+  it('publishes both when a server event carries a toast', async () => {
+    await webToastType.deliver(
+      {
+        server: { event: 'server:up', data: { serverName: 'Plex', serverId: 's1' } },
+        toast: {
+          title: 'Back',
+          message: 'Plex is back',
+          automationId: 'a-1',
+          automationName: 'Server up',
+          severity: 'low',
+        },
+      },
+      {},
+      deliverCtx
+    );
+
+    expect(publish).toHaveBeenCalledTimes(2);
+  });
+
+  it('publishes nothing for an empty render', async () => {
+    await webToastType.deliver({}, {}, deliverCtx);
 
     expect(publish).not.toHaveBeenCalled();
     expect(mockGetPubSubService).not.toHaveBeenCalled();
@@ -156,7 +202,7 @@ describe('webToastType.deliver', () => {
 
     await expect(
       webToastType.deliver(
-        { kind: 'server', event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } },
+        { server: { event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } } },
         {},
         deliverCtx
       )

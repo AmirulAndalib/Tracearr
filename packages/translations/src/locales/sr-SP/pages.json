@@ -1037,17 +1037,8 @@
       "clearSecret": "Clear",
       "delete": "Delete",
       "deleteConfirm": "Delete {{name}}? Rules that send to it will be blocked until they are updated.",
-      "description": "Where notifications go. Add as many as you like; each one picks the system events it receives, and rules can send to any of them.",
+      "description": "Where notifications go. Add as many as you like, and automations can send to any of them.",
       "empty": "No destinations yet.",
-      "events": {
-        "plugin_update_available": "Plugin update available",
-        "server_down": "Server down",
-        "server_up": "Server up",
-        "stream_started": "Stream started",
-        "stream_stopped": "Stream stopped",
-        "violation_detected": "Violation detected"
-      },
-      "eventsLabel": "Events",
       "fields": {
         "apiToken": "API token",
         "apiUrl": "API URL",
@@ -1063,6 +1054,8 @@
       },
       "ownerOnly": "Only the owner can manage notification destinations.",
       "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
+      "receiveViolations": "Receive violations",
+      "receiveViolationsHint": "Send every violation to this destination",
       "reencrypt": "Re-enter this destination's secret",
       "secretSet": "Set (leave blank to keep)",
       "test": "Test",

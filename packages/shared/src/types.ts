@@ -1336,7 +1336,9 @@ export type NotificationEventType =
   | 'stream_stopped'
   | 'server_down'
   | 'server_up'
-  | 'plugin_update_available';
+  | 'plugin_update_available'
+  | 'server_update_available'
+  | 'tracearr_update_available';
 
 // Notification preferences (per-device settings)
 export interface NotificationPreferences {

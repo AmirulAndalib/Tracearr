@@ -292,7 +292,7 @@ describe('Destination Routes', () => {
       expect(updateDestination).not.toHaveBeenCalled();
     });
 
-    it('rejects an event the type cannot receive', async () => {
+    it('rejects an event no destination may subscribe to', async () => {
       app = await buildTestApp(ownerUser);
       vi.mocked(getDestination).mockResolvedValue(
         makeRow({ id: 'push-1', name: 'Mobile push', type: 'push', builtin: true, config: null })
@@ -305,7 +305,6 @@ describe('Destination Routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().message).toContain('cannot receive plugin_update_available');
       expect(updateDestination).not.toHaveBeenCalled();
     });
 

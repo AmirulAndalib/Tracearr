@@ -53,30 +53,25 @@ const event: NotificationEvent = {
   },
 };
 
-describe('createActionExecutorDeps - enqueueRuleNotification', () => {
+describe('createActionExecutorDeps - enqueueAutomationNotification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('hands the event straight to the queue with the destination ids and the rule source', async () => {
+  const source = {
+    kind: 'automation',
+    automationId: 'rule-1',
+    automationName: 'Sharing',
+    body: 'over the limit',
+  } as const;
+
+  it('hands the event straight to the queue with the destination ids and the source', async () => {
     const deps = createActionExecutorDeps({} as unknown as Redis);
 
-    const count = await deps.enqueueRuleNotification({
-      to: ['d1', 'd2'],
-      title: 'Rule Triggered: Sharing',
-      message: 'User "alice" triggered rule "Sharing"',
-      event,
-    });
+    const count = await deps.enqueueAutomationNotification({ to: ['d1', 'd2'], event, source });
 
     expect(count).toBe(2);
-    expect(mockEnqueueNotification).toHaveBeenCalledWith(event, {
-      to: ['d1', 'd2'],
-      source: {
-        kind: 'rule',
-        title: 'Rule Triggered: Sharing',
-        message: 'User "alice" triggered rule "Sharing"',
-      },
-    });
+    expect(mockEnqueueNotification).toHaveBeenCalledWith(event, { to: ['d1', 'd2'], source });
   });
 
   it('returns the queue count when nothing was enqueued and does not log an enqueue', async () => {
@@ -84,12 +79,7 @@ describe('createActionExecutorDeps - enqueueRuleNotification', () => {
     const info = vi.spyOn(automationsLogger, 'info');
     const deps = createActionExecutorDeps({} as unknown as Redis);
 
-    const count = await deps.enqueueRuleNotification({
-      to: ['d1'],
-      title: 'Rule Triggered: Orphan',
-      message: 'no destination',
-      event,
-    });
+    const count = await deps.enqueueAutomationNotification({ to: ['d1'], event, source });
 
     expect(count).toBe(0);
     expect(info).not.toHaveBeenCalledWith(

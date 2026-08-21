@@ -124,6 +124,7 @@ function baseContextOf(
       serverUser: null,
       server: 'server' in event ? toRuleServer(event.server) : null,
       subjectKey,
+      trigger: event,
       activeSessions: inputs.activeSessions,
       recentSessions: [],
       identityServerUserIds: [],
@@ -135,6 +136,7 @@ function baseContextOf(
     serverUser: toRuleServerUser(event.serverUser, event.server.id),
     server: toRuleServer(event.server),
     subjectKey,
+    trigger: event,
     activeSessions: session
       ? buildRuleContextSessions(inputs.activeSessions, session, null)
       : inputs.activeSessions,

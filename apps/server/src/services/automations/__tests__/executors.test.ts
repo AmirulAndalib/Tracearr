@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type {
+  ActiveSession,
   Action,
   EngineAutomation,
   Session,
@@ -11,6 +12,7 @@ import type {
   MessageClientAction,
 } from '@tracearr/shared';
 import { automationsLogger } from '../../../utils/logger.js';
+import type { NotificationEvent, NotificationSource } from '../../notifications/events.js';
 import { synthesizeTriggers } from '../triggers.js';
 import {
   setActionExecutorDeps,
@@ -179,9 +181,24 @@ function createMockContext(
   };
 }
 
+/** The eight-column account shape the event seam carries, from the context's ServerUser. */
+function evaluationServerUser(serverUser: ServerUser) {
+  return {
+    id: serverUser.id,
+    userId: serverUser.userId,
+    username: serverUser.username,
+    thumbUrl: serverUser.thumbUrl,
+    identityName: serverUser.identityName ?? null,
+    trustScore: serverUser.trustScore,
+    lastActivityAt: serverUser.lastActivityAt,
+    createdAt: serverUser.createdAt,
+    identityServerUserIds: [serverUser.id],
+  };
+}
+
 function createMockDeps(): ActionExecutorDeps {
   return {
-    enqueueRuleNotification: vi.fn().mockResolvedValue(1),
+    enqueueAutomationNotification: vi.fn().mockResolvedValue(1),
     adjustUserTrust: vi.fn().mockResolvedValue(undefined),
     setUserTrust: vi.fn().mockResolvedValue(undefined),
     resetUserTrust: vi.fn().mockResolvedValue(undefined),
@@ -190,6 +207,14 @@ function createMockDeps(): ActionExecutorDeps {
     checkCooldown: vi.fn().mockResolvedValue(false),
     setCooldown: vi.fn().mockResolvedValue(undefined),
   };
+}
+
+/** The single enqueue the send under test made. */
+function enqueueCall(): { to: string[]; event: NotificationEvent; source: NotificationSource } {
+  const mock = getActionExecutorDeps().enqueueAutomationNotification as ReturnType<typeof vi.fn>;
+  const call = mock.mock.calls[0];
+  if (!call) throw new Error('nothing was enqueued');
+  return call[0] as { to: string[]; event: NotificationEvent; source: NotificationSource };
 }
 
 describe('Action Executor Registry', () => {
@@ -253,18 +278,22 @@ describe('Action Executor Registry', () => {
     });
 
     describe('send', () => {
-      it('builds a violation event with the rule severity and real ids and hands it to the queue with source rule', async () => {
+      it('builds a violation event with the rule severity and real ids and names the automation', async () => {
         const context = createMockContext({ violationId: 'v1' });
-        const action: SendAction = { type: 'send', to: ['d1', 'd2'] };
+        const action: SendAction = { type: 'send', to: ['d1', 'd2'], body: 'over the limit' };
 
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.enqueueRuleNotification).toHaveBeenCalledWith(
+        expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalledWith(
           expect.objectContaining({
             to: ['d1', 'd2'],
-            title: `Rule Triggered: ${context.rule.name}`,
-            message: expect.stringContaining('while playing'),
+            source: {
+              kind: 'automation',
+              automationId: context.rule.id,
+              automationName: context.rule.name,
+              body: 'over the limit',
+            },
             event: {
               type: 'violation',
               payload: expect.objectContaining({
@@ -302,7 +331,7 @@ describe('Action Executor Registry', () => {
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.enqueueRuleNotification).toHaveBeenCalledWith(
+        expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalledWith(
           expect.objectContaining({
             event: expect.objectContaining({
               payload: expect.objectContaining({
@@ -317,6 +346,155 @@ describe('Action Executor Registry', () => {
         );
       });
 
+      it('sends the native stream event for a notification automation', async () => {
+        const context = createMockContext({
+          rule: createMockRule({ kind: 'notification' }),
+        });
+        context.trigger = {
+          type: 'session.started',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: context.session,
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'], title: 'Playing' });
+
+        const call = enqueueCall();
+        expect(call.event.type).toBe('session_started');
+        expect(call.source).toEqual({
+          kind: 'automation',
+          automationId: context.rule.id,
+          automationName: context.rule.name,
+          title: 'Playing',
+        });
+        const payload = call.event.payload as ActiveSession;
+        expect(payload.id).toBe(context.session.id);
+        expect(payload.canTerminate).toBe(false);
+        expect(payload.user).toEqual({
+          id: context.serverUser.id,
+          username: context.serverUser.username,
+          thumbUrl: null,
+          identityName: null,
+        });
+        expect(payload.server).toEqual({ id: 'server-1', name: 'Test Server', type: 'plex' });
+      });
+
+      it('carries the stop duration onto the native stream_stopped event', async () => {
+        const context = createMockContext({ rule: createMockRule({ kind: 'notification' }) });
+        context.trigger = {
+          type: 'session.stopped',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: context.session,
+          durationMs: 1_800_000,
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        const call = enqueueCall();
+        expect(call.event.type).toBe('session_stopped');
+        expect((call.event.payload as ActiveSession).durationMs).toBe(1_800_000);
+      });
+
+      it('sends server_down for a user-less server context', async () => {
+        const context: EvaluationContext = {
+          ...createMockContext({ rule: createMockRule({ kind: 'notification' }) }),
+          session: null,
+          serverUser: null,
+          subjectKey: 'server:server-1',
+          activeSessions: [],
+          recentSessions: [],
+          trigger: {
+            type: 'server.down',
+            at: new Date(),
+            server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          },
+        };
+
+        const result = await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(result.skipped).toBeUndefined();
+        expect(enqueueCall().event).toEqual({
+          type: 'server_down',
+          payload: { serverName: 'Test Server', serverId: 'server-1' },
+        });
+      });
+
+      it('sends the tracearr release from an install context', async () => {
+        const context: EvaluationContext = {
+          ...createMockContext({ rule: createMockRule({ kind: 'notification' }) }),
+          session: null,
+          serverUser: null,
+          server: null,
+          subjectKey: 'install',
+          activeSessions: [],
+          recentSessions: [],
+          trigger: {
+            type: 'tracearr.update_available',
+            at: new Date(),
+            current: '2.0.0',
+            latest: '2.1.0',
+            releaseUrl: 'https://example.com/r',
+          },
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(enqueueCall().event).toEqual({
+          type: 'tracearr_update_available',
+          payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+        });
+      });
+
+      it('keeps the violation shape for a policy run on a native trigger', async () => {
+        const context = createMockContext({ rule: createMockRule({ kind: 'policy' }) });
+        context.trigger = {
+          type: 'session.started',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: context.session,
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(enqueueCall().event.type).toBe('violation');
+      });
+
+      it('keeps the violation shape for a trigger with no native event', async () => {
+        const context = createMockContext({ rule: createMockRule({ kind: 'notification' }) });
+        context.trigger = {
+          type: 'session.paused',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: context.session,
+          pauseData: { lastPausedAt: new Date(), pausedDurationMs: 0 },
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(enqueueCall().event.type).toBe('violation');
+      });
+
+      it('skips a user-less run that has no native event to send', async () => {
+        const context: EvaluationContext = {
+          ...createMockContext({ rule: createMockRule({ kind: 'policy' }) }),
+          session: null,
+          serverUser: null,
+          subjectKey: 'server:server-1',
+          activeSessions: [],
+          recentSessions: [],
+        };
+
+        const result = await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(result).toMatchObject({ skipped: true, skipReason: 'No account to notify about' });
+        expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
+      });
+
       it('with empty to is a no-op', async () => {
         const context = createMockContext();
         const action: SendAction = { type: 'send', to: [] };
@@ -324,11 +502,11 @@ describe('Action Executor Registry', () => {
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+        expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
       });
 
       it('logs when no enabled destination resolves', async () => {
-        (mockDeps.enqueueRuleNotification as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+        (mockDeps.enqueueAutomationNotification as ReturnType<typeof vi.fn>).mockResolvedValue(0);
         const info = vi.spyOn(automationsLogger, 'info').mockImplementation(() => undefined);
         const context = createMockContext();
 
@@ -801,7 +979,7 @@ describe('Action Executor Registry', () => {
         expect(result.success).toBe(true);
         expect(result.skipped).toBe(true);
         expect(result.skipReason).toContain('cooldown');
-        expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+        expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
       });
 
       it('should execute and set cooldown if not on cooldown', async () => {
@@ -813,7 +991,7 @@ describe('Action Executor Registry', () => {
 
         expect(result.success).toBe(true);
         expect(result.skipped).toBeUndefined();
-        expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
+        expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalled();
         expect(mockDeps.setCooldown).toHaveBeenCalled();
       });
 
@@ -899,7 +1077,7 @@ describe('Action Executor Registry', () => {
 
     describe('Error Handling', () => {
       it('should return error result if executor throws', async () => {
-        (mockDeps.enqueueRuleNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
+        (mockDeps.enqueueAutomationNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
           new Error('Network error')
         );
         const context = createMockContext();
@@ -939,7 +1117,7 @@ describe('Action Executor Registry', () => {
       expect(results.every((r) => r.success)).toBe(true);
       expect(mockDeps.sendClientMessage).toHaveBeenCalled();
       expect(mockDeps.adjustUserTrust).toHaveBeenCalled();
-      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalled();
     });
 
     it('should continue executing after an action fails', async () => {
@@ -957,7 +1135,7 @@ describe('Action Executor Registry', () => {
       expect(results).toHaveLength(2);
       expect(results[0]?.success).toBe(false);
       expect(results[1]?.success).toBe(true);
-      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalled();
     });
 
     it('should return empty array for empty actions', async () => {
@@ -992,7 +1170,7 @@ describe('Action Executor Registry', () => {
 
       expect(results).toHaveLength(2);
       expect(results[0]).toMatchObject({ success: true, skipped: true, skipReason: 'disabled' });
-      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
       expect(mockDeps.checkCooldown).not.toHaveBeenCalled();
       expect(mockDeps.setCooldown).not.toHaveBeenCalled();
       expect(mockDeps.resetUserTrust).toHaveBeenCalled();
@@ -1018,7 +1196,7 @@ describe('Action Executor Registry', () => {
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({ success: true, skipped: true, skipReason: 'disabled' });
       expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
-      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
     });
   });
 
@@ -1059,7 +1237,7 @@ describe('Action Executor Registry', () => {
       expect(results[1]).toMatchObject({ success: true, path: 'if-1.then.0' });
       expect(results[1]?.action.type).toBe('trust');
       expect(mockDeps.resetUserTrust).toHaveBeenCalled();
-      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
     });
 
     it('runs the else branch when the conditions fail', async () => {
@@ -1071,7 +1249,7 @@ describe('Action Executor Registry', () => {
       expect(results[0]).toMatchObject({ branch: 'else', matched: false });
       expect(results.map((r) => r.path)).toEqual([undefined, 'if-1.else.0', 'if-1.else.1']);
       expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
-      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalled();
       expect(mockDeps.sendClientMessage).toHaveBeenCalled();
     });
 
@@ -1178,10 +1356,13 @@ describe('Action Executor Registry', () => {
 
       const results = await executeActions(context, actions);
 
-      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalledWith({
+      expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalledWith({
         to: ['d1', 'd2'],
-        title: `Rule Triggered: ${context.rule.name}`,
-        message: 'Account "testuser" has been inactive for 45 days',
+        source: {
+          kind: 'automation',
+          automationId: context.rule.id,
+          automationName: context.rule.name,
+        },
         event: {
           type: 'violation',
           payload: expect.objectContaining({
@@ -1199,6 +1380,7 @@ describe('Action Executor Registry', () => {
               username: 'testuser',
               displayName: 'testuser',
               serverId: context.server.id,
+              serverName: context.server.name,
               userThumbUrl: null,
             },
           }),
@@ -1219,13 +1401,37 @@ describe('Action Executor Registry', () => {
       });
     });
 
-    it('words the message for never-active accounts', async () => {
-      const context = createAccountContext(createMockServerUser({ lastActivityAt: null }));
+    it('stamps the days an inactivity trigger measured so {{days}} renders', async () => {
+      const serverUser = createMockServerUser({ lastActivityAt: fortyFiveDaysAgo });
+      const context: EvaluationContext = {
+        ...createAccountContext(serverUser),
+        trigger: {
+          type: 'account.inactive_for',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: {
+            id: serverUser.id,
+            userId: serverUser.userId,
+            username: serverUser.username,
+            thumbUrl: null,
+            identityName: null,
+            trustScore: 100,
+            lastActivityAt: fortyFiveDaysAgo,
+            createdAt: new Date(),
+            identityServerUserIds: [serverUser.id],
+          },
+          session: null,
+        },
+      };
 
       await executeActions(context, [{ type: 'send', to: ['d1'] }]);
 
-      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalledWith(
-        expect.objectContaining({ message: 'Account "testuser" has never been active' })
+      expect(mockDeps.enqueueAutomationNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: expect.objectContaining({
+            payload: expect.objectContaining({ data: expect.objectContaining({ days: 45 }) }),
+          }),
+        })
       );
     });
 
@@ -1248,7 +1454,7 @@ describe('Action Executor Registry', () => {
         `${context.rule.id}:${context.serverUser.id}:send`,
         60
       );
-      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
       expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
       expect(results[0]).toMatchObject({ skipped: true, skipReason: 'On cooldown (60 minutes)' });
       expect(results[1]).toMatchObject({ success: true, message: 'Executed trust' });
@@ -1286,7 +1492,7 @@ describe('Action Executor Registry', () => {
     });
 
     it('records a failure without aborting later actions', async () => {
-      (mockDeps.enqueueRuleNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
+      (mockDeps.enqueueAutomationNotification as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('discord webhook 500')
       );
       const context = createAccountContext(
@@ -1332,7 +1538,7 @@ describe('Action Executor Registry', () => {
       const results = await executeActions(context, []);
 
       expect(results).toEqual([]);
-      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
       expect(mockDeps.adjustUserTrust).not.toHaveBeenCalled();
     });
   });

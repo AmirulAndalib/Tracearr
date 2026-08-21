@@ -94,3 +94,70 @@ describe('toNotificationPayload', () => {
     expect(payload.context).toEqual({ type: 'stream_started', session });
   });
 });
+
+const automation = (over: { title?: string; body?: string } = {}) =>
+  ({ kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over }) as const;
+
+describe('toNotificationPayload with an automation source', () => {
+  it('substitutes the trigger variables into the body of a native event', () => {
+    const payload = toNotificationPayload(
+      { type: 'session_started', payload: session },
+      automation({ body: '{{user.username}} started {{session.mediaTitle}}' })
+    );
+
+    expect(payload.message).toBe(`${session.user.username} started ${session.mediaTitle}`);
+    expect(payload.automation).toEqual({
+      id: 'a-1',
+      name: 'Now playing',
+      message: `${session.user.username} started ${session.mediaTitle}`,
+    });
+  });
+
+  it('renders an unknown variable as nothing and keeps the builtin text without an override', () => {
+    const rendered = toNotificationPayload(
+      { type: 'session_started', payload: session },
+      automation({ title: 'Playing on {{server.name}}{{nope}}' })
+    );
+
+    expect(rendered.title).toBe(`Playing on ${session.server.name}`);
+    expect(rendered.message).toBe(PayloadBuilders.fromSessionStarted(session).message);
+    expect(rendered.automation?.title).toBe(`Playing on ${session.server.name}`);
+    expect(rendered.automation?.message).toBeUndefined();
+  });
+
+  it('carries the automation with no overrides at all', () => {
+    const payload = toNotificationPayload({ type: 'violation', payload: violation }, automation());
+
+    expect(payload.title).toBe(PayloadBuilders.fromViolation(violation).title);
+    expect(payload.automation).toEqual({ id: 'a-1', name: 'Now playing' });
+  });
+
+  it('substitutes the update variables of a tracearr release', () => {
+    const payload = toNotificationPayload(
+      {
+        type: 'tracearr_update_available',
+        payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+      },
+      automation({ title: 'Tracearr {{latest}}', body: '{{current}} -> {{latest}}' })
+    );
+
+    expect(payload.title).toBe('Tracearr 2.1.0');
+    expect(payload.message).toBe('2.0.0 -> 2.1.0');
+    expect(payload.event).toBe('tracearr_update_available');
+  });
+
+  it('reads the account name and media title off a violation-shaped run', () => {
+    const payload = toNotificationPayload(
+      {
+        type: 'violation',
+        payload: {
+          ...violation,
+          data: { ...violation.data, mediaTitle: 'Arrival', days: 45 },
+        },
+      },
+      automation({ body: '{{user.identityName}} / {{session.mediaTitle}} / {{days}}' })
+    );
+
+    expect(payload.message).toBe('Test User / Arrival / 45');
+  });
+});

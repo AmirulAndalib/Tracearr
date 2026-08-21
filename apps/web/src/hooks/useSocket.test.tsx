@@ -11,7 +11,7 @@ const fake = vi.hoisted(() => {
     type: 'web_toast',
     enabled: true,
     builtin: true,
-    events: ['stream_started'],
+    events: ['violation_detected'] as string[],
     configStatus: 'ok',
     config: null,
     secretsSet: [],
@@ -67,6 +67,12 @@ const startedSession = {
   mediaTitle: 'Arrival',
 };
 
+const violation = {
+  severity: 'warning',
+  rule: { name: 'Concurrent streams', type: null },
+  user: { identityName: 'alice', username: 'alice' },
+};
+
 function setup() {
   const client = new QueryClient();
   const invalidate = vi.spyOn(client, 'invalidateQueries').mockResolvedValue();
@@ -98,10 +104,12 @@ describe('SocketProvider', () => {
     fake.maintenance.isInMaintenance = false;
     fake.maintenance.isUnreachable = false;
     fake.webToast.enabled = true;
+    fake.webToast.events = ['violation_detected'];
     fake.destinations.data = [fake.webToast];
     vi.mocked(toast.info).mockClear();
     vi.mocked(toast.error).mockClear();
     vi.mocked(toast.warning).mockClear();
+    vi.mocked(toast.success).mockClear();
   });
 
   it('lets socket.io keep retrying instead of capping reconnection attempts', () => {
@@ -144,34 +152,50 @@ describe('SocketProvider', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('toasts an event the web_toast row subscribes to', () => {
+  it('leaves stream and server toasts to the automation that asked for them', () => {
     setup();
     fire(WS_EVENTS.SESSION_STARTED, startedSession);
-
-    expect(toast.info).toHaveBeenCalled();
-  });
-
-  it('stays quiet for an event the web_toast row leaves out', () => {
-    setup();
+    fire(WS_EVENTS.SESSION_STOPPED, 'sess-1');
     fire(WS_EVENTS.SERVER_DOWN, { serverId: 's1', serverName: 'Plex' });
-
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  it('stays quiet for every event once the row is disabled', () => {
-    fake.webToast.enabled = false;
-    setup();
-    fire(WS_EVENTS.SESSION_STARTED, startedSession);
+    fire(WS_EVENTS.SERVER_UP, { serverId: 's1', serverName: 'Plex' });
 
     expect(toast.info).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('toasts by default while the destinations query has no data', () => {
-    fake.destinations.data = undefined;
-    setup();
+  it('still tracks the unhealthy server behind the banner', () => {
+    const { result } = setup();
     fire(WS_EVENTS.SERVER_DOWN, { serverId: 's1', serverName: 'Plex' });
 
-    expect(toast.error).toHaveBeenCalled();
+    expect(result.current.unhealthyServers.map((s) => s.serverId)).toEqual(['s1']);
+
+    fire(WS_EVENTS.SERVER_UP, { serverId: 's1', serverName: 'Plex' });
+    expect(result.current.unhealthyServers).toEqual([]);
+  });
+
+  it('keeps gating the violation toast on the web_toast subscription', () => {
+    fake.webToast.events = ['violation_detected'];
+    setup();
+    fire(WS_EVENTS.VIOLATION_NEW, violation);
+
+    expect(toast.warning).toHaveBeenCalled();
+  });
+
+  it('stays quiet for a violation the web_toast row does not subscribe to', () => {
+    fake.webToast.events = [];
+    setup();
+    fire(WS_EVENTS.VIOLATION_NEW, violation);
+
+    expect(toast.warning).not.toHaveBeenCalled();
+  });
+
+  it('toasts a violation by default while the destinations query has no data', () => {
+    fake.destinations.data = undefined;
+    setup();
+    fire(WS_EVENTS.VIOLATION_NEW, violation);
+
+    expect(toast.warning).toHaveBeenCalled();
   });
 
   it('refetches the destination list when another instance changes one', () => {

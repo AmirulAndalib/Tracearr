@@ -173,3 +173,37 @@ describe('discordType.deliver', () => {
     expect(body.embeds[0].color).toBe(0x3498db);
   });
 });
+
+const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
+  destination,
+  source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
+});
+
+describe('discordType.render with an automation source', () => {
+  it('keeps the builtin stream title when nothing is overridden', async () => {
+    const embed = await render({ type: 'session_started', payload: session }, automationCtx());
+
+    expect(embed.title).toBe('Stream Started');
+    expect(embed.description).toBeUndefined();
+  });
+
+  it('uses the rendered override for the title and the description', async () => {
+    const embed = await render(
+      { type: 'session_started', payload: session },
+      automationCtx({ title: 'Heads up', body: '{{user.username}} pressed play' })
+    );
+
+    expect(embed.title).toBe('Heads up');
+    expect(embed.description).toBe('testuser pressed play');
+  });
+
+  it('builds the tracearr update embed', async () => {
+    const embed = await render({
+      type: 'tracearr_update_available',
+      payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+    });
+
+    expect(embed.title).toBe('Tracearr Update Available');
+    expect(embed.description).toContain('2.1.0');
+  });
+});

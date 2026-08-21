@@ -509,6 +509,7 @@ export {
   DESTINATION_KINDS,
   DESTINATION_TYPES,
   NOTIFICATION_EVENT_TYPES,
+  SUBSCRIBABLE_EVENTS,
   destinationConfigSchema,
   notificationEventTypeSchema,
   createDestinationSchema,
@@ -516,6 +517,8 @@ export {
 } from './destinations.js';
 
 // Schema input type exports
+export type { SubscribableEvent } from './destinations.js';
+
 export type {
   LoginInput,
   CallbackInput,

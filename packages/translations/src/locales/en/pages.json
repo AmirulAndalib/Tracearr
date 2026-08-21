@@ -778,42 +778,13 @@
       "unlinkConfirm": "Are you sure you want to unlink this Plex account? You won't be able to add servers from this account until you link it again."
     },
     "destinations": {
-      "title": "Notification destinations",
-      "description": "Where notifications go. Add as many as you like; each one picks the system events it receives, and automations can send to any of them.",
       "add": "Add destination",
-      "empty": "No destinations yet.",
-      "ownerOnly": "Only the owner can manage notification destinations.",
-      "eventsLabel": "Events",
       "builtinNote": "Built in",
-      "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
-      "webToastNote": "Toasts in this browser.",
-      "usedBy": "Used by {{count}} automation",
-      "usedBy_other": "Used by {{count}} automations",
-      "reencrypt": "Re-enter this destination's secret",
-      "secretSet": "Set (leave blank to keep)",
       "clearSecret": "Clear",
-      "test": "Test",
-      "testHint": "Save first to test",
       "delete": "Delete",
       "deleteConfirm": "Delete {{name}}? Automations that send to it will be blocked until they are updated.",
-      "events": {
-        "violation_detected": "Violation detected",
-        "stream_started": "Stream started",
-        "stream_stopped": "Stream stopped",
-        "server_down": "Server down",
-        "server_up": "Server up",
-        "plugin_update_available": "Plugin update available"
-      },
-      "types": {
-        "discord": "Discord",
-        "jsonWebhook": "Webhook (JSON)",
-        "ntfy": "ntfy",
-        "gotify": "Gotify",
-        "apprise": "Apprise",
-        "pushover": "Pushover",
-        "push": "Mobile push",
-        "webToast": "Browser toasts"
-      },
+      "description": "Where notifications go. Add as many as you like, and automations can send to any of them.",
+      "empty": "No destinations yet.",
       "fields": {
         "webhookUrl": "Webhook URL",
         "url": "URL",
@@ -827,7 +798,29 @@
       "hints": {
         "authTokenOptional": "Optional for public topics"
       },
-      "testNeedsForm": "Fill in the required fields to test"
+      "ownerOnly": "Only the owner can manage notification destinations.",
+      "pushNote": "Delivered to paired mobile devices; each device filters in its own notification settings.",
+      "receiveViolations": "Receive violations",
+      "receiveViolationsHint": "Send every violation to this destination",
+      "reencrypt": "Re-enter this destination's secret",
+      "secretSet": "Set (leave blank to keep)",
+      "test": "Test",
+      "testHint": "Save first to test",
+      "testNeedsForm": "Fill in the required fields to test",
+      "title": "Notification destinations",
+      "types": {
+        "discord": "Discord",
+        "jsonWebhook": "Webhook (JSON)",
+        "ntfy": "ntfy",
+        "gotify": "Gotify",
+        "apprise": "Apprise",
+        "pushover": "Pushover",
+        "push": "Mobile push",
+        "webToast": "Browser toasts"
+      },
+      "usedBy": "Used by {{count}} automation",
+      "usedBy_other": "Used by {{count}} automations",
+      "webToastNote": "Toasts in this browser."
     },
     "jobs": {
       "runNow": "Run Now",

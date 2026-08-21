@@ -7,10 +7,10 @@ import type { RenderContext } from '../destinations/types.js';
 
 const destination = { id: 'dest-push', name: 'Mobile push' };
 const systemCtx: RenderContext = { destination, source: { kind: 'system' } };
-const ruleCtx: RenderContext = {
+const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
-  source: { kind: 'rule', title: 'Rule fired', message: 'Too many streams' },
-};
+  source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
+});
 const deliverCtx = { destination, signal: AbortSignal.timeout(5000) };
 
 const violation: ViolationWithDetails = {
@@ -34,55 +34,48 @@ const violation: ViolationWithDetails = {
 
 const session = createMockActiveSession();
 
+const tracearrUpdate = {
+  type: 'tracearr_update_available',
+  payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+} as const;
+
 const render = async (
   event: Parameters<typeof pushType.render>[0],
   ctx: RenderContext = systemCtx
 ): Promise<PushRendered> => pushType.render(event, {}, ctx);
 
 describe('pushType.render', () => {
-  it('renders a rule violation as a direct rule send with the image fields', async () => {
-    const rendered = await render({ type: 'violation', payload: violation }, ruleCtx);
-
-    expect(rendered).toEqual({
-      kind: 'rule',
-      title: 'Rule fired',
-      message: 'Too many streams',
-      data: {
-        ruleId: 'rule-456',
-        ruleName: 'Test Rule',
-        serverId: 'server-1',
-        thumbPath: '/thumb.jpg',
-        userThumbUrl: '/avatar.jpg',
-      },
-    });
-  });
-
-  it('does not forward other violation data keys into the push payload', async () => {
-    const noisy = {
-      ...violation,
-      data: { ...violation.data, type: 'violation_detected', evidence: [{ big: true }] },
-    };
-    const rendered = await render({ type: 'violation', payload: noisy }, ruleCtx);
-    expect(rendered.kind).toBe('rule');
-    if (rendered.kind === 'rule') {
-      expect(rendered.data).not.toHaveProperty('type');
-      expect(rendered.data).not.toHaveProperty('evidence');
-    }
-  });
-
-  it('renders a system violation as the raw event', async () => {
+  it('renders a system event as the raw event with no override', async () => {
     const event = { type: 'violation', payload: violation } as const;
 
-    expect(await render(event)).toEqual({ kind: 'system', event });
+    expect(await render(event)).toEqual({ kind: 'event', event });
   });
 
-  it('renders a non-violation event from a rule source as the raw event', async () => {
+  it('carries an automation override alongside the event', async () => {
     const event = {
       type: 'server_down',
       payload: { serverName: 'Plex Server', serverId: 's1' },
     } as const;
 
-    expect(await render(event, ruleCtx)).toEqual({ kind: 'system', event });
+    expect(await render(event, automationCtx({ title: '{{server.name}} is gone' }))).toEqual({
+      kind: 'event',
+      event,
+      override: { title: 'Plex Server is gone' },
+    });
+  });
+
+  it('renders the three update events with their resolved text', async () => {
+    expect(await render(tracearrUpdate, automationCtx())).toEqual({
+      kind: 'update',
+      title: 'Tracearr Update Available',
+      body: 'Tracearr 2.1.0 is out (running 2.0.0)',
+      data: {
+        type: 'tracearr_update_available',
+        current: '2.0.0',
+        latest: '2.1.0',
+        releaseUrl: 'https://example.com/r',
+      },
+    });
   });
 });
 
@@ -103,9 +96,7 @@ function spyOnNotifiers() {
     notifyServerUp: vi
       .spyOn(pushNotificationService, 'notifyServerUp')
       .mockResolvedValue(undefined),
-    notifyRuleDirect: vi
-      .spyOn(pushNotificationService, 'notifyRuleDirect')
-      .mockResolvedValue(undefined),
+    notifyUpdate: vi.spyOn(pushNotificationService, 'notifyUpdate').mockResolvedValue(undefined),
   };
 }
 
@@ -116,39 +107,19 @@ describe('pushType.deliver', () => {
     spies = spyOnNotifiers();
   });
 
-  it('sends a rule render through notifyRuleDirect', async () => {
+  it('sends a violation shape through notifyViolation, per-device filters and all', async () => {
     await pushType.deliver(
-      {
-        kind: 'rule',
-        title: 'Rule fired',
-        message: 'Too many streams',
-        data: { ruleId: 'rule-456', ruleName: 'Test Rule' },
-      },
-      {},
-      deliverCtx
-    );
-
-    expect(spies.notifyRuleDirect).toHaveBeenCalledWith('Rule fired', 'Too many streams', {
-      ruleId: 'rule-456',
-      ruleName: 'Test Rule',
-    });
-    expect(spies.notifyViolation).not.toHaveBeenCalled();
-  });
-
-  it('sends a system violation through notifyViolation', async () => {
-    await pushType.deliver(
-      { kind: 'system', event: { type: 'violation', payload: violation } },
+      { kind: 'event', event: { type: 'violation', payload: violation } },
       {},
       deliverCtx
     );
 
     expect(spies.notifyViolation).toHaveBeenCalledWith(violation);
-    expect(spies.notifyRuleDirect).not.toHaveBeenCalled();
   });
 
   it('sends a stream start through notifySessionStarted', async () => {
     await pushType.deliver(
-      { kind: 'system', event: { type: 'session_started', payload: session } },
+      { kind: 'event', event: { type: 'session_started', payload: session } },
       {},
       deliverCtx
     );
@@ -158,7 +129,7 @@ describe('pushType.deliver', () => {
 
   it('sends a stream stop through notifySessionStopped', async () => {
     await pushType.deliver(
-      { kind: 'system', event: { type: 'session_stopped', payload: session } },
+      { kind: 'event', event: { type: 'session_stopped', payload: session } },
       {},
       deliverCtx
     );
@@ -166,54 +137,45 @@ describe('pushType.deliver', () => {
     expect(spies.notifySessionStopped).toHaveBeenCalledWith(session);
   });
 
-  it('sends server down with the name and id', async () => {
+  it('sends server down with the name, the id and any override', async () => {
     await pushType.deliver(
       {
-        kind: 'system',
+        kind: 'event',
         event: { type: 'server_down', payload: { serverName: 'Plex Server', serverId: 's1' } },
+        override: { title: 'Plex is gone' },
       },
       {},
       deliverCtx
     );
 
-    expect(spies.notifyServerDown).toHaveBeenCalledWith('Plex Server', 's1');
+    expect(spies.notifyServerDown).toHaveBeenCalledWith('Plex Server', 's1', {
+      title: 'Plex is gone',
+    });
   });
 
   it('sends server up with the name and id', async () => {
     await pushType.deliver(
       {
-        kind: 'system',
+        kind: 'event',
         event: { type: 'server_up', payload: { serverName: 'Plex Server', serverId: 's1' } },
       },
       {},
       deliverCtx
     );
 
-    expect(spies.notifyServerUp).toHaveBeenCalledWith('Plex Server', 's1');
+    expect(spies.notifyServerUp).toHaveBeenCalledWith('Plex Server', 's1', undefined);
   });
 
-  it('sends nothing for a plugin update', async () => {
+  it('sends a tracearr release through notifyUpdate', async () => {
     await pushType.deliver(
-      {
-        kind: 'system',
-        event: {
-          type: 'plugin_update_available',
-          payload: {
-            serverId: 'server-1',
-            serverName: 'Jellyfin',
-            serverType: 'jellyfin',
-            installedVersion: '0.2.0',
-            latestVersion: '0.3.0',
-            downloadUrl: 'https://example.com/plugin.zip',
-          },
-        },
-      },
+      { kind: 'update', title: 'Tracearr 2.1.0', body: 'time to pull', data: { type: 'x' } },
       {},
       deliverCtx
     );
 
-    for (const spy of Object.values(spies)) {
-      expect(spy).not.toHaveBeenCalled();
-    }
+    expect(spies.notifyUpdate).toHaveBeenCalledWith('Tracearr 2.1.0', 'time to pull', {
+      type: 'x',
+    });
+    expect(spies.notifyViolation).not.toHaveBeenCalled();
   });
 });

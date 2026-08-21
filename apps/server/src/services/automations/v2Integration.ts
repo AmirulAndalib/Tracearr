@@ -76,18 +76,15 @@ export async function armCooldown(redis: Redis, key: string, minutes: number): P
 export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
   return {
     /**
-     * Fan the rule's event out to its destinations.
+     * Fan the automation's event out to its destinations.
      * Uses dynamic import to avoid circular dependency.
      */
-    enqueueRuleNotification: async ({ to, title, message, event }) => {
+    enqueueAutomationNotification: async ({ to, event, source }) => {
       const { enqueueNotification } = await import('../../jobs/notificationQueue.js');
 
-      const count = await enqueueNotification(event, {
-        to,
-        source: { kind: 'rule', title, message },
-      });
+      const count = await enqueueNotification(event, { to, source });
       if (count > 0) {
-        automationsLogger.info(`Notification enqueued: ${title}`, { to, count });
+        automationsLogger.info(`Notification enqueued: ${event.type}`, { to, count });
       }
       return count;
     },

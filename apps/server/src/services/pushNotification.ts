@@ -23,6 +23,12 @@ const expo = new Expo();
 
 // Store receipt IDs for later verification (receiptId -> { token, timestamp })
 // Includes timestamp for stale entry cleanup
+/** What an automation's send may replace in an event's builtin push copy. */
+export interface PushTextOverride {
+  title?: string;
+  body?: string;
+}
+
 interface PendingReceipt {
   token: string;
   createdAt: number;
@@ -728,7 +734,11 @@ export class PushNotificationService {
   /**
    * Send server down notification to devices that have enabled server alerts
    */
-  async notifyServerDown(serverName: string, serverId: string): Promise<void> {
+  async notifyServerDown(
+    serverName: string,
+    serverId: string,
+    override?: PushTextOverride
+  ): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     if (sessions.length === 0) return;
 
@@ -764,9 +774,9 @@ export class PushNotificationService {
 
     const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
-        title: serverName,
+        title: override?.title ?? serverName,
         subtitle: 'Server Alert',
-        body: 'Connection lost',
+        body: override?.body ?? 'Connection lost',
         data: {
           type: 'server_down',
           serverName,
@@ -889,7 +899,11 @@ export class PushNotificationService {
   /**
    * Send server up notification to devices that have enabled server alerts
    */
-  async notifyServerUp(serverName: string, serverId: string): Promise<void> {
+  async notifyServerUp(
+    serverName: string,
+    serverId: string,
+    override?: PushTextOverride
+  ): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     if (sessions.length === 0) return;
 
@@ -925,9 +939,9 @@ export class PushNotificationService {
 
     const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
-        title: serverName,
+        title: override?.title ?? serverName,
         subtitle: 'Server Alert',
-        body: 'Back online',
+        body: override?.body ?? 'Back online',
         data: {
           type: 'server_up',
           serverName,
@@ -943,53 +957,42 @@ export class PushNotificationService {
   }
 
   /**
-   * Send a rule-triggered notification directly to all devices with push enabled.
-   * Bypasses user preference filters (violationMinSeverity, ruleTypes, etc.)
-   * since rule notifications are explicitly configured by the admin.
+   * Send an update notification (plugin, media server or Tracearr release).
+   * No per-device toggle covers updates: subscribing the automation to this
+   * destination is the opt-in, so only the master toggle, rate limits and
+   * quiet hours filter here.
    */
-  async notifyRuleDirect(
-    title: string,
-    message: string,
-    data: Record<string, unknown>
-  ): Promise<void> {
+  async notifyUpdate(title: string, body: string, data: Record<string, unknown>): Promise<void> {
     const sessions = await getSessionsWithPreferences();
-    if (sessions.length === 0) return;
-
-    // Only filter by master push toggle - bypass all other preference filters.
-    // Rule notifications are explicitly configured by the admin in the rule action,
-    // so they should not be filtered by user violation preferences.
     const eligibleSessions = sessions.filter((s) => s.pushEnabled);
-
     if (eligibleSessions.length === 0) {
-      console.log(`[Push] No sessions with push enabled for rule notification`);
+      console.log(`[Push] No eligible sessions for update notification`);
       return;
     }
 
-    console.log(
-      `[Push] Sending rule notification to ${eligibleSessions.length} device(s): ${title}`
-    );
+    const rateLimitedSessions = await applyRateLimiting(eligibleSessions, 'update');
+    if (rateLimitedSessions.length === 0) {
+      console.log(`[Push] All sessions rate limited for update notification`);
+      return;
+    }
 
-    // Get external URL for rich notification image
-    // Use session poster if available, otherwise user avatar
+    const activeSessions = applyQuietHours(rateLimitedSessions, 'low', 'update');
+    if (activeSessions.length === 0) {
+      console.log(`[Push] All sessions in quiet hours for update notification`);
+      return;
+    }
+
     const { externalUrl } = await getNetworkSettings();
-    const serverId = data.serverId as string | undefined;
-    const thumbPath = data.thumbPath as string | undefined;
-    const userThumbUrl = data.userThumbUrl as string | undefined;
-    const imageUrl =
-      buildPushPosterUrl(externalUrl, serverId, thumbPath) ??
-      buildPushAvatarUrl(externalUrl, serverId, userThumbUrl);
+    const imageUrl = buildLogoUrl(externalUrl);
 
-    const messages = eligibleSessions.map((s) =>
+    const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
         title,
-        subtitle: 'Rule Notification',
-        body: message,
-        data: {
-          type: 'rule_notification',
-          ...data,
-        },
+        subtitle: 'Update Available',
+        body,
+        data,
         priority: 'default',
-        channelId: 'alerts', // Use alerts channel (rules channel doesn't exist on mobile)
+        channelId: 'alerts',
         imageUrl,
       })
     );

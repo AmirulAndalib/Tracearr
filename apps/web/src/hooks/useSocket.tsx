@@ -97,6 +97,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, [destinations]);
 
   // null means not loaded or not readable (non-owners get a 403): toast anyway, as before.
+  // Only violations still subscribe; every other toast comes from an automation.
   const isWebToastEnabled = useCallback((eventType: NotificationEventType): boolean => {
     const events = webToastEventsRef.current;
     return events ? events.has(eventType) : true;
@@ -187,22 +188,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     // Handle real-time events
     // Note: Since users can filter by server, we invalidate all matching query patterns
     // and let react-query refetch with the appropriate server filter
-    newSocket.on(WS_EVENTS.SESSION_STARTED, (session: ActiveSession) => {
+    newSocket.on(WS_EVENTS.SESSION_STARTED, (_session: ActiveSession) => {
       // Invalidate all active sessions queries (regardless of server filter)
       void queryClient.invalidateQueries({ queryKey: ['sessions', 'active'] });
       // Invalidate dashboard stats and session history
       void queryClient.invalidateQueries({ queryKey: ['stats', 'dashboard'] });
       void queryClient.invalidateQueries({ queryKey: ['sessions', 'list'] });
-
-      // Show toast if web notifications are enabled for stream_started
-      if (isWebToastEnabled('stream_started')) {
-        toast.info(t('notifications:toast.info.streamStarted.title'), {
-          description: t('notifications:toast.info.streamStarted.message', {
-            user: session.user.identityName ?? session.user.username,
-            media: session.mediaTitle,
-          }),
-        });
-      }
     });
 
     newSocket.on(WS_EVENTS.SESSION_STOPPED, (_sessionId: string) => {
@@ -217,11 +208,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           sessionStoppedHistoryThrottleRef.current = null;
           void queryClient.invalidateQueries({ queryKey: ['sessions', 'history'] });
         }, SESSION_STOPPED_HISTORY_THROTTLE_MS);
-      }
-
-      // Show toast if web notifications are enabled for stream_stopped
-      if (isWebToastEnabled('stream_stopped')) {
-        toast.info(t('notifications:toast.info.streamStopped.title'));
       }
     });
 
@@ -293,31 +279,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         if (prev.some((s) => s.serverId === data.serverId)) return prev;
         return [...prev, { ...data, since: new Date() }];
       });
-
-      if (isWebToastEnabled('server_down')) {
-        toast.error(t('notifications:toast.info.serverOffline.title'), {
-          description: t('notifications:toast.info.serverOffline.message', {
-            name: data.serverName,
-          }),
-          duration: 10000,
-        });
-      }
     });
 
     newSocket.on(WS_EVENTS.SERVER_UP, (data: { serverId: string; serverName: string }) => {
       // Remove from unhealthy servers
       setUnhealthyServers((prev) => prev.filter((s) => s.serverId !== data.serverId));
-
-      if (isWebToastEnabled('server_up')) {
-        toast.success(t('notifications:toast.info.serverOnline.title'), {
-          description: t('notifications:toast.info.serverOnline.message', {
-            name: data.serverName,
-          }),
-        });
-      }
     });
 
-    // No isWebToastEnabled gate: the rule's send action choosing the web_toast row is the gate.
+    // Stream and server toasts arrive here too: the automation choosing the web_toast row is the gate.
     newSocket.on(WS_EVENTS.NOTIFICATION_TOAST, (data: NotificationToast) => {
       const toastFn =
         data.severity === 'high'

@@ -1,5 +1,6 @@
 import { TIME_MS } from '@tracearr/shared';
 import type {
+  ActiveSession,
   Action,
   GroupEvidence,
   IfAction,
@@ -11,7 +12,7 @@ import type {
   ServerUser,
 } from '@tracearr/shared';
 import { automationsLogger } from '../../../utils/logger.js';
-import type { NotificationEvent } from '../../notifications/events.js';
+import type { NotificationEvent, NotificationSource } from '../../notifications/events.js';
 import { evaluateAllGroupsAsync } from '../engine.js';
 import type { ActionExecutor, EvaluationContext } from '../types.js';
 import { resolveTargetSessions } from './targeting.js';
@@ -42,11 +43,10 @@ export interface ActionResult {
  */
 export interface ActionExecutorDeps {
   /** Resolves the destination ids and returns how many jobs were enqueued. */
-  enqueueRuleNotification: (params: {
+  enqueueAutomationNotification: (params: {
     to: string[];
-    title: string;
-    message: string;
     event: NotificationEvent;
+    source: NotificationSource;
   }) => Promise<number>;
   adjustUserTrust: (userId: string, delta: number) => Promise<void>;
   setUserTrust: (userId: string, value: number) => Promise<void>;
@@ -78,7 +78,7 @@ export interface ActionExecutorDeps {
 
 // Default no-op dependencies for testing
 const noopDeps: ActionExecutorDeps = {
-  enqueueRuleNotification: async () => 0,
+  enqueueAutomationNotification: async () => 0,
   adjustUserTrust: async () => {
     /* no-op */
   },
@@ -147,36 +147,117 @@ function getCooldownMinutes(action: Action): number | undefined {
 // Action Executors
 // ============================================================================
 
-function accountInactivityMessage(serverUser: ServerUser): string {
-  if (!serverUser.lastActivityAt) return `Account "${serverUser.username}" has never been active`;
-  const days = Math.floor(
-    (Date.now() - new Date(serverUser.lastActivityAt).getTime()) / TIME_MS.DAY
-  );
-  return `Account "${serverUser.username}" has been inactive for ${days} days`;
+/** Whole days since the account last did anything; null when it never has. */
+function inactiveDays(serverUser: ServerUser): number | null {
+  if (!serverUser.lastActivityAt) return null;
+  return Math.floor((Date.now() - new Date(serverUser.lastActivityAt).getTime()) / TIME_MS.DAY);
+}
+
+/** The numbers a trigger measured, so `{{minutes}}` and friends render off a violation shape. */
+function triggerNumbers(context: EvaluationContext): Record<string, number> {
+  const { trigger, serverUser } = context;
+  if (!trigger) return {};
+  switch (trigger.type) {
+    case 'session.held_for':
+      return { minutes: trigger.heldMinutes };
+    case 'session.stopped':
+      return { durationMinutes: Math.round(trigger.durationMs / TIME_MS.MINUTE) };
+    case 'account.inactive_for': {
+      const days = serverUser ? inactiveDays(serverUser) : null;
+      return days === null ? {} : { days };
+    }
+    default:
+      return {};
+  }
+}
+
+/** The ActiveSession the stream events carry, assembled from the context the trigger built. */
+function activeSessionOf(context: EvaluationContext, durationMs?: number): ActiveSession | null {
+  const { session, serverUser, server } = context;
+  if (!session || !serverUser || !server) return null;
+  return {
+    ...session,
+    ...(durationMs !== undefined && { durationMs }),
+    user: {
+      id: serverUser.id,
+      username: serverUser.username,
+      thumbUrl: serverUser.thumbUrl,
+      identityName: serverUser.identityName ?? null,
+    },
+    server: { id: server.id, name: server.name, type: server.type },
+    canTerminate: false,
+  };
 }
 
 /**
- * Send a violation event to the named destinations.
+ * The notification event the trigger speaks natively. Triggers with none - transcode
+ * changes, pauses, held_for and inactivity - fall through to the violation shape.
  */
-const executeSend: ActionExecutor = async (
-  context: EvaluationContext,
-  action: Action
-): Promise<{ skipReason: string } | void> => {
+function nativeEventFor(context: EvaluationContext): NotificationEvent | null {
+  const { trigger, server } = context;
+  if (!trigger) return null;
+  switch (trigger.type) {
+    case 'session.started': {
+      const payload = activeSessionOf(context);
+      return payload ? { type: 'session_started', payload } : null;
+    }
+    case 'session.stopped': {
+      const payload = activeSessionOf(context, trigger.durationMs);
+      return payload ? { type: 'session_stopped', payload } : null;
+    }
+    case 'server.down':
+      return server
+        ? { type: 'server_down', payload: { serverName: server.name, serverId: server.id } }
+        : null;
+    case 'server.up':
+      return server
+        ? { type: 'server_up', payload: { serverName: server.name, serverId: server.id } }
+        : null;
+    case 'plugin.update_available':
+      return {
+        type: 'plugin_update_available',
+        payload: {
+          serverId: trigger.server.id,
+          serverName: trigger.server.name,
+          serverType: trigger.server.type,
+          installedVersion: trigger.installedVersion,
+          latestVersion: trigger.latestVersion,
+          downloadUrl: trigger.downloadUrl,
+        },
+      };
+    case 'server.update_available':
+      return {
+        type: 'server_update_available',
+        payload: {
+          serverId: trigger.server.id,
+          serverName: trigger.server.name,
+          serverType: trigger.server.type,
+          installedVersion: trigger.installedVersion,
+          latestVersion: trigger.latestVersion,
+          releaseUrl: trigger.releaseUrl,
+        },
+      };
+    case 'tracearr.update_available':
+      return {
+        type: 'tracearr_update_available',
+        payload: {
+          current: trigger.current,
+          latest: trigger.latest,
+          releaseUrl: trigger.releaseUrl,
+        },
+      };
+    default:
+      return null;
+  }
+}
+
+/** What a policy run - and any trigger with no native event - sends: the match itself. */
+function violationEventFor(context: EvaluationContext): NotificationEvent | null {
   const { session, serverUser, server, rule } = context;
-  const typedAction = action as SendAction;
-  const to = typedAction.to;
-
-  if (to.length === 0) return;
-  // Until each trigger renders its own event, the notification is user-shaped.
-  if (!serverUser || !server) return { skipReason: 'No account to notify about' };
-
-  const title = `Rule Triggered: ${rule.name}`;
-  const message = session
-    ? `User "${serverUser.username}" triggered rule "${rule.name}" while playing "${session.mediaTitle}"`
-    : accountInactivityMessage(serverUser);
+  if (!serverUser || !server) return null;
 
   // No violation row for this match, so synthesize an id; the json webhook body carries payload.id.
-  const event: NotificationEvent = {
+  return {
     type: 'violation',
     payload: {
       id: context.violationId ?? `rule-send-${rule.id}-${Date.now()}`,
@@ -193,10 +274,17 @@ const executeSend: ActionExecutor = async (
         displayName: serverUser.identityName ?? serverUser.username,
         // Image data for rich push notifications
         serverId: server.id,
+        serverName: server.name,
         userThumbUrl: serverUser.thumbUrl,
         ...(session
-          ? { sessionId: session.id, mediaTitle: session.mediaTitle, thumbPath: session.thumbPath }
+          ? {
+              sessionId: session.id,
+              mediaTitle: session.mediaTitle,
+              mediaType: session.mediaType,
+              thumbPath: session.thumbPath,
+            }
           : {}),
+        ...triggerNumbers(context),
       },
       rule: { id: rule.id, name: rule.name, type: null },
       session: undefined,
@@ -209,8 +297,35 @@ const executeSend: ActionExecutor = async (
       },
     },
   };
+}
 
-  const enqueued = await currentDeps.enqueueRuleNotification({ to, title, message, event });
+/**
+ * Send the trigger's own notification event to the named destinations, with whatever
+ * title and body the action overrode.
+ */
+const executeSend: ActionExecutor = async (
+  context: EvaluationContext,
+  action: Action
+): Promise<{ skipReason: string } | void> => {
+  const { rule } = context;
+  const typedAction = action as SendAction;
+  const to = typedAction.to;
+
+  if (to.length === 0) return;
+
+  const native = rule.kind === 'notification' ? nativeEventFor(context) : null;
+  const event = native ?? violationEventFor(context);
+  if (!event) return { skipReason: 'No account to notify about' };
+
+  const source: NotificationSource = {
+    kind: 'automation',
+    automationId: rule.id,
+    automationName: rule.name,
+    ...(typedAction.title !== undefined && { title: typedAction.title }),
+    ...(typedAction.body !== undefined && { body: typedAction.body }),
+  };
+
+  const enqueued = await currentDeps.enqueueAutomationNotification({ to, event, source });
   if (enqueued === 0) {
     automationsLogger.info('send resolved no enabled destination', { ruleId: rule.id, to });
   }

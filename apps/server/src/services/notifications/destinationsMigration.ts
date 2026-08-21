@@ -108,12 +108,17 @@ function routingFor(routing: RoutingRow[] | null, event: NotificationEventType):
 const capable = (kind: DestinationKind, events: NotificationEventType[]): NotificationEventType[] =>
   events.filter((e) => (DESTINATION_TYPES[kind].events as readonly string[]).includes(e));
 
+/** The events the pre-automation routing table knew; the update events post-date it. */
+const ROUTED_EVENTS: NotificationEventType[] = NOTIFICATION_EVENT_TYPES.filter(
+  (e) => e !== 'server_update_available' && e !== 'tracearr_update_available'
+);
+
 export function planDestinationsMigration(input: PlanInput): Plan {
   const s = input.settings;
   const logs: string[] = [];
   const planned: PlannedDestination[] = [];
   const evts = (pick: (r: RoutingRow) => boolean): NotificationEventType[] =>
-    NOTIFICATION_EVENT_TYPES.filter((e) => pick(routingFor(input.routing, e)));
+    ROUTED_EVENTS.filter((e) => pick(routingFor(input.routing, e)));
 
   if (set(s.discordWebhookUrl)) {
     planned.push({
@@ -251,7 +256,7 @@ export async function seedBuiltinDestinations(
   executor: Executor = db
 ): Promise<{ pushId: string; webToastId: string; inserted: number }> {
   const defaultEvents = (kind: 'push' | 'web_toast'): NotificationEventType[] =>
-    DESTINATION_TYPES[kind].events.filter((e) => e !== 'stream_started' && e !== 'stream_stopped');
+    capable(kind, ROUTED_EVENTS).filter((e) => e !== 'stream_started' && e !== 'stream_stopped');
   const created = await executor
     .insert(destinations)
     .values([

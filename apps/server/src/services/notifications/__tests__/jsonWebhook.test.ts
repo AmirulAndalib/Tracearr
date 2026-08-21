@@ -228,3 +228,36 @@ describe('jsonWebhookType.deliver', () => {
     expect(body.data.message).toBe('This is a test notification from Tracearr');
   });
 });
+
+const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
+  destination,
+  source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
+});
+
+describe('jsonWebhookType.render with an automation source', () => {
+  it('names the automation and carries its rendered overrides', async () => {
+    const body = await render(
+      { type: 'session_started', payload: session },
+      automationCtx({ title: 'Heads up', body: '{{user.username}} pressed play' })
+    );
+
+    expect(body.automation).toEqual({
+      id: 'a-1',
+      name: 'Now playing',
+      title: 'Heads up',
+      message: 'testuser pressed play',
+    });
+  });
+
+  it('names the automation with no overrides to carry', async () => {
+    const body = await render({ type: 'session_started', payload: session }, automationCtx());
+
+    expect(body.automation).toEqual({ id: 'a-1', name: 'Now playing' });
+  });
+
+  it('leaves the automation out of a system event', async () => {
+    const body = await render({ type: 'session_started', payload: session });
+
+    expect(body.automation).toBeUndefined();
+  });
+});

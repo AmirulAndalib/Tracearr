@@ -366,6 +366,57 @@ describe('enqueueNotification - dedupe ids', () => {
     for (const id of ids) expect(id).not.toMatch(/:/);
   });
 
+  it('keys two automations on the same event apart', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+
+    await mod.enqueueNotification(sessionStarted, {
+      to: ['d1'],
+      source: { kind: 'automation', automationId: 'a-1', automationName: 'One' },
+    });
+    const first = bulkEntries()[0]?.opts.jobId;
+
+    mainQueue().addBulk.mockClear();
+    await mod.enqueueNotification(sessionStarted, {
+      to: ['d1'],
+      source: { kind: 'automation', automationId: 'a-2', automationName: 'Two' },
+    });
+    const second = bulkEntries()[0]?.opts.jobId;
+
+    expect(first).toBe(`d1|session_started-sess-1-a-1-${bucket()}`);
+    expect(second).toBe(`d1|session_started-sess-1-a-2-${bucket()}`);
+    expect(first).not.toBe(second);
+  });
+
+  it('keys an automation violation apart from another automation on the same rule', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+
+    await mod.enqueueNotification(violation(), {
+      to: ['d1'],
+      source: { kind: 'automation', automationId: 'a-1', automationName: 'One' },
+    });
+
+    expect(bulkEntries()[0]?.opts.jobId).toBe(`d1|violation-su-1-rule-1-a-1-${bucket()}`);
+  });
+
+  it('keys an install-wide event that carries no server', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+
+    await mod.enqueueNotification(
+      {
+        type: 'tracearr_update_available',
+        payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
+      },
+      { to: ['d1'], source: { kind: 'automation', automationId: 'a-1', automationName: 'One' } }
+    );
+
+    const jobId = bulkEntries()[0]?.opts.jobId;
+    expect(jobId).toBe(`d1|tracearr_update_available-install-a-1-${bucket()}`);
+    expect(jobId).not.toMatch(/:/);
+  });
+
   it('drops the id when the violation carries neither rule id nor rule type', async () => {
     const mod = await loadInitializedQueue();
     mockFindDestinationsForEvent.mockResolvedValue([destination({ id: 'd1' })]);
