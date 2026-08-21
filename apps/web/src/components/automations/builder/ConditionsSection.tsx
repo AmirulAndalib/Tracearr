@@ -62,9 +62,7 @@ export function ConditionsSection({
         <Item variant="outline" size="sm" className="bg-muted/20 border-dashed">
           <ItemContent>
             <p className="text-muted-foreground text-sm">
-              {hasFields
-                ? t('automations.builder.conditions.emptyLine')
-                : t('automations.builder.conditions.noFields')}
+              {t('automations.builder.conditions.emptyLine')}
             </p>
           </ItemContent>
           <ItemActions>

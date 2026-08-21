@@ -65,6 +65,14 @@ interface Describe {
   t: Translate;
   refs: DescribeRefs;
   unitSystem: UnitSystem;
+  /** Whether an empty part reads as an invitation to fill it, which only the builder wants. */
+  placeholders: boolean;
+}
+
+/** What the caller wants of a half-built definition. */
+export interface DescribeOptions {
+  /** Names the empty trigger and action slots after the steps that fill them. */
+  placeholders?: boolean;
 }
 
 const SENTENCE_LIMIT = 160;
@@ -180,6 +188,12 @@ function describeTriggers(
 ): DescribeFragment[] {
   const enabled = triggers.filter(isEnabled);
   if (enabled.length === 0) {
+    if (!ctx.placeholders) {
+      const text = ctx.t('automations.describe.when', {
+        text: ctx.t('automations.describe.nothing'),
+      });
+      return [{ nodeId: null, text }];
+    }
     const text = ctx.t('automations.describe.when', {
       text: ctx.t('automations.builder.sentence.placeholderTrigger'),
     });
@@ -496,7 +510,7 @@ export function describeConditions(
   t: Translate,
   unitSystem: UnitSystem
 ): DescribeFragment[] {
-  return describeGroups({ t, refs, unitSystem, inputs: [] }, groups, null);
+  return describeGroups({ t, refs, unitSystem, inputs: [], placeholders: false }, groups, null);
 }
 
 /**
@@ -507,13 +521,15 @@ export function describeAutomation(
   definition: DescribableDefinition,
   refs: DescribeRefs,
   t: Translate,
-  unitSystem: UnitSystem
+  unitSystem: UnitSystem,
+  options: DescribeOptions = {}
 ): DescribeFragment[] {
-  const ctx: Describe = { t, refs, unitSystem };
+  const placeholders = options.placeholders ?? false;
+  const ctx: Describe = { t, refs, unitSystem, placeholders };
   const triggers = definition.triggers ?? [];
   const actionNodes = definition.actions?.actions ?? [];
   // A draft with nothing on it invites both slots; "flag it" would name a control that is not there yet.
-  const blank = triggers.length === 0 && actionNodes.length === 0;
+  const blank = placeholders && triggers.length === 0 && actionNodes.length === 0;
 
   const fragments = describeTriggers(ctx, triggers);
 
@@ -531,7 +547,7 @@ export function describeAutomation(
   if (actions.length > 0) {
     appendSuffix(fragments, actionSeparator(definition.kind, conditions.length > 0));
     fragments.push(...actions);
-  } else {
+  } else if (placeholders) {
     appendSuffix(fragments, ',');
     fragments.push({
       nodeId: SENTENCE_SECTIONS.actions,

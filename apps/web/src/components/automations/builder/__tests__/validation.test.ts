@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { i18n, initI18n } from '@tracearr/translations';
 import type { Automation } from '@tracearr/shared';
-import type { Translate } from '@/lib/automations';
+import { SENTENCE_SECTIONS, type Translate } from '@/lib/automations';
 import { builderReducer, builderStateFrom, emptyBuilderState } from '../builderReducer';
 import { ApiError } from '@/lib/api';
 import { BUILDER_SECTIONS, builderIssues, issuesByNode, serverIssues } from '../validation';
@@ -38,6 +38,14 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     ...overrides,
   };
 }
+
+describe('BUILDER_SECTIONS', () => {
+  it('answers to the same ids the sentence addresses steps by', () => {
+    for (const [key, id] of Object.entries(SENTENCE_SECTIONS)) {
+      expect(BUILDER_SECTIONS[key as keyof typeof SENTENCE_SECTIONS]).toBe(id);
+    }
+  });
+});
 
 describe('builderIssues', () => {
   it('asks for a name against the name field', () => {

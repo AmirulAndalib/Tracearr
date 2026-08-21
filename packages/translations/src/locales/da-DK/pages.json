@@ -134,7 +134,7 @@
         "actionUnavailable": "These triggers do not supply what this action needs",
         "daysRange": "Between {{min}} and {{max}} days",
         "fieldNotAvailableFor": "Not available for: {{triggers}}",
-        "fieldUnavailable": "This condition is not available for every trigger you picked",
+        "fieldUnavailable": "This check is not available for every trigger here",
         "measureInvalid": "Pick how the minutes are counted",
         "messageRequired": "Type the message to show",
         "minutesRange": "Between {{min}} and {{max}} minutes",

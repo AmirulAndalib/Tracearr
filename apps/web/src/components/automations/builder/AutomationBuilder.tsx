@@ -212,7 +212,8 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
         },
         describeRefs,
         t,
-        settings?.unitSystem ?? 'metric'
+        settings?.unitSystem ?? 'metric',
+        { placeholders: true }
       ),
     [state, describeRefs, t, settings]
   );

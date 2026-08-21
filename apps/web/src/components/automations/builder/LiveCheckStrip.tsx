@@ -8,6 +8,7 @@ import {
 } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
 import { useDryRun } from '@/hooks/queries/useDryRun';
 import { fieldLabel, operatorLabel, type Translate } from '@/lib/automations';
 import { cn } from '@/lib/utils';
@@ -73,7 +74,8 @@ export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProp
   const status = statusOf(t, { active, ready, check, samples });
 
   return (
-    <div className="bg-muted/40 mt-3 space-y-2 rounded-md border p-3" aria-live="polite">
+    <div className="mt-4 space-y-2" aria-live="polite">
+      <Separator className="mb-4" />
       <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
         <Radio className="size-3.5" />
         {t('automations.builder.liveCheck.title')}

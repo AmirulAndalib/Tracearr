@@ -71,11 +71,12 @@ function rows() {
 }
 
 describe('ConditionsSection', () => {
-  it('stays behind one affordance until the first group is asked for', async () => {
+  it('shows the step and what an empty one means, with one thing to do', async () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection({ groups: [] });
 
-    expect(screen.queryByText('Where')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /And only if/ })).toBeInTheDocument();
+    expect(screen.getByText('No extra checks — this runs every time.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Add a check/ }));
 
@@ -110,7 +111,20 @@ describe('ConditionsSection', () => {
     expect(
       screen.queryByRole('combobox', { name: 'Join these checks with' })
     ).not.toBeInTheDocument();
-    expect(screen.queryByText('Where')).not.toBeInTheDocument();
+  });
+
+  it('keeps the reason it cannot offer a check in the tooltip, not in the line', () => {
+    renderSection({ groups: [] }, [
+      {
+        id: '44444444-4444-4444-8444-444444444444',
+        type: 'tracearr.update_available',
+        enabled: true,
+      },
+    ]);
+
+    expect(screen.getByText('No extra checks — this runs every time.')).toBeInTheDocument();
+    expect(screen.queryByText(/don't offer any checks/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add a check/ })).toBeDisabled();
   });
 
   it('offers only the comparisons the picked field has', async () => {
@@ -170,8 +184,11 @@ describe('ConditionsSection', () => {
     renderSection(group([condition({ id: 'c-1' })]));
 
     const actions = rows()[0]?.querySelector('[data-slot="item-actions"]');
-    expect(actions?.className).toContain('@max-lg:order-first');
+    expect(actions?.className).toContain('@max-lg:order-2');
     expect(actions?.className).toContain('@max-lg:ml-auto');
+    expect(
+      rows()[0]?.querySelector('[data-slot="item-actions"]')?.previousElementSibling?.className
+    ).toContain('@max-lg:order-3');
   });
 
   it('says so when a threshold sits past the trigger that would fire it', () => {

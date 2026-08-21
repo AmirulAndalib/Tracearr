@@ -77,7 +77,8 @@ export function TriggersSection({
       id={nodeDomId(BUILDER_SECTIONS.triggers)}
       sectionRef={sectionRef}
       footer={
-        triggers.length > 0 && (
+        // A scope problem points here, so the field outlives an emptied trigger list.
+        (triggers.length > 0 || scopeIssues !== undefined) && (
           <div id={nodeDomId(BUILDER_SECTIONS.scope)} tabIndex={-1} className="outline-none">
             <ScopeField
               scope={scope}

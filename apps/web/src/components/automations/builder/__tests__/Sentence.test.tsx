@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { initI18n } from '@tracearr/translations';
-import type { DescribeFragment } from '@/lib/automations';
+import { SENTENCE_SECTIONS, type DescribeFragment } from '@/lib/automations';
 import { Sentence } from '../Sentence';
 
 beforeAll(async () => {
@@ -31,6 +31,21 @@ describe('Sentence', () => {
 
     expect(screen.queryByRole('button', { name: 'then' })).not.toBeInTheDocument();
     expect(screen.getByText('then')).toBeInTheDocument();
+  });
+
+  it('counts what it left out and still says who it applies to', () => {
+    const long: DescribeFragment[] = [
+      ...Array.from({ length: 12 }, (_, index) => ({
+        nodeId: `node-${index}`,
+        text: 'a stream has been paused for thirty minutes',
+      })),
+      { nodeId: SENTENCE_SECTIONS.scope, text: 'Applies to Beehive.' },
+    ];
+
+    render(<Sentence fragments={long} onFocusNode={vi.fn()} />);
+
+    expect(screen.getByText(/\+\d+ more/)).toHaveAttribute('data-slot', 'badge');
+    expect(screen.getByRole('button', { name: 'Applies to Beehive.' })).toBeInTheDocument();
   });
 
   it('caps a long sentence and counts what it left out', () => {

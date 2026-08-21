@@ -60,8 +60,10 @@ export function ActionRow({
         !enabled && 'opacity-60'
       )}
     >
-      <ItemMedia variant="icon">{actionIcon(action.type)}</ItemMedia>
-      <ItemContent className="gap-3">
+      <ItemMedia variant="icon" className="@max-lg:order-1">
+        {actionIcon(action.type)}
+      </ItemMedia>
+      <ItemContent className="gap-3 @max-lg:order-3 @max-lg:basis-full">
         <ItemTitle>{name}</ItemTitle>
         <div className="grid w-full gap-3 @md:grid-cols-2">
           {visibleConfigFields(action).map((field) => (
@@ -83,7 +85,7 @@ export function ActionRow({
         {hint && <RowWarning message={hint} />}
         <RowIssues issues={issues} />
       </ItemContent>
-      <ItemActions className="shrink-0">
+      <ItemActions className="shrink-0 @max-lg:order-2 @max-lg:ml-auto">
         <RowActions
           name={name}
           enabled={enabled}

@@ -110,14 +110,16 @@ export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: Tri
         !trigger.enabled && 'opacity-60'
       )}
     >
-      <ItemMedia variant="icon">{triggerIcon(trigger.type)}</ItemMedia>
-      <ItemContent>
+      <ItemMedia variant="icon" className="@max-lg:order-1">
+        {triggerIcon(trigger.type)}
+      </ItemMedia>
+      <ItemContent className="@max-lg:order-3 @max-lg:basis-full">
         <ItemTitle className="flex-wrap gap-2">
           <TriggerTitle trigger={trigger} setParam={setParam} />
         </ItemTitle>
         <RowIssues issues={issues} />
       </ItemContent>
-      <ItemActions className="shrink-0">
+      <ItemActions className="shrink-0 @max-lg:order-2 @max-lg:ml-auto">
         <RowActions
           name={name}
           enabled={trigger.enabled}

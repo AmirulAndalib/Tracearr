@@ -21,6 +21,13 @@ beforeAll(async () => {
 
 /** The whole sentence, uncapped, as the builder renders it fragment by fragment. */
 function sentence(definition: DescribableDefinition, refs: DescribeRefs = {}): string {
+  return describeAutomation(definition, refs, t, 'metric', { placeholders: true })
+    .map((fragment) => fragment.text)
+    .join(' ');
+}
+
+/** The same sentence as the list page reads it, where nothing is invited to be filled. */
+function listed(definition: DescribableDefinition, refs: DescribeRefs = {}): string {
   return describeAutomation(definition, refs, t, 'metric')
     .map((fragment) => fragment.text)
     .join(' ');
@@ -308,6 +315,17 @@ describe('describeAutomation', () => {
     );
   });
 
+  it('keeps the slots out of a sentence nobody can fill in', () => {
+    expect(listed({ kind: 'notification', triggers: [] })).toBe('When nothing yet.');
+    expect(
+      listed({
+        kind: 'notification',
+        triggers: [{ id: 'trigger-started', type: 'session.started', enabled: true }],
+        actions: { actions: [] },
+      })
+    ).toBe('When a stream starts.');
+  });
+
   it('converts a distance threshold to the reader unit system', () => {
     const definition: DescribableDefinition = {
       kind: 'notification',
@@ -376,7 +394,8 @@ describe('describeAutomation', () => {
       },
       {},
       t,
-      'metric'
+      'metric',
+      { placeholders: true }
     );
 
     expect(fragments.map((fragment) => fragment.nodeId)).toEqual([
@@ -391,7 +410,9 @@ describe('describeAutomation', () => {
   });
 
   it('offers a blank draft two slots addressed to the steps that fill them', () => {
-    const fragments = describeAutomation({ kind: 'policy' }, {}, t, 'metric');
+    const fragments = describeAutomation({ kind: 'policy' }, {}, t, 'metric', {
+      placeholders: true,
+    });
 
     expect(fragments).toEqual([
       { nodeId: SENTENCE_SECTIONS.triggers, text: 'When something happens,' },
@@ -408,7 +429,8 @@ describe('describeAutomation', () => {
       },
       {},
       t,
-      'metric'
+      'metric',
+      { placeholders: true }
     );
 
     expect(fragments.find((fragment) => fragment.text.startsWith('Flag it'))?.nodeId).toBe(

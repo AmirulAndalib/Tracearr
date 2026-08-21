@@ -134,7 +134,7 @@ export function ConditionRow({
         !enabled && 'opacity-60'
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 @max-lg:order-1 @max-lg:basis-full">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 @max-lg:order-3 @max-lg:basis-full">
         <Combobox
           aria-label={t('automations.builder.conditions.fieldLabel')}
           className="min-w-40 flex-1 @max-lg:basis-full"
@@ -181,7 +181,7 @@ export function ConditionRow({
         )}
       </div>
 
-      <ItemActions className="shrink-0 @max-lg:order-first @max-lg:ml-auto">
+      <ItemActions className="shrink-0 @max-lg:order-2 @max-lg:ml-auto">
         <RowActions
           name={name}
           enabled={enabled}

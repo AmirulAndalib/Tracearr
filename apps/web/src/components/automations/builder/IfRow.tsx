@@ -131,7 +131,7 @@ export function IfRow({
       </div>
 
       <Collapsible open={open} onOpenChange={() => expansion.toggle(id)}>
-        <CollapsibleContent className="border-primary/40 ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
+        <CollapsibleContent className="border-primary/40 [&_[data-slot=item]]:bg-card ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
           {/* The header said "If", so the checks go straight underneath with no second label. */}
           {groups.map((group) => (
             <ConditionGroupCard

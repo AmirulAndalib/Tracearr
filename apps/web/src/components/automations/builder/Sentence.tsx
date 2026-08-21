@@ -23,9 +23,9 @@ function splitTail(text: string): [string, string] {
 export function Sentence({ fragments, onFocusNode, className }: SentenceProps) {
   const { t } = useTranslation('pages');
   const shown = capFragments(fragments, t);
-  // capFragments appends its own "+N more"; every fragment it kept is the object it was handed.
-  const last = shown[shown.length - 1];
-  const overflow = last !== undefined && !fragments.includes(last) ? last : undefined;
+  // capFragments keeps the objects it was handed and appends its own "+N more" before the
+  // scope tail, so the one fragment it invented is the one that came from nowhere.
+  const overflow = shown.find((fragment) => !fragments.includes(fragment));
 
   return (
     <p className={cn('text-muted-foreground text-base leading-relaxed', className)}>

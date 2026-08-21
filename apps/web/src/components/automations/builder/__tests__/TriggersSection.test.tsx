@@ -91,6 +91,23 @@ describe('TriggersSection', () => {
     expect(screen.queryByRole('radio', { name: 'Everyone' })).not.toBeInTheDocument();
   });
 
+  it('keeps the scope question mounted while a problem points at it', () => {
+    render(
+      <TriggersSection
+        triggers={[]}
+        scope={{ mode: 'account', serverId: 's1', serverUserId: '' }}
+        enforceAcrossServers={false}
+        canEnforceAcrossServers={false}
+        issues={new Map([['scope', [{ nodeId: 'scope', message: 'Pick who this applies to' }]]])}
+        pulseId={null}
+        dispatch={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('radio', { name: 'Everyone' })).toBeInTheDocument();
+    expect(screen.getByText('Pick who this applies to')).toBeInTheDocument();
+  });
+
   it('puts an or between the triggers and none before the first', () => {
     renderSection([started, paused]);
 
