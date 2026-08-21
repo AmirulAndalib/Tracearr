@@ -8,7 +8,7 @@ import {
 } from '../formatters/violation.js';
 import { toNotificationPayload } from '../types.js';
 import { deliverFetch } from './fetch.js';
-import { textOf } from './overrides.js';
+import { ownText, textOf } from './overrides.js';
 import {
   formatDuration,
   getMediaDisplay,
@@ -205,9 +205,8 @@ function buildTracearrUpdateEmbed(
   return { title: text.title, description: text.message, color: 0x3498db }; // Blue
 }
 
-/** Both media events render off the payload's own text, so an override still wins. */
 function buildMediaEmbed(payload: NotificationPayload): DiscordEmbed {
-  const text = textOf(payload, { title: payload.title, message: payload.message });
+  const text = ownText(payload);
   return { title: text.title, description: text.message, color: 0x1abc9c }; // Teal
 }
 

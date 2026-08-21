@@ -834,23 +834,23 @@
       },
       "resolution_after": {
         "label": "Resolution",
-        "description": "Resolution the item ends up at"
+        "description": "Resolution the item ends up at; unknown never matches, even for \"is not\""
       },
       "dynamic_range_after": {
         "label": "Dynamic Range",
-        "description": "HDR format the item ends up with"
+        "description": "HDR format the item ends up with; unknown never matches, even for \"is not\""
       },
       "video_codec_after": {
         "label": "Video Codec",
-        "description": "Video codec the item ends up with"
+        "description": "Video codec the item ends up with; unknown never matches, even for \"is not\""
       },
       "audio_channels_after": {
         "label": "Audio Channels",
-        "description": "Audio channel count the item ends up with"
+        "description": "Audio channel count the item ends up with; unknown never matches"
       },
       "file_size_after": {
         "label": "File Size",
-        "description": "Size the item ends up at, across every copy"
+        "description": "Size the item ends up at across every copy; unknown never matches"
       }
     },
     "kind": {
@@ -908,10 +908,6 @@
       "audio": "Audio",
       "video_or_audio": "Video or Audio",
       "neither": "Neither (Direct Play)",
-      "show": "Show",
-      "season": "Season",
-      "artist": "Artist",
-      "album": "Album",
       "8K": "8K",
       "1440p": "1440p",
       "sdr": "SDR",
@@ -919,7 +915,17 @@
       "hdr10": "HDR10",
       "hdr10+": "HDR10+",
       "hlg": "HLG",
-      "dolby vision": "Dolby Vision"
+      "dolby vision": "Dolby Vision",
+      "libraryItemType": {
+        "movie": "Movie",
+        "show": "Show",
+        "season": "Season",
+        "episode": "Episode",
+        "artist": "Artist",
+        "album": "Album",
+        "track": "Track",
+        "photo": "Photo"
+      }
     },
     "recordsOnly": "Records runs only",
     "scope": {

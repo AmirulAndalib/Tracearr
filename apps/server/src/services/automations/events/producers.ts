@@ -40,7 +40,8 @@ async function serverListeningRules(
 /** Whether anything on this server listens for either media trigger, before the sync pays for a diff. */
 export async function hasMediaListeners(serverId: string): Promise<boolean> {
   const added = await serverListeningRules('media.added', serverId);
-  const upgraded = added ?? (await serverListeningRules('media.upgraded', serverId));
+  if (added) return true;
+  const upgraded = await serverListeningRules('media.upgraded', serverId);
   return upgraded !== null;
 }
 

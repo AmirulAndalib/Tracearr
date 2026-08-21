@@ -10,3 +10,8 @@ export function textOf(
     message: payload.automation?.message ?? defaults.message,
   };
 }
+
+/** For events whose builtin copy is already on the payload; an override still wins. */
+export function ownText(payload: NotificationPayload): { title: string; message: string } {
+  return textOf(payload, { title: payload.title, message: payload.message });
+}

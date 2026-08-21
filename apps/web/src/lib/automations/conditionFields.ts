@@ -97,14 +97,13 @@ export function operatorLabel(t: Translate, operator: string): string {
   return isKnownOperator(operator) ? t(`automations.operators.${operator}`) : operator;
 }
 
-/** Every value an enum condition field stores; the catalog's `options` are exactly these. */
+/** Every value an enum condition field stores under the flat option namespace. */
 export type FieldOptionValue =
   | VideoResolution
   | DeviceType
   | Platform
   | MediaTypeEnum
   | TranscodingConditionValue
-  | LibraryItemType
   | DynamicRangeToken
   | ResolutionLabel;
 
@@ -113,14 +112,29 @@ export function optionLabel(t: Translate, value: FieldOptionValue): string {
   return t(`automations.options.${value}`);
 }
 
+/**
+ * Library item types read their own labels: the flat namespace speaks the session
+ * vocabulary, where a track is "Music" and an episode is "TV Episode".
+ */
+export function itemTypeLabel(t: Translate, value: LibraryItemType): string {
+  return t(`automations.options.libraryItemType.${value}`);
+}
+
 export function unitLabel(t: Translate, unit: FieldUnit): string {
   return t(`automations.units.${unit}`);
 }
 
 /** The picker's options for an enum field, in catalog order. */
 export function fieldOptions(t: Translate, field: string): { value: string; label: string }[] {
-  const options = (fieldDescriptor(field)?.options ?? []) as readonly FieldOptionValue[];
-  return options.map((value) => ({ value, label: optionLabel(t, value) }));
+  const options = fieldDescriptor(field)?.options ?? [];
+  if (field === 'library_item_type') {
+    const types = options as readonly LibraryItemType[];
+    return types.map((value) => ({ value, label: itemTypeLabel(t, value) }));
+  }
+  return (options as readonly FieldOptionValue[]).map((value) => ({
+    value,
+    label: optionLabel(t, value),
+  }));
 }
 
 export function fieldsByCategory(): Record<FieldCategory, ConditionField[]> {

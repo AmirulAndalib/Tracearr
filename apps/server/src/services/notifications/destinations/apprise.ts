@@ -4,7 +4,7 @@ import { formatServerUpdateMessage, formatTracearrUpdateMessage } from '../forma
 import { formatViolationMessage } from '../formatters/violation.js';
 import { toNotificationPayload } from '../types.js';
 import { deliverFetch } from './fetch.js';
-import { textOf } from './overrides.js';
+import { ownText, textOf } from './overrides.js';
 import { formatDuration, getMediaDisplay, getUserDisplayName } from './sessionText.js';
 import type {
   NotificationPayload,
@@ -116,9 +116,8 @@ function buildTracearrUpdate(
   return { title: text.title, body: text.message, type: 'info' };
 }
 
-/** Both media events render off the payload's own text, so an override still wins. */
 function buildMedia(payload: NotificationPayload): AppriseMessage {
-  const text = textOf(payload, { title: payload.title, message: payload.message });
+  const text = ownText(payload);
   return { title: text.title, body: text.message, type: 'info' };
 }
 
