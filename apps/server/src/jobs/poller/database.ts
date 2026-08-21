@@ -445,10 +445,13 @@ export async function getActiveRulesV2(): Promise<RuleV2[]> {
     return rulesCache.data;
   }
 
+  // Ordered so every evaluation takes its per-run advisory locks in the same
+  // sequence; two dispatches for one subject cannot then deadlock each other.
   const activeRules = await db
     .select({ automation: automations, currentVersionId: CURRENT_VERSION_ID })
     .from(automations)
-    .where(and(eq(automations.isActive, true), isNotNull(automations.conditions)));
+    .where(and(eq(automations.isActive, true), isNotNull(automations.conditions)))
+    .orderBy(automations.id);
 
   const mapped = activeRules.map((row) => mapRuleRowToRuleV2(row.automation, row.currentVersionId));
 

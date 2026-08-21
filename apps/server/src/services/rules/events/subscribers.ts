@@ -1,4 +1,5 @@
 import type { ConditionField, RuleV2 } from '@tracearr/shared';
+import { db } from '../../../db/client.js';
 import {
   appendRunSteps,
   automationCoolingDown,
@@ -21,7 +22,7 @@ import {
   type SessionEvaluatingEvent,
 } from './evaluate.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
-import type { DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
+import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
 import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 
 interface PendingAct {
@@ -41,10 +42,10 @@ function actionStep(result: ActionResult): Record<string, unknown> {
 }
 
 /**
- * Inside a caller transaction the throw is the retry signal, so it propagates and the
- * remaining runs come back with it. Off that path one broken run must not mute its siblings.
+ * Acts run once the run rows are committed, so a throw can no longer be a retry
+ * signal - it would only mute the siblings that still have work to do.
  */
-async function runActs(pending: PendingAct[], rethrow: boolean): Promise<ActionResult[]> {
+async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
   const all: ActionResult[] = [];
   for (const { context, result, rule, run } of pending) {
     try {
@@ -58,7 +59,6 @@ async function runActs(pending: PendingAct[], rethrow: boolean): Promise<ActionR
         serverId: context.server.id,
         message: error instanceof Error ? error.message : String(error),
       });
-      if (rethrow) throw error;
       rulesLogger.error('Automation actions failed', {
         automation: rule.id,
         run: run.id,
@@ -106,9 +106,9 @@ function conditionThreshold(
 }
 
 /**
- * evaluate → record → act, per rule in that order. Every evaluation records a
- * run; only a matched one that cleared the gate acts. Under deferActions the act
- * step is returned as a closure for the caller to run after its commit.
+ * evaluate → record → act. Every evaluation records a run; only a matched one
+ * that cleared the gate acts. The records share one transaction and the acts
+ * follow it, so nothing acts on a run the database has not kept.
  */
 export async function runRulePipeline(
   event: EvaluatingEvent,
@@ -123,69 +123,88 @@ export async function runRulePipeline(
   const pending: PendingAct[] = [];
   const effects: Array<() => Promise<void>> = [];
 
-  const evaluable: RuleV2[] = [];
-  for (const rule of rules) {
-    if (await automationCoolingDown(rule, subjectKey)) {
-      await recordNearMiss(rule.id, {
-        reason: 'cooldown_active',
-        subjectKey,
-        trigger: event.type,
-      });
-      continue;
-    }
-    evaluable.push(rule);
-  }
+  const cooling = await Promise.all(rules.map((rule) => automationCoolingDown(rule, subjectKey)));
+  const evaluable = rules.filter((rule, index) => {
+    if (!cooling[index]) return true;
+    void recordNearMiss(rule.id, { reason: 'cooldown_active', subjectKey, trigger: event.type });
+    return false;
+  });
   if (evaluable.length === 0) return { violations };
 
   const results = await evaluateRulesAsync(baseContext, evaluable, { includeUnmatched: true });
 
-  for (const result of results) {
-    const rule = evaluable.find((r) => r.id === result.ruleId);
-    if (!rule) continue;
+  const record = async (executor: DbTx): Promise<void> => {
+    for (const result of results) {
+      const rule = evaluable.find((r) => r.id === result.ruleId);
+      if (!rule) continue;
 
-    const run = await recordRun({
-      automation: rule,
-      result,
-      serverUserId: event.serverUser.id,
-      serverId: event.server.id,
-      scope,
-      session: event.session,
-      trigger: {
-        type: event.type,
-        nodeId: triggerNodeFor(rule, event.type)?.id ?? null,
-        edgeKey: edgeKeyOf(event, rule),
-        at: event.at,
-      },
-      marker,
-      tx: opts.tx,
-      defer: (effect) => effects.push(effect),
-    });
-    if (!run || !result.matched) continue;
+      const run = await recordRun({
+        automation: rule,
+        result,
+        serverUserId: event.serverUser.id,
+        serverId: event.server.id,
+        scope,
+        session: event.session,
+        trigger: {
+          type: event.type,
+          nodeId: triggerNodeFor(rule, event.type)?.id ?? null,
+          edgeKey: edgeKeyOf(event, rule),
+          at: event.at,
+        },
+        marker,
+        tx: executor,
+        defer: (effect) => effects.push(effect),
+      });
+      if (!run || !result.matched) continue;
 
-    if (rule.kind === 'policy') {
-      violations.push({ violation: run, rule: { id: rule.id, name: rule.name, type: null } });
+      if (rule.kind === 'policy') {
+        violations.push({ violation: run, rule: { id: rule.id, name: rule.name, type: null } });
+      }
+      if (result.actions.length === 0) continue;
+
+      pending.push({ context: { ...baseContext, rule, violationId: run.id }, result, rule, run });
     }
-    if (result.actions.length === 0) continue;
+  };
 
-    const act: PendingAct = {
-      context: { ...baseContext, rule, violationId: run.id },
-      result,
-      rule,
-      run,
-    };
-    if (opts.deferActions) pending.push(act);
-    else await runActs([act], opts.tx !== undefined);
+  // One transaction per dispatch. Each run still takes its own advisory lock and
+  // gate inside it, in order; the batch just stops paying BEGIN/COMMIT per row.
+  if (opts.tx) await record(opts.tx);
+  else await db.transaction(record);
+
+  /** Best-effort, like the publish inside them: a redis blip cannot cost the acts. */
+  const drainEffects = async (): Promise<void> => {
+    for (const effect of effects) {
+      try {
+        await effect();
+      } catch (error) {
+        rulesLogger.warn('Post-commit run effect failed', {
+          trigger: event.type,
+          subject: subjectKey,
+          error,
+        });
+      }
+    }
+  };
+
+  if (opts.tx) {
+    // The caller can still roll its transaction back, so its post-commit phase owns both.
+    if (effects.length > 0 || pending.length > 0) {
+      return {
+        violations,
+        deferredActions: async () => {
+          await drainEffects();
+          return runActs(pending);
+        },
+      };
+    }
+    return { violations };
   }
 
-  if (effects.length > 0 || (opts.deferActions && pending.length > 0)) {
-    return {
-      violations,
-      deferredActions: async () => {
-        for (const effect of effects) await effect();
-        return runActs(pending, opts.tx !== undefined);
-      },
-    };
+  await drainEffects();
+  if (opts.deferActions && pending.length > 0) {
+    return { violations, deferredActions: () => runActs(pending) };
   }
+  await runActs(pending);
   return { violations };
 }
 

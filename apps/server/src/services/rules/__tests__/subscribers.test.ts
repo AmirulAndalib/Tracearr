@@ -28,6 +28,12 @@ import type {
 // Module Mocks
 // ============================================================================
 
+const mockTransaction = vi.fn();
+/** The pipeline batches its run writes; the handle it passes down is a sentinel here. */
+const pipelineTx = { batch: true };
+vi.mock('../../../db/client.js', () => ({
+  db: { transaction: (...args: unknown[]) => mockTransaction(...args) },
+}));
 const mockEvaluateRulesAsync = vi.fn();
 vi.mock('../engine.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -559,6 +565,9 @@ const pauseViolation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(pipelineTx)
+  );
   mockEvaluateRulesAsync.mockResolvedValue([]);
   mockRecordRun.mockResolvedValue(transcodeViolation);
   mockExecuteActions.mockResolvedValue([]);
@@ -712,7 +721,7 @@ describe('session.transcode_changed pipeline', () => {
       expect(args.scope).toEqual({ kind: 'session', sessionId: 'session-1' });
     });
 
-    it('leaves the writer to open its own transaction', async () => {
+    it('opens one transaction for the dispatch and hands the writer its executor', async () => {
       mockEvaluateRulesAsync.mockResolvedValue([
         {
           ruleId: 'rule-transcode-1',
@@ -725,10 +734,10 @@ describe('session.transcode_changed pipeline', () => {
 
       await runTranscode(createTranscodeInput());
 
-      // No caller transaction passed, so the writer opens its own around dedup + insert
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
       expect(mockRecordRun).toHaveBeenCalledTimes(1);
       const args = mockRecordRun.mock.calls[0]?.[0] as { tx?: unknown };
-      expect(args.tx).toBeUndefined();
+      expect(args.tx).toBe(pipelineTx);
     });
   });
 
@@ -1101,7 +1110,7 @@ describe('session.paused pipeline', () => {
       expect(args.scope).toEqual({ kind: 'session', sessionId: 'session-1' });
     });
 
-    it('leaves the writer to open its own transaction', async () => {
+    it('opens one transaction for the dispatch and hands the writer its executor', async () => {
       mockEvaluateRulesAsync.mockResolvedValue([
         {
           ruleId: 'rule-pause-1',
@@ -1114,9 +1123,10 @@ describe('session.paused pipeline', () => {
 
       await runPause(createPauseInput());
 
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
       expect(mockRecordRun).toHaveBeenCalledTimes(1);
       const args = mockRecordRun.mock.calls[0]?.[0] as { tx?: unknown };
-      expect(args.tx).toBeUndefined();
+      expect(args.tx).toBe(pipelineTx);
     });
   });
 
@@ -1351,7 +1361,7 @@ describe('runRulePipeline', () => {
     expect(effect).toHaveBeenCalledTimes(1);
   });
 
-  it('records then acts per rule, not record-all-then-act-all', async () => {
+  it('records every run in one transaction, then acts in rule order', async () => {
     mockEvaluateRulesAsync.mockResolvedValue([
       {
         ruleId: 'r1',
@@ -1378,14 +1388,59 @@ describe('runRulePipeline', () => {
     });
     await runTranscode(input);
 
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
     expect(mockRecordRun).toHaveBeenCalledTimes(2);
     expect(mockExecuteActions).toHaveBeenCalledTimes(2);
+    // Both runs share the pipeline's executor rather than opening one transaction each.
+    const executors = mockRecordRun.mock.calls.map((call) => (call[0] as { tx?: unknown }).tx);
+    expect(executors[0]).toBe(executors[1]);
 
-    const [recordFirst, recordSecond] = mockRecordRun.mock.invocationCallOrder as [number, number];
-    const [actFirst, actSecond] = mockExecuteActions.mock.invocationCallOrder as [number, number];
-    expect(recordFirst).toBeLessThan(actFirst);
-    expect(actFirst).toBeLessThan(recordSecond);
-    expect(recordSecond).toBeLessThan(actSecond);
+    const [, recordSecond] = mockRecordRun.mock.invocationCallOrder as [number, number];
+    const [actFirst] = mockExecuteActions.mock.invocationCallOrder as [number, number];
+    expect(recordSecond).toBeLessThan(actFirst);
+    expect(mockStoreActionResults.mock.calls.map((call) => call[0])).toEqual(['v1', 'v2']);
+  });
+
+  it('a throwing post-commit effect costs neither the sibling effects nor the acts', async () => {
+    const broken = vi.fn().mockRejectedValue(new Error('redis down'));
+    const healthy = vi.fn().mockResolvedValue(undefined);
+    mockRecordRun
+      .mockImplementationOnce(async (call: { defer?: (e: () => Promise<void>) => void }) => {
+        call.defer?.(broken);
+        return { id: 'run-1' };
+      })
+      .mockImplementationOnce(async (call: { defer?: (e: () => Promise<void>) => void }) => {
+        call.defer?.(healthy);
+        return { id: 'run-2' };
+      });
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'r1',
+        ruleName: 'First',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+      {
+        ruleId: 'r2',
+        ruleName: 'Second',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+    ]);
+
+    const input = createTranscodeInput({
+      activeRulesV2: [
+        createTranscodeRule({ id: 'r1', name: 'First' }),
+        createTranscodeRule({ id: 'r2', name: 'Second' }),
+      ],
+    });
+    await runTranscode(input);
+
+    expect(broken).toHaveBeenCalledTimes(1);
+    expect(healthy).toHaveBeenCalledTimes(1);
+    expect(mockExecuteActions).toHaveBeenCalledTimes(2);
   });
 
   it('records the run of a rule whose conditions stopped it and runs no actions', async () => {
@@ -1616,20 +1671,32 @@ describe('runRulePipeline', () => {
     expect(mockStoreActionResults).toHaveBeenCalledTimes(2);
   });
 
-  it('rethrows a bookkeeping failure inside a caller transaction', async () => {
+  it('a bookkeeping failure on the deferred path notes the run and leaves its siblings acting', async () => {
     mockEvaluateRulesAsync.mockResolvedValue([
       {
-        ruleId: 'rule-transcode-1',
-        ruleName: 'Block 4K Transcoding',
+        ruleId: 'r1',
+        ruleName: 'First',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'kill_stream' }],
+      },
+      {
+        ruleId: 'r2',
+        ruleName: 'Second',
         matched: true,
         matchedGroups: [0],
         actions: [{ type: 'kill_stream' }],
       },
     ]);
-    mockRecordRun.mockResolvedValue({ id: 'run-1' });
+    mockRecordRun.mockResolvedValueOnce({ id: 'run-1' }).mockResolvedValueOnce({ id: 'run-2' });
     mockStoreActionResults.mockRejectedValueOnce(new Error('results table gone'));
 
-    const input = createTranscodeInput();
+    const input = createTranscodeInput({
+      activeRulesV2: [
+        createTranscodeRule({ id: 'r1', name: 'First' }),
+        createTranscodeRule({ id: 'r2', name: 'Second' }),
+      ],
+    });
     const res = await runRulePipeline(
       transcodeEvent(input),
       inputsOf(input),
@@ -1637,9 +1704,11 @@ describe('runRulePipeline', () => {
       { kind: 'session', sessionId: 'session-1', fresh: true }
     );
 
+    // Post-commit there is nothing left to retry into, so the throw stops here.
     if (!res.deferredActions) throw new Error('expected deferredActions');
-    await expect(res.deferredActions()).rejects.toThrow('results table gone');
+    await expect(res.deferredActions()).resolves.toBeDefined();
     expect(mockNoteRunFailure).toHaveBeenCalledTimes(1);
+    expect(mockExecuteActions).toHaveBeenCalledTimes(2);
   });
 });
 

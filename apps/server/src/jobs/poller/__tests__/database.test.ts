@@ -65,7 +65,10 @@ function mockRulesResult(
 ) {
   mockDbSelect.mockReturnValue({
     from: () => ({
-      where: () => Promise.resolve(rows.map((automation) => ({ automation, currentVersionId }))),
+      where: () => ({
+        orderBy: () =>
+          Promise.resolve(rows.map((automation) => ({ automation, currentVersionId }))),
+      }),
     }),
   });
 }
