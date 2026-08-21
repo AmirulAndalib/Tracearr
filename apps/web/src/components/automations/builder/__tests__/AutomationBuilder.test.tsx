@@ -15,6 +15,9 @@ vi.mock('@/hooks/queries/useHistory', () => ({
   useAutomationFilterOptions: () => ({ data: undefined }),
 }));
 vi.mock('@/hooks/queries/useDestinations', () => ({ useDestinations: () => ({ data: [] }) }));
+vi.mock('@/hooks/queries/useDryRun', () => ({
+  useDryRun: () => ({ data: undefined, isPending: false, isError: false }),
+}));
 
 const create = vi.fn();
 const update = vi.fn();

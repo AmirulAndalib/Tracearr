@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { AutomationScope } from '@/lib/automations';
+import type { ServerUserWithIdentity } from '@tracearr/shared';
 import type { Server } from '@tracearr/shared';
 import { ServerProvider } from '@/hooks/useServer';
 import { ScopeField } from '../ScopeField';
@@ -13,9 +15,11 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ isAuthenticated: true, user: { role: 'owner', serverIds: [] } }),
 }));
 
-vi.mock('@/hooks/queries/useUsers', () => ({
-  useUsers: () => ({ data: undefined }),
+const { roster } = vi.hoisted(() => ({
+  roster: vi.fn<() => { data: { data: ServerUserWithIdentity[] } | undefined }>(),
 }));
+
+vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => roster() }));
 
 const listServers = vi.fn<() => Promise<Server[]>>();
 
@@ -39,12 +43,12 @@ const SCOPE_MODES = ['global', 'server', 'account', 'person'].map(
   (mode) => `automations.builder.scope.${mode}`
 );
 
-function renderField(client: QueryClient) {
+function renderField(client: QueryClient, scope: AutomationScope = { mode: 'global' }) {
   return render(
     <QueryClientProvider client={client}>
       <ServerProvider>
         <ScopeField
-          scope={{ mode: 'global' }}
+          scope={scope}
           onChange={vi.fn()}
           enforceAcrossServers={false}
           onEnforceAcrossServersChange={vi.fn()}
@@ -66,6 +70,8 @@ describe('ScopeField', () => {
   beforeEach(() => {
     localStorage.clear();
     listServers.mockReset();
+    roster.mockReset();
+    roster.mockReturnValue({ data: undefined });
   });
 
   it('offers two scopes while one server is connected', async () => {
@@ -76,6 +82,28 @@ describe('ScopeField', () => {
 
     await waitFor(() => expect(offeredModes()).toHaveLength(2));
     expect(offeredModes()).toEqual([SCOPE_MODES[0], SCOPE_MODES[2]]);
+  });
+
+  it('finds the server behind a stored account so both pickers open filled in', async () => {
+    listServers.mockResolvedValue([server('s1', 'One'), server('s2', 'Two')]);
+    roster.mockReturnValue({
+      data: {
+        data: [
+          {
+            id: 'su-2',
+            serverId: 's2',
+            username: 'connor',
+            identityName: 'Connor',
+          } as ServerUserWithIdentity,
+        ],
+      },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    renderField(client, { mode: 'account', serverId: '', serverUserId: 'su-2' });
+
+    await waitFor(() => expect(screen.getByText('Two')).toBeInTheDocument());
+    expect(screen.getByText('Connor')).toBeInTheDocument();
   });
 
   it('picks up a second server as soon as the server list is invalidated', async () => {

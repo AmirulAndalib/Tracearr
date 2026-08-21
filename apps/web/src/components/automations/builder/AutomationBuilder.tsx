@@ -29,6 +29,7 @@ import {
 import { ActionsSection } from './ActionsSection';
 import { ConditionsSection } from './ConditionsSection';
 import { HeaderCard } from './HeaderCard';
+import { LiveCheckStrip } from './LiveCheckStrip';
 import { Sentence } from './Sentence';
 import { TriggersSection } from './TriggersSection';
 import type { BuilderRefs } from './builderRefs';
@@ -206,6 +207,7 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
     [state, describeRefs, t, settings]
   );
 
+  const input = useMemo(() => toCreateInput(state), [state]);
   const localIssues = useMemo(() => builderIssues(state, t), [state, t]);
   const issues = useMemo(() => [...localIssues, ...rejected], [localIssues, rejected]);
   // The footer counts everything from the first paint; a row only turns red once its
@@ -275,7 +277,6 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
     }
 
     try {
-      const input = toCreateInput(state);
       const saved = automation
         ? await updateAutomation.mutateAsync({ id: automation.id, data: input })
         : await createAutomation.mutateAsync(input);
@@ -306,7 +307,12 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
           state={state}
           issues={byNode}
           canEnforceAcrossServers={canEnforceAcrossServers(state.scope, state.conditions)}
-          sentence={<Sentence fragments={fragments} onFocusNode={focusNode} />}
+          sentence={
+            <>
+              <Sentence fragments={fragments} onFocusNode={focusNode} />
+              <LiveCheckStrip definition={input} ready={localIssues.length === 0 && !isPending} />
+            </>
+          }
           dispatch={track.header}
         />
 

@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Field,
@@ -53,20 +53,35 @@ export function ScopeField({
 
   // One server needs no picking: the account roster can only come from it.
   const soleServerId = servers.length === 1 ? (servers[0]?.id ?? '') : '';
-  const scopeServerId = ('serverId' in scope ? scope.serverId : '') || soleServerId;
   const asksForServer = scope.mode === 'server' || (scope.mode === 'account' && !soleServerId);
 
   // A stored scope can name a mode this install no longer offers; keep it as the current value.
   const offered = offeredScopeModes(servers.length);
   const modes = offered.includes(scope.mode) ? offered : [scope.mode, ...offered];
 
+  const { data: identitiesPage } = useUsers({ pageSize: 100 });
+  const identities = identitiesPage?.data ?? [];
+
+  // A stored account scope names the account and not its server, so the roster says which.
+  const accountServerId = useMemo(() => {
+    if (scope.mode !== 'account' || scope.serverId || !scope.serverUserId) return '';
+    for (const row of identities) {
+      if (row.id === scope.serverUserId) return row.serverId;
+      const membership = row.identityServers?.find(
+        (entry) => entry.serverUserId === scope.serverUserId
+      );
+      if (membership) return membership.id;
+    }
+    return '';
+  }, [scope, identities]);
+
+  const scopeServerId =
+    ('serverId' in scope ? scope.serverId : '') || soleServerId || accountServerId;
+
   const { data: accountsPage } = useUsers(
     scope.mode === 'account' && scopeServerId ? { serverId: scopeServerId, pageSize: 100 } : {}
   );
-  const { data: identitiesPage } = useUsers(scope.mode === 'person' ? { pageSize: 100 } : {});
-
   const accounts = accountsPage?.data ?? [];
-  const identities = identitiesPage?.data ?? [];
 
   const handleModeChange = (mode: string) => {
     if (!mode) return;
@@ -112,12 +127,17 @@ export function ScopeField({
                   <ServerSelect
                     id={`${fieldId}-server`}
                     servers={servers}
-                    value={scope.serverId}
+                    value={scopeServerId}
                     placeholder={t('automations.builder.scope.serverPlaceholder')}
                     onChange={(serverId) =>
                       onChange(
                         scope.mode === 'account'
-                          ? { mode: 'account', serverId, serverUserId: '' }
+                          ? {
+                              mode: 'account',
+                              serverId,
+                              // Re-picking the server the account already sits on keeps it.
+                              serverUserId: serverId === scopeServerId ? scope.serverUserId : '',
+                            }
                           : { mode: 'server', serverId }
                       )
                     }

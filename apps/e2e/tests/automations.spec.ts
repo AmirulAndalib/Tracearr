@@ -69,6 +69,35 @@ test.describe('Automation Creation', () => {
     await expect(page.getByRole('cell', { name })).toBeHidden();
   });
 
+  test('builds an automation from scratch on the builder page', async ({ page }) => {
+    const name = 'E2E Scratch Automation';
+
+    await page.goto('/automations/new');
+    await expect(page.getByRole('heading', { name: 'Create Automation', level: 1 })).toBeVisible();
+
+    await page.getByLabel('Automation Name').fill(name);
+
+    await page.getByRole('button', { name: 'Add trigger' }).click();
+    await page.getByRole('option', { name: /A stream starts/ }).click();
+
+    await page.getByRole('button', { name: 'Add action' }).click();
+    await page.getByRole('option', { name: /Send Notification/ }).click();
+    await page.getByRole('button', { name: 'Browser toasts' }).click();
+
+    await page.getByRole('button', { name: 'Create Automation' }).click();
+
+    await expect(page).toHaveURL(/\/automations\/[0-9a-f-]{36}$/);
+
+    await page.goto('/automations');
+    await expect(page.getByRole('cell', { name })).toBeVisible();
+
+    const row = page.getByRole('row', { name: new RegExp(name) });
+    await row.getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+
+    await expect(page.getByRole('cell', { name })).toBeHidden();
+  });
+
   test('filters the list by kind', async ({ page }) => {
     await page.getByRole('button', { name: 'Filters' }).click();
     await page.getByLabel('Kind').click();

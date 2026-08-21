@@ -14,6 +14,8 @@ import type {
   AutomationRunSummary,
   AutomationSortField,
   CreateAutomationInput,
+  DryRunRequest,
+  DryRunResponse,
   NearMissEntry,
   RunListQuery,
   RunSortField,
@@ -876,6 +878,12 @@ class ApiClient {
         body: JSON.stringify(data),
       }),
     delete: (id: string) => this.request<void>(`/automations/${id}`, { method: 'DELETE' }),
+    /** What a draft would do against the sessions playing now; nothing is recorded. */
+    dryRun: (data: DryRunRequest) =>
+      this.request<DryRunResponse>('/automations/dry-run', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     bulkUpdate: (ids: string[], isActive: boolean) =>
       this.request<{ success: boolean; updated: number }>('/automations/bulk', {
         method: 'PATCH',
