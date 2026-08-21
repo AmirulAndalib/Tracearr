@@ -135,6 +135,13 @@ vi.mock('../../../services/automations/runRecorder.js', () => ({
   noteRunFailure: vi.fn(),
   recordNearMiss: vi.fn(),
   automationCoolingDown: vi.fn().mockResolvedValue(false),
+  publishRunFinished: vi.fn(),
+  runFinishedOf: (row: { id: string; automationId: string; kind: string; outcome: string }) => ({
+    id: row.id,
+    automationId: row.automationId,
+    kind: row.kind,
+    outcome: row.outcome,
+  }),
   subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
     scope.kind === 'session' ? scope.sessionId : scope.serverUserId,
 }));

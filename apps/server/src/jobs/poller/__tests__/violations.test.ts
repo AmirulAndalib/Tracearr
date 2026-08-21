@@ -81,28 +81,13 @@ describe('broadcastViolations', () => {
     });
   });
 
-  it('follows the violation with the run summary and publishes nothing else', async () => {
+  it('follows the violations with one run event naming only the stale lists', async () => {
     await broadcastViolations([result], 'sess-1', pubSub);
 
     expect(pubSub.publish).toHaveBeenCalledTimes(2);
-    expect(pubSub.publish).toHaveBeenNthCalledWith(2, WS_EVENTS.RUN_FINISHED, {
-      id: 'v1',
-      automationId: 'r1',
-      automationName: 'Rule',
-      kind: 'policy',
-      status: 'finished',
-      outcome: 'completed',
-      humanSummary: null,
-      severity: 'warning',
-      serverUserId: 'su1',
-      sessionId: null,
-      serverId: 'srv1',
-      subjectKey: 'su1',
-      startedAt: '2026-08-20T10:00:00.000Z',
-      finishedAt: '2026-08-20T10:00:01.000Z',
-      acknowledgedAt: null,
-      dismissedAt: null,
-    });
+    expect(pubSub.publish).toHaveBeenNthCalledWith(2, WS_EVENTS.RUN_FINISHED, [
+      { id: 'v1', automationId: 'r1', kind: 'policy', outcome: 'completed' },
+    ]);
   });
 
   it('joins from serverUsers when given a server user id', async () => {

@@ -1,7 +1,7 @@
 /**
  * Core type definitions for Tracearr
  */
-import type { AutomationKind, AutomationRunSummary, TriggerNode } from './automations.js';
+import type { AutomationKind, RunFinishedEvent, TriggerNode } from './automations.js';
 import type { NotificationToast } from './destinations.js';
 import type { RuleActions, statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
@@ -1255,7 +1255,7 @@ export interface ServerToClientEvents {
   'session:stopped': (sessionId: string) => void;
   'session:updated': (session: ActiveSession) => void;
   'violation:new': (violation: ViolationWithDetails) => void;
-  'run:finished': (run: AutomationRunSummary) => void;
+  'run:finished': (runs: RunFinishedEvent[]) => void;
   'stats:updated': (stats: DashboardStats) => void;
   'import:progress': (progress: TautulliImportProgress) => void;
   'import:jellystat:progress': (progress: JellystatImportProgress) => void;

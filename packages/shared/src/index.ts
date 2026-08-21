@@ -331,6 +331,7 @@ export type {
   Automation,
   AutomationRunSummary,
   AutomationRun,
+  RunFinishedEvent,
   CreateAutomationInput,
   UpdateAutomationInput,
   AutomationSortField,

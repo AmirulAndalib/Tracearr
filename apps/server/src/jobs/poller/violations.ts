@@ -5,12 +5,12 @@
  */
 
 import { eq } from 'drizzle-orm';
-import type { Rule, ViolationWithDetails, RuleType } from '@tracearr/shared';
+import type { Rule, RunFinishedEvent, ViolationWithDetails, RuleType } from '@tracearr/shared';
 import { WS_EVENTS } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { servers, serverUsers, sessions, users } from '../../db/schema.js';
 import type { automationRuns } from '../../db/schema.js';
-import { publishRunFinished, toRunSummary } from '../../services/automations/runRecorder.js';
+import { publishRunFinished, runFinishedOf } from '../../services/automations/runRecorder.js';
 import type { PubSubService } from '../../services/cache.js';
 import { enqueueNotification } from '../notificationQueue.js';
 
@@ -82,6 +82,7 @@ export async function broadcastViolations(
 
   if (!details) return;
 
+  const finished: RunFinishedEvent[] = [];
   for (const { violation, rule } of violationResults) {
     // Get rule type - null for V2 rules
     const ruleType = 'type' in rule ? rule.type : null;
@@ -117,10 +118,12 @@ export async function broadcastViolations(
     };
 
     await pubSubService.publish(WS_EVENTS.VIOLATION_NEW, violationWithDetails);
-    await publishRunFinished(toRunSummary(violation, rule.name, details.serverId), pubSubService);
+    finished.push(runFinishedOf(violation));
     console.log(`[Poller] Violation broadcast: ${rule.name} for user ${details.username}`);
 
     // Enqueue notification for async dispatch (Discord, webhooks, push)
     await enqueueNotification({ type: 'violation', payload: violationWithDetails });
   }
+
+  await publishRunFinished(finished, pubSubService);
 }

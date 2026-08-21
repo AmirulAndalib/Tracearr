@@ -6,6 +6,7 @@ import {
   WS_EVENTS,
   type AutomationRunSummary,
   type GroupEvidence,
+  type RunFinishedEvent,
   type NearMissEntry,
   type RuleV2,
   type Session,
@@ -194,10 +195,11 @@ type WriteOutcome = AutomationRunRow | 'blocked' | null;
 
 /**
  * The single run insert site. Returns the row, or null when the gate, the index
- * or a cooled-down subject said no.
+ * or a cooled-down subject said no. Announcing the row is the caller's: it holds
+ * the whole dispatch and publishes one frame for it.
  */
 export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow | null> {
-  const { automation, result, serverUserId, scope, trigger, serverId, tx, defer } = args;
+  const { automation, result, serverUserId, scope, trigger, tx, defer } = args;
   const values = buildRunValues(args);
   const subjectKey = subjectKeyOf(scope);
   const guarded = result.matched && !(scope.kind === 'session' && scope.fresh);
@@ -262,11 +264,6 @@ export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow |
         REDIS_KEYS.AUTOMATION_COOLDOWN(automation.id, subjectKey),
         automation.cooldownMinutes
       );
-    }
-    // Completed policy runs are violations; the violation broadcaster announces those
-    // after its transaction commits, with the user and server details it already loads.
-    if (!(result.matched && automation.kind === 'policy')) {
-      await publishRunFinished(toRunSummary(outcome, automation.name, serverId));
     }
   };
 
@@ -383,13 +380,26 @@ export function toRunSummary(
   };
 }
 
+/** The four fields a client needs to know which lists went stale. */
+export function runFinishedOf(
+  row: Pick<AutomationRunRow, 'id' | 'automationId' | 'kind' | 'outcome'>
+): RunFinishedEvent {
+  return {
+    id: row.id,
+    automationId: row.automationId,
+    kind: row.kind,
+    outcome: row.outcome,
+  };
+}
+
+/** One frame per dispatch: a twenty-automation install evaluates them all on every start. */
 export async function publishRunFinished(
-  summary: AutomationRunSummary,
+  runs: RunFinishedEvent[],
   pubSubService: Pick<PubSubService, 'publish'> | null = getPubSubService()
 ): Promise<void> {
-  if (!pubSubService) return;
+  if (runs.length === 0 || !pubSubService) return;
   try {
-    await pubSubService.publish(WS_EVENTS.RUN_FINISHED, summary);
+    await pubSubService.publish(WS_EVENTS.RUN_FINISHED, runs);
   } catch {
     // Best-effort: the run row is the record, the event is only a nudge to refetch
   }

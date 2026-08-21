@@ -165,6 +165,18 @@ export interface AutomationRunSummary {
   dismissedAt: string | null;
 }
 
+/**
+ * The socket payload for finished runs. Clients only refetch on it, so it names
+ * which lists went stale and nothing else: the frame reaches every viewer in the
+ * sessions room, and a run summary carries subject keys and stop reasons.
+ */
+export interface RunFinishedEvent {
+  id: string;
+  automationId: string;
+  kind: AutomationKind;
+  outcome: RunOutcome;
+}
+
 export interface AutomationRun extends AutomationRunSummary {
   /** Ordered step log; step zero is the trigger payload. */
   steps: unknown[];

@@ -1,11 +1,13 @@
-import type { ConditionField, RuleV2 } from '@tracearr/shared';
+import type { ConditionField, RuleV2, RunFinishedEvent } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import {
   appendRunSteps,
   automationCoolingDown,
   noteRunFailure,
+  publishRunFinished,
   recordNearMiss,
   recordRun,
+  runFinishedOf,
   subjectKeyOf,
   type AutomationRunRow,
   type RunScope,
@@ -122,6 +124,7 @@ export async function runRulePipeline(
   const violations: ViolationInsertResult[] = [];
   const pending: PendingAct[] = [];
   const effects: Array<() => Promise<void>> = [];
+  const finished: RunFinishedEvent[] = [];
 
   const cooling = await Promise.all(rules.map((rule) => automationCoolingDown(rule, subjectKey)));
   const evaluable = rules.filter((rule, index) => {
@@ -155,7 +158,11 @@ export async function runRulePipeline(
         tx: executor,
         defer: (effect) => effects.push(effect),
       });
-      if (!run || !result.matched) continue;
+      if (!run) continue;
+      // Completed policy runs are violations; the violation broadcaster announces
+      // those, with the user and server details it already loads.
+      if (!(result.matched && rule.kind === 'policy')) finished.push(runFinishedOf(run));
+      if (!result.matched) continue;
 
       if (rule.kind === 'policy') {
         violations.push({ violation: run, rule: { id: rule.id, name: rule.name, type: null } });
@@ -186,13 +193,18 @@ export async function runRulePipeline(
     }
   };
 
+  const postCommit = async (): Promise<void> => {
+    await drainEffects();
+    await publishRunFinished(finished);
+  };
+
   if (opts.tx) {
-    // The caller can still roll its transaction back, so its post-commit phase owns both.
-    if (effects.length > 0 || pending.length > 0) {
+    // The caller can still roll its transaction back, so its post-commit phase owns these.
+    if (finished.length > 0 || effects.length > 0 || pending.length > 0) {
       return {
         violations,
         deferredActions: async () => {
-          await drainEffects();
+          await postCommit();
           return runActs(pending);
         },
       };
@@ -200,7 +212,7 @@ export async function runRulePipeline(
     return { violations };
   }
 
-  await drainEffects();
+  await postCommit();
   if (opts.deferActions && pending.length > 0) {
     return { violations, deferredActions: () => runActs(pending) };
   }

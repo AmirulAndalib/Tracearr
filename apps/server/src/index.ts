@@ -35,7 +35,7 @@ const GEOASN_DB_PATH = resolve(PROJECT_ROOT, 'data/GeoLite2-ASN.mmdb');
 const MIGRATIONS_PATH = resolve(__dirname, '../src/db/migrations');
 import type {
   ActiveSession,
-  AutomationRunSummary,
+  RunFinishedEvent,
   ViolationWithDetails,
   DashboardStats,
   TautulliImportProgress,
@@ -1132,7 +1132,7 @@ async function initializePostListen(app: FastifyInstance) {
           broadcastToSessions('violation:new', data as ViolationWithDetails);
           break;
         case WS_EVENTS.RUN_FINISHED:
-          broadcastToSessions('run:finished', data as AutomationRunSummary);
+          broadcastToSessions('run:finished', data as RunFinishedEvent[]);
           break;
         case WS_EVENTS.STATS_UPDATED:
           broadcastToSessions('stats:updated', data as DashboardStats);

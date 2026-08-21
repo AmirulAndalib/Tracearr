@@ -103,6 +103,8 @@ import {
   noteRunFailure,
   recordNearMiss,
   recordRun,
+  publishRunFinished,
+  runFinishedOf,
   toRunSummary,
   type RecordRunArgs,
 } from '../automations/runRecorder.js';
@@ -367,16 +369,13 @@ describe('recordRun', () => {
       expect(JSON.parse(entry)).toMatchObject({ reason: 'edge_replayed' });
     });
 
-    it('publishes run:finished and recomputes no aggregates', async () => {
+    it('recomputes no aggregates and leaves the announcement to the dispatch', async () => {
       mockInsertReturning.mockResolvedValue([{ ...inserted, kind: 'notification' }]);
 
       await recordRun(args({ automation: notify, trigger: edge }));
 
       expect(mockRecompute).not.toHaveBeenCalled();
-      expect(mockPublish).toHaveBeenCalledWith(
-        'run:finished',
-        expect.objectContaining({ id: 'v1', automationName: 'Rule', kind: 'notification' })
-      );
+      expect(mockPublish).not.toHaveBeenCalled();
     });
   });
 
@@ -392,10 +391,7 @@ describe('recordRun', () => {
       expect(mockSelectLimit).not.toHaveBeenCalled();
       expect(mockRecompute).not.toHaveBeenCalled();
       expect(run).not.toBeNull();
-      expect(mockPublish).toHaveBeenCalledWith(
-        'run:finished',
-        expect.objectContaining({ outcome: 'stopped_by_condition' })
-      );
+      expect(run?.outcome).toBe('stopped_by_condition');
     });
   });
 
@@ -417,13 +413,11 @@ describe('recordRun', () => {
 
       expect(run).toEqual(inserted);
       expect(mockRedisSetex).not.toHaveBeenCalled();
-      expect(mockPublish).not.toHaveBeenCalled();
       expect(deferred).toHaveLength(1);
 
       for (const effect of deferred) await effect();
 
       expect(mockRedisSetex).toHaveBeenCalledTimes(1);
-      expect(mockPublish).toHaveBeenCalledTimes(1);
     });
 
     it('holds the violation recount for the post-commit phase, off the caller executor', async () => {
@@ -722,5 +716,29 @@ describe('toRunSummary', () => {
       acknowledgedAt: null,
       dismissedAt: null,
     });
+  });
+});
+
+describe('run:finished payload', () => {
+  it('carries only what tells a client which lists went stale', () => {
+    expect(runFinishedOf(inserted as never)).toEqual({
+      id: 'v1',
+      automationId: 'r1',
+      kind: 'policy',
+      outcome: 'completed',
+    });
+  });
+
+  it('publishes one frame for the whole batch and none for an empty one', async () => {
+    const publish = vi.fn().mockResolvedValue(undefined);
+    const runs = [
+      runFinishedOf(inserted as never),
+      runFinishedOf({ ...inserted, id: 'v2' } as never),
+    ];
+
+    await publishRunFinished(runs, { publish });
+    await publishRunFinished([], { publish });
+
+    expect(publish).toHaveBeenCalledExactlyOnceWith('run:finished', runs);
   });
 });

@@ -44,12 +44,20 @@ const mockAppendRunSteps = vi.fn();
 const mockNoteRunFailure = vi.fn();
 const mockRecordNearMiss = vi.fn();
 const mockCoolingDown = vi.fn();
+const mockPublishRunFinished = vi.fn();
 vi.mock('../../automations/runRecorder.js', () => ({
   recordRun: (...args: unknown[]) => mockRecordRun(...args),
   appendRunSteps: (...args: unknown[]) => mockAppendRunSteps(...args),
   noteRunFailure: (...args: unknown[]) => mockNoteRunFailure(...args),
   recordNearMiss: (...args: unknown[]) => mockRecordNearMiss(...args),
   automationCoolingDown: (...args: unknown[]) => mockCoolingDown(...args),
+  publishRunFinished: (...args: unknown[]) => mockPublishRunFinished(...args),
+  runFinishedOf: (row: { id: string; automationId: string; kind: string; outcome: string }) => ({
+    id: row.id,
+    automationId: row.automationId,
+    kind: row.kind,
+    outcome: row.outcome,
+  }),
   subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
     scope.kind === 'session' ? scope.sessionId : scope.serverUserId,
 }));
@@ -576,6 +584,7 @@ beforeEach(() => {
   mockNoteRunFailure.mockResolvedValue(undefined);
   mockRecordNearMiss.mockResolvedValue(undefined);
   mockCoolingDown.mockResolvedValue(false);
+  mockPublishRunFinished.mockResolvedValue(undefined);
 });
 
 describe('session.transcode_changed pipeline', () => {
@@ -1399,6 +1408,79 @@ describe('runRulePipeline', () => {
     const [actFirst] = mockExecuteActions.mock.invocationCallOrder as [number, number];
     expect(recordSecond).toBeLessThan(actFirst);
     expect(mockStoreActionResults.mock.calls.map((call) => call[0])).toEqual(['v1', 'v2']);
+  });
+
+  it('announces a dispatch in one frame carrying only the run identifiers', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'r1',
+        ruleName: 'First',
+        matched: false,
+        matchedGroups: [],
+        actions: [],
+        stoppedBy: { groupIndex: 0, matched: false, conditions: [] },
+      },
+      {
+        ruleId: 'r2',
+        ruleName: 'Second',
+        matched: false,
+        matchedGroups: [],
+        actions: [],
+        stoppedBy: { groupIndex: 0, matched: false, conditions: [] },
+      },
+    ]);
+    mockRecordRun
+      .mockResolvedValueOnce({
+        id: 'run-1',
+        automationId: 'r1',
+        kind: 'policy',
+        outcome: 'stopped_by_condition',
+        subjectKey: 'session-1',
+        humanSummary: 'no condition matched',
+      })
+      .mockResolvedValueOnce({
+        id: 'run-2',
+        automationId: 'r2',
+        kind: 'policy',
+        outcome: 'stopped_by_condition',
+        subjectKey: 'session-1',
+        humanSummary: 'no condition matched',
+      });
+
+    const input = createTranscodeInput({
+      activeRulesV2: [
+        createTranscodeRule({ id: 'r1', name: 'First' }),
+        createTranscodeRule({ id: 'r2', name: 'Second' }),
+      ],
+    });
+    await runTranscode(input);
+
+    expect(mockPublishRunFinished).toHaveBeenCalledExactlyOnceWith([
+      { id: 'run-1', automationId: 'r1', kind: 'policy', outcome: 'stopped_by_condition' },
+      { id: 'run-2', automationId: 'r2', kind: 'policy', outcome: 'stopped_by_condition' },
+    ]);
+  });
+
+  it('leaves a completed policy run to the violation broadcaster', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+    mockRecordRun.mockResolvedValue({
+      id: 'run-1',
+      automationId: 'rule-transcode-1',
+      kind: 'policy',
+      outcome: 'completed',
+    });
+
+    await runTranscode(createTranscodeInput());
+
+    expect(mockPublishRunFinished).toHaveBeenCalledExactlyOnceWith([]);
   });
 
   it('a throwing post-commit effect costs neither the sibling effects nor the acts', async () => {
