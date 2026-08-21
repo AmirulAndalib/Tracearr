@@ -247,7 +247,7 @@ export async function runAutomationModelMigration(): Promise<void> {
       await tx
         .update(automations)
         .set({
-          triggers: synthesizeTriggers(row.conditions),
+          triggers: synthesizeTriggers(row.conditions, row.id),
           conditions: stamped.conditions,
           actions: stamped.actions,
           updatedAt: new Date(),

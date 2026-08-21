@@ -95,13 +95,13 @@ const job = { id: 'j1', data: { type: 'check' } } as never;
 const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
 const dialect = new PgDialect();
+/** Scope filters bind ids as strings too, so the cutoff is found by shape, not by position. */
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T/;
 /** The stub applies the query's own cutoff, so the assertion is about the filter and not the mock. */
 function rowsMatching(rows: ReturnType<typeof candidate>[]) {
   return (filter: unknown) => {
     const { params } = dialect.sqlToQuery(filter as SQL);
-    const bound = params.find(
-      (p): p is Date | string => p instanceof Date || typeof p === 'string'
-    );
+    const bound = params.find((p): p is string => typeof p === 'string' && ISO_TIMESTAMP.test(p));
     const cutoff = bound === undefined ? null : new Date(bound);
     return Promise.resolve(
       rows.filter((r) => cutoff === null || r.lastActivityAt === null || r.lastActivityAt <= cutoff)
@@ -157,6 +157,19 @@ describe('processInactivityCheck', () => {
     await processInactivityCheckForTests(job);
 
     expect(dispatchedIds()).toEqual(['idle', 'never']);
+  });
+
+  it('the cutoff survives a scoped rule, whose ids bind ahead of it', async () => {
+    mockGetActiveAutomations.mockResolvedValue([
+      inactivityRule('a', { serverId: 'srv1', userId: 'u1' }),
+    ]);
+    mockWhere.mockImplementation(
+      rowsMatching([candidate('recent', 'u1', daysAgo(10)), candidate('idle', 'u2', daysAgo(40))])
+    );
+
+    await processInactivityCheckForTests(job);
+
+    expect(dispatchedIds()).toEqual(['idle']);
   });
 
   it('each automation filters on its own days', async () => {

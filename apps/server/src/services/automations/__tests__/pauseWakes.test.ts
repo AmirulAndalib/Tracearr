@@ -151,7 +151,21 @@ describe('pauseWakes', () => {
     expect(mockDispatch.mock.calls[0]?.[0]).toMatchObject({
       type: 'session.held_for',
       session: expect.objectContaining({ id: 's1' }),
+      triggerNodeId: 'p-held',
     });
+  });
+
+  it('names the node whose crossing it fired for', async () => {
+    const rules = [pauseRule(5, 'a'), pauseRule(10, 'b')];
+    mockGetActiveAutomations.mockResolvedValue(rules);
+    schedulePauseWake(pausedRow(), rules);
+
+    await vi.advanceTimersByTimeAsync(5 * MIN + 1001);
+    await vi.advanceTimersByTimeAsync(5 * MIN + 5);
+
+    expect(
+      mockDispatch.mock.calls.map((call) => (call[0] as { triggerNodeId?: string }).triggerNodeId)
+    ).toEqual(['a-held', 'b-held']);
   });
 
   it('replaces an existing timer for the same session', async () => {

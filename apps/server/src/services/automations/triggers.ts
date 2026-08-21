@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { rulesLogger } from '../../utils/logger.js';
 import type {
+  Condition,
   ConditionField,
-  ConditionValue,
   NodeFields,
   AutomationActions,
   AutomationConditions,
@@ -40,20 +41,32 @@ function* enabledConditions(conditions: AutomationConditions | null | undefined)
   }
 }
 
-/** A threshold the trigger schema would reject is no threshold at all. */
-function threshold(value: ConditionValue, max: number): number | null {
-  if (typeof value !== 'number' || !Number.isInteger(value)) return null;
-  return value >= 1 && value <= max ? value : null;
+/** A threshold the trigger schema would reject is no threshold at all; the node lands disabled instead. */
+function threshold(condition: Condition, max: number, automationId?: string): number | null {
+  const { value } = condition;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max) {
+    return value;
+  }
+  rulesLogger.warn('Condition threshold outside the trigger range; node stamped disabled', {
+    automationId: automationId ?? null,
+    field: condition.field,
+    operator: condition.operator,
+    value,
+  });
+  return null;
 }
 
 /** One node per distinct measure and threshold among the rising pause conditions. */
-function heldForNodes(conditions: AutomationConditions | null | undefined): TriggerNode[] {
+function heldForNodes(
+  conditions: AutomationConditions | null | undefined,
+  automationId?: string
+): TriggerNode[] {
   const nodes: TriggerNode[] = [];
   const seen = new Set<string>();
   for (const condition of enabledConditions(conditions)) {
     const measure = PAUSE_MEASURE[condition.field];
     if (!measure || !RISING_OPERATORS.has(condition.operator)) continue;
-    const minutes = threshold(condition.value, 1440);
+    const minutes = threshold(condition, 1440, automationId);
     if (minutes === null || seen.has(`${measure}:${String(minutes)}`)) continue;
     seen.add(`${measure}:${String(minutes)}`);
     nodes.push({
@@ -70,10 +83,13 @@ function heldForNodes(conditions: AutomationConditions | null | undefined): Trig
 }
 
 /** The first enabled inactive_days threshold, which is what the evaluator applies today. */
-function inactiveForNode(conditions: AutomationConditions | null | undefined): TriggerNode {
+function inactiveForNode(
+  conditions: AutomationConditions | null | undefined,
+  automationId?: string
+): TriggerNode {
   for (const condition of enabledConditions(conditions)) {
     if (condition.field !== 'inactive_days') continue;
-    const days = threshold(condition.value, 3650);
+    const days = threshold(condition, 3650, automationId);
     if (days === null) continue;
     return { id: randomUUID(), type: 'account.inactive_for', enabled: true, params: { days } };
   }
@@ -91,7 +107,8 @@ function inactiveForNode(conditions: AutomationConditions | null | undefined): T
  * The pause and inactivity thresholds move onto the nodes they now belong to.
  */
 export function synthesizeTriggers(
-  conditions: AutomationConditions | null | undefined
+  conditions: AutomationConditions | null | undefined,
+  automationId?: string
 ): TriggerNode[] {
   const fields = new Set<string>();
   for (const group of conditions?.groups ?? []) {
@@ -103,8 +120,10 @@ export function synthesizeTriggers(
   const triggers: TriggerNode[] = [];
   if (!fields.has('inactive_days')) triggers.push(node('session.started'));
   if (usesAny(TRANSCODE_FIELDS)) triggers.push(node('session.transcode_changed'));
-  if (usesAny(PAUSE_FIELDS)) triggers.push(node('session.paused'), ...heldForNodes(conditions));
-  if (fields.has('inactive_days')) triggers.push(inactiveForNode(conditions));
+  if (usesAny(PAUSE_FIELDS)) {
+    triggers.push(node('session.paused'), ...heldForNodes(conditions, automationId));
+  }
+  if (fields.has('inactive_days')) triggers.push(inactiveForNode(conditions, automationId));
   return triggers;
 }
 
@@ -133,9 +152,10 @@ export function carryTriggerIds(
 /** Re-synthesis for a save, with the surviving node ids carried across. */
 export function resynthesizeTriggers(
   conditions: AutomationConditions | null | undefined,
-  existing: TriggerNode[] | null | undefined
+  existing: TriggerNode[] | null | undefined,
+  automationId?: string
 ): TriggerNode[] {
-  return carryTriggerIds(synthesizeTriggers(conditions), existing);
+  return carryTriggerIds(synthesizeTriggers(conditions, automationId), existing);
 }
 
 const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({

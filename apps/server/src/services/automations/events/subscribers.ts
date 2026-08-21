@@ -1,4 +1,4 @@
-import type { EngineAutomation, RunFinishedEvent } from '@tracearr/shared';
+import type { EngineAutomation, RunFinishedEvent, TriggerNode } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
 import {
   appendRunSteps,
@@ -18,9 +18,9 @@ import { executeActions, type ActionResult } from '../executors/index.js';
 import { storeActionResults } from '../v2Integration.js';
 import { subscribe } from './dispatcher.js';
 import {
+  firingNodeFor,
   paramsPass,
   triggerCandidates,
-  triggerNodeFor,
   type EvaluatingEvent,
   type SessionEvaluatingEvent,
   type UserEvaluatingEvent,
@@ -28,6 +28,12 @@ import {
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
 import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
+
+/** A rule and the trigger node this event fires it through. */
+interface Firing {
+  rule: EngineAutomation;
+  node: TriggerNode;
+}
 
 interface PendingAct {
   context: EvaluationContext;
@@ -73,8 +79,8 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
   return all;
 }
 
-/** What makes this firing a distinct edge for the notification gate. */
-export function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation): string | null {
+/** What makes this firing a distinct edge for the notification gate; the node is the one that fired. */
+export function edgeKeyOf(event: EvaluatingEvent, node: TriggerNode | null): string | null {
   switch (event.type) {
     case 'session.started':
       return null;
@@ -82,16 +88,13 @@ export function edgeKeyOf(event: EvaluatingEvent, automation: EngineAutomation):
       return `${event.next.videoDecision ?? 'none'}/${event.next.audioDecision ?? 'none'}`;
     case 'session.paused':
       return event.pauseData.lastPausedAt?.toISOString() ?? null;
-    case 'session.held_for': {
+    case 'session.held_for':
       // Never the elapsed value: a rehydrated wake replays the same crossing with a larger number.
-      const node = triggerNodeFor(automation, event.type);
-      if (node?.type !== 'session.held_for') return null;
-      return `${node.params.measure}:${String(node.params.minutes)}`;
-    }
-    case 'account.inactive_for': {
-      const node = triggerNodeFor(automation, event.type);
+      return node?.type === 'session.held_for'
+        ? `${node.params.measure}:${String(node.params.minutes)}`
+        : null;
+    case 'account.inactive_for':
       return node?.type === 'account.inactive_for' ? String(node.params.days) : null;
-    }
     case 'session.stopped':
     case 'server.down':
     case 'server.up':
@@ -124,32 +127,46 @@ export async function runRulePipeline(
   const finished: RunFinishedEvent[] = [];
 
   // The node's own params are part of the trigger: a threshold not yet reached never evaluates.
-  const reached = rules.filter((rule) => {
-    const node = triggerNodeFor(rule, event.type);
-    if (node && paramsPass(node, event)) return true;
-    void recordNearMiss(rule.id, {
-      reason: 'trigger_filter_failed',
-      subjectKey,
-      trigger: event.type,
-    });
-    return false;
-  });
+  const reached: Firing[] = [];
+  for (const rule of rules) {
+    const node = firingNodeFor(rule, event);
+    if (node && paramsPass(node, event)) {
+      reached.push({ rule, node });
+      continue;
+    }
+    // A wake fires for one node, so a miss there is worth showing; the inactivity sweep
+    // hands every automation the union of the candidates and would fill the ring with noise.
+    if (event.type === 'session.held_for') {
+      void recordNearMiss(rule.id, {
+        reason: 'trigger_filter_failed',
+        subjectKey,
+        trigger: event.type,
+      });
+    }
+  }
   if (reached.length === 0) return { violations };
 
-  const cooling = await Promise.all(reached.map((rule) => automationCoolingDown(rule, subjectKey)));
-  const evaluable = reached.filter((rule, index) => {
+  const cooling = await Promise.all(
+    reached.map(({ rule }) => automationCoolingDown(rule, subjectKey))
+  );
+  const evaluable = reached.filter(({ rule }, index) => {
     if (!cooling[index]) return true;
     void recordNearMiss(rule.id, { reason: 'cooldown_active', subjectKey, trigger: event.type });
     return false;
   });
   if (evaluable.length === 0) return { violations };
 
-  const results = await evaluateRulesAsync(baseContext, evaluable, { includeUnmatched: true });
+  const results = await evaluateRulesAsync(
+    baseContext,
+    evaluable.map(({ rule }) => rule),
+    { includeUnmatched: true }
+  );
 
   const record = async (executor: DbTx): Promise<void> => {
     for (const result of results) {
-      const rule = evaluable.find((r) => r.id === result.ruleId);
-      if (!rule) continue;
+      const firing = evaluable.find(({ rule }) => rule.id === result.ruleId);
+      if (!firing) continue;
+      const { rule, node } = firing;
 
       const run = await recordRun({
         automation: rule,
@@ -160,8 +177,8 @@ export async function runRulePipeline(
         session: event.session,
         trigger: {
           type: event.type,
-          nodeId: triggerNodeFor(rule, event.type)?.id ?? null,
-          edgeKey: edgeKeyOf(event, rule),
+          nodeId: node.id,
+          edgeKey: edgeKeyOf(event, node),
           at: event.at,
         },
         marker,
@@ -272,7 +289,7 @@ export function registerRuleSubscribers(): void {
       serverUserId: event.serverUser.id,
     });
   });
-  // Server and install events carry no user; Task 12 builds their contexts and evaluates them.
+  // Server and install events have no evaluation context yet; the registry accepts and skips them.
   for (const trigger of SYSTEM_TRIGGERS) {
     subscribe(trigger, 'system-rules', async () => ({ violations: [] }));
   }

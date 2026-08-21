@@ -26,7 +26,7 @@ export type SessionEvaluatingEvent =
 /** The events that carry the account a run is about. */
 export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
 
-/** One per catalog trigger. Stopped, server and install events reach the seam; Task 12 gives them contexts. */
+/** One per catalog trigger. Stopped, server and install events reach the seam with no context to evaluate in. */
 export type EvaluatingEvent =
   | UserEvaluatingEvent
   | SessionStoppedEvent
@@ -79,6 +79,22 @@ export function paramsPass(node: TriggerNode, event: UserEvaluatingEvent): boole
     return days === null || days >= node.params.days;
   }
   return true;
+}
+
+/**
+ * The node this event fires: the one the wake named, else the first enabled node of the type whose
+ * params pass. The fallback keeps a near miss able to name a node when nothing passes.
+ */
+export function firingNodeFor(
+  rule: Pick<EngineAutomation, 'triggers'>,
+  event: UserEvaluatingEvent
+): TriggerNode | null {
+  const nodes = rule.triggers.filter((node) => node.enabled && node.type === event.type);
+  const named =
+    event.type === 'session.held_for' && event.triggerNodeId
+      ? nodes.find((node) => node.id === event.triggerNodeId)
+      : undefined;
+  return named ?? nodes.find((node) => paramsPass(node, event)) ?? nodes[0] ?? null;
 }
 
 export function rulesForTrigger(

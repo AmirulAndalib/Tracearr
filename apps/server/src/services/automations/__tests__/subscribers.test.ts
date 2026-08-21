@@ -87,6 +87,7 @@ import {
   resetRuleSubscribersForTests,
   runRulePipeline,
 } from '../events/subscribers.js';
+import { firingNodeFor, type UserEvaluatingEvent } from '../events/evaluate.js';
 import { dispatch, resetDispatcherForTests } from '../events/dispatcher.js';
 import { toRuleSession } from '../events/contextAssembly.js';
 import { pickLiveSessionFields } from '../../../jobs/poller/sessionMapper.js';
@@ -544,9 +545,9 @@ function runPause(input: PauseTriggerInput) {
   );
 }
 
-function runHeldFor(input: PauseTriggerInput, heldMinutes: number) {
+function runHeldFor(input: PauseTriggerInput, heldMinutes: number, triggerNodeId?: string) {
   return runRulePipeline(
-    { ...heldForEvent(input), heldMinutes },
+    { ...heldForEvent(input), heldMinutes, ...(triggerNodeId ? { triggerNodeId } : {}) },
     inputsOf(input),
     {},
     { kind: 'session', sessionId: input.existingSession.id },
@@ -1952,7 +1953,7 @@ describe('trigger params gate the evaluation', () => {
     expect(mockRecordNearMiss).not.toHaveBeenCalled();
   });
 
-  it('skips an account that has not been idle for the node days', async () => {
+  it('skips an account that has not been idle for the node days, and stays out of the ring', async () => {
     await runRulePipeline(
       accountInactiveEvent(idleFor(10)),
       accountInputs(),
@@ -1964,11 +1965,8 @@ describe('trigger params gate the evaluation', () => {
     );
 
     expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
-    expect(mockRecordNearMiss).toHaveBeenCalledWith('rule-inactive-1', {
-      reason: 'trigger_filter_failed',
-      subjectKey: 'user-1',
-      trigger: 'account.inactive_for',
-    });
+    // The sweep hands every automation the union of the candidates; a miss here is not news.
+    expect(mockRecordNearMiss).not.toHaveBeenCalled();
   });
 
   it('evaluates an account idle past the node days', async () => {
@@ -1986,52 +1984,126 @@ describe('trigger params gate the evaluation', () => {
   });
 });
 
+describe('a rule with two held_for nodes', () => {
+  const twoNodes = () =>
+    createPauseRule({
+      id: 'rule-two-nodes',
+      conditions: {
+        groups: [
+          { conditions: [{ field: 'total_pause_minutes', operator: 'gte', value: 120 }] },
+          { conditions: [{ field: 'current_pause_minutes', operator: 'gte', value: 30 }] },
+        ],
+      },
+    });
+  const nodeIdFor = (rule: EngineAutomation, measure: 'current' | 'total') =>
+    rule.triggers.find(
+      (node) => node.type === 'session.held_for' && node.params.measure === measure
+    )?.id;
+  const pausedFor = (minutes: number, activeAutomations: EngineAutomation[]) =>
+    createPauseInput({
+      activeAutomations,
+      pauseData: { lastPausedAt: new Date(Date.now() - minutes * 60_000), pausedDurationMs: 0 },
+    });
+
+  beforeEach(() => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-two-nodes',
+        ruleName: 'Kill After 15min Pause',
+        matched: true,
+        matchedGroups: [0],
+        actions: [],
+      },
+    ]);
+  });
+
+  it('fires the node the wake named, at each of its crossings', async () => {
+    const rule = twoNodes();
+    const currentNodeId = nodeIdFor(rule, 'current');
+
+    await runHeldFor(pausedFor(30, [rule]), 30, currentNodeId);
+    await runHeldFor(pausedFor(120, [rule]), 120, nodeIdFor(rule, 'total'));
+
+    expect(recordedEdgeKeys()).toEqual(['current:30', 'total:120']);
+    expect(
+      (mockRecordRun.mock.calls[0]?.[0] as { trigger: { nodeId: string } }).trigger.nodeId
+    ).toBe(currentNodeId);
+    expect(mockRecordNearMiss).not.toHaveBeenCalled();
+  });
+
+  it('a wake naming a node this rule does not carry falls back to the one that passes', async () => {
+    const rule = twoNodes();
+
+    await runHeldFor(pausedFor(30, [rule]), 30, '3c7e5a9b-1d20-4a2b-8d1f-0f5b8d4a9c6e');
+
+    expect(recordedEdgeKeys()).toEqual(['current:30']);
+    expect(mockRecordNearMiss).not.toHaveBeenCalled();
+  });
+
+  it('without a node id the first node that passes still fires', async () => {
+    const rule = twoNodes();
+
+    await runHeldFor(pausedFor(30, [rule]), 30);
+
+    expect(recordedEdgeKeys()).toEqual(['current:30']);
+  });
+
+  it('records the near miss against a node when nothing passes', async () => {
+    const rule = twoNodes();
+
+    await runHeldFor(pausedFor(5, [rule]), 5);
+
+    expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
+    expect(mockRecordNearMiss).toHaveBeenCalledWith('rule-two-nodes', {
+      reason: 'trigger_filter_failed',
+      subjectKey: 'session-1',
+      trigger: 'session.held_for',
+    });
+  });
+});
+
 describe('edgeKeyOf', () => {
   const at = new Date('2026-08-21T09:30:00Z');
   const pausedAt = new Date('2026-08-21T09:00:00Z');
   const pauseInput = createPauseInput({
     pauseData: { lastPausedAt: pausedAt, pausedDurationMs: 0 },
   });
+  /** The pipeline keys the edge on the node it fired, so the test resolves the same one. */
+  const keyFor = (event: UserEvaluatingEvent, automation: EngineAutomation) =>
+    edgeKeyOf(event, firingNodeFor(automation, event));
 
   it('a fresh session has no edge', () => {
-    expect(edgeKeyOf(startedEvent(pauseInput), createTranscodeRule())).toBeNull();
+    expect(keyFor(startedEvent(pauseInput), createTranscodeRule())).toBeNull();
   });
 
   it('a transcode edge is the pair of decisions it moved to', () => {
-    expect(edgeKeyOf(transcodeEvent(createTranscodeInput()), createTranscodeRule())).toBe(
+    expect(keyFor(transcodeEvent(createTranscodeInput()), createTranscodeRule())).toBe(
       'transcode/directplay'
     );
   });
 
   it('a pause edge is the instant the pause started', () => {
-    expect(edgeKeyOf(pauseEvent(pauseInput), createPauseRule())).toBe(pausedAt.toISOString());
+    expect(keyFor(pauseEvent(pauseInput), createPauseRule())).toBe(pausedAt.toISOString());
   });
 
   it('a held_for edge is the node measure and minutes', () => {
-    expect(edgeKeyOf(heldForEvent(pauseInput), createPauseRule())).toBe('current:15');
-    expect(edgeKeyOf(heldForEvent(pauseInput), createTotalPauseRule())).toBe('total:30');
+    expect(keyFor(heldForEvent(pauseInput), createPauseRule())).toBe('current:15');
+    expect(keyFor(heldForEvent(pauseInput), createTotalPauseRule())).toBe('total:30');
   });
 
   it('an inactivity edge is the node days', () => {
-    expect(edgeKeyOf(accountInactiveEvent(), createInactivityRule())).toBe('30');
+    expect(keyFor(accountInactiveEvent(), createInactivityRule())).toBe('30');
   });
 
   it('a stop edge is the instant it stopped', () => {
     expect(
-      edgeKeyOf(
-        { type: 'session.stopped', at, sessionId: 'session-1', serverId: 'server-1' },
-        createTranscodeRule()
-      )
+      edgeKeyOf({ type: 'session.stopped', at, sessionId: 'session-1', serverId: 'server-1' }, null)
     ).toBe(at.toISOString());
   });
 
   it('server health edges are the instant the state changed', () => {
-    expect(edgeKeyOf({ type: 'server.down', at, server }, createTranscodeRule())).toBe(
-      at.toISOString()
-    );
-    expect(edgeKeyOf({ type: 'server.up', at, server }, createTranscodeRule())).toBe(
-      at.toISOString()
-    );
+    expect(edgeKeyOf({ type: 'server.down', at, server }, null)).toBe(at.toISOString());
+    expect(edgeKeyOf({ type: 'server.up', at, server }, null)).toBe(at.toISOString());
   });
 
   it('update edges are the version on offer', () => {
@@ -2045,7 +2117,7 @@ describe('edgeKeyOf', () => {
           latestVersion: '0.3.1',
           downloadUrl: 'https://example.invalid/plugin',
         },
-        createTranscodeRule()
+        null
       )
     ).toBe('0.3.1');
     expect(
@@ -2058,7 +2130,7 @@ describe('edgeKeyOf', () => {
           latestVersion: '10.10.0',
           releaseUrl: 'https://example.invalid/server',
         },
-        createTranscodeRule()
+        null
       )
     ).toBe('10.10.0');
     expect(
@@ -2070,14 +2142,14 @@ describe('edgeKeyOf', () => {
           latest: '2.2.0',
           releaseUrl: 'https://example.invalid/tracearr',
         },
-        createTranscodeRule()
+        null
       )
     ).toBe('2.2.0');
   });
 
   it('a held_for automation with no enabled node has no edge', () => {
     const unstamped = createPauseRule({ triggers: [] });
-    expect(edgeKeyOf(heldForEvent(pauseInput), unstamped)).toBeNull();
+    expect(keyFor(heldForEvent(pauseInput), unstamped)).toBeNull();
   });
 });
 

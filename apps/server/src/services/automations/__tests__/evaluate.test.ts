@@ -23,6 +23,7 @@ vi.mock('../../../utils/logger.js', () => ({
 
 import { synthesizeTriggers } from '../triggers.js';
 import {
+  firingNodeFor,
   matchesTrigger,
   paramsPass,
   rulesForTrigger,
@@ -354,5 +355,50 @@ describe('paramsPass', () => {
   it('a node whose type is not the event fails rather than passing by default', () => {
     expect(paramsPass(heldForNode(1, 'current'), inactiveEvent(null))).toBe(false);
     expect(paramsPass(inactiveForNode(1), heldFor(60))).toBe(false);
+  });
+});
+
+describe('firingNodeFor', () => {
+  const held = (
+    id: string,
+    minutes: number,
+    measure: 'current' | 'total' = 'current'
+  ): TriggerNode => ({
+    id,
+    type: 'session.held_for',
+    enabled: true,
+    params: { minutes, measure },
+  });
+  const pausedAt = new Date('2026-08-20T10:00:00Z');
+  const heldFor = (elapsedMinutes: number, triggerNodeId?: string): SessionHeldForEvent => ({
+    type: 'session.held_for',
+    at: new Date(pausedAt.getTime() + elapsedMinutes * 60_000),
+    server,
+    serverUser,
+    session,
+    pauseData: { lastPausedAt: pausedAt, pausedDurationMs: 0 },
+    heldMinutes: elapsedMinutes,
+    ...(triggerNodeId ? { triggerNodeId } : {}),
+  });
+  // The order the boot stamp would produce from `total >= 120 OR current >= 30`.
+  const triggers = [held('n-total', 120, 'total'), held('n-current', 30)];
+
+  it('takes the node the wake named', () => {
+    expect(firingNodeFor({ triggers }, heldFor(30, 'n-current'))?.id).toBe('n-current');
+    expect(firingNodeFor({ triggers }, heldFor(120, 'n-total'))?.id).toBe('n-total');
+  });
+
+  it('falls back to the first node that passes when the id is unknown or absent', () => {
+    expect(firingNodeFor({ triggers }, heldFor(30, 'n-gone'))?.id).toBe('n-current');
+    expect(firingNodeFor({ triggers }, heldFor(30))?.id).toBe('n-current');
+  });
+
+  it('names a node even when none passes, so the near miss has one', () => {
+    expect(firingNodeFor({ triggers }, heldFor(5))?.id).toBe('n-total');
+  });
+
+  it('never picks a disabled node', () => {
+    const disabled = triggers.map((node) => ({ ...node, enabled: false }));
+    expect(firingNodeFor({ triggers: disabled }, heldFor(30, 'n-current'))).toBeNull();
   });
 });

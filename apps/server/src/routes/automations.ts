@@ -399,7 +399,11 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
         // The payload comes back from zod in its own key order and the stored row in
         // jsonb's, so only a canonical compare can tell a restatement from an edit.
         if (!canonicalEqual(stamped.conditions, existing.conditions)) {
-          updateData.triggers = resynthesizeTriggers(stamped.conditions, existing.triggers);
+          updateData.triggers = resynthesizeTriggers(
+            stamped.conditions,
+            existing.triggers,
+            existing.id
+          );
         }
       }
       if (patch.actions !== undefined) updateData.actions = stamped.actions;

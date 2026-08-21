@@ -19,6 +19,8 @@ interface PendingWake {
   timer: ReturnType<typeof setTimeout>;
   fireAt: number;
   anchor: number;
+  /** The held_for node this wake is for; null when it is the compound-rule recheck. */
+  nodeId: string | null;
   gen: number;
 }
 
@@ -62,8 +64,9 @@ export function schedulePauseWake(
     rules,
   });
 
-  const fireAt = opts.evaluateIfPast && earliest !== null && earliest <= now ? now : next;
-  if (fireAt !== null) arm(session.id, fireAt, anchor);
+  const overdue = opts.evaluateIfPast && earliest !== null && earliest.at <= now;
+  const crossing = overdue && earliest ? { at: now, nodeId: earliest.nodeId } : next;
+  if (crossing) arm(session.id, crossing.at, anchor, crossing.nodeId);
 }
 
 export function cancelPauseWake(sessionId: string): void {
@@ -78,12 +81,12 @@ export function stopPauseWakes(): void {
   for (const id of Array.from(pending.keys())) cancelPauseWake(id);
 }
 
-function arm(sessionId: string, fireAt: number, anchor: number): void {
+function arm(sessionId: string, fireAt: number, anchor: number, nodeId: string | null): void {
   cancelPauseWake(sessionId);
   const gen = ++generation;
   const delay = Math.min(Math.max(0, fireAt - Date.now()), MAX_TIMER_MS);
   const timer = setTimeout(() => void fire(sessionId, gen), delay);
-  pending.set(sessionId, { timer, fireAt, anchor, gen });
+  pending.set(sessionId, { timer, fireAt, anchor, nodeId, gen });
 }
 
 /** The entry stays in `pending` while its fire is in flight; a cancel or a newer schedule replaces it and the stale fire bails at its next check. */
@@ -102,7 +105,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
   const now = Date.now();
   // Timers can land early; re-arm for the remainder rather than evaluate before the boundary.
   if (now < entry.fireAt) {
-    arm(sessionId, entry.fireAt, entry.anchor);
+    arm(sessionId, entry.fireAt, entry.anchor, entry.nodeId);
     return;
   }
 
@@ -137,6 +140,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
         session: toRuleSession(row),
         pauseData: { lastPausedAt: row.lastPausedAt, pausedDurationMs: row.pausedDurationMs },
         heldMinutes: (now - row.lastPausedAt.getTime()) / 60_000,
+        ...(entry.nodeId ? { triggerNodeId: entry.nodeId } : {}),
       },
       ctx.inputs
     );
@@ -146,7 +150,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
     if (owned(sessionId, gen)) schedulePauseWake(row, rules);
   } catch (error) {
     rulesLogger.error('Pause wake failed', { sessionId, error });
-    if (owned(sessionId, gen)) arm(sessionId, Date.now() + RETRY_MS, entry.anchor);
+    if (owned(sessionId, gen)) arm(sessionId, Date.now() + RETRY_MS, entry.anchor, entry.nodeId);
   }
 }
 

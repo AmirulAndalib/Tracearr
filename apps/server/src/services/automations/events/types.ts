@@ -69,6 +69,8 @@ export interface SessionHeldForEvent extends SessionEventBase {
   type: 'session.held_for';
   pauseData: PauseData;
   heldMinutes: number;
+  /** The held_for node whose crossing armed this wake; absent for a compound-rule recheck. */
+  triggerNodeId?: string;
 }
 
 /** Wake cancellations carry ids and no evaluation inputs. */
@@ -85,7 +87,7 @@ export interface SessionMediaChangedEvent extends SessionRefBase {
   type: 'session.media_changed';
 }
 
-/** Still ref-shaped: Task 13a gives the two stop producers a context to carry server, user, session and durationMs. */
+/** Still ref-shaped: the two stop producers hold no context to carry server, user, session and durationMs. */
 export interface SessionStoppedEvent extends SessionRefBase {
   type: 'session.stopped';
 }

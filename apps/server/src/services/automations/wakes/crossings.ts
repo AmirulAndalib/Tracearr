@@ -24,11 +24,17 @@ export interface PauseCrossingInput extends PauseState {
   rules: EngineAutomation[];
 }
 
+export interface PauseCrossing {
+  at: number;
+  /** The node whose threshold this is; null for the compound-rule recheck, which belongs to no node. */
+  nodeId: string | null;
+}
+
 export interface PauseCrossingResult {
-  /** Earliest instant strictly after now to evaluate at, or null when nothing is left to wait for. */
-  next: number | null;
+  /** Earliest crossing strictly after now to evaluate at, or null when nothing is left to wait for. */
+  next: PauseCrossing | null;
   /** Earliest crossing at all, past or future; rehydrate uses it to evaluate immediately. */
-  earliest: number | null;
+  earliest: PauseCrossing | null;
   /** A satisfied held_for node shares a rule with a non-pause condition; keep rechecking. */
   holdOpen: boolean;
 }
@@ -73,8 +79,8 @@ function holdsOpen(
 }
 
 export function pauseCrossings(input: PauseCrossingInput): PauseCrossingResult {
-  let next: number | null = null;
-  let earliest: number | null = null;
+  let next: PauseCrossing | null = null;
+  let earliest: PauseCrossing | null = null;
   let holdOpen = false;
 
   for (const rule of input.rules) {
@@ -83,15 +89,15 @@ export function pauseCrossings(input: PauseCrossingInput): PauseCrossingResult {
     if (nodes.length === 0) continue;
     for (const node of nodes) {
       const at = crossingOf(node, input);
-      if (earliest === null || at < earliest) earliest = at;
-      if (at > input.now && (next === null || at < next)) next = at;
+      if (earliest === null || at < earliest.at) earliest = { at, nodeId: node.id };
+      if (at > input.now && (next === null || at < next.at)) next = { at, nodeId: node.id };
     }
     if (holdsOpen(rule, nodes, input)) holdOpen = true;
   }
 
   if (holdOpen) {
     const recheck = input.now + HOLD_OPEN_RECHECK_MS;
-    next = next === null ? recheck : Math.min(next, recheck);
+    if (next === null || recheck < next.at) next = { at: recheck, nodeId: null };
   }
   return { next, earliest, holdOpen };
 }

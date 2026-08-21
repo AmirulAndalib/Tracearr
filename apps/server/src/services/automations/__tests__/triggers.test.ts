@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AutomationConditions, TriggerNode } from '@tracearr/shared';
+
+const mockWarn = vi.fn();
+vi.mock('../../../utils/logger.js', () => ({
+  rulesLogger: { info: vi.fn(), warn: (...args: unknown[]) => mockWarn(...args), error: vi.fn() },
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+}));
+
 import { resynthesizeTriggers, synthesizeTriggers } from '../triggers.js';
+
+beforeEach(() => {
+  mockWarn.mockClear();
+});
 
 type Cond = AutomationConditions['groups'][number]['conditions'][number];
 
@@ -101,6 +112,23 @@ describe('synthesizeTriggers held_for params', () => {
       ]);
     }
   });
+
+  it('warns with the rule, field and value it could not turn into a node', () => {
+    synthesizeTriggers(
+      one({ field: 'current_pause_minutes', operator: 'gte', value: 2000 }),
+      'rule-1'
+    );
+
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Condition threshold outside the trigger range; node stamped disabled',
+      { automationId: 'rule-1', field: 'current_pause_minutes', operator: 'gte', value: 2000 }
+    );
+  });
+
+  it('says nothing when every threshold lands', () => {
+    synthesizeTriggers(one({ field: 'current_pause_minutes', operator: 'gte', value: 15 }));
+    expect(mockWarn).not.toHaveBeenCalled();
+  });
 });
 
 describe('synthesizeTriggers inactive_for params', () => {
@@ -117,13 +145,20 @@ describe('synthesizeTriggers inactive_for params', () => {
     ]);
   });
 
-  it('a non-numeric threshold falls back to thirty days, disabled', () => {
+  it('a non-numeric threshold falls back to thirty days, disabled, and warns', () => {
     const triggers = synthesizeTriggers(
-      one({ field: 'inactive_days', operator: 'in', value: [30, 60] })
+      one({ field: 'inactive_days', operator: 'in', value: [30, 60] }),
+      'rule-2'
     );
     expect(inactiveFor(triggers)).toEqual([
       expect.objectContaining({ enabled: false, params: { days: 30 } }),
     ]);
+    expect(mockWarn).toHaveBeenCalledWith(expect.any(String), {
+      automationId: 'rule-2',
+      field: 'inactive_days',
+      operator: 'in',
+      value: [30, 60],
+    });
   });
 });
 
