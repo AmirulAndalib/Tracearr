@@ -64,7 +64,7 @@ describe('builderIssues', () => {
     expect(builderIssues(off, t).map((issue) => issue.nodeId)).toEqual([BUILDER_SECTIONS.triggers]);
   });
 
-  it('keys a condition the triggers cannot supply to that condition row', () => {
+  it('names the trigger a condition is not available for, on that condition row', () => {
     const state = builderStateFrom(
       automation({
         conditions: {
@@ -89,7 +89,7 @@ describe('builderIssues', () => {
 
     expect(issues).toContainEqual({
       nodeId: '55555555-5555-4555-8555-555555555555',
-      message: 'This condition is not available for every trigger you picked',
+      message: 'Not available for: A server goes down',
     });
   });
 
@@ -200,7 +200,7 @@ describe('serverIssues', () => {
     expect(serverIssues(state, error, t)).toEqual([
       {
         nodeId: '55555555-5555-4555-8555-555555555555',
-        message: 'This condition is not available for every trigger you picked',
+        message: 'Not available for: A server goes down',
       },
     ]);
   });

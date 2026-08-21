@@ -84,7 +84,7 @@ async function upgradeInstances(
       .update(automations)
       .set({
         kind: template.kind,
-        triggers: created.triggers ?? [],
+        triggers: created.triggers,
         conditions: created.conditions,
         actions: created.actions,
         serverId: created.serverId ?? null,

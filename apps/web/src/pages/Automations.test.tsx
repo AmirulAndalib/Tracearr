@@ -19,8 +19,6 @@ const { mockUseTemplates } = vi.hoisted(() => ({ mockUseTemplates: vi.fn() }));
 vi.mock('@/hooks/queries', () => ({
   useAutomations: vi.fn(),
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
-  useCreateAutomation: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useUpdateAutomation: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useToggleAutomation: () => ({ mutate: toggleMutate, isPending: false }),
   useDeleteAutomation: () => ({ mutate: deleteMutate, isPending: false }),
   useBulkToggleAutomations: () => ({ mutate: vi.fn(), isPending: false }),

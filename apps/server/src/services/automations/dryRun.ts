@@ -56,7 +56,7 @@ export function toEngineAutomation(definition: CreateAutomationInput): EngineAut
     kind: definition.kind,
     conditions: stamped.conditions ?? { groups: [] },
     actions: stamped.actions,
-    triggers: definition.triggers ?? [],
+    triggers: definition.triggers,
     currentVersionId: null,
     cooldownMinutes: definition.cooldownMinutes ?? null,
     createdAt: now,

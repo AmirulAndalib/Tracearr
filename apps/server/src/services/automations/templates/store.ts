@@ -362,7 +362,7 @@ export async function instantiateTemplate(
       description: template.description,
       kind: created.kind,
       severity: storedSeverity(overridden(overrides.severity, created.severity)),
-      triggers: created.triggers ?? [],
+      triggers: created.triggers,
       conditions: created.conditions,
       actions: created.actions,
       serverId: created.serverId,

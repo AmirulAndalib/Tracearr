@@ -1,15 +1,17 @@
 /**
- * The icons automations show: one per trigger group, and one for an automation as a
- * whole taken from its first condition field.
+ * The icons automations show: one per trigger group, one per action type, and one for
+ * an automation as a whole taken from its first condition field.
  */
 
 import { createElement, type ReactElement } from 'react';
-import { TRIGGERS, type ConditionField, type TriggerType } from '@tracearr/shared';
+import { TRIGGERS, type ActionType, type ConditionField, type TriggerType } from '@tracearr/shared';
 import {
   ArrowUpFromLine,
+  Bell,
   Clock,
   Globe,
   MapPin,
+  MessageSquare,
   Monitor,
   Pause,
   Play,
@@ -17,9 +19,12 @@ import {
   Server,
   Settings2,
   Shield,
+  Split,
+  TrendingUp,
   UserRound,
   Users,
   Wifi,
+  XCircle,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -53,9 +58,21 @@ const TRIGGER_GROUP_ICONS = {
   updates: ArrowUpFromLine,
 } as const satisfies Record<(typeof TRIGGERS)[TriggerType]['group'], LucideIcon>;
 
+const ACTION_ICONS = {
+  send: Bell,
+  trust: TrendingUp,
+  kill_stream: XCircle,
+  message_client: MessageSquare,
+  if: Split,
+} as const satisfies Record<ActionType, LucideIcon>;
+
 /** Triggers share an icon per group: the group is what a reader scans for. */
 export function triggerIcon(type: TriggerType): ReactElement {
   return createElement(TRIGGER_GROUP_ICONS[TRIGGERS[type].group], { className: 'size-4' });
+}
+
+export function actionIcon(type: ActionType, className = 'size-4'): ReactElement {
+  return createElement(ACTION_ICONS[type], { className });
 }
 
 /** Built with createElement so this stays a plain module and callers stay one expression. */

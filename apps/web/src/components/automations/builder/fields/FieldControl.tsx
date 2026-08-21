@@ -29,6 +29,7 @@ interface FieldControlProps {
   onChange: (value: ControlValue) => void;
   id?: string;
   className?: string;
+  'aria-label'?: string;
   'aria-labelledby'?: string;
 }
 
@@ -38,6 +39,7 @@ export function FieldControl({
   onChange,
   id,
   className,
+  'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
 }: FieldControlProps) {
   const { t } = useTranslation('pages');
@@ -47,7 +49,7 @@ export function FieldControl({
       const checked = value === true;
       return (
         <div className={cn('flex h-9 items-center gap-2', className)}>
-          <Switch id={id} checked={checked} onCheckedChange={onChange} />
+          <Switch id={id} aria-label={ariaLabel} checked={checked} onCheckedChange={onChange} />
           <span className="text-muted-foreground text-sm">
             {checked
               ? t('automations.builder.conditions.yes')
@@ -63,6 +65,7 @@ export function FieldControl({
         <div className={cn('flex items-center gap-2', className)}>
           <NumericInput
             id={id}
+            aria-label={ariaLabel}
             className="max-w-24"
             min={spec.min}
             max={spec.max}
@@ -85,6 +88,7 @@ export function FieldControl({
           <Slider
             id={id}
             className="flex-1"
+            aria-label={ariaLabel}
             aria-labelledby={ariaLabelledBy}
             min={spec.min}
             max={spec.max}
@@ -102,7 +106,12 @@ export function FieldControl({
     case 'select':
       return (
         <Select value={typeof value === 'string' ? value : ''} onValueChange={onChange}>
-          <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} className={className}>
+          <SelectTrigger
+            id={id}
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledBy}
+            className={className}
+          >
             <SelectValue
               placeholder={spec.placeholder ?? t('automations.builder.selectPlaceholder')}
             />
@@ -121,6 +130,7 @@ export function FieldControl({
       return (
         <MultiSelect
           id={id}
+          aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           className={className}
           options={spec.options}
@@ -138,6 +148,7 @@ export function FieldControl({
       return (
         <Input
           id={id}
+          aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           className={className}
           type="text"

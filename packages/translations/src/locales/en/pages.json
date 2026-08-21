@@ -110,7 +110,8 @@
     "acrossAllServers": "Across all linked accounts:",
     "overallTrust": "Overall Trust",
     "serverScope": "Server",
-    "allServers": "All servers"
+    "allServers": "All servers",
+    "title": "User Details"
   },
   "history": {
     "title": "History",
@@ -396,7 +397,8 @@
         "variableUnavailable": "The message names something not every trigger here supplies",
         "minutesRange": "Between {{min}} and {{max}} minutes",
         "daysRange": "Between {{min}} and {{max}} days",
-        "measureInvalid": "Pick how the minutes are counted"
+        "measureInvalid": "Pick how the minutes are counted",
+        "fieldNotAvailableFor": "Not available for: {{triggers}}"
       },
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Optional description",
@@ -431,7 +433,7 @@
         "groupHint": "conditions match with OR logic",
         "removeGroup": "Remove group",
         "addCondition": "Add OR condition",
-        "addGroup": "Add AND condition group",
+        "addGroup": "and also…",
         "removeCondition": "Remove condition",
         "fieldPlaceholder": "Select field",
         "operatorPlaceholder": "Operator",
@@ -446,7 +448,19 @@
         "yes": "Yes",
         "no": "No",
         "recentlySeen": "Recently seen",
-        "allCountries": "All countries"
+        "allCountries": "All countries",
+        "sectionTitle": "Only when…",
+        "reveal": "Only when…",
+        "where": "Where",
+        "all": "all of these",
+        "any": "any of these",
+        "matchLabel": "How these conditions combine",
+        "fieldLabel": "Condition",
+        "operatorLabel": "Comparison",
+        "valueLabel": "Value",
+        "canNeverPass": "Can never pass: the trigger fires at {{threshold}}",
+        "noFields": "The triggers you picked don't supply any conditions yet.",
+        "groupSeparator": "and also"
       },
       "actions": {
         "title": "Actions",
@@ -454,7 +468,22 @@
         "add": "Add action",
         "remove": "Remove action",
         "typePlaceholder": "Select action",
-        "typeLabel": "Action"
+        "typeLabel": "Action",
+        "sectionTitle": "Do this…",
+        "empty": "Nothing happens yet. Pick what this automation should do.",
+        "moveUp": "Move {{name}} up",
+        "moveDown": "Move {{name}} down",
+        "menu": "More for {{name}}",
+        "confirmRemoveTitle": "Remove this action?",
+        "confirmRemoveDescription": "Stops happening on save.",
+        "policyNote": "This doesn't decide whether it's flagged — use Only when… for that",
+        "branchThen": "then",
+        "branchElse": "Otherwise…",
+        "ifNothing": "nothing yet",
+        "addBranch": "Add action",
+        "expand": "Show what {{name}} does",
+        "collapse": "Hide what {{name}} does",
+        "ifConditions": "Only when…"
       },
       "when": {
         "title": "When…",
@@ -480,7 +509,9 @@
         "remove": "Remove {{name}}",
         "skipped": "Skipped",
         "toggleHint": "skip",
-        "removeHint": "remove"
+        "removeHint": "remove",
+        "expandHint": "open",
+        "moveHint": "reorder"
       },
       "picker": {
         "searchPlaceholder": "Search or describe what should happen",
@@ -500,6 +531,18 @@
       "leave": {
         "title": "Leave without saving?",
         "confirm": "Leave"
+      },
+      "addDescription": "Add description",
+      "liveCheck": {
+        "title": "Right now",
+        "checking": "Checking against the sessions playing now…",
+        "empty": "Nothing is playing right now, so there is nothing to check.",
+        "failed": "Couldn't check against the sessions playing now.",
+        "footnote": "Cooldowns and already-handled sessions aren't simulated.",
+        "expand": "Show what matched for {{name}}",
+        "passed": "Passed",
+        "notPassed": "Did not pass",
+        "actual": "now {{value}}"
       }
     },
     "categories": {
@@ -661,7 +704,8 @@
     },
     "description": "Automations watch your servers and act when their conditions match",
     "detail": {
-      "notFound": "Automation not found"
+      "notFound": "Automation not found",
+      "title": "Automation"
     },
     "disable": "Disable",
     "editAutomation": "Edit Automation",

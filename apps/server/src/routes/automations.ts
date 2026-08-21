@@ -596,7 +596,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       conditions: definition.conditions,
       actions: definition.actions,
       // A trigger type that survives the new version keeps the node id the gate reads.
-      triggers: carryTriggerIds(definition.triggers ?? [], existing.triggers),
+      triggers: carryTriggerIds(definition.triggers, existing.triggers),
       ...scope,
       templateVersion: template.version.version,
       templateInputs: inputs,

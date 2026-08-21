@@ -3,15 +3,22 @@
  * shared schema does the judging; this only translates it and finds the node.
  */
 
-import { createAutomationSchema, type Action, type ConditionGroup } from '@tracearr/shared';
+import {
+  createAutomationSchema,
+  type Action,
+  type Condition,
+  type ConditionGroup,
+} from '@tracearr/shared';
 import { ApiError } from '@/lib/api';
-import type { Translate } from '@/lib/automations';
+import { orphaningTriggers, type Translate } from '@/lib/automations';
 import { TRIGGER_PARAM_BOUNDS, toCreateInput, type BuilderState } from './builderReducer';
 
 /** What a problem points at when it belongs to the page rather than to a node. */
 export const BUILDER_SECTIONS = {
   name: 'name',
   triggers: 'triggers',
+  conditions: 'conditions',
+  actions: 'actions',
   scope: 'scope',
 } as const;
 
@@ -66,10 +73,10 @@ function nodeIdForPath(state: BuilderState, path: readonly PropertyKey[]): strin
     return BUILDER_SECTIONS.triggers;
   }
   if (head === 'conditions') {
-    return groupsNodeId(state.conditions.groups, path.slice(1)) ?? BUILDER_SECTIONS.name;
+    return groupsNodeId(state.conditions.groups, path.slice(1)) ?? BUILDER_SECTIONS.conditions;
   }
   if (head === 'actions') {
-    return actionsNodeId(state.actions.actions, path.slice(1)) ?? BUILDER_SECTIONS.name;
+    return actionsNodeId(state.actions.actions, path.slice(1)) ?? BUILDER_SECTIONS.actions;
   }
   if (head === 'serverId' || head === 'serverUserId' || head === 'userId') {
     return BUILDER_SECTIONS.scope;
@@ -77,11 +84,36 @@ function nodeIdForPath(state: BuilderState, path: readonly PropertyKey[]): strin
   return BUILDER_SECTIONS.name;
 }
 
+/** Every condition on the page, wherever it sits, so a message can name its field. */
+function conditionById(state: BuilderState, nodeId: string): Condition | undefined {
+  const groups = [
+    ...state.conditions.groups,
+    ...state.actions.actions.flatMap((action) =>
+      action.type === 'if' ? action.conditions.groups : []
+    ),
+  ];
+  return groups.flatMap((group) => group.conditions).find((condition) => condition.id === nodeId);
+}
+
+/** A field the triggers cannot supply is best named by the trigger that cannot supply it. */
+function unavailableField(t: Translate, state: BuilderState, nodeId: string): string {
+  const field = conditionById(state, nodeId)?.field;
+  const triggers = field === undefined ? [] : orphaningTriggers(t, state.triggers, field);
+  if (triggers.length === 0) return t('automations.builder.errors.fieldUnavailable');
+  return t('automations.builder.errors.fieldNotAvailableFor', { triggers: triggers.join(', ') });
+}
+
 /** The path's last key says what went wrong; the schema's English is the last resort. */
-function messageFor(t: Translate, path: readonly PropertyKey[], fallback: string): string {
+function messageFor(
+  t: Translate,
+  path: readonly PropertyKey[],
+  fallback: string,
+  state: BuilderState,
+  nodeId: string
+): string {
   switch (path[path.length - 1]) {
     case 'field':
-      return t('automations.builder.errors.fieldUnavailable');
+      return unavailableField(t, state, nodeId);
     case 'operator':
       return t('automations.builder.errors.operatorInvalid');
     case 'value':
@@ -116,10 +148,8 @@ export function builderIssues(state: BuilderState, t: Translate): BuilderIssue[]
   const parsed = createAutomationSchema.safeParse(toCreateInput(state));
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
-      issues.push({
-        nodeId: nodeIdForPath(state, issue.path),
-        message: messageFor(t, issue.path, issue.message),
-      });
+      const nodeId = nodeIdForPath(state, issue.path);
+      issues.push({ nodeId, message: messageFor(t, issue.path, issue.message, state, nodeId) });
     }
   }
 
@@ -161,7 +191,8 @@ export function serverIssues(state: BuilderState, error: unknown, t: Translate):
 
   return record.fields.filter(isServerField).map((entry) => {
     const path = pathFromField(entry.field);
-    return { nodeId: nodeIdForPath(state, path), message: messageFor(t, path, entry.message) };
+    const nodeId = nodeIdForPath(state, path);
+    return { nodeId, message: messageFor(t, path, entry.message, state, nodeId) };
   });
 }
 

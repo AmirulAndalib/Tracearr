@@ -460,6 +460,16 @@ function actionSeparator(kind: AutomationKind | undefined, hasConditions: boolea
   return hasConditions ? ';' : ',';
 }
 
+/** Just the condition groups, for a row that shows its own conditions and nothing else. */
+export function describeConditions(
+  groups: readonly DescribableGroup[],
+  refs: DescribeRefs,
+  t: Translate,
+  unitSystem: UnitSystem
+): DescribeFragment[] {
+  return describeGroups({ t, refs, unitSystem, inputs: [] }, groups, null);
+}
+
 /**
  * The whole automation as one sentence, fragment by fragment, as
  * "When a stream starts, only when the trust score is below 50; send to team-discord."

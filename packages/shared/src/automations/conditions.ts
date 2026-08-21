@@ -150,6 +150,8 @@ export type MediaTypeEnum = z.infer<typeof mediaTypeEnumSchema>;
 export type ConditionValue = z.infer<typeof conditionValueSchema>;
 export type Condition = z.infer<typeof conditionSchema>;
 export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
+/** How a group combines its conditions; a group stored before it existed reads as 'any'. */
+export type ConditionMatch = NonNullable<ConditionGroup['match']>;
 export type AutomationConditions = z.infer<typeof automationConditionsSchema>;
 
 export type ConditionValueType = 'number' | 'boolean' | 'text' | 'select' | 'multiSelect' | 'cidr';

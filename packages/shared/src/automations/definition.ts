@@ -87,7 +87,7 @@ function valueMatches(
  * Everything a definition has to satisfy beyond the node schemas: what the triggers
  * can supply is what the conditions, actions and message variables may name.
  */
-export function definitionRefinements(
+function definitionRefinements(
   def: {
     kind: AutomationKind;
     triggers?: TriggerNode[];

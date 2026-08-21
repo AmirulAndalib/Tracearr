@@ -194,7 +194,7 @@ describe('materializeTemplate', () => {
       scope: {},
     };
     const result = materializeTemplate({ inputs, definition }, { hold: 2 }, { name: 'Held' });
-    const [trigger] = result.triggers ?? [];
+    const [trigger] = result.triggers;
     expect(trigger).toMatchObject({ type: 'session.held_for', params: { minutes: 120 } });
   });
 });

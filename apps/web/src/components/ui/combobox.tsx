@@ -34,6 +34,7 @@ interface ComboboxProps<T extends string> {
   id?: string;
   className?: string;
   contentClassName?: string;
+  'aria-label'?: string;
   'aria-labelledby'?: string;
 }
 
@@ -49,6 +50,7 @@ export function Combobox<T extends string>({
   id,
   className,
   contentClassName,
+  'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
 }: ComboboxProps<T>) {
   const [open, setOpen] = useState(false);
@@ -65,6 +67,7 @@ export function Combobox<T extends string>({
           id={id}
           role="combobox"
           aria-expanded={open}
+          aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
           disabled={disabled}
           className={cn(selectTriggerClasses, 'w-full', className)}

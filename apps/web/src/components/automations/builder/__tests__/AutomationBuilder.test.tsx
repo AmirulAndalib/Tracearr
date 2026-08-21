@@ -39,6 +39,32 @@ beforeEach(() => {
   update.mockResolvedValue({ id: 'a1' });
 });
 
+function storedAutomation(overrides: Partial<Automation>): Automation {
+  return {
+    id: 'a1',
+    name: 'Stored',
+    description: null,
+    kind: 'notification',
+    severity: null,
+    triggers: [],
+    conditions: { groups: [] },
+    actions: { actions: [] },
+    serverId: null,
+    serverUserId: null,
+    userId: null,
+    enforceAcrossServers: false,
+    isActive: true,
+    cooldownMinutes: null,
+    retentionDays: null,
+    scopeRef: null,
+    template: null,
+    origin: null,
+    createdAt: '2026-08-21T00:00:00.000Z',
+    updatedAt: '2026-08-21T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 function renderBuilder(automation?: Automation) {
   const router = createMemoryRouter(
     [{ path: '/automations/*', element: <AutomationBuilder automation={automation} /> }],
@@ -147,6 +173,63 @@ describe('AutomationBuilder', () => {
     expect(
       await screen.findByPlaceholderText('Search or describe what should happen')
     ).toBeInTheDocument();
+  });
+
+  it('keeps the description out of the way until it is asked for', async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+
+    expect(screen.queryByPlaceholderText('Optional description')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Add description/ }));
+    await user.type(screen.getByPlaceholderText('Optional description'), 'Nightly sweep');
+
+    expect(screen.getByPlaceholderText('Optional description')).toHaveValue('Nightly sweep');
+  });
+
+  it('takes the caret to an open picker rather than shutting it', async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+
+    await user.keyboard('/');
+    const search = await screen.findByPlaceholderText('Search or describe what should happen');
+
+    await user.keyboard('/');
+
+    expect(screen.getByPlaceholderText('Search or describe what should happen')).toBe(search);
+    expect(document.activeElement).toBe(search);
+  });
+
+  it('refuses to save a condition the triggers cannot supply, and says which', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      storedAutomation({
+        name: 'Server watch',
+        triggers: [
+          { id: '99999999-9999-4999-8999-999999999999', type: 'server.down', enabled: true },
+        ],
+        conditions: {
+          groups: [
+            {
+              id: '88888888-8888-4888-8888-888888888888',
+              conditions: [
+                {
+                  id: '77777777-7777-4777-8777-777777777777',
+                  field: 'trust_score',
+                  operator: 'lt',
+                  value: 50,
+                },
+              ],
+            },
+          ],
+        },
+      })
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Update Automation' }));
+
+    expect(await screen.findByText('Not available for: A server goes down')).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('saves the triggers it was given', async () => {

@@ -1,5 +1,6 @@
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Plus } from 'lucide-react';
 import { AUTOMATION_KINDS, type AutomationKind, type ViolationSeverity } from '@tracearr/shared';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -11,6 +12,7 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -20,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SEVERITIES, severityLabel } from '@/lib/automations';
 import { nodeDomId, type BuilderDispatch, type BuilderState } from './builderReducer';
@@ -44,6 +47,8 @@ export function HeaderCard({
 }: HeaderCardProps) {
   const { t } = useTranslation('pages');
   const fieldId = useId();
+  const [descriptionAsked, setDescriptionAsked] = useState(false);
+  const hasDescription = descriptionAsked || state.description.length > 0;
 
   const nameIssues = issues.get(BUILDER_SECTIONS.name);
   const scopeIssues = issues.get(BUILDER_SECTIONS.scope);
@@ -66,6 +71,33 @@ export function HeaderCard({
             {nameIssues?.map((message) => (
               <FieldError key={message}>{message}</FieldError>
             ))}
+            {hasDescription ? (
+              <>
+                <FieldLabel htmlFor={`${fieldId}-description`} className="sr-only">
+                  {t('automations.builder.descriptionLabel')}
+                </FieldLabel>
+                <Textarea
+                  id={`${fieldId}-description`}
+                  rows={2}
+                  value={state.description}
+                  placeholder={t('automations.builder.descriptionPlaceholder')}
+                  onChange={(event) =>
+                    dispatch({ type: 'setDescription', value: event.target.value })
+                  }
+                />
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground self-start"
+                onClick={() => setDescriptionAsked(true)}
+              >
+                <Plus />
+                {t('automations.builder.addDescription')}
+              </Button>
+            )}
             {sentence}
           </Field>
 

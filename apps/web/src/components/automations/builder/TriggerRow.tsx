@@ -1,13 +1,8 @@
-import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 import type { TriggerNode } from '@tracearr/shared';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { FieldError } from '@/components/ui/field';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { triggerIcon, triggerLabel } from '@/lib/automations';
 import { cn } from '@/lib/utils';
@@ -17,6 +12,8 @@ import {
   type BuilderDispatch,
   type TriggerParamPatch,
 } from './builderReducer';
+import { RowActions } from './RowActions';
+import type { RowProps } from './useRowKeyboard';
 
 /** The row's own sentence, with the threshold sitting inside it where it is read. */
 function TriggerTitle({
@@ -84,22 +81,12 @@ interface TriggerRowProps {
   trigger: TriggerNode;
   issues: string[] | undefined;
   pulsing: boolean;
-  tabIndex: number;
+  rowProps: RowProps;
   dispatch: BuilderDispatch;
-  onRowFocus: () => void;
-  onRowKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
 
 /** One thing that can start the automation, with its threshold in the sentence itself. */
-export function TriggerRow({
-  trigger,
-  issues,
-  pulsing,
-  tabIndex,
-  dispatch,
-  onRowFocus,
-  onRowKeyDown,
-}: TriggerRowProps) {
+export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: TriggerRowProps) {
   const { t } = useTranslation('pages');
   const name = triggerLabel(t, trigger.type);
 
@@ -112,11 +99,11 @@ export function TriggerRow({
       id={nodeDomId(trigger.id)}
       variant="outline"
       size="sm"
-      tabIndex={tabIndex}
+      tabIndex={rowProps.tabIndex}
       aria-keyshortcuts="D Delete"
       data-pulse={pulsing}
-      onFocus={onRowFocus}
-      onKeyDown={onRowKeyDown}
+      onFocus={rowProps.onFocus}
+      onKeyDown={rowProps.onKeyDown}
       className={cn(
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
         !trigger.enabled && 'opacity-60'
@@ -132,23 +119,12 @@ export function TriggerRow({
         ))}
       </ItemContent>
       <ItemActions>
-        {!trigger.enabled && (
-          <Badge variant="secondary">{t('automations.builder.rows.skipped')}</Badge>
-        )}
-        <Switch
-          checked={trigger.enabled}
-          aria-label={t('automations.builder.rows.toggle', { name })}
-          onCheckedChange={() => dispatch({ type: 'toggleNode', id: trigger.id })}
+        <RowActions
+          name={name}
+          enabled={trigger.enabled}
+          onToggle={() => dispatch({ type: 'toggleNode', id: trigger.id })}
+          onRemove={() => dispatch({ type: 'removeNode', id: trigger.id })}
         />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={t('automations.builder.rows.remove', { name })}
-          onClick={() => dispatch({ type: 'removeNode', id: trigger.id })}
-        >
-          <X />
-        </Button>
       </ItemActions>
     </Item>
   );

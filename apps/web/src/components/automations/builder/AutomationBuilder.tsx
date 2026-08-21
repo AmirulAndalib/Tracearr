@@ -6,6 +6,7 @@ import type { Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Kbd } from '@/components/ui/kbd';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useCreateAutomation, useUpdateAutomation } from '@/hooks/queries/useAutomations';
 import { useDestinations } from '@/hooks/queries/useDestinations';
@@ -25,9 +26,12 @@ import {
   toCreateInput,
   type BuilderAction,
 } from './builderReducer';
+import { ActionsSection } from './ActionsSection';
+import { ConditionsSection } from './ConditionsSection';
 import { HeaderCard } from './HeaderCard';
 import { Sentence } from './Sentence';
 import { TriggersSection } from './TriggersSection';
+import type { BuilderRefs } from './builderRefs';
 import {
   BUILDER_SECTIONS,
   builderIssues,
@@ -44,23 +48,44 @@ interface AutomationBuilderProps {
 /** How long a node stays highlighted after the sentence or the error count jumps to it. */
 const PULSE_MS = 1200;
 
+/** Adding, dropping or skipping a node is what makes a section's own problems worth showing. */
+const SECTION_ACTIONS = new Set<BuilderAction['type']>([
+  'addTrigger',
+  'addConditionGroup',
+  'addCondition',
+  'addAction',
+  'moveAction',
+  'toggleNode',
+  'removeNode',
+]);
+
 /** What a change marks as touched, so an untouched field is never shown as wrong. */
-function touchedKeys(action: BuilderAction): string[] {
+function touchedKeys(action: BuilderAction, section: string): string[] {
+  const keys = SECTION_ACTIONS.has(action.type) ? [section] : [];
+
   switch (action.type) {
     case 'setName':
-      return [BUILDER_SECTIONS.name];
+      keys.push(BUILDER_SECTIONS.name);
+      break;
     case 'setScope':
-      return [BUILDER_SECTIONS.scope];
-    case 'addTrigger':
-      return [BUILDER_SECTIONS.triggers];
-    // Only trigger rows carry node actions so far; later sections name their own.
+      keys.push(BUILDER_SECTIONS.scope);
+      break;
     case 'setTriggerParam':
     case 'toggleNode':
     case 'removeNode':
-      return [BUILDER_SECTIONS.triggers, action.id];
+    case 'setCondition':
+    case 'setAction':
+    case 'moveAction':
+      keys.push(action.id);
+      break;
+    case 'addCondition':
+    case 'setConditionMatch':
+      keys.push(action.groupId);
+      break;
     default:
-      return [];
+      break;
   }
+  return keys;
 }
 
 export function AutomationBuilder({ automation }: AutomationBuilderProps) {
@@ -84,18 +109,32 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
 
   const blocker = useUnsavedChanges(state.dirty);
 
-  const track = useCallback((action: BuilderAction) => {
-    const keys = touchedKeys(action);
-    if (keys.length > 0) {
-      setTouched((current) => {
-        if (keys.every((key) => current.has(key))) return current;
-        const next = new Set(current);
-        for (const key of keys) next.add(key);
-        return next;
-      });
-    }
-    dispatch(action);
-  }, []);
+  // Every write goes through one place, so a row turns red only once it has been touched.
+  const trackFor = useCallback(
+    (section: string) => (action: BuilderAction) => {
+      const keys = touchedKeys(action, section);
+      if (keys.length > 0) {
+        setTouched((current) => {
+          if (keys.every((key) => current.has(key))) return current;
+          const next = new Set(current);
+          for (const key of keys) next.add(key);
+          return next;
+        });
+      }
+      dispatch(action);
+    },
+    []
+  );
+
+  const track = useMemo(
+    () => ({
+      header: trackFor(BUILDER_SECTIONS.name),
+      triggers: trackFor(BUILDER_SECTIONS.triggers),
+      conditions: trackFor(BUILDER_SECTIONS.conditions),
+      actions: trackFor(BUILDER_SECTIONS.actions),
+    }),
+    [trackFor]
+  );
 
   // A refetch must not overwrite edits, so the row seeds the form once per automation.
   useEffect(() => {
@@ -138,6 +177,17 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
       ),
     };
   }, [servers, filterOptions, destinations, automation]);
+
+  const refs = useMemo<BuilderRefs>(
+    () => ({
+      triggers: state.triggers,
+      kind: state.kind,
+      filterOptions,
+      describe: describeRefs,
+      unitSystem: settings?.unitSystem ?? 'metric',
+    }),
+    [state.triggers, state.kind, filterOptions, describeRefs, settings]
+  );
 
   const fragments = useMemo(
     () =>
@@ -238,68 +288,97 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
     }
   };
 
+  const saveButton = (
+    <Button type="button" disabled={isPending} onClick={() => void handleSave()}>
+      {isPending ? <Loader2 className="animate-spin" /> : <Save />}
+      {isPending
+        ? t('pages:automations.builder.saving')
+        : automation
+          ? t('pages:automations.updateAutomation')
+          : t('pages:automations.createAutomation')}
+    </Button>
+  );
+
   return (
-    <div ref={pageRef} className="mx-auto w-full max-w-5xl space-y-6">
-      <HeaderCard
-        state={state}
-        issues={byNode}
-        canEnforceAcrossServers={canEnforceAcrossServers(state.scope, state.conditions)}
-        sentence={<Sentence fragments={fragments} onFocusNode={focusNode} />}
-        dispatch={track}
-      />
+    <TooltipProvider delayDuration={200}>
+      <div ref={pageRef} className="mx-auto w-full max-w-5xl space-y-6">
+        <HeaderCard
+          state={state}
+          issues={byNode}
+          canEnforceAcrossServers={canEnforceAcrossServers(state.scope, state.conditions)}
+          sentence={<Sentence fragments={fragments} onFocusNode={focusNode} />}
+          dispatch={track.header}
+        />
 
-      <TriggersSection
-        triggers={state.triggers}
-        issues={byNode}
-        pulseId={pulseId}
-        dispatch={track}
-      />
+        <TriggersSection
+          triggers={state.triggers}
+          issues={byNode}
+          pulseId={pulseId}
+          dispatch={track.triggers}
+        />
 
-      <div className="bg-background/95 sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
-        <span className="text-muted-foreground hidden items-center gap-1 text-xs sm:flex">
-          <Kbd>/</Kbd>
-          {t('pages:automations.builder.footer.search')}
-        </span>
+        <ConditionsSection
+          conditions={state.conditions}
+          refs={refs}
+          issues={byNode}
+          pulseId={pulseId}
+          dispatch={track.conditions}
+        />
 
-        {hasIssues && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-destructive"
-            onClick={revealFirstIssue}
-          >
-            <TriangleAlert />
-            {t('pages:automations.builder.footer.problems', { count: issues.length })}
-          </Button>
-        )}
+        <ActionsSection
+          actions={state.actions}
+          refs={refs}
+          issues={byNode}
+          pulseId={pulseId}
+          dispatch={track.actions}
+        />
 
-        <div className="ml-auto flex items-center gap-3">
-          <Button type="button" variant="outline" onClick={() => void navigate('/automations')}>
-            {t('common:actions.cancel')}
-          </Button>
-          <Button type="button" disabled={isPending} onClick={() => void handleSave()}>
-            {isPending ? <Loader2 className="animate-spin" /> : <Save />}
-            {isPending
-              ? t('pages:automations.builder.saving')
-              : automation
-                ? t('pages:automations.updateAutomation')
-                : t('pages:automations.createAutomation')}
-          </Button>
+        <div className="bg-background/95 sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
+          <span className="text-muted-foreground hidden items-center gap-1 text-xs sm:flex">
+            <Kbd>/</Kbd>
+            {t('pages:automations.builder.footer.search')}
+          </span>
+
+          {hasIssues && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={revealFirstIssue}
+            >
+              <TriangleAlert />
+              {t('pages:automations.builder.footer.problems', { count: issues.length })}
+            </Button>
+          )}
+
+          <div className="ml-auto flex items-center gap-3">
+            <Button type="button" variant="outline" onClick={() => void navigate('/automations')}>
+              {t('common:actions.cancel')}
+            </Button>
+            {hasIssues ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{saveButton}</TooltipTrigger>
+                <TooltipContent>{issues[0]?.message}</TooltipContent>
+              </Tooltip>
+            ) : (
+              saveButton
+            )}
+          </div>
         </div>
-      </div>
 
-      <ConfirmDialog
-        open={blocker.state === 'blocked'}
-        onOpenChange={(open) => {
-          if (!open) blocker.reset?.();
-        }}
-        title={t('pages:automations.builder.leave.title')}
-        description={t('common:confirmations.unsavedChanges')}
-        confirmLabel={t('pages:automations.builder.leave.confirm')}
-        cancelLabel={t('common:actions.cancel')}
-        onConfirm={() => blocker.proceed?.()}
-      />
-    </div>
+        <ConfirmDialog
+          open={blocker.state === 'blocked'}
+          onOpenChange={(open) => {
+            if (!open) blocker.reset?.();
+          }}
+          title={t('pages:automations.builder.leave.title')}
+          description={t('common:confirmations.unsavedChanges')}
+          confirmLabel={t('pages:automations.builder.leave.confirm')}
+          cancelLabel={t('common:actions.cancel')}
+          onConfirm={() => blocker.proceed?.()}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

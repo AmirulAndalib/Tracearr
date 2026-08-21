@@ -141,6 +141,121 @@ describe('builderReducer nodes', () => {
   });
 });
 
+describe('builderReducer conditions', () => {
+  function withGroup() {
+    const state = builderReducer(added('session.started'), { type: 'addConditionGroup' });
+    return { state, groupId: state.conditions.groups[0]?.id ?? '' };
+  }
+
+  it('opens a group on all-of-these with one row the triggers can supply', () => {
+    const { state } = withGroup();
+    const group = state.conditions.groups[0];
+
+    expect(group?.match).toBe('all');
+    expect(group?.id).toMatch(UUID);
+    expect(group?.conditions).toHaveLength(1);
+    expect(group?.conditions[0]).toMatchObject({ field: 'concurrent_streams', enabled: true });
+  });
+
+  it('starts a row on a field an account trigger supplies', () => {
+    const state = builderReducer(added('account.inactive_for'), { type: 'addConditionGroup' });
+
+    expect(state.conditions.groups[0]?.conditions[0]?.field).toBe('inactive_days');
+  });
+
+  it('adds a row to the named group and writes the logic', () => {
+    const { state, groupId } = withGroup();
+
+    const two = builderReducer(state, { type: 'addCondition', groupId });
+    expect(two.conditions.groups[0]?.conditions).toHaveLength(2);
+
+    const any = builderReducer(two, { type: 'setConditionMatch', groupId, match: 'any' });
+    expect(any.conditions.groups[0]?.match).toBe('any');
+  });
+
+  it('replaces one row and leaves its id and switch alone', () => {
+    const { state } = withGroup();
+    const id = state.conditions.groups[0]?.conditions[0]?.id ?? '';
+
+    const next = builderReducer(state, {
+      type: 'setCondition',
+      id,
+      condition: { id, enabled: true, field: 'trust_score', operator: 'lt', value: 40 },
+    });
+
+    expect(next.conditions.groups[0]?.conditions[0]).toMatchObject({
+      id,
+      field: 'trust_score',
+      value: 40,
+    });
+  });
+
+  it('takes the group with the last row that leaves it', () => {
+    const { state } = withGroup();
+    const id = state.conditions.groups[0]?.conditions[0]?.id ?? '';
+
+    expect(builderReducer(state, { type: 'removeNode', id }).conditions.groups).toEqual([]);
+  });
+});
+
+describe('builderReducer actions', () => {
+  function withActions() {
+    const one = builderReducer(added('session.started'), {
+      type: 'addAction',
+      actionType: 'send',
+    });
+    return builderReducer(one, { type: 'addAction', actionType: 'kill_stream' });
+  }
+
+  it('stamps a new action and gives it the defaults of its type', () => {
+    const state = withActions();
+
+    expect(state.actions.actions[0]).toMatchObject({ type: 'send', to: [], enabled: true });
+    expect(state.actions.actions[0]?.id).toMatch(UUID);
+  });
+
+  it('moves a row within the list it sits in', () => {
+    const state = withActions();
+    const id = state.actions.actions[1]?.id ?? '';
+
+    const moved = builderReducer(state, { type: 'moveAction', id, delta: -1 });
+
+    expect(moved.actions.actions.map((action) => action.type)).toEqual(['kill_stream', 'send']);
+  });
+
+  it('adds a leaf to the branch it was asked for', () => {
+    const withIf = builderReducer(added('session.started'), {
+      type: 'addAction',
+      actionType: 'if',
+    });
+    const ifId = withIf.actions.actions[0]?.id ?? '';
+
+    const branched = builderReducer(withIf, {
+      type: 'addAction',
+      actionType: 'kill_stream',
+      branch: { ifId, side: 'else' },
+    });
+    const branch = branched.actions.actions[0];
+
+    expect(branch?.type === 'if' && branch.else.map((leaf) => leaf.type)).toEqual(['kill_stream']);
+  });
+
+  it('gives a stored node without an id one to be addressed by', () => {
+    const loaded = builderStateFrom(
+      automation({
+        conditions: {
+          groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
+        },
+        actions: { actions: [{ type: 'send', to: ['d1'] }] },
+      })
+    );
+
+    expect(loaded.conditions.groups[0]?.id).toMatch(UUID);
+    expect(loaded.conditions.groups[0]?.conditions[0]?.id).toMatch(UUID);
+    expect(loaded.actions.actions[0]?.id).toMatch(UUID);
+  });
+});
+
 describe('builderReducer lifecycle', () => {
   it('starts clean, dirties on a change and comes back clean on load', () => {
     expect(emptyBuilderState().dirty).toBe(false);

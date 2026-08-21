@@ -4,16 +4,10 @@ import { X } from 'lucide-react';
 import type {
   Condition,
   ConditionField,
-  ConditionFieldDescriptor,
-  DeviceType,
   Operator,
   AutomationFilterOptions,
 } from '@tracearr/shared';
-import { fromMetricDistance, toMetricDistance, formatConditionFieldValue } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { NumericInput } from '@/components/ui/numeric-input';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -23,31 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { MultiSelectOption } from '@/components/ui/multi-select';
 import {
   categoryLabel,
   defaultParamsForField,
   fieldDescription,
   fieldDescriptor,
   fieldLabel,
-  fieldOptions,
-  fieldPlaceholder,
   fieldsByCategory,
   getDefaultOperatorForField,
   getDefaultValueForField,
   isArrayOperator,
   operatorLabel,
-  unitLabel,
   FIELD_CATEGORIES,
-  type Translate,
 } from '@/lib/automations';
 import { useSettings } from '@/hooks/queries';
-import { FieldControl, type ControlSpec, type ControlValue } from '../builder/fields';
-
-interface CountryGroupLabels {
-  recentlySeen: string;
-  allCountries: string;
-}
+import { ConditionParams, FieldControl, conditionValueView } from '../builder/fields';
 
 interface ConditionRowProps {
   condition: Condition;
@@ -72,7 +56,6 @@ export function ConditionRow({
 
   const descriptor = fieldDescriptor(condition.field);
   const byCategory = fieldsByCategory();
-  const unitSystem = settings?.unitSystem ?? 'metric';
 
   // A stored automation can carry a field this build no longer defines
   // (library_id was removed); rendering nothing beats taking the builder down.
@@ -103,28 +86,9 @@ export function ConditionRow({
     onChange({ ...condition, operator: newOperator, value: newValue });
   };
 
-  const updateParams = (params: Partial<NonNullable<Condition['params']>>) => {
-    onChange({ ...condition, params: { ...condition.params, ...params } });
-  };
-
-  const handleCountDeviceTypesChange = (types: string[]) => {
-    const { count_device_types: _dropped, ...rest } = condition.params ?? {};
-    onChange({
-      ...condition,
-      params:
-        types.length > 0 ? { ...rest, count_device_types: types as DeviceType[] } : { ...rest },
-    });
-  };
-
-  const conversion = numberConversion(descriptor, condition, unitSystem);
-  const valueSpec = buildValueSpec(t, condition.field, descriptor, {
-    isArray: isArrayOperator(condition.operator),
+  const view = conditionValueView(t, condition, descriptor, {
     filterOptions,
-    displayUnit: conversion.unit,
-    countryGroups: {
-      recentlySeen: t('automations.builder.conditions.recentlySeen'),
-      allCountries: t('automations.builder.conditions.allCountries'),
-    },
+    unitSystem: settings?.unitSystem ?? 'metric',
   });
 
   return (
@@ -177,70 +141,13 @@ export function ConditionRow({
       <div className="min-w-36 flex-1">
         <FieldControl
           id={`${fieldId}-value`}
-          spec={valueSpec}
-          value={conversion.displayValue}
-          onChange={(next) => onChange({ ...condition, value: conversion.toStored(next) })}
+          spec={view.spec}
+          value={view.value}
+          onChange={(next) => onChange({ ...condition, value: view.toStored(next) })}
         />
       </div>
 
-      {descriptor.flags.windowHours && (
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground text-sm whitespace-nowrap">
-            {t('automations.builder.conditions.windowPrefix')}
-          </span>
-          <NumericInput
-            className="w-16"
-            aria-label={t('automations.builder.conditions.windowUnit')}
-            min={1}
-            max={168}
-            value={condition.params?.window_hours ?? 24}
-            onChange={(window_hours) => updateParams({ window_hours })}
-          />
-          <span className="text-muted-foreground text-sm">
-            {t('automations.builder.conditions.windowUnit')}
-          </span>
-        </div>
-      )}
-
-      {descriptor.flags.excludeSameDevice && (
-        <ConditionToggle
-          label={t('automations.builder.conditions.uniqueDevices')}
-          hint={t('automations.builder.conditions.uniqueDevicesHint')}
-          checked={condition.params?.exclude_same_device ?? true}
-          onChange={(exclude_same_device) => updateParams({ exclude_same_device })}
-        />
-      )}
-
-      {descriptor.flags.excludeSameIp && (
-        <ConditionToggle
-          label={t('automations.builder.conditions.uniqueIps')}
-          hint={t('automations.builder.conditions.uniqueIpsHint')}
-          checked={condition.params?.exclude_same_ip ?? false}
-          onChange={(exclude_same_ip) => updateParams({ exclude_same_ip })}
-        />
-      )}
-
-      {descriptor.flags.countDeviceTypes && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="w-44 shrink-0">
-              <FieldControl
-                id={`${fieldId}-device-types`}
-                spec={{
-                  kind: 'multiSelect',
-                  options: fieldOptions(t, 'device_type'),
-                  placeholder: t('automations.builder.conditions.allDeviceTypes'),
-                }}
-                value={condition.params?.count_device_types ?? []}
-                onChange={(types) => handleCountDeviceTypesChange(types as string[])}
-              />
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-60">
-            {t('automations.builder.conditions.deviceTypesHint')}
-          </TooltipContent>
-        </Tooltip>
-      )}
+      <ConditionParams condition={condition} descriptor={descriptor} onChange={onChange} />
 
       {showRemove && (
         <Button
@@ -256,123 +163,6 @@ export function ConditionRow({
       )}
     </div>
   );
-}
-
-interface ConditionToggleProps {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}
-
-function ConditionToggle({ label, hint, checked, onChange }: ConditionToggleProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <label className="flex h-9 cursor-pointer items-center gap-2 whitespace-nowrap">
-          <Checkbox checked={checked} onCheckedChange={onChange} />
-          <span className="text-muted-foreground text-sm">{label}</span>
-        </label>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-60">
-        {hint}
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function dynamicOptions(
-  field: ConditionField,
-  filterOptions: AutomationFilterOptions | undefined,
-  groupLabels: CountryGroupLabels
-): MultiSelectOption[] | undefined {
-  if (!filterOptions) return undefined;
-
-  switch (fieldDescriptor(field)?.dynamicSource) {
-    case 'countries':
-      return filterOptions.countries?.map((country) => ({
-        value: country.code,
-        label: country.name,
-        group: country.hasSessions ? groupLabels.recentlySeen : groupLabels.allCountries,
-      }));
-    case 'servers':
-      return filterOptions.servers?.map((server) => ({ value: server.id, label: server.name }));
-    case 'users':
-      return filterOptions.users?.map((user) => ({
-        value: user.id,
-        label: user.identityName || user.username,
-      }));
-    default:
-      return undefined;
-  }
-}
-
-interface ValueSpecContext {
-  isArray: boolean;
-  filterOptions: AutomationFilterOptions | undefined;
-  displayUnit: string | undefined;
-  countryGroups: CountryGroupLabels;
-}
-
-function buildValueSpec(
-  t: Translate,
-  field: ConditionField,
-  descriptor: ConditionFieldDescriptor,
-  ctx: ValueSpecContext
-): ControlSpec {
-  const placeholder = fieldPlaceholder(t, field);
-
-  switch (descriptor.valueType) {
-    case 'boolean':
-      return { kind: 'boolean' };
-    case 'select':
-    case 'multiSelect': {
-      const options =
-        dynamicOptions(field, ctx.filterOptions, ctx.countryGroups) ?? fieldOptions(t, field);
-      return { kind: ctx.isArray ? 'multiSelect' : 'select', options, placeholder };
-    }
-    case 'number':
-      return {
-        kind: 'number',
-        min: descriptor.min,
-        max: descriptor.max,
-        step: descriptor.step,
-        unit: ctx.displayUnit ?? (descriptor.unit && unitLabel(t, descriptor.unit)),
-      };
-    default:
-      return { kind: 'text', placeholder };
-  }
-}
-
-interface NumberConversion {
-  displayValue: ControlValue | undefined;
-  toStored: (next: ControlValue) => Condition['value'];
-  unit: string | undefined;
-}
-
-// Distances are stored metric; the picker shows whichever system the user set.
-function numberConversion(
-  descriptor: ConditionFieldDescriptor,
-  condition: Condition,
-  unitSystem: 'metric' | 'imperial'
-): NumberConversion {
-  const asIs: NumberConversion = {
-    displayValue: condition.value,
-    toStored: (next) => next,
-    unit: undefined,
-  };
-
-  if (descriptor.valueType !== 'number' || typeof condition.value !== 'number') return asIs;
-
-  const converted = formatConditionFieldValue(condition.value, condition.field, unitSystem);
-  if (!converted.unit) return asIs;
-
-  return {
-    displayValue: Math.round(fromMetricDistance(condition.value, unitSystem)),
-    toStored: (next) =>
-      typeof next === 'number' ? Math.round(toMetricDistance(next, unitSystem)) : next,
-    unit: converted.unit,
-  };
 }
 
 export default ConditionRow;
