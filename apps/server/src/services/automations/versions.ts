@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { canonicalJson } from '@tracearr/shared';
 import type {
   AutomationKind,
   AutomationActions,
@@ -48,24 +49,12 @@ export function automationDefinition(row: {
 }
 
 /**
- * JSON.stringify with object keys sorted. A zod parse keeps the payload's key
- * order and jsonb hands its own back, so comparing the two by serialization
- * reports a difference on every save unless the order is normalized away.
+ * A zod parse keeps the payload's key order and jsonb hands its own back, so
+ * comparing the two by serialization reports a difference on every save unless
+ * the order is normalized away first.
  */
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, item]) => item !== undefined)
-      .sort(([left], [right]) => (left < right ? -1 : 1))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`);
-    return `{${entries.join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
-}
-
 export function canonicalEqual(a: unknown, b: unknown): boolean {
-  return canonical(a) === canonical(b);
+  return canonicalJson(a) === canonicalJson(b);
 }
 
 /** Two definitions differ when the stored snapshot would, which is what makes a write version-worthy. */

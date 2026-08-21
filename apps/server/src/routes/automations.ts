@@ -16,16 +16,20 @@ import {
   sql,
   type SQL,
 } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import {
   REDIS_KEYS,
   AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
   AUTOMATION_SCOPE_ERROR_MESSAGE,
+  TemplateBindingError,
+  automationDefinitionSchema,
   automationListQuerySchema,
   bulkDeleteAutomationsSchema,
   bulkUpdateAutomationsSchema,
   createAutomationSchema,
   hasAtMostOneScope,
+  materializeTemplate,
   nearMissEntrySchema,
   runListQuerySchema,
   scopeAllowsCrossServerEnforcement,
@@ -33,25 +37,45 @@ import {
   uuidSchema,
   type Automation,
   type AutomationKind,
+  type AutomationOrigin,
+  type AutomationScopeRef,
+  type AutomationTemplateRef,
   type AuthUser,
   type AutomationRunSummary,
   type AutomationSortField,
+  type CreateAutomationInput,
   type ListResponse,
   type NearMissEntry,
   type AutomationActions,
   type AutomationConditions,
+  type TemplateDefinition,
+  type TemplateInput,
   type TriggerNode,
   type UpdateAutomationInput,
   type ViolationSeverity,
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { isUniqueViolation } from '../db/pg.js';
-import { automationRuns, automations, serverUsers, servers, users } from '../db/schema.js';
+import {
+  automationRuns,
+  automationTemplates,
+  automations,
+  serverUsers,
+  servers,
+  users,
+} from '../db/schema.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateAutomationsCache } from '../jobs/poller/database.js';
 import { violationAliasConditions } from '../services/automations/aliasFilter.js';
 import { EVAL_RING_SIZE } from '../services/automations/runRecorder.js';
+import { exportEnvelope } from '../services/automations/templates/lift.js';
 import {
+  getTemplate,
+  getTemplateVersion,
+  type TemplateSource,
+} from '../services/automations/templates/store.js';
+import {
+  carryTriggerIds,
   resynthesizeTriggers,
   stampNodes,
   synthesizeTriggers,
@@ -80,6 +104,14 @@ import {
 
 const idParamSchema = z.object({ id: uuidSchema });
 
+const exportQuerySchema = z.object({ author: z.string().trim().min(1).max(80).optional() });
+
+const templateInputsSchema = z.object({
+  templateInputs: z.record(z.string(), z.unknown()).optional(),
+});
+
+const upgradeBodySchema = z.object({ inputs: z.record(z.string(), z.unknown()).optional() });
+
 const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
   name: { key: sql`${automations.name}`, defaultDir: 'asc' },
   createdAt: { key: sql`${automations.createdAt}`, defaultDir: 'desc' },
@@ -87,6 +119,50 @@ const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
   kind: { key: sql`${automations.kind}`, defaultDir: 'asc' },
   isActive: { key: sql`${automations.isActive}`, defaultDir: 'desc' },
 };
+
+// The account scope names a server too, and a detached row names the template it left.
+const accountServers = alias(servers, 'account_servers');
+const originTemplates = alias(automationTemplates, 'origin_templates');
+
+/** The names a row needs to render; a write path that skips the joins renders nulls. */
+interface AutomationJoins {
+  serverName: string | null;
+  accountName: string | null;
+  accountServerName: string | null;
+  personName: string | null;
+  templateSlug: string | null;
+  templateName: string | null;
+  templateCurrentVersion: number | null;
+  templateSource: TemplateSource | null;
+  originName: string | null;
+}
+
+export type AutomationDetailRow = AutomationRow & Partial<AutomationJoins>;
+
+const automationColumns = {
+  ...getTableColumns(automations),
+  serverName: servers.name,
+  accountName: serverUsers.username,
+  accountServerName: accountServers.name,
+  personName: users.name,
+  templateSlug: automationTemplates.slug,
+  templateName: automationTemplates.name,
+  templateCurrentVersion: automationTemplates.currentVersion,
+  templateSource: automationTemplates.source,
+  originName: originTemplates.name,
+};
+
+/** One row per automation: every scope is at most one join deep and each name is unique. */
+const automationSelect = () =>
+  db
+    .select(automationColumns)
+    .from(automations)
+    .leftJoin(servers, eq(servers.id, automations.serverId))
+    .leftJoin(serverUsers, eq(serverUsers.id, automations.serverUserId))
+    .leftJoin(accountServers, eq(accountServers.id, serverUsers.serverId))
+    .leftJoin(users, eq(users.id, automations.userId))
+    .leftJoin(automationTemplates, eq(automationTemplates.id, automations.templateId))
+    .leftJoin(originTemplates, eq(originTemplates.id, automations.originTemplateId));
 
 /**
  * The version number is `max + 1`, so two concurrent definition writes pick the same one
@@ -101,7 +177,47 @@ async function retryOnVersionCollision<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
-function toAutomation(row: AutomationRow): Automation {
+function scopeRefOf(row: AutomationDetailRow): AutomationScopeRef | null {
+  if (row.serverId && row.serverName) {
+    return { kind: 'server', id: row.serverId, name: row.serverName };
+  }
+  if (row.serverUserId && row.accountName) {
+    return {
+      kind: 'account',
+      id: row.serverUserId,
+      name: row.accountName,
+      serverName: row.accountServerName ?? undefined,
+    };
+  }
+  if (row.userId && row.personName) {
+    return { kind: 'person', id: row.userId, name: row.personName };
+  }
+  return null;
+}
+
+function templateRefOf(row: AutomationDetailRow): AutomationTemplateRef | null {
+  if (!row.templateId || !row.templateSlug || !row.templateName || !row.templateSource) return null;
+  return {
+    id: row.templateId,
+    slug: row.templateSlug,
+    name: row.templateName,
+    version: row.templateVersion ?? row.templateCurrentVersion ?? 1,
+    currentVersion: row.templateCurrentVersion ?? row.templateVersion ?? 1,
+    source: row.templateSource,
+  };
+}
+
+/** A detached row keeps its provenance even after the template it came from is deleted. */
+function originOf(row: AutomationDetailRow): AutomationOrigin | null {
+  if (!row.originTemplateId || row.originTemplateVersion === null) return null;
+  return {
+    templateId: row.originTemplateId,
+    version: row.originTemplateVersion,
+    name: row.originName ?? null,
+  };
+}
+
+export function toAutomation(row: AutomationDetailRow): Automation {
   return {
     id: row.id,
     name: row.name,
@@ -118,9 +234,9 @@ function toAutomation(row: AutomationRow): Automation {
     isActive: row.isActive,
     cooldownMinutes: row.cooldownMinutes,
     retentionDays: row.retentionDays,
-    scopeRef: null,
-    template: null,
-    origin: null,
+    scopeRef: scopeRefOf(row),
+    template: templateRefOf(row),
+    origin: originOf(row),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -146,12 +262,11 @@ function visibleAutomations(authUser: AuthUser): SQL | undefined {
   );
 }
 
-/** The single read joins the person scope's name; the list stays a plain select. */
-async function loadAutomation(id: string, authUser: AuthUser) {
-  const rows = await db
-    .select({ ...getTableColumns(automations), identityName: users.name })
-    .from(automations)
-    .leftJoin(users, eq(users.id, automations.userId))
+export async function loadAutomation(
+  id: string,
+  authUser: AuthUser
+): Promise<AutomationDetailRow | undefined> {
+  const rows = await automationSelect()
     .where(and(eq(automations.id, id), visibleAutomations(authUser)))
     .limit(1);
   return rows[0];
@@ -181,23 +296,55 @@ async function restateIdentities(serverUserIds: string[]): Promise<void> {
   }
 }
 
-/** The scope trio and enforcement flag as they will read after the patch lands. */
-function mergedScope(row: AutomationRow, patch: UpdateAutomationInput) {
+/** The sweep runs for anything that can fire on inactivity, by trigger or by condition. */
+export function needsInactivitySweep(row: {
+  triggers: TriggerNode[] | null;
+  conditions: AutomationConditions | null;
+}): boolean {
+  return (
+    (row.triggers ?? []).some(
+      (trigger) => trigger.type === 'account.inactive_for' && trigger.enabled
+    ) || hasInactivityCondition(row)
+  );
+}
+
+export type MaterializeResult =
+  { ok: true; definition: CreateAutomationInput } | { ok: false; reason: string };
+
+/**
+ * Binding fails two ways: a required input nothing named, or bound values the
+ * automation schema rejects. Both are the caller's payload, never a server fault.
+ */
+export function materializeInstance(
+  version: { inputs: TemplateInput[]; definition: TemplateDefinition },
+  inputs: Record<string, unknown>,
+  name: string
+): MaterializeResult {
+  try {
+    return { ok: true, definition: materializeTemplate(version, inputs, { name }) };
+  } catch (error) {
+    if (error instanceof TemplateBindingError) {
+      return { ok: false, reason: `Unbound required input(s): ${error.missing.join(', ')}` };
+    }
+    if (error instanceof z.ZodError) return { ok: false, reason: firstIssueMessage(error) };
+    throw error;
+  }
+}
+
+/** The scope a materialized definition carries, in the column shape the row stores. */
+function definitionScope(definition: CreateAutomationInput) {
   return {
-    serverId: patch.serverId !== undefined ? patch.serverId : row.serverId,
-    serverUserId: patch.serverUserId !== undefined ? patch.serverUserId : row.serverUserId,
-    userId: patch.userId !== undefined ? patch.userId : row.userId,
-    enforceAcrossServers:
-      patch.enforceAcrossServers !== undefined
-        ? patch.enforceAcrossServers
-        : row.enforceAcrossServers,
+    serverId: definition.serverId ?? null,
+    serverUserId: definition.serverUserId ?? null,
+    userId: definition.userId ?? null,
+    enforceAcrossServers: definition.enforceAcrossServers ?? false,
   };
 }
 
 type ScopeRefs = Pick<UpdateAutomationInput, 'serverId' | 'serverUserId' | 'userId'>;
 
 /** The first scope reference the payload names that no row backs. */
-async function missingScopeRef(scope: ScopeRefs): Promise<string | null> {
+export async function missingScopeRef(scope: ScopeRefs): Promise<string | null> {
   if (scope.serverId) {
     const rows = await db
       .select({ id: servers.id })
@@ -225,9 +372,66 @@ async function missingScopeRef(scope: ScopeRefs): Promise<string | null> {
   return null;
 }
 
+/** Every column a definition write touches, so a template rebind and a builder save agree. */
+type AutomationUpdate = Partial<{
+  name: string;
+  description: string | null;
+  kind: AutomationKind;
+  severity: ViolationSeverity;
+  conditions: AutomationConditions;
+  actions: AutomationActions;
+  triggers: TriggerNode[];
+  serverId: string | null;
+  serverUserId: string | null;
+  userId: string | null;
+  enforceAcrossServers: boolean;
+  cooldownMinutes: number | null;
+  retentionDays: number | null;
+  isActive: boolean;
+  templateId: string | null;
+  templateVersion: number | null;
+  templateInputs: Record<string, unknown> | null;
+  originTemplateId: string | null;
+  originTemplateVersion: number | null;
+  updatedAt: Date;
+}>;
+
 export const automationRoutes: FastifyPluginAsync = async (app) => {
   const owner = { preHandler: [app.requireOwner] };
   const authed = { preHandler: [app.authenticate] };
+
+  /** The write, its version row when the definition moved, and the reply's own read. */
+  const saveDefinition = async (
+    existing: AutomationRow,
+    updateData: AutomationUpdate,
+    authUser: AuthUser
+  ): Promise<AutomationDetailRow | null> => {
+    const write = () =>
+      db.transaction(async (tx) => {
+        const rows = await tx
+          .update(automations)
+          .set(updateData)
+          .where(eq(automations.id, existing.id))
+          .returning();
+        const row = rows[0];
+        if (!row) return null;
+        // Runtime settings are not part of the definition, so toggling one takes no version.
+        const definition = automationDefinition(row);
+        if (!sameDefinition(definition, automationDefinition(existing))) {
+          await insertAutomationVersion(tx, row.id, definition);
+        }
+        return row;
+      });
+
+    const updated = await retryOnVersionCollision(write);
+    if (!updated) return null;
+
+    invalidateAutomationsCache();
+    if (needsInactivitySweep(existing) || needsInactivitySweep(updated)) {
+      void scheduleInactivityChecks();
+    }
+    return (await loadAutomation(updated.id, authUser)) ?? updated;
+  };
 
   /**
    * GET /automations - List automations with pagination, filters and sorting
@@ -247,9 +451,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (search) conditions.push(ilike(automations.name, likePattern(search)));
 
     const where = and(...conditions);
-    const rows = await db
-      .select()
-      .from(automations)
+    const rows = await automationSelect()
       .where(where)
       .orderBy(buildOrderBy(AUTOMATION_SORT_KEYS, orderBy, orderDir, sql`${automations.id}`))
       .limit(pageSize)
@@ -306,7 +508,8 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
           severity: storedSeverity(input.severity),
           conditions: stamped.conditions,
           actions: stamped.actions,
-          triggers: synthesizeTriggers(stamped.conditions),
+          // Until the builder sends its own, the trigger set is read off the conditions.
+          triggers: input.triggers ?? synthesizeTriggers(stamped.conditions),
           serverId: input.serverId,
           serverUserId: input.serverUserId,
           userId: input.userId,
@@ -325,9 +528,10 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (!created) return reply.internalServerError('Failed to create automation');
 
     invalidateAutomationsCache();
-    if (hasInactivityCondition(created)) void scheduleInactivityChecks();
+    if (needsInactivitySweep(created)) void scheduleInactivityChecks();
 
-    return reply.code(201).send(toAutomation(created));
+    const detail = await loadAutomation(created.id, request.user);
+    return reply.code(201).send(toAutomation(detail ?? created));
   });
 
   /**
@@ -339,7 +543,20 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('Invalid automation ID');
     }
 
-    const body = updateAutomationSchema.safeParse(request.body);
+    // `templateInputs` rides along with the definition fields but belongs to neither
+    // schema, so it is lifted off before the rest is validated as an update.
+    if (typeof request.body !== 'object' || request.body === null || Array.isArray(request.body)) {
+      return reply.badRequest('Invalid request body');
+    }
+    const raw = { ...(request.body as Record<string, unknown>) };
+    const envelope = templateInputsSchema.safeParse(raw);
+    if (!envelope.success) {
+      return reply.badRequest(`Invalid request body: ${firstIssueMessage(envelope.error)}`);
+    }
+    const { templateInputs } = envelope.data;
+    delete raw.templateInputs;
+
+    const body = updateAutomationSchema.safeParse(raw);
     if (!body.success) {
       return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
     }
@@ -348,100 +565,244 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     if (!existing) return reply.notFound('Automation not found');
 
     const patch = body.data;
-    // A partial payload cannot see the fields it leaves alone, so the invariants
-    // are checked against the row the write would leave behind.
-    const scope = mergedScope(existing, patch);
-    if (!hasAtMostOneScope(scope)) return reply.badRequest(AUTOMATION_SCOPE_ERROR_MESSAGE);
-    if (!scopeAllowsCrossServerEnforcement(scope)) {
-      return reply.badRequest(AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE);
+    const boundTo = existing.templateId;
+    if (boundTo) {
+      if (
+        patch.conditions !== undefined ||
+        patch.actions !== undefined ||
+        patch.triggers !== undefined
+      ) {
+        return reply.conflict('Customize this automation before editing what it does');
+      }
+    } else if (templateInputs !== undefined) {
+      return reply.badRequest('templateInputs needs an automation bound to a template');
     }
 
-    const missingScope = await missingScopeRef(patch);
-    if (missingScope) return reply.notFound(missingScope);
-
-    const missingDestinations = await unknownDestinationIds(patch.actions);
-    if (missingDestinations.length > 0) {
-      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
+    // A rebind re-runs the pinned version against the new bindings; the fields the
+    // instance owns are never taken back from it.
+    let rebound: { definition: CreateAutomationInput; inputs: Record<string, unknown> } | null =
+      null;
+    if (boundTo && templateInputs !== undefined) {
+      const pinned =
+        existing.templateVersion === null
+          ? null
+          : await getTemplateVersion(boundTo, existing.templateVersion);
+      if (!pinned) return reply.conflict('The template version this automation uses is gone');
+      const materialized = materializeInstance(pinned, templateInputs, patch.name ?? existing.name);
+      if (!materialized.ok) return reply.badRequest(materialized.reason);
+      rebound = { definition: materialized.definition, inputs: templateInputs };
     }
 
     const stamped = stampNodes({
       conditions: patch.conditions ?? null,
       actions: patch.actions ?? null,
     });
-    const updateData: Partial<{
-      name: string;
-      description: string | null;
-      kind: AutomationKind;
-      severity: ViolationSeverity;
-      conditions: AutomationConditions;
-      actions: AutomationActions;
-      triggers: TriggerNode[];
-      serverId: string | null;
-      serverUserId: string | null;
-      userId: string | null;
-      enforceAcrossServers: boolean;
-      cooldownMinutes: number | null;
-      retentionDays: number | null;
-      isActive: boolean;
-      updatedAt: Date;
-    }> = { updatedAt: new Date() };
+    const updateData: AutomationUpdate = { updatedAt: new Date() };
+
+    if (rebound) {
+      updateData.conditions = rebound.definition.conditions;
+      updateData.actions = rebound.definition.actions;
+      updateData.triggers = carryTriggerIds(rebound.definition.triggers ?? [], existing.triggers);
+      Object.assign(updateData, definitionScope(rebound.definition));
+      updateData.templateInputs = rebound.inputs;
+    } else {
+      if (patch.conditions !== undefined && stamped.conditions) {
+        updateData.conditions = stamped.conditions;
+        // The payload comes back from zod in its own key order and the stored row in
+        // jsonb's, so only a canonical compare can tell a restatement from an edit.
+        if (!canonicalEqual(stamped.conditions, existing.conditions)) {
+          updateData.triggers = resynthesizeTriggers(stamped.conditions, existing.triggers);
+        }
+      }
+      if (patch.actions !== undefined) updateData.actions = stamped.actions;
+      if (patch.triggers !== undefined) updateData.triggers = patch.triggers;
+      if (patch.serverId !== undefined) updateData.serverId = patch.serverId;
+      if (patch.serverUserId !== undefined) updateData.serverUserId = patch.serverUserId;
+      if (patch.userId !== undefined) updateData.userId = patch.userId;
+      if (patch.enforceAcrossServers !== undefined) {
+        updateData.enforceAcrossServers = patch.enforceAcrossServers;
+      }
+    }
 
     if (patch.name !== undefined) updateData.name = patch.name;
     if (patch.description !== undefined) updateData.description = patch.description;
     if (patch.kind !== undefined) updateData.kind = patch.kind;
     if (patch.severity !== undefined) updateData.severity = storedSeverity(patch.severity);
-    if (patch.conditions !== undefined && stamped.conditions) {
-      updateData.conditions = stamped.conditions;
-      // The payload comes back from zod in its own key order and the stored row in
-      // jsonb's, so only a canonical compare can tell a restatement from an edit.
-      if (!canonicalEqual(stamped.conditions, existing.conditions)) {
-        updateData.triggers = resynthesizeTriggers(stamped.conditions, existing.triggers);
-      }
-    }
-    if (patch.actions !== undefined) updateData.actions = stamped.actions;
-    if (patch.serverId !== undefined) updateData.serverId = patch.serverId;
-    if (patch.serverUserId !== undefined) updateData.serverUserId = patch.serverUserId;
-    if (patch.userId !== undefined) updateData.userId = patch.userId;
-    if (patch.enforceAcrossServers !== undefined) {
-      updateData.enforceAcrossServers = patch.enforceAcrossServers;
-    }
     if (patch.cooldownMinutes !== undefined) updateData.cooldownMinutes = patch.cooldownMinutes;
     if (patch.retentionDays !== undefined) updateData.retentionDays = patch.retentionDays;
     if (patch.isActive !== undefined) updateData.isActive = patch.isActive;
 
-    const save = () =>
-      db.transaction(async (tx) => {
-        const rows = await tx
-          .update(automations)
-          .set(updateData)
-          .where(eq(automations.id, existing.id))
-          .returning();
-        const row = rows[0];
-        if (!row) return null;
-        // Runtime settings are not part of the definition, so toggling one takes no version.
-        const definition = automationDefinition(row);
-        if (!sameDefinition(definition, automationDefinition(existing))) {
-          await insertAutomationVersion(tx, row.id, definition);
-        }
-        return row;
-      });
+    // A partial payload cannot see the fields it leaves alone, so the invariants
+    // are checked against the row the write would leave behind.
+    const next = { ...existing, ...updateData };
+    const scope = {
+      serverId: next.serverId,
+      serverUserId: next.serverUserId,
+      userId: next.userId,
+      enforceAcrossServers: next.enforceAcrossServers,
+    };
+    if (!hasAtMostOneScope(scope)) return reply.badRequest(AUTOMATION_SCOPE_ERROR_MESSAGE);
+    if (!scopeAllowsCrossServerEnforcement(scope)) {
+      return reply.badRequest(AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE);
+    }
 
-    let updated: AutomationRow | null;
+    // Only an edit to the definition has to answer for it: disabling an automation
+    // an older schema allowed has to stay possible.
+    if (!sameDefinition(automationDefinition(next), automationDefinition(existing))) {
+      const merged = automationDefinitionSchema.safeParse({
+        name: next.name,
+        description: next.description,
+        kind: next.kind,
+        severity: next.severity,
+        triggers: next.triggers ?? [],
+        conditions: next.conditions ?? { groups: [] },
+        actions: next.actions ?? { actions: [] },
+        ...scope,
+        cooldownMinutes: next.cooldownMinutes,
+        retentionDays: next.retentionDays,
+        isActive: next.isActive,
+      });
+      if (!merged.success) {
+        return reply.badRequest(`Invalid request body: ${firstIssueMessage(merged.error)}`);
+      }
+    }
+
+    const missingScope = await missingScopeRef(rebound ? scope : patch);
+    if (missingScope) return reply.notFound(missingScope);
+
+    const missingDestinations = await unknownDestinationIds(updateData.actions);
+    if (missingDestinations.length > 0) {
+      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
+    }
+
+    let updated: AutomationDetailRow | null;
     try {
-      updated = await retryOnVersionCollision(save);
+      updated = await saveDefinition(existing, updateData, request.user);
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       return reply.conflict('the automation changed while saving; try again');
     }
 
     if (!updated) return reply.internalServerError('Failed to update automation');
+    return toAutomation(updated);
+  });
 
-    invalidateAutomationsCache();
-    if (hasInactivityCondition(existing) || hasInactivityCondition(updated)) {
-      void scheduleInactivityChecks();
+  /**
+   * POST /automations/:id/detach - Cut an instance loose from its template, one way
+   */
+  app.post('/:id/detach', owner, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.badRequest('Invalid automation ID');
     }
 
+    const existing = await loadAutomation(params.data.id, request.user);
+    if (!existing) return reply.notFound('Automation not found');
+    if (!existing.templateId) return reply.conflict('This automation has no template to leave');
+
+    const rows = await db
+      .update(automations)
+      .set({
+        templateId: null,
+        templateVersion: null,
+        templateInputs: null,
+        originTemplateId: existing.templateId,
+        originTemplateVersion: existing.templateVersion,
+        updatedAt: new Date(),
+      })
+      .where(eq(automations.id, existing.id))
+      .returning();
+    const updated = rows[0];
+    if (!updated) return reply.internalServerError('Failed to detach automation');
+
+    invalidateAutomationsCache();
+    if (needsInactivitySweep(updated)) void scheduleInactivityChecks();
+
+    const detail = await loadAutomation(updated.id, request.user);
+    return toAutomation(detail ?? updated);
+  });
+
+  /**
+   * POST /automations/:id/upgrade - Rebind an instance onto its template's current version
+   */
+  app.post('/:id/upgrade', owner, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.badRequest('Invalid automation ID');
+    }
+    const body = upgradeBodySchema.safeParse(request.body ?? {});
+    if (!body.success) {
+      return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
+    }
+
+    const existing = await loadAutomation(params.data.id, request.user);
+    if (!existing) return reply.notFound('Automation not found');
+    if (!existing.templateId) return reply.conflict('This automation has no template to upgrade');
+
+    const template = await getTemplate(existing.templateId);
+    if (!template) return reply.notFound('Template not found');
+
+    const inputs = body.data.inputs ?? existing.templateInputs ?? {};
+    const materialized = materializeInstance(template.version, inputs, existing.name);
+    if (!materialized.ok) return reply.badRequest(materialized.reason);
+    const definition = materialized.definition;
+
+    const scope = definitionScope(definition);
+    const missingScope = await missingScopeRef(scope);
+    if (missingScope) return reply.notFound(missingScope);
+
+    const missingDestinations = await unknownDestinationIds(definition.actions);
+    if (missingDestinations.length > 0) {
+      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
+    }
+
+    const updateData: AutomationUpdate = {
+      conditions: definition.conditions,
+      actions: definition.actions,
+      // A trigger type that survives the new version keeps the node id the gate reads.
+      triggers: carryTriggerIds(definition.triggers ?? [], existing.triggers),
+      ...scope,
+      templateVersion: template.version.version,
+      templateInputs: inputs,
+      updatedAt: new Date(),
+    };
+
+    let updated: AutomationDetailRow | null;
+    try {
+      updated = await saveDefinition(existing, updateData, request.user);
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      return reply.conflict('the automation changed while saving; try again');
+    }
+
+    if (!updated) return reply.internalServerError('Failed to upgrade automation');
     return toAutomation(updated);
+  });
+
+  /**
+   * GET /automations/:id/export - The automation as a shareable envelope and code
+   */
+  app.get('/:id/export', authed, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.badRequest('Invalid automation ID');
+    }
+    const query = exportQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.badRequest(`Invalid query parameters: ${firstIssueMessage(query.error)}`);
+    }
+
+    const existing = await loadAutomation(params.data.id, request.user);
+    if (!existing) return reply.notFound('Automation not found');
+
+    const exported = exportEnvelope(existing, {
+      ...(query.data.author === undefined ? {} : { author: query.data.author }),
+      serverName: existing.serverName,
+    });
+    if (!exported.ok) {
+      return reply.badRequest(`This automation cannot be exported: ${exported.reason}`);
+    }
+    return { envelope: exported.envelope, code: exported.code };
   });
 
   /**
@@ -461,7 +822,7 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     await restateIdentities(counted);
 
     invalidateAutomationsCache();
-    if (hasInactivityCondition(existing)) void scheduleInactivityChecks();
+    if (needsInactivitySweep(existing)) void scheduleInactivityChecks();
 
     return reply.code(204).send();
   });

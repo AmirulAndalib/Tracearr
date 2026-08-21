@@ -125,7 +125,7 @@ interface MockViolationWithJoins {
 }
 
 function createTestViolation(
-  overrides: Partial<MockViolationWithJoins> = {}
+  overrides: Partial<Omit<MockViolationWithJoins, 'ruleType'>> = {}
 ): MockViolationWithJoins {
   const serverId = overrides.serverId ?? randomUUID();
   return {

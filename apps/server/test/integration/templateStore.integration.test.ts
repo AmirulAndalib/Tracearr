@@ -25,6 +25,7 @@ import {
   getTemplateVersion,
   instantiateTemplate,
   listTemplates,
+  matchTemplate,
   sha256Hex,
 } from '../../src/services/automations/templates/store.js';
 
@@ -139,6 +140,34 @@ describe('template store', () => {
         TemplateFingerprintError
       );
       expect(await db.select().from(automationTemplates)).toHaveLength(0);
+    });
+  });
+
+  describe('matchTemplate', () => {
+    it('prefers the row with the same body over the one with the same slug', async () => {
+      const original = await createTemplate(builtin('stream-started'), imported);
+      const edited = variant('stream-started', 'Now playing');
+      const renamed = await createTemplate(
+        templateEnvelopeSchema.parse({ ...edited, slug: 'now-playing' }),
+        imported
+      );
+
+      const bySlug = await matchTemplate(edited);
+      const byBody = await matchTemplate({ ...edited, slug: 'anything-else' });
+
+      expect(bySlug).toMatchObject({ templateId: renamed.id, fingerprintMatch: true });
+      expect(byBody).toMatchObject({ templateId: renamed.id, fingerprintMatch: true });
+      expect(await matchTemplate({ slug: 'stream-started', fingerprint: 'f'.repeat(64) })).toEqual({
+        templateId: original.id,
+        version: 1,
+        name: 'Stream started',
+        builtin: false,
+        fingerprintMatch: false,
+      });
+    });
+
+    it('finds nothing when neither the slug nor the body is stored', async () => {
+      expect(await matchTemplate(builtin('stream-started'))).toBeNull();
     });
   });
 

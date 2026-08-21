@@ -4,7 +4,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { and, count, eq, like, sql } from 'drizzle-orm';
+import { and, count, eq, like, or, sql } from 'drizzle-orm';
 import {
   fingerprintOf,
   materializeTemplate,
@@ -159,6 +159,45 @@ export async function getTemplateVersion(
       )
     );
   return rows[0] ?? null;
+}
+
+export interface TemplateMatch {
+  templateId: string;
+  version: number;
+  name: string;
+  builtin: boolean;
+  fingerprintMatch: boolean;
+}
+
+/** The row an import would land on, the same body outranking the same slug. */
+export async function matchTemplate(envelope: {
+  slug: string;
+  fingerprint: string;
+}): Promise<TemplateMatch | null> {
+  const rows = await db
+    .select({
+      id: automationTemplates.id,
+      name: automationTemplates.name,
+      builtin: automationTemplates.builtin,
+      currentVersion: automationTemplates.currentVersion,
+      fingerprint: automationTemplates.fingerprint,
+    })
+    .from(automationTemplates)
+    .where(
+      or(
+        eq(automationTemplates.fingerprint, envelope.fingerprint),
+        eq(automationTemplates.slug, envelope.slug)
+      )
+    );
+  const found = rows.find((row) => row.fingerprint === envelope.fingerprint) ?? rows[0];
+  if (!found) return null;
+  return {
+    templateId: found.id,
+    version: found.currentVersion,
+    name: found.name,
+    builtin: found.builtin,
+    fingerprintMatch: found.fingerprint === envelope.fingerprint,
+  };
 }
 
 /** The first `<slug>`, `<slug>-2`, `<slug>-3`… nothing has claimed yet. */

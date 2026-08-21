@@ -60,19 +60,27 @@ export function synthesizeTriggers(
 }
 
 /**
- * Re-synthesis for a save: a trigger type that survives the edit keeps the node
- * id it already had. The notification gate reads that id off past runs, so a
- * fresh one re-notifies every subject the automation has already reached.
+ * A trigger type that survives an edit keeps the node id it already had. The
+ * notification gate reads that id off past runs, so a fresh one re-notifies
+ * every subject the automation has already reached.
  */
+export function carryTriggerIds(
+  next: TriggerNode[],
+  existing: TriggerNode[] | null | undefined
+): TriggerNode[] {
+  const byType = new Map((existing ?? []).map((trigger) => [trigger.type, trigger.id]));
+  return next.map((trigger) => {
+    const priorId = byType.get(trigger.type);
+    return priorId ? { ...trigger, id: priorId } : trigger;
+  });
+}
+
+/** Re-synthesis for a save, with the surviving node ids carried across. */
 export function resynthesizeTriggers(
   conditions: AutomationConditions | null | undefined,
   existing: TriggerNode[] | null | undefined
 ): TriggerNode[] {
-  const byType = new Map((existing ?? []).map((trigger) => [trigger.type, trigger.id]));
-  return synthesizeTriggers(conditions).map((trigger) => {
-    const priorId = byType.get(trigger.type);
-    return priorId ? { ...trigger, id: priorId } : trigger;
-  });
+  return carryTriggerIds(synthesizeTriggers(conditions), existing);
 }
 
 const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({

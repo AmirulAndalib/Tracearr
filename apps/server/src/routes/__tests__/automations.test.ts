@@ -17,6 +17,8 @@ import type {
   AutomationConditions,
   TriggerNode,
 } from '@tracearr/shared';
+import { inflateRawSync } from 'node:zlib';
+import { decodeShareCode, templateEnvelopeSchema } from '@tracearr/shared';
 import { queryChain, renderCall } from '../../test/helpers.js';
 
 vi.mock('../../db/client.js', () => ({
@@ -38,9 +40,16 @@ vi.mock('../../services/notifications/destinationRefs.js', () => ({
 vi.mock('../../services/userService.js', () => ({
   recomputeIdentityAggregatesForServerUser: vi.fn(),
 }));
+vi.mock('../../services/automations/templates/store.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getTemplate: vi.fn(),
+  getTemplateVersion: vi.fn(),
+}));
 
 import { db } from '../../db/client.js';
 import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
+import { BUILTIN_ENVELOPES } from '../../services/automations/templates/builtin/index.js';
+import { getTemplate, getTemplateVersion } from '../../services/automations/templates/store.js';
 import { unknownDestinationIds } from '../../services/notifications/destinationRefs.js';
 import { recomputeIdentityAggregatesForServerUser } from '../../services/userService.js';
 import { automationRoutes } from '../automations.js';
@@ -53,6 +62,34 @@ const actions: AutomationActions = { actions: [{ type: 'kill_stream' }] };
 
 const AUTOMATION_ID = randomUUID();
 const OTHER_ID = randomUUID();
+const TEMPLATE_ID = randomUUID();
+const SERVER_ID = randomUUID();
+const DESTINATION_ID = randomUUID();
+const TRIGGER_ID = randomUUID();
+
+function envelopeOf(slug: string) {
+  const found = BUILTIN_ENVELOPES.find((envelope) => envelope.slug === slug);
+  if (!found) throw new Error(`the ${slug} template is missing`);
+  return found;
+}
+
+const streamStarted = envelopeOf('stream-started');
+
+/** The pinned version a bound row re-materializes against. */
+const templateVersion = (version: number, definition = streamStarted.definition) => ({
+  version,
+  inputs: streamStarted.inputs,
+  definition,
+});
+
+/** The same template with a body the version before it did not have. */
+function editedDefinition() {
+  const definition = structuredClone(streamStarted.definition);
+  const action = definition.actions.actions[0];
+  if (action?.type !== 'send') throw new Error('stream-started lost its send action');
+  action.title = 'Now playing';
+  return definition;
+}
 
 function automationRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -75,6 +112,27 @@ function automationRow(overrides: Record<string, unknown> = {}) {
     updatedAt: new Date('2026-08-02T00:00:00.000Z'),
     ...overrides,
   };
+}
+
+/** An instance of the stream-started template, as the joined read hands it back. */
+function boundRow(overrides: Record<string, unknown> = {}) {
+  return automationRow({
+    name: 'Stream started — Plex',
+    kind: 'notification',
+    conditions: { groups: [] },
+    actions: { actions: [{ id: randomUUID(), type: 'send', enabled: true, to: [DESTINATION_ID] }] },
+    triggers: [{ id: TRIGGER_ID, type: 'session.started', enabled: true }],
+    serverId: SERVER_ID,
+    serverName: 'Plex',
+    templateId: TEMPLATE_ID,
+    templateVersion: 1,
+    templateInputs: { to: [DESTINATION_ID], server: SERVER_ID },
+    templateSlug: 'stream-started',
+    templateName: 'Stream started',
+    templateCurrentVersion: 3,
+    templateSource: 'builtin',
+    ...overrides,
+  });
 }
 
 const ownerUser: AuthUser = {
@@ -332,6 +390,7 @@ describe('Automation routes', () => {
       app = await buildTestApp(ownerUser);
       const created = automationRow({ id: OTHER_ID, name: 'pause watch' });
       const harness = setupTransaction([[created], [{ id: 'ver-1' }]]);
+      setupSelect([created]);
 
       const response = await app.inject({ method: 'POST', url: '/automations', payload: body });
 
@@ -361,6 +420,7 @@ describe('Automation routes', () => {
     it('preserves ids the builder already assigned', async () => {
       app = await buildTestApp(ownerUser);
       const harness = setupTransaction([[automationRow()], [{ id: 'ver-1' }]]);
+      setupSelect([automationRow()]);
       const id = randomUUID();
 
       await app.inject({
@@ -434,7 +494,11 @@ describe('Automation routes', () => {
   describe('PATCH /automations/:id', () => {
     it('versions a definition change and re-synthesizes triggers', async () => {
       app = await buildTestApp(ownerUser);
-      setupSelect([automationRow()]);
+      // kill_stream needs a session trigger, and this edit leaves only an account one.
+      const stored = automationRow({
+        actions: { actions: [{ type: 'trust', mode: 'adjust', amount: -5 }] },
+      });
+      setupSelect([stored]);
       const nextConditions = {
         groups: [{ conditions: [{ field: 'inactive_days', operator: 'gte', value: 30 }] }],
       };
@@ -936,6 +1000,432 @@ describe('Automation routes', () => {
       const response = await app.inject({
         method: 'GET',
         url: `/automations/${AUTOMATION_ID}/evaluations`,
+      });
+
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('explicit triggers', () => {
+    it('stores the trigger set the payload carried instead of synthesizing one', async () => {
+      app = await buildTestApp(ownerUser);
+      const harness = setupTransaction([[automationRow()], [{ id: 'ver-1' }]]);
+      setupSelect([automationRow()]);
+      const triggerId = randomUUID();
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations',
+        payload: {
+          name: 'pause watch',
+          kind: 'policy',
+          severity: 'warning',
+          triggers: [{ id: triggerId, type: 'session.paused', enabled: true }],
+          conditions: {
+            groups: [
+              { conditions: [{ field: 'current_pause_minutes', operator: 'gt', value: 30 }] },
+            ],
+          },
+          actions: { actions: [{ type: 'kill_stream' }] },
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const values = harness.insertedValues[0] as { triggers: TriggerNode[] };
+      expect(values.triggers).toEqual([{ id: triggerId, type: 'session.paused', enabled: true }]);
+    });
+  });
+
+  describe('names on the wire', () => {
+    it('names the server, account and person a scope points at', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks(
+        [
+          automationRow({ id: randomUUID(), serverId: SERVER_ID, serverName: 'Plex' }),
+          automationRow({
+            id: randomUUID(),
+            serverUserId: 'su-1',
+            accountName: 'ada',
+            accountServerName: 'Plex',
+          }),
+          automationRow({ id: randomUUID(), userId: 'usr-1', personName: 'Ada' }),
+        ],
+        3
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/automations' });
+
+      expect(response.statusCode).toBe(200);
+      const [server, account, person] = response.json().data;
+      expect(server.scopeRef).toEqual({ kind: 'server', id: SERVER_ID, name: 'Plex' });
+      expect(account.scopeRef).toEqual({
+        kind: 'account',
+        id: 'su-1',
+        name: 'ada',
+        serverName: 'Plex',
+      });
+      expect(person.scopeRef).toEqual({ kind: 'person', id: 'usr-1', name: 'Ada' });
+    });
+
+    it('carries the template a row is bound to and the origin a detached one kept', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([
+        boundRow({
+          originTemplateId: OTHER_ID,
+          originTemplateVersion: 2,
+          originName: 'Stream started',
+        }),
+      ]);
+
+      const response = await app.inject({ method: 'GET', url: `/automations/${AUTOMATION_ID}` });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.template).toEqual({
+        id: TEMPLATE_ID,
+        slug: 'stream-started',
+        name: 'Stream started',
+        version: 1,
+        currentVersion: 3,
+        source: 'builtin',
+      });
+      expect(body.origin).toEqual({
+        templateId: OTHER_ID,
+        version: 2,
+        name: 'Stream started',
+      });
+    });
+
+    it('leaves the origin of a template that is gone unnamed', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([
+        automationRow({ originTemplateId: OTHER_ID, originTemplateVersion: 4, originName: null }),
+      ]);
+
+      const response = await app.inject({ method: 'GET', url: `/automations/${AUTOMATION_ID}` });
+
+      expect(response.json().origin).toEqual({ templateId: OTHER_ID, version: 4, name: null });
+    });
+  });
+
+  describe('template-bound automations', () => {
+    it('409s an edit to what the automation does', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { conditions: { groups: [] } },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('re-materializes new inputs against the pinned version and keeps the instance fields', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = boundRow();
+      setupSelect([stored], [{ id: SERVER_ID }]);
+      vi.mocked(getTemplateVersion).mockResolvedValue(templateVersion(1));
+      const nextDestination = randomUUID();
+      const harness = setupTransaction([
+        [
+          {
+            ...stored,
+            actions: { actions: [{ id: randomUUID(), type: 'send', to: [nextDestination] }] },
+          },
+        ],
+        [{ id: 'ver-2' }],
+      ]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { templateInputs: { to: [nextDestination], server: SERVER_ID } },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getTemplateVersion).toHaveBeenCalledWith(TEMPLATE_ID, 1);
+      const update = harness.updateSets[0] as {
+        actions: AutomationActions;
+        triggers: TriggerNode[];
+        templateInputs: Record<string, unknown>;
+      };
+      const action = update.actions.actions[0];
+      expect(action).toMatchObject({ type: 'send', to: [nextDestination] });
+      expect(update.templateInputs).toEqual({ to: [nextDestination], server: SERVER_ID });
+      // The node id the gate reads survives the rebind.
+      expect(update.triggers[0]?.id).toBe(TRIGGER_ID);
+      // Instance-owned fields are the instance's, whatever the template says.
+      expect(update).not.toHaveProperty('name');
+      expect(update).not.toHaveProperty('severity');
+      expect(harness.inserts).toHaveLength(1);
+    });
+
+    it('400s templateInputs on an automation no template owns', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { templateInputs: { to: [randomUUID()] } },
+      });
+
+      expect(response.statusCode).toBe(400);
+    });
+
+    it('400s a rebind that leaves a required input unbound', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+      vi.mocked(getTemplateVersion).mockResolvedValue(templateVersion(1));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { templateInputs: { server: SERVER_ID } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toContain('to');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('PATCH definition invariants', () => {
+    it('saves a list field compared with eq against one value', async () => {
+      app = await buildTestApp(ownerUser);
+      const nextConditions = {
+        groups: [{ conditions: [{ field: 'country', operator: 'eq', value: 'US' }] }],
+      };
+      setupSelect([automationRow()]);
+      setupTransaction([[automationRow({ conditions: nextConditions })], [{ id: 'ver-2' }]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { conditions: nextConditions },
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+
+    it('400s a patch whose merged definition cannot run', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { triggers: [{ id: randomUUID(), type: 'server.down', enabled: true }] },
+      });
+
+      // A policy is about a user, and a server trigger has none.
+      expect(response.statusCode).toBe(400);
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /automations/:id/detach', () => {
+    it('clears the template columns and records where the automation came from', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+      const updateChain = queryChain(vi.fn, [
+        { ...boundRow(), templateId: null, templateVersion: null },
+      ]);
+      vi.mocked(db.update as unknown as ReturnType<typeof vi.fn>).mockReturnValue(updateChain);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/detach`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(updateChain.set.mock.calls[0]?.[0]).toMatchObject({
+        templateId: null,
+        templateVersion: null,
+        templateInputs: null,
+        originTemplateId: TEMPLATE_ID,
+        originTemplateVersion: 1,
+      });
+      expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
+    });
+
+    it('409s an automation that never had a template', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/detach`,
+      });
+
+      expect(response.statusCode).toBe(409);
+    });
+
+    it('is owner only', async () => {
+      app = await buildTestApp(viewerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/detach`,
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe('POST /automations/:id/upgrade', () => {
+    it('rebinds the instance onto the current version, carrying the trigger ids', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = boundRow();
+      setupSelect([stored], [{ id: SERVER_ID }]);
+      vi.mocked(getTemplate).mockResolvedValue({
+        id: TEMPLATE_ID,
+        name: 'Stream started',
+        version: templateVersion(3, editedDefinition()),
+      } as never);
+      const harness = setupTransaction([
+        [
+          {
+            ...stored,
+            templateVersion: 3,
+            actions: {
+              actions: [
+                { id: randomUUID(), type: 'send', to: [DESTINATION_ID], title: 'Now playing' },
+              ],
+            },
+          },
+        ],
+        [{ id: 'ver-2' }],
+      ]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/upgrade`,
+        payload: { inputs: { to: [DESTINATION_ID], server: SERVER_ID } },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const update = harness.updateSets[0] as {
+        templateVersion: number;
+        templateInputs: Record<string, unknown>;
+        triggers: TriggerNode[];
+        actions: AutomationActions;
+      };
+      expect(update.templateVersion).toBe(3);
+      expect(update.templateInputs).toEqual({ to: [DESTINATION_ID], server: SERVER_ID });
+      expect(update.triggers[0]?.id).toBe(TRIGGER_ID);
+      expect(update.actions.actions[0]).toMatchObject({ title: 'Now playing' });
+      expect(harness.inserts).toHaveLength(1);
+    });
+
+    it('reuses the bindings the instance already had when the body names none', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = boundRow();
+      setupSelect([stored], [{ id: SERVER_ID }]);
+      vi.mocked(getTemplate).mockResolvedValue({
+        id: TEMPLATE_ID,
+        name: 'Stream started',
+        version: templateVersion(2),
+      } as never);
+      const harness = setupTransaction([[stored], [{ id: 'ver-2' }]]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/upgrade`,
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(200);
+      const update = harness.updateSets[0] as { templateInputs: Record<string, unknown> };
+      expect(update.templateInputs).toEqual({ to: [DESTINATION_ID], server: SERVER_ID });
+    });
+
+    it('409s an automation that has no template to upgrade', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([automationRow()]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/upgrade`,
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(409);
+    });
+
+    it('is owner only', async () => {
+      app = await buildTestApp(viewerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/upgrade`,
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe('GET /automations/:id/export', () => {
+    it('lifts this install out of the definition and seals it in a code', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow({ serverName: 'Plex' })]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const { envelope, code } = response.json();
+      expect(templateEnvelopeSchema.safeParse(envelope).success).toBe(true);
+      // The server the instance names is a suffix on screen, never in an export.
+      expect(envelope.name).toBe('Stream started');
+      expect(envelope.slug).toBe('stream-started');
+      expect(envelope.group).toBe('notifications');
+      expect(envelope.author).toBeUndefined();
+      const [action] = envelope.definition.actions.actions;
+      expect(action.to).toEqual({ $input: 'to' });
+      expect(envelope.definition.scope.serverId).toEqual({ $input: 'server' });
+      expect(
+        decodeShareCode(
+          code,
+          (bytes, maxOut) => new Uint8Array(inflateRawSync(bytes, { maxOutputLength: maxOut }))
+        )
+      ).toEqual(envelope);
+    });
+
+    it('carries the author the caller typed and exports a detached automation too', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([
+        boundRow({
+          templateId: null,
+          templateVersion: null,
+          templateInputs: null,
+          originTemplateId: TEMPLATE_ID,
+          originTemplateVersion: 1,
+        }),
+      ]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export?author=Ada`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().envelope.author).toBe('Ada');
+    });
+
+    it('404s an automation the caller cannot see', async () => {
+      app = await buildTestApp(viewerUser);
+      setupSelect([]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export`,
       });
 
       expect(response.statusCode).toBe(404);

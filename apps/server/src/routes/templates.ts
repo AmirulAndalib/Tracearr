@@ -1,0 +1,259 @@
+/**
+ * Template routes - the catalog behind the gallery, the import flow and the
+ * binding form. Reads are open to any authenticated caller; writes are owner only.
+ */
+
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import {
+  ShareCodeError,
+  createAutomationSchema,
+  fingerprintOf,
+  templateEnvelopeSchema,
+  uuidSchema,
+  type TemplateEnvelope,
+} from '@tracearr/shared';
+import { db } from '../db/client.js';
+import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
+import { invalidateAutomationsCache } from '../jobs/poller/database.js';
+import { decodeTemplateCode } from '../services/automations/templates/shareCode.js';
+import {
+  createTemplate,
+  deleteTemplate,
+  getTemplate,
+  getTemplateVersion,
+  instantiateTemplate,
+  listTemplates,
+  matchTemplate,
+  sha256Hex,
+} from '../services/automations/templates/store.js';
+import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
+import { getCurrentVersion } from '../utils/buildInfo.js';
+import { compareVersions } from '../utils/pluginVersion.js';
+import { firstIssueMessage } from '../utils/zod.js';
+import {
+  loadAutomation,
+  materializeInstance,
+  missingScopeRef,
+  needsInactivitySweep,
+  toAutomation,
+} from './automations.js';
+
+const idParamSchema = z.object({ id: uuidSchema });
+
+const versionParamsSchema = z.object({
+  id: uuidSchema,
+  version: z.coerce.number().int().min(1),
+});
+
+const importBodySchema = z.object({
+  code: z.string().min(1).max(65536).optional(),
+  envelope: z.unknown().optional(),
+  // The envelope never says where it came from; only the request can claim it locally.
+  source: z.literal('local').optional(),
+  replace: uuidSchema.optional(),
+});
+
+const instantiateBodySchema = z.object({
+  inputs: z.record(z.string(), z.unknown()).default({}),
+  name: createAutomationSchema.shape.name.optional(),
+  isActive: createAutomationSchema.shape.isActive,
+  severity: createAutomationSchema.shape.severity.optional(),
+  cooldownMinutes: createAutomationSchema.shape.cooldownMinutes,
+  retentionDays: createAutomationSchema.shape.retentionDays,
+});
+
+interface MinServerVersion {
+  required: string;
+  current: string;
+  satisfied: boolean;
+}
+
+const releaseOf = (version: string): string => version.split('-')[0] ?? version;
+
+/** A build with no version stamped into it is a dev build, and runs anything. */
+function minServerVersionState(required: string): MinServerVersion {
+  const current = getCurrentVersion();
+  const release = releaseOf(current);
+  return {
+    required,
+    current,
+    satisfied: release === '0.0.0' || compareVersions(release, releaseOf(required)) >= 0,
+  };
+}
+
+type EnvelopeResult = { ok: true; envelope: TemplateEnvelope } | { ok: false; message: string };
+
+/** A share code and a pasted envelope are the same payload once the code is unwrapped. */
+function readEnvelope(body: { code?: string; envelope?: unknown }): EnvelopeResult {
+  let payload: unknown;
+  if (body.code !== undefined) {
+    try {
+      payload = decodeTemplateCode(body.code);
+    } catch (error) {
+      if (error instanceof ShareCodeError) {
+        return { ok: false, message: `Share code rejected: ${error.reason}` };
+      }
+      throw error;
+    }
+  } else if (body.envelope !== undefined) {
+    payload = body.envelope;
+  } else {
+    return { ok: false, message: 'A share code or an envelope is required' };
+  }
+
+  const parsed = templateEnvelopeSchema.safeParse(payload);
+  if (!parsed.success) {
+    return { ok: false, message: `Invalid template: ${firstIssueMessage(parsed.error)}` };
+  }
+  if (fingerprintOf(parsed.data, sha256Hex) !== parsed.data.fingerprint) {
+    return { ok: false, message: 'Invalid template: the fingerprint does not match the body' };
+  }
+  return { ok: true, envelope: parsed.data };
+}
+
+export const templateRoutes: FastifyPluginAsync = async (app) => {
+  const owner = { preHandler: [app.requireOwner] };
+  const authed = { preHandler: [app.authenticate] };
+
+  /**
+   * GET /templates - Every stored template with the number of automations on it
+   */
+  app.get('/', authed, async () => ({ data: await listTemplates() }));
+
+  /**
+   * GET /templates/:id - One template with its current version
+   */
+  app.get('/:id', authed, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) return reply.badRequest('Invalid template ID');
+
+    const template = await getTemplate(params.data.id);
+    if (!template) return reply.notFound('Template not found');
+    return template;
+  });
+
+  /**
+   * GET /templates/:id/versions/:version - One stored version, however old
+   */
+  app.get('/:id/versions/:version', authed, async (request, reply) => {
+    const params = versionParamsSchema.safeParse(request.params);
+    if (!params.success) return reply.badRequest('Invalid template version');
+
+    const version = await getTemplateVersion(params.data.id, params.data.version);
+    if (!version) return reply.notFound('Template version not found');
+    return version;
+  });
+
+  /**
+   * POST /templates/preview - What an import would land on, without writing anything
+   */
+  app.post('/preview', owner, async (request, reply) => {
+    const body = importBodySchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
+    }
+
+    const read = readEnvelope(body.data);
+    if (!read.ok) return reply.badRequest(read.message);
+
+    const existing = await matchTemplate(read.envelope);
+    return {
+      envelope: read.envelope,
+      fingerprint: read.envelope.fingerprint,
+      ...(existing === null ? {} : { existing }),
+      minServerVersion: minServerVersionState(read.envelope.minServerVersion),
+    };
+  });
+
+  /**
+   * POST /templates - Store an imported or locally saved template
+   */
+  app.post('/', owner, async (request, reply) => {
+    const body = importBodySchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
+    }
+
+    const read = readEnvelope(body.data);
+    if (!read.ok) return reply.badRequest(read.message);
+
+    const support = minServerVersionState(read.envelope.minServerVersion);
+    if (!support.satisfied) {
+      return reply.code(422).send({
+        message: `This template needs Tracearr ${support.required}; this server runs ${support.current}`,
+        minServerVersion: support,
+      });
+    }
+
+    const stored = await createTemplate(read.envelope, {
+      source: body.data.source ?? 'import',
+      ...(body.data.replace === undefined ? {} : { replaceId: body.data.replace }),
+    });
+    const template = await getTemplate(stored.id);
+    if (!template) return reply.internalServerError('Failed to store template');
+    return reply.code(stored.created ? 201 : 200).send(template);
+  });
+
+  /**
+   * DELETE /templates/:id - Remove a template no automation is bound to
+   */
+  app.delete('/:id', owner, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) return reply.badRequest('Invalid template ID');
+
+    const outcome = await deleteTemplate(params.data.id);
+    if (outcome === 'builtin') return reply.forbidden('Built-in templates cannot be deleted');
+    if (outcome !== 'deleted') {
+      return reply.code(409).send({
+        message: `Used by ${outcome.usedBy} automation(s)`,
+        usedBy: outcome.usedBy,
+        names: outcome.names,
+      });
+    }
+    return reply.code(204).send();
+  });
+
+  /**
+   * POST /templates/:id/instantiate - Bind a template's inputs into an automation
+   */
+  app.post('/:id/instantiate', owner, async (request, reply) => {
+    const params = idParamSchema.safeParse(request.params);
+    if (!params.success) return reply.badRequest('Invalid template ID');
+    const body = instantiateBodySchema.safeParse(request.body ?? {});
+    if (!body.success) {
+      return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
+    }
+
+    const template = await getTemplate(params.data.id);
+    if (!template) return reply.notFound('Template not found');
+
+    // The refs are checked against the definition the bindings produce, not the
+    // bindings themselves, so the same checks a builder save runs apply here.
+    const { inputs, ...overrides } = body.data;
+    const materialized = materializeInstance(
+      template.version,
+      inputs,
+      overrides.name ?? template.name
+    );
+    if (!materialized.ok) return reply.badRequest(materialized.reason);
+
+    const missingScope = await missingScopeRef(materialized.definition);
+    if (missingScope) return reply.notFound(missingScope);
+
+    const missingDestinations = await unknownDestinationIds(materialized.definition.actions);
+    if (missingDestinations.length > 0) {
+      return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
+    }
+
+    const created = await db.transaction((tx) =>
+      instantiateTemplate(tx, template.id, inputs, overrides)
+    );
+
+    invalidateAutomationsCache();
+    if (needsInactivitySweep(created)) void scheduleInactivityChecks();
+
+    const detail = await loadAutomation(created.id, request.user);
+    return reply.code(201).send(toAutomation(detail ?? created));
+  });
+};
