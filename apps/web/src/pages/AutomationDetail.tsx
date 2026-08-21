@@ -19,6 +19,7 @@ import {
 import { AutomationBuilderDialog } from '@/components/automations/legacy';
 import { automationIcon } from '@/lib/automations';
 import { useAutomation, useToggleAutomation, useUpdateAutomation } from '@/hooks/queries';
+import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useServer } from '@/hooks/useServer';
 
@@ -39,6 +40,8 @@ export function AutomationDetail() {
   const { data: filterOptions } = useAutomationFilterOptions();
   const toggleAutomation = useToggleAutomation();
   const updateAutomation = useUpdateAutomation();
+
+  usePageTitle(automation?.name);
 
   const handleSave = async (payload: CreateAutomationInput) => {
     if (!automation) return;

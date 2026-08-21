@@ -8,9 +8,9 @@ import {
   Power,
   PowerOff,
   Settings2,
-  Shield,
   Sparkles,
   Trash2,
+  Workflow,
 } from 'lucide-react';
 import type {
   Automation,
@@ -504,7 +504,7 @@ export function Automations() {
                   empty={
                     <DataTableEmpty
                       table={table}
-                      icon={Shield}
+                      icon={Workflow}
                       title={
                         hasActiveFilters
                           ? t('pages:automations.noAutomationsFound')

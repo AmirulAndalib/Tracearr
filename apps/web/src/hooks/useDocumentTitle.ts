@@ -37,12 +37,12 @@ export function useDocumentTitle() {
 
     // Handle dynamic routes and routes not in nav
     if (pathname.startsWith('/users/')) {
-      document.title = `User Details | ${APP_NAME}`;
+      document.title = `${t('pages:userDetail.title')} | ${APP_NAME}`;
       return;
     }
 
     if (pathname.startsWith('/media/')) {
-      document.title = `Media Details | ${APP_NAME}`;
+      document.title = `${t('pages:media.detail.title')} | ${APP_NAME}`;
       return;
     }
 
@@ -53,6 +53,12 @@ export function useDocumentTitle() {
 
     if (pathname.startsWith('/automations/') && pathname.endsWith('/edit')) {
       document.title = `${t('pages:automations.editAutomation')} | ${APP_NAME}`;
+      return;
+    }
+
+    // The row's own name lands via usePageTitle once it loads; this holds the tab until then.
+    if (pathname.startsWith('/automations/')) {
+      document.title = `${t('pages:automations.detail.title')} | ${APP_NAME}`;
       return;
     }
 
@@ -75,4 +81,19 @@ export function useDocumentTitle() {
 
     document.title = APP_NAME;
   }, [location.pathname, t]);
+}
+
+/**
+ * A page that knows its own name says so, over whatever the route derived. The
+ * previous title comes back on unmount, so a route with nothing to say is unaffected.
+ */
+export function usePageTitle(title: string | undefined) {
+  useEffect(() => {
+    if (title === undefined || title === '') return;
+    const previous = document.title;
+    document.title = `${title} | ${APP_NAME}`;
+    return () => {
+      document.title = previous;
+    };
+  }, [title]);
 }
