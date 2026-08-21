@@ -84,7 +84,7 @@ describe('ScopeField', () => {
     expect(offeredModes()).toEqual([SCOPE_MODES[0], SCOPE_MODES[2]]);
   });
 
-  it('finds the server behind a stored account so both pickers open filled in', async () => {
+  it('opens both pickers filled in for a stored account scope', async () => {
     listServers.mockResolvedValue([server('s1', 'One'), server('s2', 'Two')]);
     roster.mockReturnValue({
       data: {
@@ -100,7 +100,7 @@ describe('ScopeField', () => {
     });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    renderField(client, { mode: 'account', serverId: '', serverUserId: 'su-2' });
+    renderField(client, { mode: 'account', serverId: 's2', serverUserId: 'su-2' });
 
     await waitFor(() => expect(screen.getByText('Two')).toBeInTheDocument());
     expect(screen.getByText('Connor')).toBeInTheDocument();

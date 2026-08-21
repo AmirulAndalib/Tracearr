@@ -297,6 +297,8 @@ export interface AutomationScopeRef {
   kind: 'server' | 'account' | 'person';
   id: string;
   name: string;
+  /** The server an account sits on; the account id alone does not say which. */
+  serverId?: string;
   serverName?: string;
 }
 

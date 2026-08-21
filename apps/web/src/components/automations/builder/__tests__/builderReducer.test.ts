@@ -240,6 +240,27 @@ describe('builderReducer actions', () => {
     expect(branch?.type === 'if' && branch.else.map((leaf) => leaf.type)).toEqual(['kill_stream']);
   });
 
+  it('takes the server an account scope sits on from the row it loaded', () => {
+    const loaded = builderStateFrom(
+      automation({
+        serverUserId: '99999999-9999-4999-8999-999999999999',
+        scopeRef: {
+          kind: 'account',
+          id: '99999999-9999-4999-8999-999999999999',
+          name: 'connor',
+          serverId: '88888888-8888-4888-8888-888888888888',
+          serverName: 'Beehive',
+        },
+      })
+    );
+
+    expect(loaded.scope).toEqual({
+      mode: 'account',
+      serverId: '88888888-8888-4888-8888-888888888888',
+      serverUserId: '99999999-9999-4999-8999-999999999999',
+    });
+  });
+
   it('gives a stored node without an id one to be addressed by', () => {
     const loaded = builderStateFrom(
       automation({

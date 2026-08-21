@@ -1162,6 +1162,7 @@ describe('Automation routes', () => {
             id: randomUUID(),
             serverUserId: 'su-1',
             accountName: 'ada',
+            accountServerId: SERVER_ID,
             accountServerName: 'Plex',
           }),
           automationRow({ id: randomUUID(), userId: 'usr-1', personName: 'Ada' }),
@@ -1178,6 +1179,7 @@ describe('Automation routes', () => {
         kind: 'account',
         id: 'su-1',
         name: 'ada',
+        serverId: SERVER_ID,
         serverName: 'Plex',
       });
       expect(person.scopeRef).toEqual({ kind: 'person', id: 'usr-1', name: 'Ada' });

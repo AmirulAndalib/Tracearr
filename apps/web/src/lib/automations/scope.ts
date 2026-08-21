@@ -50,8 +50,8 @@ export function scopeToPayload(scope: AutomationScope): AutomationScopePayload {
   }
 }
 
-// Account scope carries a serverId only so the picker knows whose roster to
-// list; the API does not store it, so the caller resolves it from the account.
+// Account scope carries a serverId only so the picker knows whose roster to list;
+// the automation stores the account alone, so the caller passes scopeRef's server.
 export function scopeFromAutomation(
   automation: ScopedAutomationFields | undefined,
   accountServerId = ''

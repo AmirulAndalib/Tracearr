@@ -157,7 +157,7 @@ export function builderStateFrom(automation: Automation): BuilderState {
     kind: automation.kind,
     severity: automation.severity ?? 'warning',
     isActive: automation.isActive,
-    scope: scopeFromAutomation(automation),
+    scope: scopeFromAutomation(automation, automation.scopeRef?.serverId),
     enforceAcrossServers: automation.enforceAcrossServers,
     triggers: automation.triggers,
     conditions: stampConditions(automation.conditions),

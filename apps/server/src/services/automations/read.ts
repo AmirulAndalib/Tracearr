@@ -30,6 +30,7 @@ const originTemplates = alias(automationTemplates, 'origin_templates');
 interface AutomationJoins {
   serverName: string | null;
   accountName: string | null;
+  accountServerId: string | null;
   accountServerName: string | null;
   personName: string | null;
   templateSlug: string | null;
@@ -45,6 +46,7 @@ const automationColumns = {
   ...getTableColumns(automations),
   serverName: servers.name,
   accountName: serverUsers.username,
+  accountServerId: accountServers.id,
   accountServerName: accountServers.name,
   personName: users.name,
   templateSlug: automationTemplates.slug,
@@ -105,6 +107,7 @@ function scopeRefOf(row: AutomationDetailRow): AutomationScopeRef | null {
       kind: 'account',
       id: row.serverUserId,
       name: row.accountName,
+      serverId: row.accountServerId ?? undefined,
       serverName: row.accountServerName ?? undefined,
     };
   }

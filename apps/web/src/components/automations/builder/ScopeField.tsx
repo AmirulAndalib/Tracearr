@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Field,
@@ -12,13 +12,7 @@ import {
 } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { ServerSelect } from '@/components/server';
 import { useServer } from '@/hooks/useServer';
 import { useUsers } from '@/hooks/queries/useUsers';
@@ -59,29 +53,19 @@ export function ScopeField({
   const offered = offeredScopeModes(servers.length);
   const modes = offered.includes(scope.mode) ? offered : [scope.mode, ...offered];
 
-  const { data: identitiesPage } = useUsers({ pageSize: 100 });
-  const identities = identitiesPage?.data ?? [];
-
-  // A stored account scope names the account and not its server, so the roster says which.
-  const accountServerId = useMemo(() => {
-    if (scope.mode !== 'account' || scope.serverId || !scope.serverUserId) return '';
-    for (const row of identities) {
-      if (row.id === scope.serverUserId) return row.serverId;
-      const membership = row.identityServers?.find(
-        (entry) => entry.serverUserId === scope.serverUserId
-      );
-      if (membership) return membership.id;
-    }
-    return '';
-  }, [scope, identities]);
-
-  const scopeServerId =
-    ('serverId' in scope ? scope.serverId : '') || soleServerId || accountServerId;
+  const scopeServerId = ('serverId' in scope ? scope.serverId : '') || soleServerId;
 
   const { data: accountsPage } = useUsers(
-    scope.mode === 'account' && scopeServerId ? { serverId: scopeServerId, pageSize: 100 } : {}
+    { serverId: scopeServerId, pageSize: 100 },
+    { enabled: scope.mode === 'account' && scopeServerId !== '' }
   );
+  const { data: identitiesPage } = useUsers(
+    { pageSize: 100 },
+    { enabled: scope.mode === 'person' }
+  );
+
   const accounts = accountsPage?.data ?? [];
+  const identities = identitiesPage?.data ?? [];
 
   const handleModeChange = (mode: string) => {
     if (!mode) return;
@@ -150,25 +134,20 @@ export function ScopeField({
                   <FieldLabel htmlFor={`${fieldId}-account`}>
                     {t('automations.builder.scope.accountLabel')}
                   </FieldLabel>
-                  <Select
-                    value={scope.serverUserId}
-                    onValueChange={(serverUserId) =>
+                  <Combobox
+                    id={`${fieldId}-account`}
+                    value={scope.serverUserId || null}
+                    options={accounts.map((account) => ({
+                      value: account.id,
+                      label: account.identityName ?? account.username,
+                    }))}
+                    onChange={(serverUserId) =>
                       onChange({ mode: 'account', serverId: scopeServerId, serverUserId })
                     }
-                  >
-                    <SelectTrigger id={`${fieldId}-account`}>
-                      <SelectValue
-                        placeholder={t('automations.builder.scope.accountPlaceholder')}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.identityName ?? account.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder={t('automations.builder.scope.accountPlaceholder')}
+                    searchPlaceholder={t('automations.builder.searchPlaceholder')}
+                    emptyText={t('automations.builder.noMatches')}
+                  />
                 </Field>
               )}
 
@@ -177,21 +156,18 @@ export function ScopeField({
                   <FieldLabel htmlFor={`${fieldId}-person`}>
                     {t('automations.builder.scope.personLabel')}
                   </FieldLabel>
-                  <Select
-                    value={scope.userId}
-                    onValueChange={(userId) => onChange({ mode: 'person', userId })}
-                  >
-                    <SelectTrigger id={`${fieldId}-person`}>
-                      <SelectValue placeholder={t('automations.builder.scope.personPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {identities.map((identity) => (
-                        <SelectItem key={identity.userId} value={identity.userId}>
-                          {identity.identityName ?? identity.username}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    id={`${fieldId}-person`}
+                    value={scope.userId || null}
+                    options={identities.map((identity) => ({
+                      value: identity.userId,
+                      label: identity.identityName ?? identity.username,
+                    }))}
+                    onChange={(userId) => onChange({ mode: 'person', userId })}
+                    placeholder={t('automations.builder.scope.personPlaceholder')}
+                    searchPlaceholder={t('automations.builder.searchPlaceholder')}
+                    emptyText={t('automations.builder.noMatches')}
+                  />
                 </Field>
               )}
             </div>
