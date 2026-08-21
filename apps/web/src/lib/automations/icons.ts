@@ -18,7 +18,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import type { AutomationDisplayInput } from './describe';
+import type { DescribableDefinition } from './describe';
 
 const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, LucideIcon>> = {
   concurrent_streams: Users,
@@ -42,8 +42,8 @@ const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, LucideIcon>> = {
 };
 
 /** Built with createElement so this stays a plain module and callers stay one expression. */
-export function automationIcon(automation: AutomationDisplayInput): ReactElement {
-  const field = automation.conditions?.groups?.[0]?.conditions?.[0]?.field;
+export function automationIcon(automation: DescribableDefinition): ReactElement {
+  const field = automation.conditions?.groups[0]?.conditions[0]?.field;
   const icon = (field && CONDITION_FIELD_ICONS[field]) || Settings2;
   return createElement(icon, { className: 'h-5 w-5' });
 }

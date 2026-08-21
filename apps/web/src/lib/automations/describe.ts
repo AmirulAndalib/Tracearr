@@ -1,183 +1,533 @@
 /**
- * One-line summaries of an automation's conditions and actions for list rows.
+ * The one sentence that describes an automation, in fragments: the builder makes
+ * each one clickable, the list joins them into a summary.
  */
 
-import type {
-  Action,
-  Condition,
-  AutomationActions,
-  AutomationConditions,
-  AutomationFilterOptions,
+import {
+  formatConditionFieldValue,
+  type AutomationKind,
+  type TemplateDefinition,
+  type TemplateInput,
+  type TranscodingConditionValue,
+  type TriggerType,
+  type UnitSystem,
 } from '@tracearr/shared';
-import { type UnitSystem, formatConditionFieldValue } from '@tracearr/shared';
-import { storedActionLabel } from './actionDefinitions';
 import {
   fieldDescriptor,
-  fieldLabel,
   fieldOptions,
-  operatorSymbol,
+  isKnownField,
+  isKnownOperator,
   optionLabel,
   unitLabel,
   type Translate,
 } from './conditionFields';
 
-/** The conditions/actions pair both a stored automation and a template carry. */
-export interface AutomationDisplayInput {
-  conditions?: AutomationConditions | null;
-  actions?: AutomationActions | null;
+/** One clause of the sentence, carrying the node it came from; null is connective text. */
+export interface DescribeFragment {
+  nodeId: string | null;
+  text: string;
 }
 
-function firstCondition(automation: AutomationDisplayInput): Condition | null {
-  return automation.conditions?.groups?.[0]?.conditions?.[0] ?? null;
+/** A template leaves a value out until it is bound, naming the input that fills it. */
+interface Placeholder {
+  $input: string;
 }
 
-function countConditions(automation: AutomationDisplayInput): number {
-  return (automation.conditions?.groups ?? []).reduce(
-    (total, group) => total + (group.conditions?.length ?? 0),
-    0
-  );
+type DescribableTrigger = TemplateDefinition['triggers'][number];
+type DescribableGroup = TemplateDefinition['conditions']['groups'][number];
+type DescribableCondition = DescribableGroup['conditions'][number];
+type DescribableAction = TemplateDefinition['actions']['actions'][number];
+type DescribableLeaf = Exclude<DescribableAction, { type: 'if' }>;
+
+/** A stored automation or a template's definition, whose values may still be placeholders. */
+export interface DescribableDefinition {
+  kind?: AutomationKind;
+  triggers?: readonly DescribableTrigger[];
+  conditions?: { groups: readonly DescribableGroup[] } | null;
+  actions?: { actions: readonly DescribableAction[] } | null;
+  /** A template keeps its scope here; a stored automation keeps it in the three columns. */
+  scope?: TemplateDefinition['scope'];
+  serverId?: string | null;
+  serverUserId?: string | null;
+  userId?: string | null;
 }
 
-/** Format a single condition to a human-readable string. */
-function formatCondition(
-  t: Translate,
-  condition: Condition,
-  filterOptions?: AutomationFilterOptions,
-  unitSystem?: UnitSystem
-): string {
-  const descriptor = fieldDescriptor(condition.field);
-  const label = fieldLabel(t, condition.field);
-  const operator = operatorSymbol(condition.operator);
-
-  if (descriptor?.valueType === 'boolean') {
-    if (condition.value === true) return label;
-    return t('automations.describe.negated', { label: label.toLowerCase() });
-  }
-
-  let formattedValue = formatValue(t, condition, filterOptions);
-  let unit = '';
-
-  if (typeof condition.value === 'number') {
-    const converted = formatConditionFieldValue(
-      condition.value,
-      condition.field,
-      unitSystem ?? 'metric'
-    );
-    if (converted.unit) {
-      formattedValue = String(converted.displayValue);
-      unit = ` ${converted.unit}`;
-    }
-  }
-
-  if (!unit && descriptor?.unit) unit = ` ${unitLabel(t, descriptor.unit)}`;
-
-  // A list already reads as a list; a threshold takes its unit.
-  if (condition.operator === 'in' || condition.operator === 'not_in') {
-    return `${label} ${operator} ${formattedValue}`;
-  }
-
-  let result = `${label} ${operator} ${formattedValue}${unit}`;
-
-  const notes: string[] = [];
-  // exclude_same_device defaults to true, so show when disabled
-  if (condition.params?.exclude_same_device === false) {
-    notes.push(t('automations.describe.includesSameDevice'));
-  }
-  // exclude_same_ip defaults to false, so show when enabled
-  if (condition.params?.exclude_same_ip === true) {
-    notes.push(t('automations.describe.uniqueIps'));
-  }
-  // count_device_types defaults to all devices, so show when set
-  if (condition.params?.count_device_types?.length) {
-    const types = condition.params.count_device_types.map((type) => optionLabel(t, type));
-    notes.push(t('automations.describe.deviceTypesOnly', { types: types.join('/') }));
-  }
-
-  if (notes.length > 0) result += ` (${notes.join(', ')})`;
-
-  return result;
+/** The names behind the ids a sentence would otherwise print raw. */
+export interface DescribeRefs {
+  servers?: Record<string, string>;
+  users?: Record<string, string>;
+  countries?: Record<string, string>;
+  accounts?: Record<string, string>;
+  destinations?: Record<string, string>;
 }
 
-/** A user, server or country id reads as its name once the filter options are loaded. */
-function lookupDynamicValue(
-  field: string,
-  value: string,
-  filterOptions?: AutomationFilterOptions
-): string | null {
-  if (!filterOptions) return null;
-
-  switch (fieldDescriptor(field)?.dynamicSource) {
-    case 'users': {
-      const user = filterOptions.users?.find((u) => u.id === value);
-      return user ? user.identityName || user.username : null;
-    }
-    case 'servers':
-      return filterOptions.servers?.find((s) => s.id === value)?.name ?? null;
-    case 'countries':
-      return filterOptions.countries?.find((c) => c.code === value)?.name ?? null;
-    default:
-      return null;
-  }
+interface Describe {
+  t: Translate;
+  refs: DescribeRefs;
+  unitSystem: UnitSystem;
 }
 
-function formatValue(
-  t: Translate,
-  condition: Condition,
-  filterOptions?: AutomationFilterOptions
-): string {
-  const { value, field } = condition;
+const SENTENCE_LIMIT = 160;
 
-  if (Array.isArray(value)) {
-    if (value.length === 0) return t('automations.describe.noValues');
-    const labels = value.map((entry) =>
-      typeof entry === 'string'
-        ? (lookupDynamicValue(field, entry, filterOptions) ?? entry)
-        : String(entry)
-    );
-    if (labels.length > 3) return `${labels.slice(0, 3).join(', ')}...`;
-    return labels.join(', ');
-  }
+const TRIGGER_KEYS = {
+  'session.started': 'sessionStarted',
+  'session.stopped': 'sessionStopped',
+  'session.transcode_changed': 'sessionTranscodeChanged',
+  'session.paused': 'sessionPaused',
+  'session.held_for': 'sessionHeldFor',
+  'account.inactive_for': 'accountInactiveFor',
+  'server.down': 'serverDown',
+  'server.up': 'serverUp',
+  'plugin.update_available': 'pluginUpdateAvailable',
+  'server.update_available': 'serverUpdateAvailable',
+  'tracearr.update_available': 'tracearrUpdateAvailable',
+} as const satisfies Record<TriggerType, string>;
 
-  if (typeof value === 'string') {
-    const dynamicLabel = lookupDynamicValue(field, value, filterOptions);
-    if (dynamicLabel) return dynamicLabel;
-    const option = fieldOptions(t, field).find((entry) => entry.value === value);
-    if (option) return option.label;
-  }
+/** Fields whose truth reads as a state, not as a comparison against `true`. */
+const BOOLEAN_STATE_FIELDS = ['is_local_network', 'is_transcode_downgrade'] as const;
 
-  return String(value);
+const TRANSCODING_VALUES = [
+  'video',
+  'audio',
+  'video_or_audio',
+  'neither',
+] as const satisfies readonly TranscodingConditionValue[];
+
+function isPlaceholder(value: unknown): value is Placeholder {
+  return typeof value === 'object' && value !== null && '$input' in value;
 }
 
-function formatActions(t: Translate, actions: Action[]): string {
-  const first = actions[0];
-  if (!first) return t('automations.describe.noAction');
+function isEnabled(node: { enabled?: boolean | Placeholder }): boolean {
+  return node.enabled !== false;
+}
 
-  const names = actions.map((action) => storedActionLabel(t, action.type));
-  if (names.length <= 2) return names.join(', ');
+function isBooleanStateField(field: string): field is (typeof BOOLEAN_STATE_FIELDS)[number] {
+  return (BOOLEAN_STATE_FIELDS as readonly string[]).includes(field);
+}
 
-  return `${names[0]} (${t('automations.describe.more', { count: actions.length - 1 })})`;
+function isTranscodingValue(value: unknown): value is TranscodingConditionValue {
+  return typeof value === 'string' && (TRANSCODING_VALUES as readonly string[]).includes(value);
 }
 
 /**
- * A complete summary of an automation, as
- * "Days Inactive > 180 days (+2 more) → Send".
+ * Punctuation joins clauses, so it lands on the fragment its clause ends with. Only the
+ * same mark is skipped: a truncated list ends in `...`, and the separator after it stands.
  */
-export function describeAutomation(
-  t: Translate,
-  automation: AutomationDisplayInput,
-  filterOptions?: AutomationFilterOptions,
-  unitSystem?: UnitSystem
-): string {
-  const first = firstCondition(automation);
-  const total = countConditions(automation);
+function appendSuffix(fragments: DescribeFragment[], suffix: string): void {
+  const last = fragments[fragments.length - 1];
+  if (!last || last.text.endsWith(suffix)) return;
+  fragments[fragments.length - 1] = { ...last, text: `${last.text}${suffix}` };
+}
 
-  let conditionsPart: string;
-  if (!first) {
-    conditionsPart = t('automations.describe.noConditions');
-  } else {
-    conditionsPart = formatCondition(t, first, filterOptions, unitSystem);
-    if (total > 1) conditionsPart += ` (${t('automations.describe.more', { count: total - 1 })})`;
+/** An `if` closes on a full stop, so whatever follows it opens a sentence. */
+function capitalize(text: string): string {
+  return text.charAt(0).toLocaleUpperCase() + text.slice(1);
+}
+
+/**
+ * A required input nothing has answered reads as the kind of thing it holds, never as
+ * the form's own label. An unknown key falls back to the plainest of the nouns.
+ */
+function placeholderText(ctx: Describe, placeholder: Placeholder): string {
+  const kind = ctx.inputKinds[placeholder.$input] ?? 'field_value';
+  return ctx.t(`automations.describe.unbound.${kind}`);
+}
+
+function durationText(
+  ctx: Describe,
+  value: number | Placeholder,
+  unit: 'minutes' | 'days'
+): string {
+  if (isPlaceholder(value)) return placeholderText(ctx, value);
+  return ctx.t(`automations.describe.duration.${unit}`, { count: value });
+}
+
+function describeTrigger(ctx: Describe, trigger: DescribableTrigger): string {
+  const { t } = ctx;
+
+  if (trigger.type === 'session.held_for') {
+    const duration = durationText(ctx, trigger.params.minutes, 'minutes');
+    return trigger.params.measure === 'total'
+      ? t('automations.describe.triggers.sessionHeldForTotal', { duration })
+      : t('automations.describe.triggers.sessionHeldFor', { duration });
   }
 
-  return `${conditionsPart} → ${formatActions(t, automation.actions?.actions ?? [])}`;
+  if (trigger.type === 'account.inactive_for') {
+    const duration = durationText(ctx, trigger.params.days, 'days');
+    return t('automations.describe.triggers.accountInactiveFor', { duration });
+  }
+
+  return t(`automations.describe.triggers.${TRIGGER_KEYS[trigger.type]}`);
+}
+
+function describeTriggers(
+  ctx: Describe,
+  triggers: readonly DescribableTrigger[]
+): DescribeFragment[] {
+  const enabled = triggers.filter(isEnabled);
+  if (enabled.length === 0) {
+    const text = ctx.t('automations.describe.when', {
+      text: ctx.t('automations.describe.nothing'),
+    });
+    return [{ nodeId: null, text }];
+  }
+
+  return enabled.map((trigger, index) => ({
+    nodeId: trigger.id,
+    text: ctx.t(index === 0 ? 'automations.describe.when' : 'automations.describe.or', {
+      text: describeTrigger(ctx, trigger),
+    }),
+  }));
+}
+
+/** A user, server or country id reads as its name once the refs carry one. */
+function dynamicName(ctx: Describe, field: string, value: string): string | undefined {
+  const source = fieldDescriptor(field)?.dynamicSource;
+  return source ? ctx.refs[source]?.[value] : undefined;
+}
+
+function scalarText(ctx: Describe, field: string, value: string | boolean): string {
+  if (typeof value === 'boolean') return String(value);
+  const named = dynamicName(ctx, field, value);
+  if (named) return named;
+  return fieldOptions(ctx.t, field).find((option) => option.value === value)?.label ?? value;
+}
+
+function listText(ctx: Describe, field: string, values: readonly (string | number)[]): string {
+  if (values.length === 0) return ctx.t('automations.describe.noValues');
+  const labels = values.map((entry) =>
+    typeof entry === 'number' ? String(entry) : scalarText(ctx, field, entry)
+  );
+  return labels.length > 3 ? `${labels.slice(0, 3).join(', ')}...` : labels.join(', ');
+}
+
+/** The threshold as the reader sees it: their unit system, and names where it holds ids. */
+function conditionValue(ctx: Describe, condition: DescribableCondition): string {
+  const { field, value } = condition;
+  // "is one of a chosen value" is not English; a list slot needs the plural frame.
+  if (isPlaceholder(value)) {
+    return fieldDescriptor(field)?.valueType === 'multiSelect'
+      ? ctx.t('automations.describe.unbound.listed')
+      : placeholderText(ctx, value);
+  }
+  // A list already reads as a list; only a threshold takes a unit.
+  if (Array.isArray(value)) return listText(ctx, field, value);
+
+  if (typeof value === 'number') {
+    const converted = formatConditionFieldValue(value, field, ctx.unitSystem);
+    if (converted.unit) return `${converted.displayValue} ${converted.unit}`;
+    const unit = fieldDescriptor(field)?.unit;
+    return unit ? `${value} ${unitLabel(ctx.t, unit)}` : String(value);
+  }
+
+  return scalarText(ctx, field, value);
+}
+
+/** Params that change what a threshold counts, so the sentence has to say so. */
+function conditionNotes(ctx: Describe, condition: DescribableCondition): string {
+  const { t } = ctx;
+  const { params } = condition;
+  if (!params) return '';
+
+  const notes: string[] = [];
+  // exclude_same_device defaults to on, exclude_same_ip to off, so each shows when flipped.
+  const sameDevice = params.exclude_same_device;
+  if (isPlaceholder(sameDevice)) {
+    const input = placeholderText(ctx, sameDevice);
+    notes.push(t('automations.describe.sameDeviceInput', { input }));
+  } else if (sameDevice === false) {
+    notes.push(t('automations.describe.includesSameDevice'));
+  }
+
+  const uniqueIps = params.exclude_same_ip;
+  if (isPlaceholder(uniqueIps)) {
+    notes.push(
+      t('automations.describe.uniqueIpsInput', { input: placeholderText(ctx, uniqueIps) })
+    );
+  } else if (uniqueIps === true) {
+    notes.push(t('automations.describe.uniqueIps'));
+  }
+
+  if (params.count_device_types?.length) {
+    const types = params.count_device_types.map((type) => optionLabel(t, type)).join('/');
+    notes.push(t('automations.describe.deviceTypesOnly', { types }));
+  }
+
+  return notes.length > 0 ? ` (${notes.join(', ')})` : '';
+}
+
+/** Some fields read as a state ("the stream is transcoding") rather than a comparison. */
+function stateClause(ctx: Describe, condition: DescribableCondition): string | null {
+  const { field, operator, value } = condition;
+  if (operator !== 'eq' && operator !== 'neq') return null;
+
+  if (isBooleanStateField(field) && typeof value === 'boolean') {
+    const positive = value === (operator === 'eq');
+    return ctx.t(`automations.describe.states.${field}.${positive ? 'yes' : 'no'}`);
+  }
+
+  if (field === 'is_transcoding' && isTranscodingValue(value)) {
+    const positive = operator === 'eq';
+    return ctx.t(`automations.describe.states.is_transcoding.${value}.${positive ? 'yes' : 'no'}`);
+  }
+
+  return null;
+}
+
+function describeCondition(ctx: Describe, condition: DescribableCondition): string {
+  const state = stateClause(ctx, condition);
+  if (state) return state;
+
+  const { t } = ctx;
+  const { field, operator } = condition;
+  // A stored automation can name a field or operator this build retired.
+  const subject = isKnownField(field) ? t(`automations.describe.fields.${field}`) : field;
+  const phrase = isKnownOperator(operator)
+    ? t(`automations.describe.operators.${operator}`)
+    : operator;
+
+  return `${subject} ${phrase} ${conditionValue(ctx, condition)}${conditionNotes(ctx, condition)}`;
+}
+
+/**
+ * The condition groups as fragments. `lead` opens the first group; the rest carry
+ * "and also", and a group of one condition needs no all-of / any-of at all.
+ */
+function describeGroups(
+  ctx: Describe,
+  groups: readonly DescribableGroup[],
+  lead: string | null
+): DescribeFragment[] {
+  const fragments: DescribeFragment[] = [];
+
+  for (const group of groups.filter(isEnabled)) {
+    const conditions = group.conditions.filter(isEnabled);
+    if (conditions.length === 0) continue;
+
+    let connector = lead;
+    if (fragments.length > 0) {
+      appendSuffix(fragments, ';');
+      connector = ctx.t('automations.describe.andAlso');
+    }
+    // A group saved before `match` existed matches any of its conditions.
+    const match =
+      conditions.length > 1
+        ? ctx.t(group.match === 'all' ? 'automations.describe.allOf' : 'automations.describe.anyOf')
+        : null;
+    const prefix = [connector, match].filter((part) => part !== null).join(' ');
+    if (prefix) fragments.push({ nodeId: group.id ?? null, text: prefix });
+
+    conditions.forEach((condition, index) => {
+      if (index > 0) appendSuffix(fragments, ',');
+      fragments.push({ nodeId: condition.id ?? null, text: describeCondition(ctx, condition) });
+    });
+  }
+
+  return fragments;
+}
+
+function trustText(ctx: Describe, action: Extract<DescribableLeaf, { type: 'trust' }>): string {
+  const { t } = ctx;
+
+  if (action.mode === 'reset') return t('automations.describe.actions.trustReset');
+  if (action.mode === 'set') {
+    const value = action.value;
+    const target = isPlaceholder(value) ? placeholderText(ctx, value) : String(value);
+    return t('automations.describe.actions.trustSet', { value: target });
+  }
+
+  const amount = action.amount;
+  if (isPlaceholder(amount)) {
+    return t('automations.describe.actions.trustAdjust', { amount: placeholderText(ctx, amount) });
+  }
+  const points = Math.abs(amount ?? 0);
+  return amount !== undefined && amount < 0
+    ? t('automations.describe.actions.trustDown', { amount: points })
+    : t('automations.describe.actions.trustUp', { amount: points });
+}
+
+function leafText(ctx: Describe, action: DescribableLeaf): string {
+  const { t } = ctx;
+
+  switch (action.type) {
+    case 'send': {
+      // Nowhere to send yet is still a notification; the sentence never names the field.
+      const names = isPlaceholder(action.to)
+        ? []
+        : action.to.map((id) => ctx.refs.destinations?.[id]).filter((name) => name !== undefined);
+      return names.length > 0
+        ? t('automations.describe.actions.send', { destinations: names.join(', ') })
+        : t('automations.describe.actions.sendAnywhere');
+    }
+    case 'kill_stream':
+      return t('automations.describe.actions.kill_stream');
+    case 'message_client':
+      return t('automations.describe.actions.message_client');
+    case 'trust':
+      return trustText(ctx, action);
+  }
+}
+
+function describeAction(ctx: Describe, action: DescribableAction): DescribeFragment[] {
+  const { t } = ctx;
+  const nodeId = action.id ?? null;
+
+  if (action.type !== 'if') return [{ nodeId, text: leafText(ctx, action) }];
+
+  const fragments: DescribeFragment[] = [{ nodeId, text: t('automations.describe.actions.if') }];
+  const conditions = describeGroups(ctx, action.conditions.groups, null);
+  // A half-built `if` reads as one rather than trailing off into a comma.
+  fragments.push(
+    ...(conditions.length > 0
+      ? conditions
+      : [{ nodeId: null, text: t('automations.describe.nothing') }])
+  );
+  appendSuffix(fragments, ',');
+  fragments.push(...describeBranch(ctx, action.then));
+  appendSuffix(fragments, '.');
+  fragments.push({ nodeId: null, text: t('automations.describe.otherwise') });
+  fragments.push(...describeBranch(ctx, action.else));
+  appendSuffix(fragments, '.');
+
+  return fragments;
+}
+
+/** An empty branch still says so: the sentence has to close the `if`. */
+function describeBranch(ctx: Describe, actions: readonly DescribableAction[]): DescribeFragment[] {
+  const fragments = describeActions(ctx, actions);
+  if (fragments.length > 0) return fragments;
+  return [{ nodeId: null, text: ctx.t('automations.describe.actions.doNothing') }];
+}
+
+function describeActions(
+  ctx: Describe,
+  actions: readonly DescribableAction[],
+  kind?: AutomationKind
+): DescribeFragment[] {
+  const fragments: DescribeFragment[] = [];
+  // A policy records a violation whatever else it does, so the flag opens the clause.
+  if (kind === 'policy') {
+    fragments.push({ nodeId: null, text: ctx.t('automations.describe.actions.flagIt') });
+  }
+
+  for (const action of actions.filter(isEnabled)) {
+    const next = describeAction(ctx, action);
+    const first = next[0];
+    const previous = fragments[fragments.length - 1];
+
+    if (first && previous) {
+      if (previous.text.endsWith('.')) {
+        next[0] = { ...first, text: capitalize(first.text) };
+      } else {
+        appendSuffix(fragments, ',');
+        next[0] = { ...first, text: ctx.t('automations.describe.then', { text: first.text }) };
+      }
+    }
+
+    fragments.push(...next);
+  }
+
+  return fragments;
+}
+
+function scopeName(
+  ctx: Describe,
+  id: string | Placeholder,
+  names: Record<string, string> | undefined,
+  fallback: 'server' | 'account' | 'person'
+): string {
+  if (isPlaceholder(id)) return placeholderText(ctx, id);
+  return names?.[id] ?? ctx.t(`automations.describe.scope.${fallback}`);
+}
+
+function describeScope(ctx: Describe, definition: DescribableDefinition): DescribeFragment | null {
+  const { serverId, serverUserId, userId } = definition.scope ?? definition;
+  const { refs } = ctx;
+
+  let name: string | null = null;
+  if (serverId) name = scopeName(ctx, serverId, refs.servers, 'server');
+  else if (serverUserId) name = scopeName(ctx, serverUserId, refs.accounts, 'account');
+  else if (userId) name = scopeName(ctx, userId, refs.users, 'person');
+  if (name === null) return null;
+
+  return { nodeId: null, text: ctx.t('automations.describe.appliesTo', { name }) };
+}
+
+/** A policy's flag opens a sentence of its own; other actions close the clause they follow. */
+function actionSeparator(kind: AutomationKind | undefined, hasConditions: boolean): string {
+  if (kind === 'policy') return '.';
+  return hasConditions ? ';' : ',';
+}
+
+/**
+ * The whole automation as one sentence, fragment by fragment, as
+ * "When a stream starts, only when the trust score is below 50; send to team-discord."
+ */
+export function describeAutomation(
+  definition: DescribableDefinition,
+  refs: DescribeRefs,
+  t: Translate,
+  unitSystem: UnitSystem
+): DescribeFragment[] {
+  const ctx: Describe = { t, refs, unitSystem };
+
+  const fragments = describeTriggers(ctx, definition.triggers ?? []);
+
+  const conditions = describeGroups(
+    ctx,
+    definition.conditions?.groups ?? [],
+    t('automations.describe.onlyWhen')
+  );
+  if (conditions.length > 0) {
+    appendSuffix(fragments, ',');
+    fragments.push(...conditions);
+  }
+
+  const actions = describeActions(ctx, definition.actions?.actions ?? [], definition.kind);
+  if (actions.length > 0) {
+    appendSuffix(fragments, actionSeparator(definition.kind, conditions.length > 0));
+    fragments.push(...actions);
+  }
+  appendSuffix(fragments, '.');
+
+  const scope = describeScope(ctx, definition);
+  if (scope) {
+    fragments.push(scope);
+    appendSuffix(fragments, '.');
+  }
+
+  return fragments;
+}
+
+/**
+ * The fragments that fit in 160 characters, plus a "+N more" fragment for the rest.
+ * The first fragment is kept whole however long it runs.
+ */
+export function capFragments(
+  fragments: readonly DescribeFragment[],
+  t: Translate
+): DescribeFragment[] {
+  const kept: DescribeFragment[] = [];
+  let length = 0;
+
+  for (const fragment of fragments) {
+    const next = kept.length === 0 ? fragment.text.length : length + 1 + fragment.text.length;
+    if (kept.length > 0 && next > SENTENCE_LIMIT) break;
+    kept.push(fragment);
+    length = next;
+  }
+
+  const dropped = fragments.length - kept.length;
+  if (dropped > 0) {
+    kept.push({ nodeId: null, text: t('automations.describe.more', { count: dropped }) });
+  }
+
+  return kept;
+}
+
+/** The capped fragments as one string. */
+export function describeText(fragments: readonly DescribeFragment[], t: Translate): string {
+  return capFragments(fragments, t)
+    .map((fragment) => fragment.text)
+    .join(' ');
 }

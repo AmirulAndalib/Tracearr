@@ -70,8 +70,10 @@ import { useServer } from '@/hooks/useServer';
 import {
   automationIcon,
   describeAutomation,
+  describeText,
   CLASSIC_RULE_TEMPLATES,
   type ClassicRuleTemplate,
+  type DescribeRefs,
 } from '@/lib/automations';
 import {
   AUTOMATIONS_FILTER_DEFAULTS,
@@ -180,6 +182,33 @@ export function Automations() {
   const total = data?.meta.total ?? 0;
   const pageCount = data ? listPageCount(data.meta) : 1;
 
+  const describeRefs = useMemo<DescribeRefs>(() => {
+    const serverNames: Record<string, string> = Object.fromEntries(
+      servers.map((server) => [server.id, server.name])
+    );
+    const userNames: Record<string, string> = Object.fromEntries(
+      (filterOptions?.users ?? []).map((user) => [user.id, user.identityName || user.username])
+    );
+    const accountNames: Record<string, string> = {};
+
+    // Every row already carries the name of what it applies to.
+    for (const { scopeRef } of rows ?? []) {
+      if (!scopeRef) continue;
+      if (scopeRef.kind === 'server') serverNames[scopeRef.id] ??= scopeRef.name;
+      else if (scopeRef.kind === 'account') accountNames[scopeRef.id] = scopeRef.name;
+      else userNames[scopeRef.id] ??= scopeRef.name;
+    }
+
+    return {
+      servers: serverNames,
+      users: userNames,
+      accounts: accountNames,
+      countries: Object.fromEntries(
+        (filterOptions?.countries ?? []).map((country) => [country.code, country.name])
+      ),
+    };
+  }, [servers, filterOptions, rows]);
+
   const { selectedIds, selectedCount, toggleRow, togglePage, clearSelection } = useRowSelection({
     getRowId: getAutomationId,
     totalCount: total,
@@ -270,7 +299,7 @@ export function Automations() {
                   </div>
                   <p className="text-muted-foreground truncate text-sm">
                     {automation.description ??
-                      describeAutomation(t, automation, filterOptions, unitSystem)}
+                      describeText(describeAutomation(automation, describeRefs, t, unitSystem), t)}
                   </p>
                 </div>
               </div>
@@ -349,7 +378,7 @@ export function Automations() {
           },
         }),
       ]),
-    [t, servers, filterOptions, unitSystem, toggleAutomation]
+    [t, servers, filterOptions, describeRefs, unitSystem, toggleAutomation]
   );
 
   const selection = useMemo(

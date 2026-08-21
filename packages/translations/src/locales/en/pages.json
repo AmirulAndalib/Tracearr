@@ -469,13 +469,140 @@
     "describe": {
       "more_one": "+{{count}} more",
       "more_other": "+{{count}} more",
-      "noConditions": "No conditions",
-      "noAction": "No action",
-      "negated": "Not {{label}}",
       "noValues": "(none)",
       "includesSameDevice": "includes same device",
       "uniqueIps": "unique IPs",
-      "deviceTypesOnly": "{{types}} only"
+      "deviceTypesOnly": "{{types}} only",
+      "when": "When {{text}}",
+      "or": "or {{text}}",
+      "nothing": "nothing yet",
+      "onlyWhen": "only when",
+      "andAlso": "and also",
+      "allOf": "all of:",
+      "anyOf": "any of:",
+      "then": "then {{text}}",
+      "otherwise": "Otherwise",
+      "appliesTo": "Applies to {{name}}",
+      "duration": {
+        "minutes_one": "{{count}} minute",
+        "minutes_other": "{{count}} minutes",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days"
+      },
+      "triggers": {
+        "sessionStarted": "a stream starts",
+        "sessionStopped": "a stream stops",
+        "sessionTranscodeChanged": "a stream starts or stops transcoding",
+        "sessionPaused": "a stream is paused",
+        "sessionHeldFor": "a stream has been paused for {{duration}}",
+        "sessionHeldForTotal": "a stream has been paused for {{duration}} in total",
+        "accountInactiveFor": "an account has been inactive for {{duration}}",
+        "serverDown": "a server goes down",
+        "serverUp": "a server comes back up",
+        "pluginUpdateAvailable": "a plugin update is available",
+        "serverUpdateAvailable": "a server update is available",
+        "tracearrUpdateAvailable": "a Tracearr update is available"
+      },
+      "operators": {
+        "eq": "is",
+        "neq": "is not",
+        "gt": "is above",
+        "gte": "is at least",
+        "lt": "is below",
+        "lte": "is at most",
+        "in": "is one of",
+        "not_in": "is not one of",
+        "contains": "contains",
+        "not_contains": "does not contain"
+      },
+      "fields": {
+        "concurrent_streams": "the stream count",
+        "active_session_distance_km": "the distance between streams",
+        "travel_speed_kmh": "the travel speed",
+        "unique_ips_in_window": "the number of IP addresses",
+        "unique_devices_in_window": "the number of devices",
+        "inactive_days": "the time since the last stream",
+        "current_pause_minutes": "the current pause",
+        "total_pause_minutes": "the total pause time",
+        "source_resolution": "the source resolution",
+        "output_resolution": "the output resolution",
+        "is_transcoding": "the transcoding",
+        "is_transcode_downgrade": "the downgrade",
+        "source_bitrate_mbps": "the source bitrate",
+        "user_id": "the user",
+        "trust_score": "the trust score",
+        "account_age_days": "the account age",
+        "device_type": "the device type",
+        "client_name": "the player",
+        "platform": "the platform",
+        "is_local_network": "the local network",
+        "country": "the country",
+        "ip_in_range": "the IP address",
+        "server_id": "the server",
+        "media_type": "the media type"
+      },
+      "states": {
+        "is_local_network": {
+          "yes": "the user is on the local network",
+          "no": "the user is not on the local network"
+        },
+        "is_transcode_downgrade": {
+          "yes": "the stream is downgraded",
+          "no": "the stream is not downgraded"
+        },
+        "is_transcoding": {
+          "video": {
+            "yes": "the stream is transcoding video",
+            "no": "the stream is not transcoding video"
+          },
+          "audio": {
+            "yes": "the stream is transcoding audio",
+            "no": "the stream is not transcoding audio"
+          },
+          "video_or_audio": {
+            "yes": "the stream is transcoding",
+            "no": "the stream is not transcoding"
+          },
+          "neither": {
+            "yes": "the stream is not transcoding",
+            "no": "the stream is transcoding"
+          }
+        }
+      },
+      "actions": {
+        "if": "if",
+        "flagIt": "Flag it",
+        "doNothing": "do nothing",
+        "send": "send to {{destinations}}",
+        "sendAnywhere": "send a notification",
+        "kill_stream": "stop the stream",
+        "message_client": "message the player",
+        "trustUp": "raise trust by {{amount}}",
+        "trustDown": "drop trust by {{amount}}",
+        "trustAdjust": "adjust trust by {{amount}}",
+        "trustSet": "set trust to {{value}}",
+        "trustReset": "reset trust"
+      },
+      "scope": {
+        "server": "one server",
+        "account": "one account",
+        "person": "one person"
+      },
+      "sameDeviceInput": "same device: {{input}}",
+      "uniqueIpsInput": "unique IPs: {{input}}",
+      "unbound": {
+        "server": "a chosen server",
+        "account": "a chosen account",
+        "person": "a chosen person",
+        "destinations": "a chosen destination",
+        "field_value": "a chosen value",
+        "select": "a chosen option",
+        "number": "a chosen number",
+        "duration": "a chosen length of time",
+        "text": "a chosen message",
+        "boolean": "a chosen setting",
+        "listed": "those chosen"
+      }
     },
     "description": "Automations watch your servers and act when their conditions match",
     "detail": {

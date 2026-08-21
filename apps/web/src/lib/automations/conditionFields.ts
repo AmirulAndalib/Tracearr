@@ -24,19 +24,10 @@ export type Translate = TFunction<'pages'>;
 export type FieldCategory = ConditionFieldDescriptor['category'];
 export type FieldUnit = NonNullable<ConditionFieldDescriptor['unit']>;
 
-/** Symbols, not prose: a one-line summary reads the same in every language. */
-const OPERATOR_SYMBOLS: Record<Operator, string> = {
-  eq: '=',
-  neq: '≠',
-  gt: '>',
-  gte: '≥',
-  lt: '<',
-  lte: '≤',
-  in: 'in',
-  not_in: 'not in',
-  contains: 'contains',
-  not_contains: 'excludes',
-};
+/** Every operator the catalog declares on some field. */
+const KNOWN_OPERATORS = new Set<string>(
+  Object.values(CONDITION_FIELDS).flatMap((descriptor) => descriptor.operators)
+);
 
 /** Group order in the field picker. */
 export const FIELD_CATEGORIES = [
@@ -68,12 +59,12 @@ function hasPlaceholder(field: ConditionField): field is PlaceholderField {
  * (library_id was removed), so every accessor a stored value reaches takes a
  * plain string and falls back to it.
  */
-function isKnownField(field: string): field is ConditionField {
+export function isKnownField(field: string): field is ConditionField {
   return field in CONDITION_FIELDS;
 }
 
-function isKnownOperator(operator: string): operator is Operator {
-  return operator in OPERATOR_SYMBOLS;
+export function isKnownOperator(operator: string): operator is Operator {
+  return KNOWN_OPERATORS.has(operator);
 }
 
 /** The catalog entry for a stored field name; undefined once a field retires. */
@@ -99,10 +90,6 @@ export function categoryLabel(t: Translate, category: FieldCategory): string {
 
 export function operatorLabel(t: Translate, operator: string): string {
   return isKnownOperator(operator) ? t(`automations.operators.${operator}`) : operator;
-}
-
-export function operatorSymbol(operator: string): string {
-  return isKnownOperator(operator) ? OPERATOR_SYMBOLS[operator] : operator;
 }
 
 /** Every value an enum condition field stores; the catalog's `options` are exactly these. */
