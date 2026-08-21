@@ -26,27 +26,27 @@ import {
   isScopeComplete,
   offeredScopeModes,
   withScopeMode,
-  type RuleScope,
-  type RuleScopeMode,
-} from '@/lib/rules/scope';
+  type AutomationScope,
+  type AutomationScopeMode,
+} from '@/lib/automations/scope';
 
-interface RuleScopeFieldProps {
-  scope: RuleScope;
-  onChange: (scope: RuleScope) => void;
+interface ScopeFieldProps {
+  scope: AutomationScope;
+  onChange: (scope: AutomationScope) => void;
   enforceAcrossServers: boolean;
   onEnforceAcrossServersChange: (value: boolean) => void;
   canEnforceAcrossServers: boolean;
   showErrors?: boolean;
 }
 
-export function RuleScopeField({
+export function ScopeField({
   scope,
   onChange,
   enforceAcrossServers,
   onEnforceAcrossServersChange,
   canEnforceAcrossServers,
   showErrors = false,
-}: RuleScopeFieldProps) {
+}: ScopeFieldProps) {
   const { t } = useTranslation('pages');
   const { servers } = useServer();
   const fieldId = useId();
@@ -70,7 +70,7 @@ export function RuleScopeField({
 
   const handleModeChange = (mode: string) => {
     if (!mode) return;
-    onChange(withScopeMode(scope, mode as RuleScopeMode, servers[0]?.id ?? ''));
+    onChange(withScopeMode(scope, mode as AutomationScopeMode, servers[0]?.id ?? ''));
   };
 
   const incomplete = showErrors && !isScopeComplete(scope);

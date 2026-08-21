@@ -1,4 +1,4 @@
-/** The builder's action metadata registry: labels, config fields and per-type defaults. */
+/** The builder's action metadata registry: config fields, colours and per-type defaults. */
 
 import {
   LEAF_ACTION_TYPES,
@@ -8,6 +8,7 @@ import {
   type TrustAction,
   type ViolationSeverity,
 } from '@tracearr/shared';
+import type { Translate } from './conditionFields';
 
 // Config field types for rendering action configuration
 export type ConfigFieldType = 'number' | 'text' | 'select' | 'slider' | 'destinations';
@@ -27,6 +28,8 @@ export interface ConfigField {
   type: ConfigFieldType;
   required?: boolean;
   options?: ConfigFieldOption[];
+  /** Options this field takes from a translated catalog instead of carrying inline. */
+  optionSource?: 'sessionTargets';
   min?: number;
   max?: number;
   step?: number;
@@ -40,57 +43,50 @@ export interface ConfigField {
 // Action definition interface
 export interface ActionDefinition {
   type: LeafActionType;
-  label: string;
-  description: string;
-  icon: string; // Lucide icon name
   configFields: ConfigField[];
   color: 'default' | 'warning' | 'destructive';
-  hint?: string; // Optional warning/info message to display
 }
 
-// Severity options for violation actions
-export const SEVERITY_OPTIONS: { value: ViolationSeverity; label: string; color: string }[] = [
-  { value: 'low', label: 'Low', color: 'bg-blue-500' },
-  { value: 'warning', label: 'Warning', color: 'bg-yellow-500' },
-  { value: 'high', label: 'High', color: 'bg-red-500' },
-];
+export const SEVERITIES = [
+  'low',
+  'warning',
+  'high',
+] as const satisfies readonly ViolationSeverity[];
 
-// Session target options for kill_stream and message_client actions
-export const SESSION_TARGET_OPTIONS: ConfigFieldOption[] = [
-  {
-    value: 'triggering',
-    label: 'Triggering session',
-    tooltip: 'Only the session that triggered this rule',
-  },
-  {
-    value: 'oldest',
-    label: 'Oldest session',
-    tooltip: "The user's longest-running active session",
-  },
-  {
-    value: 'newest',
-    label: 'Newest session',
-    tooltip: "The user's most recently started session",
-  },
-  {
-    value: 'all_except_one',
-    label: 'All except one (keep oldest)',
-    tooltip: 'All sessions except the oldest, bringing user down to 1 stream',
-  },
-  {
-    value: 'all_user',
-    label: 'All user sessions',
-    tooltip: 'Every active session for this user',
-  },
-];
+/** Which sessions a kill_stream or message_client action reaches. */
+const SESSION_TARGETS = ['triggering', 'oldest', 'newest', 'all_except_one', 'all_user'] as const;
+
+export function severityLabel(t: Translate, severity: ViolationSeverity): string {
+  return t(`automations.severity.${severity}`);
+}
+
+export function actionLabel(t: Translate, type: LeafActionType): string {
+  return t(`automations.actions.${type}.label`);
+}
+
+export function actionDescription(t: Translate, type: LeafActionType): string {
+  return t(`automations.actions.${type}.description`);
+}
+
+/** Only message_client carries a caveat, so only it has a hint key. */
+export function actionHint(t: Translate, type: LeafActionType): string | undefined {
+  return type === 'message_client' ? t('automations.actions.message_client.hint') : undefined;
+}
+
+/** A config field's choices, translated when they come from a catalog. */
+export function configFieldOptions(t: Translate, field: ConfigField): ConfigFieldOption[] {
+  if (field.optionSource !== 'sessionTargets') return field.options ?? [];
+  return SESSION_TARGETS.map((value) => ({
+    value,
+    label: t(`automations.sessionTargets.${value}.label`),
+    tooltip: t(`automations.sessionTargets.${value}.tooltip`),
+  }));
+}
 
 // The main action definitions registry
 export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
   send: {
     type: 'send',
-    label: 'Send Notification',
-    description: 'Send to one or more destinations',
-    icon: 'Bell',
     color: 'default',
     configFields: [
       {
@@ -114,9 +110,6 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
 
   trust: {
     type: 'trust',
-    label: 'Trust Score',
-    description: 'Adjust, set, or reset the trust score',
-    icon: 'TrendingUp',
     color: 'default',
     configFields: [
       {
@@ -152,9 +145,6 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
 
   kill_stream: {
     type: 'kill_stream',
-    label: 'Kill Stream',
-    description: 'Terminate the active stream',
-    icon: 'XCircle',
     color: 'destructive',
     configFields: [
       {
@@ -182,7 +172,7 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
         name: 'target',
         label: 'Target',
         type: 'select',
-        options: SESSION_TARGET_OPTIONS,
+        optionSource: 'sessionTargets',
         description: 'Which sessions to terminate',
         fullWidth: true,
       },
@@ -199,17 +189,13 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
 
   message_client: {
     type: 'message_client',
-    label: 'Message Client',
-    description: 'Send message to the media player',
-    icon: 'MessageSquare',
     color: 'default',
-    hint: 'Jellyfin and Emby only. Plex only supports messages when killing a stream.',
     configFields: [
       {
         name: 'target',
         label: 'Target',
         type: 'select',
-        options: SESSION_TARGET_OPTIONS,
+        optionSource: 'sessionTargets',
         description: 'Which sessions to message',
         fullWidth: true,
       },
@@ -225,18 +211,10 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
   },
 };
 
-// Short action labels for one-line summaries
-export const COMPACT_ACTION_LABELS: Record<LeafActionType, string> = {
-  send: 'Send',
-  trust: 'Trust score',
-  kill_stream: 'Kill stream',
-  message_client: 'Message',
-};
-
 /** Run steps name their action as a plain string, including types this build never knew. */
-export function compactActionLabel(action: string): string {
-  const labels: Record<string, string> = COMPACT_ACTION_LABELS;
-  return labels[action] ?? action;
+export function storedActionLabel(t: Translate, action: string): string {
+  const known = (LEAF_ACTION_TYPES as readonly string[]).includes(action);
+  return known ? actionLabel(t, action as LeafActionType) : action;
 }
 
 /** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */

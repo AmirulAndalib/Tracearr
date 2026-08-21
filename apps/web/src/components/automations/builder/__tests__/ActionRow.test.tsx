@@ -60,8 +60,10 @@ describe('ActionRow type picker', () => {
 
     const trustOptions = screen
       .getAllByRole('option')
-      .filter((option) => option.textContent?.includes('Trust'));
-    expect(trustOptions.map((option) => option.textContent)).toEqual(['Trust Score']);
+      .filter((option) => option.textContent?.includes('trust'));
+    expect(trustOptions.map((option) => option.textContent)).toEqual([
+      'automations.actions.trust.label',
+    ]);
   });
 
   it('leads with send for a notification automation', async () => {
@@ -71,7 +73,7 @@ describe('ActionRow type picker', () => {
     await user.click(screen.getByRole('combobox', { name: /typeLabel/ }));
 
     const options = screen.getAllByRole('option').map((option) => option.textContent);
-    expect(options[0]).toBe('Send Notification');
-    expect(options).toContain('Kill Stream');
+    expect(options[0]).toBe('automations.actions.send.label');
+    expect(options).toContain('automations.actions.kill_stream.label');
   });
 });

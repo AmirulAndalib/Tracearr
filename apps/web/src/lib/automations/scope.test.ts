@@ -4,10 +4,10 @@ import {
   canEnforceAcrossServers,
   isScopeComplete,
   offeredScopeModes,
-  scopeFromRule,
+  scopeFromAutomation,
   scopeToPayload,
   withScopeMode,
-  type RuleScope,
+  type AutomationScope,
 } from './scope';
 
 function conditions(...fields: string[]): AutomationConditions {
@@ -54,24 +54,27 @@ describe('scopeToPayload', () => {
   });
 });
 
-describe('scopeFromRule', () => {
+describe('scopeFromAutomation', () => {
   it('reads the most specific column set', () => {
-    expect(scopeFromRule({ userId: 'usr-3', serverId: 'srv-1' })).toEqual({
+    expect(scopeFromAutomation({ userId: 'usr-3', serverId: 'srv-1' })).toEqual({
       mode: 'person',
       userId: 'usr-3',
     });
-    expect(scopeFromRule({ serverUserId: 'su-9' }, 'srv-2')).toEqual({
+    expect(scopeFromAutomation({ serverUserId: 'su-9' }, 'srv-2')).toEqual({
       mode: 'account',
       serverId: 'srv-2',
       serverUserId: 'su-9',
     });
-    expect(scopeFromRule({ serverId: 'srv-1' })).toEqual({ mode: 'server', serverId: 'srv-1' });
-    expect(scopeFromRule(undefined)).toEqual({ mode: 'global' });
+    expect(scopeFromAutomation({ serverId: 'srv-1' })).toEqual({
+      mode: 'server',
+      serverId: 'srv-1',
+    });
+    expect(scopeFromAutomation(undefined)).toEqual({ mode: 'global' });
   });
 
   it('round-trips through scopeToPayload', () => {
-    const scope: RuleScope = { mode: 'server', serverId: 'srv-1' };
-    expect(scopeFromRule(scopeToPayload(scope))).toEqual(scope);
+    const scope: AutomationScope = { mode: 'server', serverId: 'srv-1' };
+    expect(scopeFromAutomation(scopeToPayload(scope))).toEqual(scope);
   });
 });
 
@@ -107,7 +110,7 @@ describe('offeredScopeModes', () => {
 
 describe('withScopeMode', () => {
   it('keeps a chosen server when moving between server and account', () => {
-    const server: RuleScope = { mode: 'server', serverId: 'srv-1' };
+    const server: AutomationScope = { mode: 'server', serverId: 'srv-1' };
     expect(withScopeMode(server, 'account')).toEqual({
       mode: 'account',
       serverId: 'srv-1',
@@ -128,7 +131,7 @@ describe('withScopeMode', () => {
   });
 
   it('returns the same scope when the mode is unchanged', () => {
-    const scope: RuleScope = { mode: 'person', userId: 'usr-3' };
+    const scope: AutomationScope = { mode: 'person', userId: 'usr-3' };
     expect(withScopeMode(scope, 'person')).toBe(scope);
   });
 });

@@ -829,10 +829,10 @@ class ApiClient {
       );
     },
     /**
-     * Get filter options for the rules builder.
+     * Get filter options for the automation builder.
      * Returns all countries (with hasSessions indicator) and servers.
      */
-    rulesFilterOptions: () => {
+    automationFilterOptions: () => {
       return this.request<AutomationFilterOptions>(
         '/sessions/filter-options?includeAllCountries=true'
       );

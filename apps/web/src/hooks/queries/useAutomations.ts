@@ -35,12 +35,12 @@ export function useCreateAutomation() {
     mutationFn: (data: CreateAutomationInput) => api.automations.create(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
-      toast.success(t('toast.success.ruleCreated.title'), {
-        description: t('toast.success.ruleCreated.message'),
+      toast.success(t('toast.success.automationCreated.title'), {
+        description: t('toast.success.automationCreated.message'),
       });
     },
     onError: (error: Error) => {
-      toast.error(t('toast.error.ruleCreateFailed'), { description: error.message });
+      toast.error(t('toast.error.automationCreateFailed'), { description: error.message });
     },
   });
 }
@@ -54,12 +54,12 @@ export function useUpdateAutomation() {
       api.automations.update(id, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
-      toast.success(t('toast.success.ruleUpdated.title'), {
-        description: t('toast.success.ruleUpdated.message'),
+      toast.success(t('toast.success.automationUpdated.title'), {
+        description: t('toast.success.automationUpdated.message'),
       });
     },
     onError: (error: Error) => {
-      toast.error(t('toast.error.ruleUpdateFailed'), { description: error.message });
+      toast.error(t('toast.error.automationUpdateFailed'), { description: error.message });
     },
   });
 }
@@ -108,12 +108,12 @@ export function useDeleteAutomation() {
     mutationFn: (id: string) => api.automations.delete(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
-      toast.success(t('toast.success.ruleDeleted.title'), {
-        description: t('toast.success.ruleDeleted.message'),
+      toast.success(t('toast.success.automationDeleted.title'), {
+        description: t('toast.success.automationDeleted.message'),
       });
     },
     onError: (error: Error) => {
-      toast.error(t('toast.error.ruleDeleteFailed'), { description: error.message });
+      toast.error(t('toast.error.automationDeleteFailed'), { description: error.message });
     },
   });
 }
@@ -133,7 +133,9 @@ export function useBulkToggleAutomations() {
       });
     },
     onError: (error: Error) => {
-      toast.error(t('notifications:toast.error.ruleUpdateFailed'), { description: error.message });
+      toast.error(t('notifications:toast.error.automationUpdateFailed'), {
+        description: error.message,
+      });
     },
   });
 }
@@ -146,12 +148,14 @@ export function useBulkDeleteAutomations() {
     mutationFn: (ids: string[]) => api.automations.bulkDelete(ids),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
-      toast.success(t('notifications:toast.success.ruleDeleted.title'), {
+      toast.success(t('notifications:toast.success.automationDeleted.title'), {
         description: t('common:count.automation', { count: data.deleted }),
       });
     },
     onError: (error: Error) => {
-      toast.error(t('notifications:toast.error.ruleDeleteFailed'), { description: error.message });
+      toast.error(t('notifications:toast.error.automationDeleteFailed'), {
+        description: error.message,
+      });
     },
   });
 }

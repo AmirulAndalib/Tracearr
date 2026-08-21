@@ -53,7 +53,7 @@ import type { FilterDescriptor } from '@/components/ui/filters';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
 import { ScopeChip, toBuilderInput } from '@/components/automations';
-import { getRuleIcon, getRuleSummary, RuleBuilderDialog } from '@/components/rules';
+import { AutomationBuilderDialog } from '@/components/automations/builder';
 import {
   useAutomations,
   useBulkDeleteAutomations,
@@ -64,10 +64,15 @@ import {
   useToggleAutomation,
   useUpdateAutomation,
 } from '@/hooks/queries';
-import { useRulesFilterOptions } from '@/hooks/queries/useHistory';
+import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useRowSelection } from '@/hooks/useRowSelection';
 import { useServer } from '@/hooks/useServer';
-import { CLASSIC_RULE_TEMPLATES, type ClassicRuleTemplate } from '@/lib/rules';
+import {
+  automationIcon,
+  describeAutomation,
+  CLASSIC_RULE_TEMPLATES,
+  type ClassicRuleTemplate,
+} from '@/lib/automations';
 import {
   AUTOMATIONS_FILTER_DEFAULTS,
   buildAutomationFilterParams,
@@ -162,7 +167,7 @@ export function Automations() {
     orderDir,
     ...filterParams,
   });
-  const { data: filterOptions } = useRulesFilterOptions();
+  const { data: filterOptions } = useAutomationFilterOptions();
 
   const createAutomation = useCreateAutomation();
   const updateAutomation = useUpdateAutomation();
@@ -246,7 +251,7 @@ export function Automations() {
             return (
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                  {getRuleIcon(automation)}
+                  {automationIcon(automation)}
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -265,7 +270,7 @@ export function Automations() {
                   </div>
                   <p className="text-muted-foreground truncate text-sm">
                     {automation.description ??
-                      getRuleSummary(automation, filterOptions, unitSystem)}
+                      describeAutomation(t, automation, filterOptions, unitSystem)}
                   </p>
                 </div>
               </div>
@@ -549,7 +554,7 @@ export function Automations() {
                 className="hover:bg-accent flex items-center gap-4 rounded-lg border p-4 text-left transition-colors"
               >
                 <div className="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-                  {getRuleIcon({ conditions: entry.conditions, actions: entry.actions })}
+                  {automationIcon({ conditions: entry.conditions, actions: entry.actions })}
                 </div>
                 <div>
                   <div className="font-medium">{entry.label}</div>
@@ -561,7 +566,7 @@ export function Automations() {
         </DialogContent>
       </Dialog>
 
-      <RuleBuilderDialog
+      <AutomationBuilderDialog
         open={builderOpen}
         onOpenChange={(open) => {
           setBuilderOpen(open);
@@ -570,7 +575,7 @@ export function Automations() {
             setEditing(undefined);
           }
         }}
-        rule={
+        automation={
           editing
             ? toBuilderInput(editing)
             : template

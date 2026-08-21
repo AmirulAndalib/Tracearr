@@ -26,7 +26,7 @@ vi.mock('@/hooks/queries', () => ({
 }));
 
 vi.mock('@/hooks/queries/useHistory', () => ({
-  useRulesFilterOptions: () => ({ data: undefined }),
+  useAutomationFilterOptions: () => ({ data: undefined }),
 }));
 
 vi.mock('@/hooks/useServer', () => ({

@@ -3,7 +3,7 @@ import { User } from 'lucide-react';
 import type { Automation, AutomationFilterOptions, Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { ServerBadge } from '@/components/server';
-import { scopeFromRule } from '@/lib/rules';
+import { scopeFromAutomation } from '@/lib/automations';
 
 interface ScopeChipProps {
   automation: Automation;
@@ -14,7 +14,7 @@ interface ScopeChipProps {
 /** Where the automation applies, as one chip beside its name. */
 export function ScopeChip({ automation, servers, filterOptions }: ScopeChipProps) {
   const { t } = useTranslation('pages');
-  const scope = scopeFromRule(automation).mode;
+  const scope = scopeFromAutomation(automation).mode;
 
   if (scope === 'global') {
     return <Badge variant="secondary">{t('automations.scope.global')}</Badge>;

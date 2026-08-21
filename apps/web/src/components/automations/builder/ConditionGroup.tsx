@@ -7,7 +7,7 @@ import type {
 } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConditionRow } from './ConditionRow';
-import { getDefaultOperatorForField, getDefaultValueForField } from '@/lib/rules';
+import { getDefaultOperatorForField, getDefaultValueForField } from '@/lib/automations';
 
 interface ConditionGroupProps {
   group: ConditionGroupType;

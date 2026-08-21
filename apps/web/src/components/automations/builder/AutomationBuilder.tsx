@@ -11,7 +11,7 @@ import type {
   CreateAutomationInput,
   AutomationFilterOptions,
 } from '@tracearr/shared';
-import { AUTOMATION_KINDS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
+import { AUTOMATION_KINDS, CONDITION_FIELDS, INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -26,23 +26,23 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ConditionGroup } from './ConditionGroup';
 import { ActionRow } from './ActionRow';
-import { RuleScopeField } from './RuleScopeField';
+import { ScopeField } from './ScopeField';
 import {
   DEFAULT_ACTION_TYPE,
-  FIELD_DEFINITIONS,
   getDefaultOperatorForField,
   getDefaultValueForField,
   createDefaultAction,
-  SEVERITY_OPTIONS,
+  severityLabel,
+  SEVERITIES,
   canEnforceAcrossServers as scopeAllowsCrossServer,
   isScopeComplete,
-  scopeFromRule,
+  scopeFromAutomation,
   scopeToPayload,
-  type RuleScope,
-} from '@/lib/rules';
+  type AutomationScope,
+} from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
-export interface RuleBuilderInput {
+export interface AutomationBuilderInput {
   id: string;
   name: string;
   description?: string | null;
@@ -57,8 +57,8 @@ export interface RuleBuilderInput {
   actions?: AutomationActions | null;
 }
 
-interface RuleBuilderProps {
-  initialRule?: RuleBuilderInput;
+interface AutomationBuilderProps {
+  initialAutomation?: AutomationBuilderInput;
   onSave: (data: CreateAutomationInput) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
@@ -79,38 +79,42 @@ function createDefaultConditionGroup(): ConditionGroupType {
   };
 }
 
-function extractConditions(rule?: RuleBuilderInput): AutomationConditions {
-  if (rule?.conditions && 'groups' in rule.conditions) return rule.conditions;
+function extractConditions(automation?: AutomationBuilderInput): AutomationConditions {
+  if (automation?.conditions && 'groups' in automation.conditions) return automation.conditions;
   return { groups: [createDefaultConditionGroup()] };
 }
 
-function extractActions(rule?: RuleBuilderInput): AutomationActions {
-  if (rule?.actions && 'actions' in rule.actions) return rule.actions;
+function extractActions(automation?: AutomationBuilderInput): AutomationActions {
+  if (automation?.actions && 'actions' in automation.actions) return automation.actions;
   return { actions: [] };
 }
 
-export function RuleBuilder({
-  initialRule,
+export function AutomationBuilder({
+  initialAutomation,
   onSave,
   onCancel,
   isLoading = false,
   filterOptions,
-}: RuleBuilderProps) {
+}: AutomationBuilderProps) {
   const { t } = useTranslation(['pages', 'common']);
 
-  const [name, setName] = useState(initialRule?.name ?? '');
-  const [description, setDescription] = useState(initialRule?.description ?? '');
-  const [kind, setKind] = useState<AutomationKind>(initialRule?.kind ?? 'policy');
+  const [name, setName] = useState(initialAutomation?.name ?? '');
+  const [description, setDescription] = useState(initialAutomation?.description ?? '');
+  const [kind, setKind] = useState<AutomationKind>(initialAutomation?.kind ?? 'policy');
   // Kept across a switch to notification so switching back restores the picked severity.
-  const [severity, setSeverity] = useState<ViolationSeverity>(initialRule?.severity ?? 'warning');
-  const [isActive, setIsActive] = useState(initialRule?.isActive ?? true);
-  const [conditions, setConditions] = useState<AutomationConditions>(() =>
-    extractConditions(initialRule)
+  const [severity, setSeverity] = useState<ViolationSeverity>(
+    initialAutomation?.severity ?? 'warning'
   );
-  const [actions, setActions] = useState<AutomationActions>(() => extractActions(initialRule));
-  const [scope, setScope] = useState<RuleScope>(() => scopeFromRule(initialRule));
+  const [isActive, setIsActive] = useState(initialAutomation?.isActive ?? true);
+  const [conditions, setConditions] = useState<AutomationConditions>(() =>
+    extractConditions(initialAutomation)
+  );
+  const [actions, setActions] = useState<AutomationActions>(() =>
+    extractActions(initialAutomation)
+  );
+  const [scope, setScope] = useState<AutomationScope>(() => scopeFromAutomation(initialAutomation));
   const [enforceAcrossServers, setEnforceAcrossServers] = useState(
-    initialRule?.enforceAcrossServers ?? false
+    initialAutomation?.enforceAcrossServers ?? false
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
@@ -118,13 +122,13 @@ export function RuleBuilder({
   const [preAddedAction, setPreAddedAction] = useState<Action | null>(null);
 
   // The backend rejects mixing inactive_days with session fields, so the field
-  // picker offers only the still-valid choices for the rule as built.
+  // picker offers only the still-valid choices for the automation as built.
   const allowedFields = useMemo<ReadonlySet<string> | undefined>(() => {
     const compatible = INACTIVITY_COMPATIBLE_FIELDS as readonly string[];
     const fields = conditions.groups.flatMap((g) => g.conditions.map((c) => c.field));
     if (fields.includes('inactive_days')) return new Set(compatible);
     if (fields.some((f) => !compatible.includes(f))) {
-      return new Set(Object.keys(FIELD_DEFINITIONS).filter((f) => f !== 'inactive_days'));
+      return new Set(Object.keys(CONDITION_FIELDS).filter((f) => f !== 'inactive_days'));
     }
     return undefined;
   }, [conditions]);
@@ -257,10 +261,10 @@ export function RuleBuilder({
           )}
         >
           <Field>
-            <FieldLabel htmlFor="rule-name">{t('pages:automations.ruleName')}</FieldLabel>
+            <FieldLabel htmlFor="automation-name">{t('pages:automations.name')}</FieldLabel>
             <Input
-              id="rule-name"
-              placeholder={t('pages:automations.ruleNamePlaceholder')}
+              id="automation-name"
+              placeholder={t('pages:automations.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               aria-invalid={submitted && !name.trim()}
@@ -268,11 +272,11 @@ export function RuleBuilder({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="rule-description">
+            <FieldLabel htmlFor="automation-description">
               {t('pages:automations.builder.descriptionLabel')}
             </FieldLabel>
             <Input
-              id="rule-description"
+              id="automation-description"
               placeholder={t('pages:automations.builder.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -281,17 +285,17 @@ export function RuleBuilder({
 
           {kind === 'policy' && (
             <Field>
-              <FieldLabel htmlFor="rule-severity">
+              <FieldLabel htmlFor="automation-severity">
                 {t('pages:automations.builder.severityLabel')}
               </FieldLabel>
               <Select value={severity} onValueChange={(v) => setSeverity(v as ViolationSeverity)}>
-                <SelectTrigger id="rule-severity">
+                <SelectTrigger id="automation-severity">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SEVERITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {SEVERITIES.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {severityLabel(t, option)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -300,16 +304,16 @@ export function RuleBuilder({
           )}
 
           <Field className="@2xl:w-auto">
-            <FieldLabel htmlFor="rule-active">
+            <FieldLabel htmlFor="automation-active">
               {t('pages:automations.builder.activeLabel')}
             </FieldLabel>
             <div className="flex h-9 items-center">
-              <Switch id="rule-active" checked={isActive} onCheckedChange={setIsActive} />
+              <Switch id="automation-active" checked={isActive} onCheckedChange={setIsActive} />
             </div>
           </Field>
         </div>
 
-        <RuleScopeField
+        <ScopeField
           scope={scope}
           onChange={setScope}
           enforceAcrossServers={enforceAcrossServers}
@@ -420,7 +424,9 @@ export function RuleBuilder({
           ) : (
             <>
               <Save />
-              {initialRule ? t('pages:automations.updateRule') : t('pages:automations.createRule')}
+              {initialAutomation
+                ? t('pages:automations.updateAutomation')
+                : t('pages:automations.createAutomation')}
             </>
           )}
         </Button>
@@ -429,4 +435,4 @@ export function RuleBuilder({
   );
 }
 
-export default RuleBuilder;
+export default AutomationBuilder;

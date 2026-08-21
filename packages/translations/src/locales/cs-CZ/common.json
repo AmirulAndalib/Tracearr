@@ -78,8 +78,6 @@
     "location_other": "{{count}} locations",
     "result_one": "Výsledek {{count}}",
     "result_other": "Výsledky {{count}}",
-    "rule_one": "{{count}} pravidlo",
-    "rule_other": "{{count}} pravidla",
     "selected_one": "{{count}} vybrán",
     "selected_other": "{{count}} vybrán",
     "server_one": "{{count}} server",

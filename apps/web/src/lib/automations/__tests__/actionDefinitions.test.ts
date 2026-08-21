@@ -1,10 +1,19 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { i18n, initI18n } from '@tracearr/translations';
 import { trustActionSchema } from '@tracearr/shared';
 import {
   applyActionFieldChange,
-  compactActionLabel,
   createDefaultAction,
+  storedActionLabel,
 } from '../actionDefinitions';
+import type { Translate } from '../conditionFields';
+
+let t: Translate;
+
+beforeAll(async () => {
+  await initI18n({ lng: 'en' });
+  t = i18n.getFixedT(null, 'pages');
+});
 
 describe('applyActionFieldChange', () => {
   it('swaps trust parameters when the mode changes, so every mode stays savable', () => {
@@ -48,13 +57,13 @@ describe('applyActionFieldChange', () => {
   });
 });
 
-describe('compactActionLabel', () => {
-  it('reads a stored action type as its label', () => {
-    expect(compactActionLabel('kill_stream')).toBe('Kill stream');
-    expect(compactActionLabel('message_client')).toBe('Message');
+describe('storedActionLabel', () => {
+  it('reads a stored action type as its translated label', () => {
+    expect(storedActionLabel(t, 'kill_stream')).toBe('Kill Stream');
+    expect(storedActionLabel(t, 'message_client')).toBe('Message Client');
   });
 
   it('falls back to the stored value for an action this build does not know', () => {
-    expect(compactActionLabel('quarantine')).toBe('quarantine');
+    expect(storedActionLabel(t, 'quarantine')).toBe('quarantine');
   });
 });

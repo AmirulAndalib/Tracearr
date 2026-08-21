@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import type {
   Condition,
   ConditionField,
+  ConditionFieldDescriptor,
   DeviceType,
   Operator,
   AutomationFilterOptions,
@@ -24,19 +25,24 @@ import {
 } from '@/components/ui/select';
 import type { MultiSelectOption } from '@/components/ui/multi-select';
 import {
-  FIELD_DEFINITIONS,
-  CATEGORY_LABELS,
-  DEVICE_TYPE_OPTIONS,
-  OPERATOR_LABELS,
-  getFieldsByCategory,
+  categoryLabel,
+  defaultParamsForField,
+  fieldDescription,
+  fieldDescriptor,
+  fieldLabel,
+  fieldOptions,
+  fieldPlaceholder,
+  fieldsByCategory,
   getDefaultOperatorForField,
   getDefaultValueForField,
   isArrayOperator,
-  type FieldCategory,
-  type FieldDefinition,
-} from '@/lib/rules';
+  operatorLabel,
+  unitLabel,
+  FIELD_CATEGORIES,
+  type Translate,
+} from '@/lib/automations';
 import { useSettings } from '@/hooks/queries';
-import { RuleFieldControl, type RuleControlSpec, type RuleControlValue } from './fields';
+import { FieldControl, type ControlSpec, type ControlValue } from './fields';
 
 interface CountryGroupLabels {
   recentlySeen: string;
@@ -64,25 +70,16 @@ export function ConditionRow({
   const { data: settings } = useSettings();
   const fieldId = useId();
 
-  const fieldDef = FIELD_DEFINITIONS[condition.field] as FieldDefinition | undefined;
-  const fieldsByCategory = getFieldsByCategory();
+  const descriptor = fieldDescriptor(condition.field);
+  const byCategory = fieldsByCategory();
   const unitSystem = settings?.unitSystem ?? 'metric';
 
-  // A stored rule can carry a field this build no longer defines (library_id
-  // was removed); rendering nothing beats taking the whole builder down.
-  if (!fieldDef) return null;
+  // A stored automation can carry a field this build no longer defines
+  // (library_id was removed); rendering nothing beats taking the builder down.
+  if (!descriptor) return null;
 
   const handleFieldChange = (newField: ConditionField) => {
-    const newFieldDef = FIELD_DEFINITIONS[newField];
-    const params: {
-      window_hours?: number;
-      exclude_same_device?: boolean;
-      exclude_same_ip?: boolean;
-    } = {};
-    if (newFieldDef.hasWindowHours) params.window_hours = 24;
-    if (newFieldDef.hasExcludeSameDevice) params.exclude_same_device = true;
-    // Same-household viewing is legitimate, so this stays off unless asked for.
-    if (newFieldDef.hasExcludeSameIp) params.exclude_same_ip = false;
+    const params = defaultParamsForField(newField);
 
     onChange({
       field: newField,
@@ -119,17 +116,16 @@ export function ConditionRow({
     });
   };
 
-  const conversion = numberConversion(fieldDef, condition.value, unitSystem);
-  const valueSpec = buildValueSpec(
-    fieldDef,
-    isArrayOperator(condition.operator),
+  const conversion = numberConversion(descriptor, condition, unitSystem);
+  const valueSpec = buildValueSpec(t, condition.field, descriptor, {
+    isArray: isArrayOperator(condition.operator),
     filterOptions,
-    conversion.unit,
-    {
+    displayUnit: conversion.unit,
+    countryGroups: {
       recentlySeen: t('automations.builder.conditions.recentlySeen'),
       allCountries: t('automations.builder.conditions.allCountries'),
-    }
-  );
+    },
+  });
 
   return (
     <div className="flex flex-wrap items-start gap-2">
@@ -141,20 +137,19 @@ export function ConditionRow({
           <SelectValue placeholder={t('automations.builder.conditions.fieldPlaceholder')} />
         </SelectTrigger>
         <SelectContent className="min-w-60">
-          {(Object.keys(fieldsByCategory) as FieldCategory[]).map((category) => {
+          {FIELD_CATEGORIES.map((category) => {
             // The row's own field always stays listed so the trigger keeps its
-            // label even when the rest of the rule disallows it.
-            const fields = fieldsByCategory[category].filter(
-              (def) =>
-                !allowedFields || allowedFields.has(def.field) || def.field === condition.field
+            // label even when the rest of the automation disallows it.
+            const fields = byCategory[category].filter(
+              (field) => !allowedFields || allowedFields.has(field) || field === condition.field
             );
             if (fields.length === 0) return null;
             return (
               <SelectGroup key={category}>
-                <SelectLabel>{CATEGORY_LABELS[category]}</SelectLabel>
-                {fields.map((def) => (
-                  <SelectItem key={def.field} value={def.field}>
-                    {def.label}
+                <SelectLabel>{categoryLabel(t, category)}</SelectLabel>
+                {fields.map((field) => (
+                  <SelectItem key={field} value={field} title={fieldDescription(t, field)}>
+                    {fieldLabel(t, field)}
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -171,16 +166,16 @@ export function ConditionRow({
           <SelectValue placeholder={t('automations.builder.conditions.operatorPlaceholder')} />
         </SelectTrigger>
         <SelectContent>
-          {fieldDef.operators.map((op) => (
+          {descriptor.operators.map((op) => (
             <SelectItem key={op} value={op}>
-              {OPERATOR_LABELS[op]}
+              {operatorLabel(t, op)}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
 
       <div className="min-w-36 flex-1">
-        <RuleFieldControl
+        <FieldControl
           id={`${fieldId}-value`}
           spec={valueSpec}
           value={conversion.displayValue}
@@ -188,7 +183,7 @@ export function ConditionRow({
         />
       </div>
 
-      {fieldDef.hasWindowHours && (
+      {descriptor.flags.windowHours && (
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground text-sm whitespace-nowrap">
             {t('automations.builder.conditions.windowPrefix')}
@@ -207,7 +202,7 @@ export function ConditionRow({
         </div>
       )}
 
-      {fieldDef.hasExcludeSameDevice && (
+      {descriptor.flags.excludeSameDevice && (
         <ConditionToggle
           label={t('automations.builder.conditions.uniqueDevices')}
           hint={t('automations.builder.conditions.uniqueDevicesHint')}
@@ -216,7 +211,7 @@ export function ConditionRow({
         />
       )}
 
-      {fieldDef.hasExcludeSameIp && (
+      {descriptor.flags.excludeSameIp && (
         <ConditionToggle
           label={t('automations.builder.conditions.uniqueIps')}
           hint={t('automations.builder.conditions.uniqueIpsHint')}
@@ -225,15 +220,15 @@ export function ConditionRow({
         />
       )}
 
-      {fieldDef.hasCountDeviceTypes && (
+      {descriptor.flags.countDeviceTypes && (
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="w-44 shrink-0">
-              <RuleFieldControl
+              <FieldControl
                 id={`${fieldId}-device-types`}
                 spec={{
                   kind: 'multiSelect',
-                  options: DEVICE_TYPE_OPTIONS,
+                  options: fieldOptions(t, 'device_type'),
                   placeholder: t('automations.builder.conditions.allDeviceTypes'),
                 }}
                 value={condition.params?.count_device_types ?? []}
@@ -293,16 +288,16 @@ function dynamicOptions(
 ): MultiSelectOption[] | undefined {
   if (!filterOptions) return undefined;
 
-  switch (field) {
-    case 'country':
+  switch (fieldDescriptor(field)?.dynamicSource) {
+    case 'countries':
       return filterOptions.countries?.map((country) => ({
         value: country.code,
         label: country.name,
         group: country.hasSessions ? groupLabels.recentlySeen : groupLabels.allCountries,
       }));
-    case 'server_id':
+    case 'servers':
       return filterOptions.servers?.map((server) => ({ value: server.id, label: server.name }));
-    case 'user_id':
+    case 'users':
       return filterOptions.users?.map((user) => ({
         value: user.id,
         label: user.identityName || user.username,
@@ -312,59 +307,68 @@ function dynamicOptions(
   }
 }
 
+interface ValueSpecContext {
+  isArray: boolean;
+  filterOptions: AutomationFilterOptions | undefined;
+  displayUnit: string | undefined;
+  countryGroups: CountryGroupLabels;
+}
+
 function buildValueSpec(
-  fieldDef: FieldDefinition,
-  isArray: boolean,
-  filterOptions: AutomationFilterOptions | undefined,
-  displayUnit: string | undefined,
-  groupLabels: CountryGroupLabels
-): RuleControlSpec {
-  if (fieldDef.valueType === 'boolean') return { kind: 'boolean' };
+  t: Translate,
+  field: ConditionField,
+  descriptor: ConditionFieldDescriptor,
+  ctx: ValueSpecContext
+): ControlSpec {
+  const placeholder = fieldPlaceholder(t, field);
 
-  if (fieldDef.valueType === 'select' || fieldDef.valueType === 'multi-select') {
-    const options =
-      dynamicOptions(fieldDef.field, filterOptions, groupLabels) ?? fieldDef.options ?? [];
-    return { kind: isArray ? 'multiSelect' : 'select', options, placeholder: fieldDef.placeholder };
+  switch (descriptor.valueType) {
+    case 'boolean':
+      return { kind: 'boolean' };
+    case 'select':
+    case 'multiSelect': {
+      const options =
+        dynamicOptions(field, ctx.filterOptions, ctx.countryGroups) ?? fieldOptions(t, field);
+      return { kind: ctx.isArray ? 'multiSelect' : 'select', options, placeholder };
+    }
+    case 'number':
+      return {
+        kind: 'number',
+        min: descriptor.min,
+        max: descriptor.max,
+        step: descriptor.step,
+        unit: ctx.displayUnit ?? (descriptor.unit && unitLabel(t, descriptor.unit)),
+      };
+    default:
+      return { kind: 'text', placeholder };
   }
-
-  if (fieldDef.valueType === 'number') {
-    return {
-      kind: 'number',
-      min: fieldDef.min,
-      max: fieldDef.max,
-      step: fieldDef.step,
-      unit: displayUnit ?? fieldDef.unit,
-    };
-  }
-
-  return { kind: 'text', placeholder: fieldDef.placeholder };
 }
 
 interface NumberConversion {
-  displayValue: RuleControlValue | undefined;
-  toStored: (next: RuleControlValue) => Condition['value'];
+  displayValue: ControlValue | undefined;
+  toStored: (next: ControlValue) => Condition['value'];
   unit: string | undefined;
 }
 
 // Distances are stored metric; the picker shows whichever system the user set.
 function numberConversion(
-  fieldDef: FieldDefinition,
-  value: Condition['value'],
+  descriptor: ConditionFieldDescriptor,
+  condition: Condition,
   unitSystem: 'metric' | 'imperial'
 ): NumberConversion {
   const asIs: NumberConversion = {
-    displayValue: value,
+    displayValue: condition.value,
     toStored: (next) => next,
     unit: undefined,
   };
 
-  if (fieldDef.valueType !== 'number' || typeof value !== 'number') return asIs;
+  if (descriptor.valueType !== 'number' || typeof condition.value !== 'number') return asIs;
 
-  const converted = formatConditionFieldValue(value, fieldDef.field, unitSystem);
+  const converted = formatConditionFieldValue(condition.value, condition.field, unitSystem);
   if (!converted.unit) return asIs;
 
   return {
-    displayValue: Math.round(fromMetricDistance(value, unitSystem)),
+    displayValue: Math.round(fromMetricDistance(condition.value, unitSystem)),
     toStored: (next) =>
       typeof next === 'number' ? Math.round(toMetricDistance(next, unitSystem)) : next,
     unit: converted.unit,

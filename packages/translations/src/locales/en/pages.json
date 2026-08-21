@@ -335,6 +335,25 @@
     }
   },
   "automations": {
+    "actions": {
+      "send": {
+        "label": "Send Notification",
+        "description": "Send to one or more destinations"
+      },
+      "trust": {
+        "label": "Trust Score",
+        "description": "Adjust, set, or reset the trust score"
+      },
+      "kill_stream": {
+        "label": "Kill Stream",
+        "description": "Terminate the active stream"
+      },
+      "message_client": {
+        "label": "Message Client",
+        "description": "Send a message to the media player",
+        "hint": "Jellyfin and Emby only. Plex only supports messages when killing a stream."
+      }
+    },
     "activity": {
       "title": "Activity",
       "description": "Every evaluation that reached a run, newest first.",
@@ -428,23 +447,42 @@
         "typeLabel": "Action"
       }
     },
+    "categories": {
+      "session_behavior": "Session Behavior",
+      "stream_quality": "Stream Quality",
+      "user_attributes": "User Attributes",
+      "device_client": "Device & Client",
+      "network_location": "Network & Location",
+      "scope": "Scope"
+    },
     "chooseTemplate": "Choose a Template",
     "chooseTemplateDesc": "Select a pre-configured automation to get started quickly.",
+    "createAutomation": "Create Automation",
     "createDescription": "Set up a new automation for your media servers.",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
-    "createRule": "Create Automation",
     "custom": "Custom Automation",
-    "customRule": "Custom Rule",
+    "customAutomation": "Custom automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomation_one": "Delete Automation",
     "deleteAutomation_other": "Delete {{count}} Automations",
     "deleteAutomationsConfirm": "Are you sure you want to delete? This action cannot be undone.",
+    "describe": {
+      "more_one": "+{{count}} more",
+      "more_other": "+{{count}} more",
+      "noConditions": "No conditions",
+      "noAction": "No action",
+      "negated": "Not {{label}}",
+      "noValues": "(none)",
+      "includesSameDevice": "includes same device",
+      "uniqueIps": "unique IPs",
+      "deviceTypesOnly": "{{types}} only"
+    },
     "description": "Automations watch your servers and act when their conditions match",
     "detail": {
       "notFound": "Automation not found"
     },
     "disable": "Disable",
-    "editRule": "Edit Automation",
+    "editAutomation": "Edit Automation",
     "enable": "Enable",
     "evaluations": {
       "title": "Recent evaluations",
@@ -457,6 +495,109 @@
         "gate_blocked": "An open run already covers this"
       }
     },
+    "fields": {
+      "concurrent_streams": {
+        "label": "Concurrent Streams",
+        "description": "Number of active streams from the same user"
+      },
+      "active_session_distance_km": {
+        "label": "Distance Between Sessions",
+        "description": "Distance between simultaneous sessions"
+      },
+      "travel_speed_kmh": {
+        "label": "Travel Speed",
+        "description": "Calculated travel speed between locations"
+      },
+      "unique_ips_in_window": {
+        "label": "Unique IPs in Window",
+        "description": "Number of unique IP addresses in the time window"
+      },
+      "unique_devices_in_window": {
+        "label": "Unique Devices in Window",
+        "description": "Number of unique devices in the time window"
+      },
+      "inactive_days": {
+        "label": "Days Inactive",
+        "description": "Days since last activity"
+      },
+      "current_pause_minutes": {
+        "label": "Current Pause Duration",
+        "description": "How long the session has been continuously paused"
+      },
+      "total_pause_minutes": {
+        "label": "Total Pause Duration",
+        "description": "Total accumulated pause time across all pause/resume cycles"
+      },
+      "source_resolution": {
+        "label": "Source Resolution",
+        "description": "Original media resolution"
+      },
+      "output_resolution": {
+        "label": "Output Resolution",
+        "description": "Transcoded or delivered resolution"
+      },
+      "is_transcoding": {
+        "label": "Is Transcoding",
+        "description": "Whether video or audio streams are being transcoded"
+      },
+      "is_transcode_downgrade": {
+        "label": "Transcode Downgrade",
+        "description": "Output resolution is lower than source"
+      },
+      "source_bitrate_mbps": {
+        "label": "Source Bitrate",
+        "description": "Original media bitrate"
+      },
+      "user_id": {
+        "label": "User",
+        "description": "Specific users by account",
+        "placeholder": "Select users..."
+      },
+      "trust_score": {
+        "label": "Trust Score",
+        "description": "The user's trust score, from 0 to 100"
+      },
+      "account_age_days": {
+        "label": "Account Age",
+        "description": "Days since account creation"
+      },
+      "device_type": {
+        "label": "Device Type",
+        "description": "Type of device used"
+      },
+      "client_name": {
+        "label": "Client/Player",
+        "description": "Media player application",
+        "placeholder": "e.g., Plex for iOS"
+      },
+      "platform": {
+        "label": "Platform/OS",
+        "description": "Operating system"
+      },
+      "is_local_network": {
+        "label": "Local Network",
+        "description": "Streaming from the local network"
+      },
+      "country": {
+        "label": "Country",
+        "description": "Geographic country",
+        "placeholder": "Select countries..."
+      },
+      "ip_in_range": {
+        "label": "IP Range",
+        "description": "IP address in a CIDR range, IPv4 or IPv6",
+        "placeholder": "e.g., 192.168.1.0/24 or 2001:db8:abcd:7800::/64"
+      },
+      "server_id": {
+        "label": "Server",
+        "description": "Specific media server",
+        "placeholder": "Select servers..."
+      },
+      "media_type": {
+        "label": "Media Type",
+        "description": "Type of content"
+      }
+    },
     "fromTemplate": "From a Template",
     "kind": {
       "policy": "Policy",
@@ -465,11 +606,56 @@
       "notificationDescription": "Housekeeping and alerts. Runs are recorded but never become violations."
     },
     "kindColumn": "Kind",
+    "name": "Automation Name",
+    "namePlaceholder": "e.g., Concurrent Stream Limit",
     "noAutomationsConfigured": "No automations configured",
     "noAutomationsFound": "No automations found",
+    "operators": {
+      "eq": "equals",
+      "neq": "not equals",
+      "gt": "greater than",
+      "gte": "at least",
+      "lt": "less than",
+      "lte": "at most",
+      "in": "is one of",
+      "not_in": "is not one of",
+      "contains": "contains",
+      "not_contains": "does not contain"
+    },
+    "options": {
+      "4K": "4K (2160p)",
+      "1080p": "1080p",
+      "720p": "720p",
+      "480p": "480p",
+      "SD": "SD",
+      "unknown": "Unknown",
+      "mobile": "Mobile",
+      "tablet": "Tablet",
+      "tv": "TV",
+      "desktop": "Desktop",
+      "browser": "Browser",
+      "ios": "iOS",
+      "android": "Android",
+      "windows": "Windows",
+      "macos": "macOS",
+      "linux": "Linux",
+      "tvos": "tvOS",
+      "androidtv": "Android TV",
+      "roku": "Roku",
+      "webos": "webOS",
+      "tizen": "Tizen",
+      "movie": "Movie",
+      "episode": "TV Episode",
+      "track": "Music",
+      "photo": "Photo",
+      "live": "Live TV",
+      "trailer": "Trailer",
+      "video": "Video",
+      "audio": "Audio",
+      "video_or_audio": "Video or Audio",
+      "neither": "Neither (Direct Play)"
+    },
     "recordsOnly": "Records runs only",
-    "ruleName": "Automation Name",
-    "ruleNamePlaceholder": "e.g., Concurrent Stream Limit",
     "scope": {
       "global": "Global",
       "person": "Person",
@@ -477,6 +663,28 @@
       "crossServer": "Cross-server"
     },
     "searchPlaceholder": "Search automations...",
+    "sessionTargets": {
+      "triggering": {
+        "label": "Triggering session",
+        "tooltip": "Only the session that triggered this automation"
+      },
+      "oldest": {
+        "label": "Oldest session",
+        "tooltip": "The user's longest-running active session"
+      },
+      "newest": {
+        "label": "Newest session",
+        "tooltip": "The user's most recently started session"
+      },
+      "all_except_one": {
+        "label": "All except one (keep oldest)",
+        "tooltip": "All sessions except the oldest, bringing the user down to one stream"
+      },
+      "all_user": {
+        "label": "All user sessions",
+        "tooltip": "Every active session for this user"
+      }
+    },
     "settings": {
       "title": "Settings",
       "description": "How long this automation keeps its runs, and how often it may fire.",
@@ -487,11 +695,24 @@
       "cooldownHint": "Leave empty to fire on every match.",
       "cooldownInvalid": "Enter a whole number of minutes, 0 or more, or leave it empty."
     },
+    "severity": {
+      "low": "Low",
+      "warning": "Warning",
+      "high": "High"
+    },
     "title": "Automations",
     "toggleAutomation": "Turn {{name}} on or off",
     "tryAdjustingFilters": "Try adjusting your filters.",
-    "updateDescription": "Update this automation below.",
-    "updateRule": "Update Automation"
+    "units": {
+      "km": "km",
+      "kmh": "km/h",
+      "mbps": "Mbps",
+      "days": "days",
+      "minutes": "minutes",
+      "hours": "hours"
+    },
+    "updateAutomation": "Update Automation",
+    "updateDescription": "Update this automation below."
   },
   "terminateStream": {
     "title": "Terminate Stream",

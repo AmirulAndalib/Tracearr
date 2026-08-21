@@ -778,9 +778,7 @@ export function Debug() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      handleDelete('automations', t('pages:debug.clearAutomationsConfirm'))
-                    }
+                    onClick={() => handleDelete('automations', t('debug.clearAutomationsConfirm'))}
                     disabled={deleteMutation.isPending}
                   >
                     {t('debug.clearAutomations')}

@@ -17,7 +17,7 @@ vi.mock('@/hooks/useMaintenanceMode', () => ({
   MAINTENANCE_EVENT: 'maintenance',
 }));
 
-function backupItem(counts: Partial<BackupMetadata['counts']>): BackupListItem {
+function backupItem(counts: BackupMetadata['counts']): BackupListItem {
   return {
     filename: 'tracearr-backup-20260821-000000.zip',
     size: 1024,
@@ -36,14 +36,7 @@ function backupItem(counts: Partial<BackupMetadata['counts']>): BackupListItem {
         timescaleVersion: '2.17.0',
         timescaleToolkitVersion: null,
       },
-      counts: {
-        sessions: 1,
-        users: 2,
-        servers: 3,
-        automations: 7,
-        libraryItems: 4,
-        ...counts,
-      },
+      counts,
     },
   };
 }
@@ -63,21 +56,23 @@ function valueFor(label: string): string {
   return term.nextElementSibling?.textContent?.trim() ?? '';
 }
 
+const baseCounts = { sessions: 1, users: 2, servers: 3, libraryItems: 4 };
+
 describe('RestoreCard automation count', () => {
   it('renders the automation count from a current manifest', () => {
-    renderCard(backupItem({}));
+    renderCard(backupItem({ ...baseCounts, automations: 7 }));
 
     expect(valueFor('backup.restore.automations')).toBe('7');
   });
 
   it('falls back to the rule count a pre-rename manifest carries', () => {
-    renderCard(backupItem({ automations: undefined, rules: 12 }));
+    renderCard(backupItem({ ...baseCounts, rules: 12 }));
 
     expect(valueFor('backup.restore.automations')).toBe('12');
   });
 
   it('shows zero when a manifest carries neither count', () => {
-    renderCard(backupItem({ automations: undefined }));
+    renderCard(backupItem(baseCounts));
 
     expect(valueFor('backup.restore.automations')).toBe('0');
   });

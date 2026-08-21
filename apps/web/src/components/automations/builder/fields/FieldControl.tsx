@@ -13,9 +13,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export type RuleControlValue = string | number | boolean | string[] | number[];
+export type ControlValue = string | number | boolean | string[] | number[];
 
-export type RuleControlSpec =
+export type ControlSpec =
   | { kind: 'number'; min?: number; max?: number; step?: number; unit?: string }
   | { kind: 'boolean' }
   | { kind: 'text'; placeholder?: string }
@@ -23,23 +23,23 @@ export type RuleControlSpec =
   | { kind: 'multiSelect'; options: MultiSelectOption[]; placeholder?: string }
   | { kind: 'slider'; min: number; max: number; step: number };
 
-interface RuleFieldControlProps {
-  spec: RuleControlSpec;
-  value: RuleControlValue | undefined;
-  onChange: (value: RuleControlValue) => void;
+interface FieldControlProps {
+  spec: ControlSpec;
+  value: ControlValue | undefined;
+  onChange: (value: ControlValue) => void;
   id?: string;
   className?: string;
   'aria-labelledby'?: string;
 }
 
-export function RuleFieldControl({
+export function FieldControl({
   spec,
   value,
   onChange,
   id,
   className,
   'aria-labelledby': ariaLabelledBy,
-}: RuleFieldControlProps) {
+}: FieldControlProps) {
   const { t } = useTranslation('pages');
 
   switch (spec.kind) {

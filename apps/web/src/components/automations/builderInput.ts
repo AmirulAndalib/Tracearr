@@ -1,8 +1,8 @@
 import type { Automation } from '@tracearr/shared';
-import type { RuleBuilderInput } from '@/components/rules/RuleBuilder';
+import type { AutomationBuilderInput } from '@/components/automations/builder/AutomationBuilder';
 
-/** The builder still speaks the rule shape; this is the one translation to it. */
-export function toBuilderInput(automation: Automation): RuleBuilderInput {
+/** The builder takes a narrower shape than the API returns; this is the one conversion. */
+export function toBuilderInput(automation: Automation): AutomationBuilderInput {
   return {
     id: automation.id,
     name: automation.name,

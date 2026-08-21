@@ -186,7 +186,7 @@ export function useMergeUsers() {
       toast.success(t('toast.success.usersMerged.title'), {
         description:
           data.droppedRuleNames.length > 0
-            ? t('toast.success.usersMerged.rulesKept', {
+            ? t('toast.success.usersMerged.automationsKept', {
                 names: data.droppedRuleNames.join(', '),
               })
             : undefined,

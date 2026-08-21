@@ -78,8 +78,6 @@
     "location_other": "{{count}} locations",
     "result_one": "{{count}} 个结果",
     "result_other": "{{count}} 个结果",
-    "rule_one": "{{count}}规则",
-    "rule_other": "{{count}}规则",
     "selected_one": "{{count}} 已选",
     "selected_other": "{{count}} 已选",
     "server_one": "{{count}}服务器",

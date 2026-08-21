@@ -1,43 +1,43 @@
 /**
  * The API carries scope in three mutually exclusive nullable columns. Holding
  * them as three pieces of UI state let a half-filled picker serialize to
- * all-null, silently saving a targeted rule as a global one.
+ * all-null, silently saving a targeted automation as a global one.
  */
 
 import type { AutomationConditions } from '@tracearr/shared';
 import { IDENTITY_AWARE_CONDITION_FIELDS } from '@tracearr/shared';
 
-export type RuleScopeMode = 'global' | 'server' | 'account' | 'person';
+export type AutomationScopeMode = 'global' | 'server' | 'account' | 'person';
 
-export type RuleScope =
+export type AutomationScope =
   | { mode: 'global' }
   | { mode: 'server'; serverId: string }
   | { mode: 'account'; serverId: string; serverUserId: string }
   | { mode: 'person'; userId: string };
 
-const RULE_SCOPE_MODES: readonly RuleScopeMode[] = ['global', 'server', 'account', 'person'];
+const SCOPE_MODES: readonly AutomationScopeMode[] = ['global', 'server', 'account', 'person'];
 
-const SINGLE_SERVER_SCOPE_MODES: readonly RuleScopeMode[] = ['global', 'account'];
+const SINGLE_SERVER_SCOPE_MODES: readonly AutomationScopeMode[] = ['global', 'account'];
 
 // On one server, `server` is a second spelling of global and an identity cannot
 // span more accounts than the one, so only two of the four modes mean anything.
-export function offeredScopeModes(serverCount: number): readonly RuleScopeMode[] {
-  return serverCount >= 2 ? RULE_SCOPE_MODES : SINGLE_SERVER_SCOPE_MODES;
+export function offeredScopeModes(serverCount: number): readonly AutomationScopeMode[] {
+  return serverCount >= 2 ? SCOPE_MODES : SINGLE_SERVER_SCOPE_MODES;
 }
 
-export interface RuleScopePayload {
+export interface AutomationScopePayload {
   serverId: string | null;
   serverUserId: string | null;
   userId: string | null;
 }
 
-interface ScopedRuleFields {
+interface ScopedAutomationFields {
   serverId?: string | null;
   serverUserId?: string | null;
   userId?: string | null;
 }
 
-export function scopeToPayload(scope: RuleScope): RuleScopePayload {
+export function scopeToPayload(scope: AutomationScope): AutomationScopePayload {
   switch (scope.mode) {
     case 'server':
       return { serverId: scope.serverId, serverUserId: null, userId: null };
@@ -52,21 +52,24 @@ export function scopeToPayload(scope: RuleScope): RuleScopePayload {
 
 // Account scope carries a serverId only so the picker knows whose roster to
 // list; the API does not store it, so the caller resolves it from the account.
-export function scopeFromRule(rule: ScopedRuleFields | undefined, accountServerId = ''): RuleScope {
-  if (rule?.userId) return { mode: 'person', userId: rule.userId };
-  if (rule?.serverUserId) {
-    return { mode: 'account', serverId: accountServerId, serverUserId: rule.serverUserId };
+export function scopeFromAutomation(
+  automation: ScopedAutomationFields | undefined,
+  accountServerId = ''
+): AutomationScope {
+  if (automation?.userId) return { mode: 'person', userId: automation.userId };
+  if (automation?.serverUserId) {
+    return { mode: 'account', serverId: accountServerId, serverUserId: automation.serverUserId };
   }
-  if (rule?.serverId) return { mode: 'server', serverId: rule.serverId };
+  if (automation?.serverId) return { mode: 'server', serverId: automation.serverId };
   return { mode: 'global' };
 }
 
 // Keeps a chosen server when moving between modes that both use one.
 export function withScopeMode(
-  scope: RuleScope,
-  mode: RuleScopeMode,
+  scope: AutomationScope,
+  mode: AutomationScopeMode,
   fallbackServerId = ''
-): RuleScope {
+): AutomationScope {
   if (scope.mode === mode) return scope;
   const serverId = 'serverId' in scope && scope.serverId ? scope.serverId : fallbackServerId;
 
@@ -82,7 +85,7 @@ export function withScopeMode(
   }
 }
 
-export function isScopeComplete(scope: RuleScope): boolean {
+export function isScopeComplete(scope: AutomationScope): boolean {
   switch (scope.mode) {
     case 'global':
       return true;
@@ -96,10 +99,10 @@ export function isScopeComplete(scope: RuleScope): boolean {
   }
 }
 
-// Server-scoped rules evaluate one server's sessions, and the backend rejects
+// Server-scoped automations evaluate one server's sessions, and the backend rejects
 // the combination, so cross-server enforcement is off the table there.
 export function canEnforceAcrossServers(
-  scope: RuleScope,
+  scope: AutomationScope,
   conditions: AutomationConditions
 ): boolean {
   if (scope.mode === 'server') return false;

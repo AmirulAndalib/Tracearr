@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Server } from '@tracearr/shared';
 import { ServerProvider } from '@/hooks/useServer';
-import { RuleScopeField } from '../RuleScopeField';
+import { ScopeField } from '../ScopeField';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -43,7 +43,7 @@ function renderField(client: QueryClient) {
   return render(
     <QueryClientProvider client={client}>
       <ServerProvider>
-        <RuleScopeField
+        <ScopeField
           scope={{ mode: 'global' }}
           onChange={vi.fn()}
           enforceAcrossServers={false}
@@ -62,7 +62,7 @@ function offeredModes() {
     .filter((label) => label !== null);
 }
 
-describe('RuleScopeField', () => {
+describe('ScopeField', () => {
   beforeEach(() => {
     localStorage.clear();
     listServers.mockReset();

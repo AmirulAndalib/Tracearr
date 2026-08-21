@@ -78,8 +78,6 @@
     "location_other": "{{count}} locations",
     "result_one": "{{count}} resultaat",
     "result_other": "{{count}} resultaten",
-    "rule_one": "{{count}} regel",
-    "rule_other": "{{count}} regels",
     "selected_one": "{{count}} geselecteerd",
     "selected_other": "{{count}} geselecteerd",
     "server_one": "{{count}} server",

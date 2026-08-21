@@ -31,7 +31,7 @@ vi.mock('@/hooks/queries/useRuns', () => ({
 }));
 
 vi.mock('@/hooks/queries/useHistory', () => ({
-  useRulesFilterOptions: () => ({ data: undefined }),
+  useAutomationFilterOptions: () => ({ data: undefined }),
 }));
 
 vi.mock('@/hooks/useServer', () => ({
@@ -233,7 +233,7 @@ describe('AutomationDetail activity', () => {
     expect(steps).toHaveLength(3);
     expect(steps[0]).toHaveTextContent('automations.activity.triggeredBy');
     expect(steps[0]).toHaveTextContent('edge-7');
-    expect(steps[1]).toHaveTextContent('Kill stream');
+    expect(steps[1]).toHaveTextContent('automations.actions.kill_stream.label');
     expect(steps[2]).toHaveTextContent('webhook refused');
   });
 });

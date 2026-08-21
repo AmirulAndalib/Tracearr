@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Destination } from '@tracearr/shared';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { RuleBuilder, type RuleBuilderInput } from '../RuleBuilder';
+import { AutomationBuilder, type AutomationBuilderInput } from '../AutomationBuilder';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -59,11 +59,11 @@ const discord: Destination = {
 const onSave = vi.fn();
 const onCancel = vi.fn();
 
-function renderBuilder(to: string[], scope: Partial<RuleBuilderInput> = {}) {
+function renderBuilder(to: string[], scope: Partial<AutomationBuilderInput> = {}) {
   return render(
     <TooltipProvider>
-      <RuleBuilder
-        initialRule={{
+      <AutomationBuilder
+        initialAutomation={{
           id: 'rule-1',
           name: 'Too many streams',
           isActive: true,
@@ -81,7 +81,7 @@ function renderBuilder(to: string[], scope: Partial<RuleBuilderInput> = {}) {
 }
 
 const save = (user: ReturnType<typeof userEvent.setup>) =>
-  user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
+  user.click(screen.getByRole('button', { name: /automations.updateAutomation/ }));
 
 const severityLabel = () => screen.queryByText('pages:automations.builder.severityLabel');
 
@@ -98,12 +98,12 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useDestinations>);
 });
 
-describe('RuleBuilder validation', () => {
+describe('AutomationBuilder validation', () => {
   it('blocks save when a send action has no destination', async () => {
     const user = userEvent.setup();
     renderBuilder([]);
 
-    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateAutomation/ }));
 
     expect(
       screen.getByText('pages:automations.builder.errors.sendNeedsDestination')
@@ -115,7 +115,7 @@ describe('RuleBuilder validation', () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord']);
 
-    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateAutomation/ }));
 
     expect(
       screen.queryByText('pages:automations.builder.errors.sendNeedsDestination')
@@ -124,7 +124,7 @@ describe('RuleBuilder validation', () => {
   });
 });
 
-describe('RuleBuilder kind', () => {
+describe('AutomationBuilder kind', () => {
   it('hides severity and nulls it in the payload once the kind is notification', async () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord']);
@@ -167,12 +167,12 @@ describe('RuleBuilder kind', () => {
   });
 });
 
-describe('RuleBuilder kind steering', () => {
+describe('AutomationBuilder kind steering', () => {
   it('describes both kinds and moves the selection to the one picked', async () => {
     const user = userEvent.setup();
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -191,7 +191,7 @@ describe('RuleBuilder kind steering', () => {
     const user = userEvent.setup();
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -200,13 +200,13 @@ describe('RuleBuilder kind steering', () => {
     await user.click(screen.getByText('pages:automations.kind.notification'));
 
     expect(screen.getByText('automations.builder.actions.typeLabel')).toBeInTheDocument();
-    expect(screen.getByText('Send Notification')).toBeInTheDocument();
+    expect(screen.getByText('automations.actions.send.label')).toBeInTheDocument();
   });
 
   it('leaves a new policy automation with no actions', () => {
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -217,7 +217,7 @@ describe('RuleBuilder kind steering', () => {
     const user = userEvent.setup();
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -233,7 +233,7 @@ describe('RuleBuilder kind steering', () => {
     const user = userEvent.setup();
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -260,7 +260,7 @@ describe('RuleBuilder kind steering', () => {
   });
 });
 
-describe('RuleBuilder actions', () => {
+describe('AutomationBuilder actions', () => {
   it('saves an automation that has no actions at all', async () => {
     const user = userEvent.setup();
     renderBuilder([], { actions: { actions: [] } });
@@ -274,7 +274,7 @@ describe('RuleBuilder actions', () => {
   it('starts a new automation with no actions', () => {
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
@@ -285,22 +285,22 @@ describe('RuleBuilder actions', () => {
     const user = userEvent.setup();
     render(
       <TooltipProvider>
-        <RuleBuilder onSave={onSave} onCancel={onCancel} />
+        <AutomationBuilder onSave={onSave} onCancel={onCancel} />
       </TooltipProvider>
     );
 
     await user.click(screen.getByRole('button', { name: /automations.builder.actions.add/ }));
 
-    expect(screen.getByText('Send Notification')).toBeInTheDocument();
+    expect(screen.getByText('automations.actions.send.label')).toBeInTheDocument();
   });
 });
 
-describe('RuleBuilder scope', () => {
+describe('AutomationBuilder scope', () => {
   it('sends only the column the chosen scope owns', async () => {
     const user = userEvent.setup();
     renderBuilder(['dest-discord'], { userId: 'usr-3' });
 
-    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateAutomation/ }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith(
@@ -313,7 +313,7 @@ describe('RuleBuilder scope', () => {
     renderBuilder(['dest-discord'], { serverId: 'srv-1' });
 
     await user.click(screen.getByText('automations.builder.scope.person'));
-    await user.click(screen.getByRole('button', { name: /automations.updateRule/ }));
+    await user.click(screen.getByRole('button', { name: /automations.updateAutomation/ }));
 
     expect(
       screen.getByText('pages:automations.builder.errors.scopeIncomplete')

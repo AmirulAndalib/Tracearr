@@ -78,8 +78,6 @@
     "location_other": "{{count}} locations",
     "result_one": "{{count}} 結果",
     "result_other": "{{count}} 結果",
-    "rule_one": "{{count}} ルール",
-    "rule_other": "{{count}} ルール",
     "selected_one": "{{count}} が選択されました",
     "selected_other": "{{count}} が選択されました",
     "server_one": "{{count}} サーバー",

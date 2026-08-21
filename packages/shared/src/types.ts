@@ -2992,9 +2992,9 @@ export interface BackupMetadata {
     sessions: number;
     users: number;
     servers: number;
-    automations: number;
+    /** Absent in manifests written before the rename, which count automations as `rules`. */
+    automations?: number;
     libraryItems: number;
-    /** Manifests written before the rename count automations here. */
     rules?: number;
   };
 }

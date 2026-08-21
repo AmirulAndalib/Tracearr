@@ -1,8 +1,8 @@
 /**
- * Classic rule templates for V2 rule builder.
+ * Classic templates for the automation builder.
  *
- * When a user selects a "classic" rule type, these templates pre-fill
- * the V2 rule builder with appropriate conditions and a default action.
+ * When a user picks a "classic" type, these presets pre-fill the builder
+ * with its conditions and a default action.
  */
 
 import type {

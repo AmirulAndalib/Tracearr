@@ -22,15 +22,21 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   ACTION_DEFINITIONS,
+  actionDescription,
+  actionHint,
+  actionLabel,
   actionTypesForKind,
   applyActionFieldChange,
+  configFieldOptions,
   createDefaultAction,
   visibleConfigFields,
   type ConfigField,
-} from '@/lib/rules';
+  type ConfigFieldOption,
+  type Translate,
+} from '@/lib/automations';
 import { cn } from '@/lib/utils';
 import { DestinationsField } from './DestinationsField';
-import { RuleFieldControl, type RuleControlSpec, type RuleControlValue } from './fields';
+import { FieldControl, type ControlSpec, type ControlValue } from './fields';
 
 const ACTION_ICONS: Record<LeafActionType, React.ComponentType<{ className?: string }>> = {
   send: Bell,
@@ -53,6 +59,7 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
   // A control node has no row of its own; its branches carry the effects.
   if (action.type === 'if') return null;
   const def = ACTION_DEFINITIONS[action.type];
+  const hint = actionHint(t, action.type);
 
   const typeOptions = actionTypesForKind(kind);
 
@@ -98,19 +105,20 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
                   <SelectItem key={type} value={type}>
                     <span className="flex items-center gap-2">
                       <ActionIcon className="h-4 w-4" />
-                      {ACTION_DEFINITIONS[type].label}
+                      {actionLabel(t, type)}
                     </span>
                   </SelectItem>
                 );
               })}
             </SelectContent>
           </Select>
-          <FieldDescription>{def.description}</FieldDescription>
+          <FieldDescription>{actionDescription(t, action.type)}</FieldDescription>
         </Field>
 
         {visibleConfigFields(action).map((field) => (
           <ActionConfigField
             key={field.name}
+            t={t}
             field={field}
             value={readValue(field.name)}
             onChange={(value) => onChange(applyActionFieldChange(action, field.name, value))}
@@ -118,10 +126,10 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
         ))}
       </div>
 
-      {def.hint && (
+      {hint && (
         <p className="text-warning mt-3 flex items-start gap-1.5 text-xs">
           <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          {def.hint}
+          {hint}
         </p>
       )}
     </div>
@@ -129,14 +137,16 @@ export function ActionRow({ action, kind, onChange, onRemove, showRemove = true 
 }
 
 interface ActionConfigFieldProps {
+  t: Translate;
   field: ConfigField;
   value: unknown;
   onChange: (value: unknown) => void;
 }
 
-function ActionConfigField({ field, value, onChange }: ActionConfigFieldProps) {
+function ActionConfigField({ t, field, value, onChange }: ActionConfigFieldProps) {
   const controlId = useId();
   const labelId = useId();
+  const options = configFieldOptions(t, field);
 
   if (field.type === 'destinations') {
     return (
@@ -153,7 +163,7 @@ function ActionConfigField({ field, value, onChange }: ActionConfigFieldProps) {
     );
   }
 
-  const tooltips = field.options?.filter((option) => option.tooltip) ?? [];
+  const tooltips = options.filter((option) => option.tooltip);
 
   return (
     <Field className={cn(field.fullWidth && 'col-span-full')}>
@@ -177,10 +187,10 @@ function ActionConfigField({ field, value, onChange }: ActionConfigFieldProps) {
           </Tooltip>
         )}
       </FieldLabel>
-      <RuleFieldControl
+      <FieldControl
         id={controlId}
-        spec={toControlSpec(field)}
-        value={value as RuleControlValue | undefined}
+        spec={toControlSpec(field, options)}
+        value={value as ControlValue | undefined}
         onChange={onChange}
       />
       {field.description && <FieldDescription>{field.description}</FieldDescription>}
@@ -188,12 +198,12 @@ function ActionConfigField({ field, value, onChange }: ActionConfigFieldProps) {
   );
 }
 
-function toControlSpec(field: ConfigField): RuleControlSpec {
+function toControlSpec(field: ConfigField, options: ConfigFieldOption[]): ControlSpec {
   switch (field.type) {
     case 'number':
       return { kind: 'number', min: field.min, max: field.max, step: field.step, unit: field.unit };
     case 'select':
-      return { kind: 'select', options: field.options ?? [], placeholder: field.placeholder };
+      return { kind: 'select', options, placeholder: field.placeholder };
     case 'slider':
       return { kind: 'slider', min: field.min ?? 0, max: field.max ?? 100, step: field.step ?? 1 };
     default:

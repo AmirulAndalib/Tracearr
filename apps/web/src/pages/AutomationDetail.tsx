@@ -16,9 +16,10 @@ import {
   ScopeChip,
   toBuilderInput,
 } from '@/components/automations';
-import { getRuleIcon, RuleBuilderDialog } from '@/components/rules';
+import { AutomationBuilderDialog } from '@/components/automations/builder';
+import { automationIcon } from '@/lib/automations';
 import { useAutomation, useToggleAutomation, useUpdateAutomation } from '@/hooks/queries';
-import { useRulesFilterOptions } from '@/hooks/queries/useHistory';
+import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useServer } from '@/hooks/useServer';
 
 const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
@@ -35,7 +36,7 @@ export function AutomationDetail() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   const { data: automation, isLoading } = useAutomation(id);
-  const { data: filterOptions } = useRulesFilterOptions();
+  const { data: filterOptions } = useAutomationFilterOptions();
   const toggleAutomation = useToggleAutomation();
   const updateAutomation = useUpdateAutomation();
 
@@ -78,7 +79,7 @@ export function AutomationDetail() {
           <BackLink label={t('common:actions.back')} />
           <div className="flex items-center gap-3">
             <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
-              {getRuleIcon(automation)}
+              {automationIcon(automation)}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -156,10 +157,10 @@ export function AutomationDetail() {
         }}
       />
 
-      <RuleBuilderDialog
+      <AutomationBuilderDialog
         open={builderOpen}
         onOpenChange={setBuilderOpen}
-        rule={toBuilderInput(automation)}
+        automation={toBuilderInput(automation)}
         onSave={handleSave}
         isLoading={updateAutomation.isPending}
         filterOptions={filterOptions}

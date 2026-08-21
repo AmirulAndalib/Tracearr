@@ -6,28 +6,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { RuleBuilder, type RuleBuilderInput } from './RuleBuilder';
+import { AutomationBuilder, type AutomationBuilderInput } from './AutomationBuilder';
 import type { CreateAutomationInput, AutomationFilterOptions } from '@tracearr/shared';
 
-interface RuleBuilderDialogProps {
+interface AutomationBuilderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  rule?: RuleBuilderInput;
+  automation?: AutomationBuilderInput;
   onSave: (data: CreateAutomationInput) => Promise<void>;
   isLoading?: boolean;
   filterOptions?: AutomationFilterOptions;
 }
 
-export function RuleBuilderDialog({
+export function AutomationBuilderDialog({
   open,
   onOpenChange,
-  rule,
+  automation,
   onSave,
   isLoading,
   filterOptions,
-}: RuleBuilderDialogProps) {
+}: AutomationBuilderDialogProps) {
   const { t } = useTranslation('pages');
-  const isEditing = !!rule;
+  const isEditing = !!automation;
 
   const handleSave = async (data: CreateAutomationInput) => {
     await onSave(data);
@@ -40,14 +40,14 @@ export function RuleBuilderDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[min(56rem,calc(100%-2rem))]">
         <DialogHeader className="sm:text-center">
           <DialogTitle className="text-xl">
-            {isEditing ? t('automations.editRule') : t('automations.createRule')}
+            {isEditing ? t('automations.editAutomation') : t('automations.createAutomation')}
           </DialogTitle>
           <DialogDescription>
             {isEditing ? t('automations.updateDescription') : t('automations.createDescription')}
           </DialogDescription>
         </DialogHeader>
-        <RuleBuilder
-          initialRule={rule}
+        <AutomationBuilder
+          initialAutomation={automation}
           onSave={handleSave}
           onCancel={() => onOpenChange(false)}
           isLoading={isLoading}
@@ -58,4 +58,4 @@ export function RuleBuilderDialog({
   );
 }
 
-export default RuleBuilderDialog;
+export default AutomationBuilderDialog;

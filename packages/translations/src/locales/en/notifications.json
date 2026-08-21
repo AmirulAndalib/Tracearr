@@ -84,15 +84,15 @@
         "title": "Job Completed",
         "message": "{{name}} finished successfully"
       },
-      "ruleCreated": {
+      "automationCreated": {
         "title": "Automation Created",
         "message": "The automation has been created successfully"
       },
-      "ruleUpdated": {
+      "automationUpdated": {
         "title": "Automation Updated",
         "message": "The automation has been updated successfully"
       },
-      "ruleDeleted": {
+      "automationDeleted": {
         "title": "Automation Deleted",
         "message": "The automation has been deleted successfully"
       },
@@ -156,7 +156,7 @@
       },
       "usersMerged": {
         "title": "Users merged",
-        "rulesKept": "Kept target's version of: {{names}}"
+        "automationsKept": "Kept target's version of: {{names}}"
       },
       "serverUserSplit": {
         "title": "Account split into a separate user"
@@ -175,9 +175,9 @@
       "dismissFailed": "Failed to dismiss violation",
       "authFailed": "Authentication failed",
       "webhookTestFailed": "Webhook test failed",
-      "ruleCreateFailed": "Failed to create automation",
-      "ruleUpdateFailed": "Failed to update automation",
-      "ruleDeleteFailed": "Failed to delete automation",
+      "automationCreateFailed": "Failed to create automation",
+      "automationUpdateFailed": "Failed to update automation",
+      "automationDeleteFailed": "Failed to delete automation",
       "streamTerminateFailed": "Failed to terminate stream",
       "serverUrlUpdateFailed": "Failed to update server URL",
       "serverUpdateFailed": "Failed to update server",
