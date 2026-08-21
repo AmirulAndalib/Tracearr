@@ -53,7 +53,7 @@ import type { FilterDescriptor } from '@/components/ui/filters';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
 import { ScopeChip, toBuilderInput } from '@/components/automations';
-import { AutomationBuilderDialog } from '@/components/automations/builder';
+import { AutomationBuilderDialog } from '@/components/automations/legacy';
 import {
   useAutomations,
   useBulkDeleteAutomations,

@@ -26,7 +26,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { ConditionGroup } from './ConditionGroup';
 import { ActionRow } from './ActionRow';
-import { ScopeField } from './ScopeField';
+import { ScopeField } from '../builder/ScopeField';
 import {
   DEFAULT_ACTION_TYPE,
   getDefaultOperatorForField,

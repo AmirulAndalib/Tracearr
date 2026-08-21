@@ -42,7 +42,7 @@ import {
   type Translate,
 } from '@/lib/automations';
 import { useSettings } from '@/hooks/queries';
-import { FieldControl, type ControlSpec, type ControlValue } from './fields';
+import { FieldControl, type ControlSpec, type ControlValue } from '../builder/fields';
 
 interface CountryGroupLabels {
   recentlySeen: string;

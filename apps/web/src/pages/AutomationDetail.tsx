@@ -16,7 +16,7 @@ import {
   ScopeChip,
   toBuilderInput,
 } from '@/components/automations';
-import { AutomationBuilderDialog } from '@/components/automations/builder';
+import { AutomationBuilderDialog } from '@/components/automations/legacy';
 import { automationIcon } from '@/lib/automations';
 import { useAutomation, useToggleAutomation, useUpdateAutomation } from '@/hooks/queries';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';

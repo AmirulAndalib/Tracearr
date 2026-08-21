@@ -1,5 +1,5 @@
 import type { Automation } from '@tracearr/shared';
-import type { AutomationBuilderInput } from '@/components/automations/builder/AutomationBuilder';
+import type { AutomationBuilderInput } from '@/components/automations/legacy/AutomationBuilder';
 
 /** The builder takes a narrower shape than the API returns; this is the one conversion. */
 export function toBuilderInput(automation: Automation): AutomationBuilderInput {

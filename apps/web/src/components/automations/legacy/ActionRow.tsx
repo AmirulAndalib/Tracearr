@@ -35,8 +35,8 @@ import {
   type Translate,
 } from '@/lib/automations';
 import { cn } from '@/lib/utils';
-import { DestinationsField } from './DestinationsField';
-import { FieldControl, type ControlSpec, type ControlValue } from './fields';
+import { DestinationsField } from '../builder/DestinationsField';
+import { FieldControl, type ControlSpec, type ControlValue } from '../builder/fields';
 
 const ACTION_ICONS: Record<LeafActionType, React.ComponentType<{ className?: string }>> = {
   send: Bell,
