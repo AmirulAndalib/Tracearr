@@ -1165,6 +1165,10 @@ async function initializePostListen(app: FastifyInstance) {
           invalidateDestinationsCache();
           broadcastToSessions('destinations:changed');
           break;
+        case WS_EVENTS.SERVERS_CHANGED:
+          invalidateServersCache();
+          broadcastToSessions('servers:changed');
+          break;
         case WS_EVENTS.NOTIFICATION_TOAST:
           broadcastToSessions('notification:toast', data as NotificationToast);
           break;

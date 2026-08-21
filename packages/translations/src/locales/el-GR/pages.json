@@ -194,10 +194,11 @@
     "watchTime": "Ώρα Παρακολούθησης"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Εκκαθάριση Προσωρινής Αποθήκευσης Βιβλιοθήκης",
     "clearMobileDevices": "Εκκαθάριση Κινητών Συσκευών",
     "clearQueryCache": "Εκκαθάριση Μνήμης Ερωτήματος",
-    "clearRules": "Εκκαθάριση Κανόνων",
     "clearServers": "Εκκαθάριση Διακομιστών",
     "clearSessions": "Εκκαθάριση Συνεδριών",
     "clearStuckJobs": "Καθαρισμός Εργασιών Κολλημένων",

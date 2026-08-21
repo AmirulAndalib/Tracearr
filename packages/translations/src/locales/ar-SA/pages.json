@@ -194,10 +194,11 @@
     "watchTime": "وقت المشاهدة"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "مسح ذاكرة التخزين المؤقت للمكتبة",
     "clearMobileDevices": "مسح الأجهزة المحمولة",
     "clearQueryCache": "مسح ذاكرة التخزين المؤقت للاستعلام",
-    "clearRules": "مسح القواعد",
     "clearServers": "مسح الخوادم",
     "clearSessions": "مسح الجلسات",
     "clearStuckJobs": "مسح وظائف عالقة",

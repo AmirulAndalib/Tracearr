@@ -22,6 +22,7 @@ vi.mock('../../../db/schema.js', async (importOriginal) => {
 
 const mockWarn = vi.fn();
 vi.mock('../../../utils/logger.js', () => ({
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
   rulesLogger: {
     info: vi.fn(),
     warn: (...a: unknown[]) => mockWarn(...a),

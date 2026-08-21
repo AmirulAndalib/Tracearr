@@ -45,6 +45,7 @@ export const WS_EVENTS = {
   SERVER_CONNECTION: 'server:connection',
   NOTIFICATION_TOAST: 'notification:toast',
   DESTINATIONS_CHANGED: 'destinations:changed',
+  SERVERS_CHANGED: 'servers:changed',
 } as const;
 
 // Redis key prefix (set at startup via setRedisPrefix)

@@ -7,7 +7,7 @@
  * - DELETE /debug/violations - Clear all violations
  * - DELETE /debug/users - Clear all non-owner users
  * - DELETE /debug/servers - Clear all servers
- * - DELETE /debug/rules - Clear all rules
+ * - DELETE /debug/automations - Clear all automations
  * - POST /debug/reset - Full factory reset
  * - POST /debug/refresh-aggregates - Refresh TimescaleDB aggregates
  * - GET /debug/env - Safe environment info
@@ -226,7 +226,7 @@ describe('Debug Routes', () => {
         { method: 'DELETE' as const, url: '/debug/violations' },
         { method: 'DELETE' as const, url: '/debug/users' },
         { method: 'DELETE' as const, url: '/debug/servers' },
-        { method: 'DELETE' as const, url: '/debug/rules' },
+        { method: 'DELETE' as const, url: '/debug/automations' },
         { method: 'POST' as const, url: '/debug/reset' },
         { method: 'POST' as const, url: '/debug/refresh-aggregates' },
         { method: 'GET' as const, url: '/debug/env' },
@@ -512,28 +512,28 @@ describe('Debug Routes', () => {
     });
   });
 
-  describe('DELETE /debug/rules', () => {
-    it('deletes all rules and violations first', async () => {
+  describe('DELETE /debug/automations', () => {
+    it('deletes all automations and their runs first', async () => {
       app = await buildTestApp(ownerUser);
 
-      // Mock delete - first for violations (no returning), then for rules (with returning)
+      // Mock delete - first for runs (no returning), then for automations (with returning)
       let deleteCallIndex = 0;
       vi.mocked(db.delete).mockImplementation(() => {
         deleteCallIndex++;
         if (deleteCallIndex === 1) {
-          // violations - just resolves
+          // runs - just resolves
           return Promise.resolve() as never;
         } else {
-          // rules - returns deleted items
+          // automations - returns deleted items
           return {
-            returning: vi.fn().mockResolvedValue([{ id: 'rule-1' }, { id: 'rule-2' }]),
+            returning: vi.fn().mockResolvedValue([{ id: 'automation-1' }, { id: 'automation-2' }]),
           } as never;
         }
       });
 
       const response = await app.inject({
         method: 'DELETE',
-        url: '/debug/rules',
+        url: '/debug/automations',
       });
 
       expect(response.statusCode).toBe(200);

@@ -21,7 +21,7 @@ import { syncServer } from '../services/sync.js';
 import { sseManager } from '../services/sseManager.js';
 import { getCacheService } from '../services/cache.js';
 import { enqueueLibrarySync } from '../jobs/librarySyncQueue.js';
-import { invalidateServersCache } from '../jobs/poller/database.js';
+import { publishServersChanged } from '../jobs/poller/database.js';
 import { buildServerAccessCondition } from '../utils/serverFiltering.js';
 
 export const serverRoutes: FastifyPluginAsync = async (app) => {
@@ -187,7 +187,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       return reply.internalServerError('Failed to create server');
     }
 
-    invalidateServersCache();
+    await publishServersChanged();
 
     // Auto-sync users and libraries in background
     syncServer(server.id, { syncUsers: true, syncLibraries: true })
@@ -350,7 +350,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       return reply.internalServerError('Failed to update server');
     }
 
-    invalidateServersCache();
+    await publishServersChanged();
 
     if (newUrl !== undefined) {
       app.log.info({ serverId: id, oldUrl: server.url, newUrl }, 'Server URL updated');
@@ -416,6 +416,8 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         }
       });
 
+      await publishServersChanged();
+
       app.log.info(
         { serverCount: serverUpdates.length },
         'Server display order updated successfully'
@@ -455,7 +457,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
 
     // Delete server (cascade will handle related records)
     await db.delete(servers).where(eq(servers.id, id));
-    invalidateServersCache();
+    await publishServersChanged();
 
     // Tear down the server's SSE connection in background
     sseManager.refresh().catch((error: unknown) => {

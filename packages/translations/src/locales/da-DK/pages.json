@@ -194,10 +194,11 @@
     "watchTime": "Se Tid"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Ryd Biblioteks Cache",
     "clearMobileDevices": "Ryd Mobilenheder",
     "clearQueryCache": "Ryd Forespørgsels Cache",
-    "clearRules": "Ryd Regler",
     "clearServers": "Ryd Servere",
     "clearSessions": "Ryd Sessioner",
     "clearStuckJobs": "Ryd Stuck Job",

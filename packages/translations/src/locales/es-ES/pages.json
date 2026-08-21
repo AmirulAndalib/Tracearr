@@ -194,10 +194,11 @@
     "watchTime": "Tiempo de visualización"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Limpiar caché de biblioteca",
     "clearMobileDevices": "Limpiar dispositivos móviles",
     "clearQueryCache": "Limpiar caché de consultas",
-    "clearRules": "Limpiar reglas",
     "clearServers": "Limpiar servidores",
     "clearSessions": "Limpiar sesiones",
     "clearStuckJobs": "Limpiar trabajos atascados",

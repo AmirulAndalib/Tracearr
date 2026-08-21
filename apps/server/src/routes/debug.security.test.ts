@@ -85,7 +85,7 @@ describe('Debug Routes Security', () => {
     { method: 'DELETE', url: '/api/v1/debug/violations' },
     { method: 'DELETE', url: '/api/v1/debug/users' },
     { method: 'DELETE', url: '/api/v1/debug/servers' },
-    { method: 'DELETE', url: '/api/v1/debug/rules' },
+    { method: 'DELETE', url: '/api/v1/debug/automations' },
     { method: 'POST', url: '/api/v1/debug/reset' },
     { method: 'POST', url: '/api/v1/debug/refresh-aggregates' },
     { method: 'GET', url: '/api/v1/debug/logs' },

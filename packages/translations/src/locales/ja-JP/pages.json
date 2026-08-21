@@ -194,10 +194,11 @@
     "watchTime": "ウォッチ時間"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "ライブラリキャッシュをクリア",
     "clearMobileDevices": "モバイルデバイスをクリア",
     "clearQueryCache": "クエリーキャッシュをクリア",
-    "clearRules": "ルールをクリア",
     "clearServers": "サーバーをクリア",
     "clearSessions": "セッションをクリア",
     "clearStuckJobs": "スタックジョブをクリア",

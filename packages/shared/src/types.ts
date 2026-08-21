@@ -1100,6 +1100,7 @@ export interface ServerToClientEvents {
   'server:connection': (status: ServerConnectionStatus) => void;
   'notification:toast': (data: NotificationToast) => void;
   'destinations:changed': () => void;
+  'servers:changed': () => void;
 }
 
 export interface ClientToServerEvents {
@@ -2991,8 +2992,10 @@ export interface BackupMetadata {
     sessions: number;
     users: number;
     servers: number;
-    rules: number;
+    automations: number;
     libraryItems: number;
+    /** Manifests written before the rename count automations here. */
+    rules?: number;
   };
 }
 

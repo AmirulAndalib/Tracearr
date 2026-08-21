@@ -779,11 +779,11 @@ export function Debug() {
                   <Button
                     variant="outline"
                     onClick={() =>
-                      handleDelete('rules', 'Delete all detection rules and violations')
+                      handleDelete('automations', t('pages:debug.clearAutomationsConfirm'))
                     }
                     disabled={deleteMutation.isPending}
                   >
-                    {t('debug.clearRules')}
+                    {t('debug.clearAutomations')}
                   </Button>
                   <Button
                     variant="outline"

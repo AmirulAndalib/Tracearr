@@ -194,10 +194,11 @@
     "watchTime": "Kijktijd"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Bibliotheekcache legen",
     "clearMobileDevices": "Wis mobiele apparaten",
     "clearQueryCache": "Query Cache wissen",
-    "clearRules": "Regels wissen",
     "clearServers": "Servers wissen",
     "clearSessions": "Sessies wissen",
     "clearStuckJobs": "Verwijder vastgelopen taken",

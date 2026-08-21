@@ -194,10 +194,11 @@
     "watchTime": "Час перегляду"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Очистити кеш бібліотеки",
     "clearMobileDevices": "Очистити мобільні пристрої",
     "clearQueryCache": "Очистити кеш запитів",
-    "clearRules": "Очистити правила",
     "clearServers": "Очистити сервери",
     "clearSessions": "Очистити сеанси",
     "clearStuckJobs": "Очистити завдання для вантажівки",

@@ -194,10 +194,11 @@
     "watchTime": "观看时长"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "清除库缓存",
     "clearMobileDevices": "清除移动设备",
     "clearQueryCache": "清除查询缓存",
-    "clearRules": "清除规则",
     "clearServers": "清除服务器",
     "clearSessions": "清除会话",
     "clearStuckJobs": "清除卡住任务",

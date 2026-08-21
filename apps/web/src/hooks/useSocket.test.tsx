@@ -181,6 +181,14 @@ describe('SocketProvider', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: DESTINATIONS_KEY });
   });
 
+  it('refetches servers and filter options when a server changes', () => {
+    const { invalidate } = setup();
+    fire(WS_EVENTS.SERVERS_CHANGED);
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['servers'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['sessions', 'filter-options'] });
+  });
+
   it('coalesces a burst of finished runs into one refetch', () => {
     vi.useFakeTimers();
     try {

@@ -9,6 +9,7 @@ import { eq, and, desc, gte, inArray, isNotNull, sql } from 'drizzle-orm';
 import {
   TIME_MS,
   SESSION_LIMITS,
+  WS_EVENTS,
   type Session,
   type EngineAutomation,
   type AutomationConditions,
@@ -25,6 +26,7 @@ import {
   media,
 } from '../../db/schema.js';
 import { rulesLogger } from '../../utils/logger.js';
+import { getPubSubService } from '../../services/cache.js';
 import { mapSessionRow } from './sessionMapper.js';
 
 /** Canonical media identity for a library item, stamped onto sessions at insert. */
@@ -358,6 +360,21 @@ let serversCache: { data: (typeof servers.$inferSelect)[]; expiresAt: number } |
 /** Invalidate the servers cache. Call from every server create/update/delete path. */
 export function invalidateServersCache(): void {
   serversCache = null;
+}
+
+/** Drop this instance's servers cache and tell the others to do the same. */
+export async function publishServersChanged(): Promise<void> {
+  invalidateServersCache();
+  await getPubSubService()
+    ?.publish(WS_EVENTS.SERVERS_CHANGED, {})
+    .catch((error: unknown) => {
+      rulesLogger.warn(
+        'servers:changed publish failed; other instances fall back to the cache TTL',
+        {
+          error,
+        }
+      );
+    });
 }
 
 /**

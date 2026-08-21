@@ -194,10 +194,11 @@
     "watchTime": "Temps de reproducció"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Clear Library Cache",
     "clearMobileDevices": "Clear Mobile Devices",
     "clearQueryCache": "Clear Query Cache",
-    "clearRules": "Clear Rules",
     "clearServers": "Clear Servers",
     "clearSessions": "Clear Sessions",
     "clearStuckJobs": "Clear Stuck Jobs",

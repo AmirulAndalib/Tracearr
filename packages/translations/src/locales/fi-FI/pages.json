@@ -194,10 +194,11 @@
     "watchTime": "Kellon Aika"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Tyhjennä Kirjaston Välimuisti",
     "clearMobileDevices": "Tyhjennä Mobiililaitteet",
     "clearQueryCache": "Tyhjennä Kyselyvälimuisti",
-    "clearRules": "Tyhjennä Säännöt",
     "clearServers": "Tyhjennä Palvelimet",
     "clearSessions": "Tyhjennä Istunnot",
     "clearStuckJobs": "Tyhjennä Stuck Työt",

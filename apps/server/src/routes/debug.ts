@@ -525,9 +525,9 @@ export const debugRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * DELETE /debug/rules - Clear all rules
+   * DELETE /debug/automations - Clear all automations and their runs
    */
-  app.delete('/rules', async () => {
+  app.delete('/automations', async () => {
     // Delete violations first (FK constraint)
     await db.delete(automationRuns);
     const deleted = await db.delete(automations).returning({ id: automations.id });

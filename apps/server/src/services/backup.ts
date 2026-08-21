@@ -301,7 +301,7 @@ async function buildMetadata(pgEnv: Record<string, string>): Promise<BackupMetad
   const toolkitVersion = toolkitResult.stdout.trim() || null;
 
   // Query database size and record counts
-  const [dbSizeResult, sessionCount, userCount, serverCount, ruleCount, libraryItemCount] =
+  const [dbSizeResult, sessionCount, userCount, serverCount, automationCount, libraryItemCount] =
     await Promise.all([
       db.execute<{ size: string }>(sql`SELECT pg_database_size(current_database()) AS size`),
       db.select({ count: sql<number>`count(*)::int` }).from(sessions),
@@ -335,7 +335,7 @@ async function buildMetadata(pgEnv: Record<string, string>): Promise<BackupMetad
       sessions: sessionCount[0]?.count ?? 0,
       users: userCount[0]?.count ?? 0,
       servers: serverCount[0]?.count ?? 0,
-      rules: ruleCount[0]?.count ?? 0,
+      automations: automationCount[0]?.count ?? 0,
       libraryItems: libraryItemCount[0]?.count ?? 0,
     },
   };

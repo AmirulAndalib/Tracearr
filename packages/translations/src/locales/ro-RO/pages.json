@@ -194,10 +194,11 @@
     "watchTime": "Timp de urmărire"
   },
   "debug": {
+    "clearAutomations": "Delete all automations and runs",
+    "clearAutomationsConfirm": "Delete every automation and all of their runs?",
     "clearLibraryCache": "Curăță Cache Librărie",
     "clearMobileDevices": "Curăță dispozitivele mobile",
     "clearQueryCache": "Curăță Cache interogare",
-    "clearRules": "Curăță Regulile",
     "clearServers": "Curăță Servere",
     "clearSessions": "Șterge sesiunile",
     "clearStuckJobs": "Șterge joburile blocate",
