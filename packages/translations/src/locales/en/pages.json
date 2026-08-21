@@ -383,10 +383,10 @@
       "noDestinations": "No destinations yet. Add one to send notifications.",
       "errors": {
         "sendNeedsDestination": "Pick at least one destination",
-        "nameRequired": "Automation name is required",
-        "scopeIncomplete": "Pick a target for the selected scope",
-        "triggerRequired": "Pick at least one trigger, or switch one back on",
-        "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
+        "nameRequired": "Give this automation a name",
+        "scopeIncomplete": "Pick who this applies to",
+        "triggerRequired": "Add what starts this, or switch one back on",
+        "policyNeedsSubject": "Violations are about a person, so this needs a stream or account trigger.",
         "fieldUnavailable": "This condition is not available for every trigger you picked",
         "operatorInvalid": "This comparison does not fit the condition",
         "valueInvalid": "This value does not fit the condition",
@@ -407,9 +407,9 @@
         "notification": "An alert",
         "notificationDescription": "Recorded in Activity; never a violation."
       },
-      "descriptionLabel": "Description",
-      "descriptionPlaceholder": "Optional description",
-      "severityLabel": "Severity",
+      "descriptionLabel": "Note (optional)",
+      "descriptionPlaceholder": "What this is for",
+      "severityLabel": "How serious?",
       "activeLabel": "Active",
       "saving": "Saving...",
       "selectPlaceholder": "Select...",
@@ -418,11 +418,11 @@
       "clearSelection": "Clear selection",
       "selectedCount": "{{count}} selected",
       "scope": {
-        "label": "Scope",
-        "global": "Global",
-        "server": "Specific server",
-        "account": "Specific account",
-        "person": "Person (all their servers)",
+        "label": "Who this applies to",
+        "global": "Everyone",
+        "server": "One server",
+        "account": "One account",
+        "person": "One person",
         "serverLabel": "Server",
         "serverPlaceholder": "Select server",
         "accountLabel": "Account",
@@ -431,12 +431,12 @@
         "personPlaceholder": "Select person",
         "personHelper": "Matches this person on every server they have an account on.",
         "noServers": "No servers connected yet.",
-        "enforceAcrossServers": "Enforce across servers",
+        "enforceAcrossServers": "Act on their streams on any of their servers",
         "enforceAcrossServersDescription": "Acts on the person's sessions on any of their servers, not only the one that triggered it. Off by default."
       },
       "conditions": {
-        "addGroup": "and also…",
-        "fieldPlaceholder": "Select field",
+        "addGroup": "Add a separate set of checks",
+        "fieldPlaceholder": "Pick something to check",
         "operatorPlaceholder": "Operator",
         "windowPrefix": "in",
         "windowUnit": "hrs",
@@ -450,28 +450,28 @@
         "no": "No",
         "recentlySeen": "Recently seen",
         "allCountries": "All countries",
-        "sectionTitle": "Only when…",
+        "sectionTitle": "And only if…",
         "optional": "optional",
         "helper": "Checks that must pass first. Empty means it runs every time.",
         "emptyLine": "No extra checks — this runs every time.",
-        "all": "all of these",
-        "any": "any of these",
+        "all": "and",
+        "any": "or",
         "allHint": "and — every check has to pass",
         "anyHint": "or — any one check is enough",
-        "matchLabel": "How these conditions combine",
-        "fieldLabel": "Condition",
-        "operatorLabel": "Comparison",
+        "matchLabel": "Join these checks with",
+        "fieldLabel": "What to check",
+        "operatorLabel": "Is it",
         "valueLabel": "Value",
-        "canNeverPass": "Can never pass: the trigger fires at {{threshold}}",
-        "noFields": "The triggers you picked don't supply any conditions yet.",
+        "canNeverPass": "This can never pass — the trigger already fires at {{threshold}}.",
+        "noFields": "No checks are available for these triggers. Add a stream or account trigger first.",
         "groupSeparator": "and also",
-        "addAnother": "Add another condition",
-        "addFirst": "Add a condition",
+        "addAnother": "Add a check",
+        "addFirst": "Add a check",
         "removeGroup": "Remove this set of checks"
       },
       "actions": {
-        "add": "Add action",
-        "sectionTitle": "Do this…",
+        "add": "Add another action",
+        "sectionTitle": "Then do…",
         "ifTitle": "If…",
         "helper": "These run in order, top to bottom.",
         "emptyTitle": "What should happen?",
@@ -483,13 +483,13 @@
         "branchName": "this branch",
         "confirmRemoveTitle": "Remove this action?",
         "confirmRemoveDescription": "Stops happening on save.",
-        "policyNote": "This doesn't decide whether it's flagged — use Only when… for that",
-        "branchThen": "then",
-        "branchElse": "Otherwise…",
+        "policyNote": "A branch does not decide whether this is flagged; the And only if… section does.",
+        "branchThen": "Do this",
+        "branchElse": "Otherwise",
         "branchElseEmpty": "Nothing — the automation carries on.",
-        "ifNothing": "nothing yet",
+        "ifNothing": "nothing picked yet",
         "ifAddCheck": "Add another check",
-        "addBranch": "Add action",
+        "addBranch": "Add a step",
         "expandBranch": "Show this branch's steps",
         "collapseBranch": "Hide this branch's steps"
       },
@@ -499,7 +499,7 @@
         "emptyTitle": "What should start this?",
         "emptyDescription": "Pick the moment that kicks it off — a stream starting, a server going down, an account going quiet.",
         "emptyAction": "Choose what starts it",
-        "add": "Add trigger",
+        "add": "Add another trigger",
         "or": "or"
       },
       "heldFor": {
@@ -532,11 +532,16 @@
         "close": "close"
       },
       "sentence": {
-        "label": "What this automation does"
+        "label": "In plain words",
+        "placeholderTrigger": "something happens",
+        "placeholderAction": "do something"
       },
       "footer": {
-        "problems_one": "{{count}} problem",
-        "problems_other": "{{count}} problems",
+        "problems_one": "{{count}} thing to fix",
+        "problems_other": "{{count}} things to fix",
+        "remaining_one": "{{count}} left to finish",
+        "remaining_other": "{{count}} left to finish",
+        "ready": "Ready to save",
         "search": "to search"
       },
       "leave": {
@@ -544,16 +549,16 @@
         "confirm": "Leave"
       },
       "liveCheck": {
-        "title": "Right now",
-        "checking": "Checking against the sessions playing now…",
-        "empty": "Nothing is playing right now, so there is nothing to check.",
-        "failed": "Couldn't check against the sessions playing now.",
-        "footnote": "Cooldowns and already-handled sessions aren't simulated.",
+        "title": "Right now on the servers",
+        "checking": "Checking what's playing now…",
+        "empty": "Nothing is playing right now; nothing to check against.",
+        "failed": "Could not reach the servers to check.",
+        "footnote": "Cooldowns and sessions already handled aren't simulated.",
         "expand": "Show what matched for {{name}}",
         "passed": "Passed",
         "notPassed": "Did not pass",
         "actual": "now {{value}}",
-        "unfinished": "Fix the problems above to check again",
+        "unfinished": "Shows what this would do once the automation is complete.",
         "paused": "Paused while this saves"
       }
     },
@@ -566,7 +571,7 @@
       "scope": "Scope",
       "media": "Media"
     },
-    "createAutomation": "Create Automation",
+    "createAutomation": "Create automation",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
     "customAutomation": "Custom automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
@@ -726,7 +731,7 @@
       "title": "Automation"
     },
     "disable": "Disable",
-    "editAutomation": "Edit Automation",
+    "editAutomation": "Edit automation",
     "enable": "Enable",
     "evaluations": {
       "title": "Recent evaluations",
@@ -874,14 +879,12 @@
     },
     "kind": {
       "policy": "Policy",
-      "notification": "Notification",
-      "policyDescription": "Runs are recorded as violations, with a severity you acknowledge.",
-      "notificationDescription": "Housekeeping and alerts. Runs are recorded but never become violations."
+      "notification": "Notification"
     },
     "kindColumn": "Kind",
-    "name": "Automation Name",
+    "name": "Name",
     "newAutomation": "New automation",
-    "namePlaceholder": "e.g., Concurrent Stream Limit",
+    "namePlaceholder": "A name for this automation",
     "noAutomationsConfigured": "No automations configured",
     "noAutomationsFound": "No automations found",
     "operators": {
@@ -1004,7 +1007,7 @@
       "hours": "hours",
       "gb": "GB"
     },
-    "updateAutomation": "Update Automation",
+    "updateAutomation": "Save changes",
     "catalog": {
       "groups": {
         "sessions": "Sessions",
@@ -1087,8 +1090,8 @@
           "synonyms": "warn, tell, notice, on screen"
         },
         "if": {
-          "label": "Branch on a condition",
-          "description": "Run one set of steps when a condition holds and another when it does not.",
+          "label": "If… otherwise…",
+          "description": "Run some steps only when an extra check passes.",
           "synonyms": "if, else, otherwise, branch, split, condition"
         }
       }

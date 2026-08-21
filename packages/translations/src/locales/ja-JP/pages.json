@@ -87,7 +87,7 @@
         "menu": "More for {{name}}",
         "moveDown": "Move {{name}} down",
         "moveUp": "Move {{name}} up",
-        "policyNote": "This doesn't decide whether it's flagged — use Only when… for that",
+        "policyNote": "A branch does not decide whether this is flagged; the And only if… section does.",
         "sectionTitle": "Do this…"
       },
       "activeLabel": "Active",
@@ -111,7 +111,7 @@
         "helper": "Checks that must pass first. Empty means it runs every time.",
         "matchLabel": "How these conditions combine",
         "no": "No",
-        "noFields": "The triggers you picked don't supply any conditions yet.",
+        "noFields": "No checks are available for these triggers. Add a stream or account trigger first.",
         "operatorLabel": "Comparison",
         "operatorPlaceholder": "Operator",
         "optional": "optional",
@@ -128,7 +128,7 @@
         "yes": "Yes"
       },
       "descriptionLabel": "Description",
-      "descriptionPlaceholder": "Optional description",
+      "descriptionPlaceholder": "What this is for",
       "destinationDisabled": "Disabled destination",
       "errors": {
         "actionUnavailable": "These triggers do not supply what this action needs",
@@ -143,7 +143,7 @@
         "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
         "scopeIncomplete": "Pick a target for the selected scope",
         "sendNeedsDestination": "Pick at least one destination",
-        "triggerRequired": "Pick at least one trigger, or switch one back on",
+        "triggerRequired": "Add what starts this, or switch one back on",
         "trustAmountRange": "Trust changes by between -100 and 100 points",
         "trustValueRange": "Trust score is between 0 and 100",
         "valueInvalid": "This value does not fit the condition",
@@ -152,6 +152,9 @@
       "footer": {
         "problems_one": "{{count}} problem",
         "problems_other": "{{count}} problems",
+        "ready": "Ready to save",
+        "remaining_one": "{{count}} left to finish",
+        "remaining_other": "{{count}} left to finish",
         "search": "to search"
       },
       "heldFor": {
@@ -174,15 +177,15 @@
       "liveCheck": {
         "actual": "now {{value}}",
         "checking": "Checking against the sessions playing now…",
-        "empty": "Nothing is playing right now, so there is nothing to check.",
+        "empty": "Nothing is playing right now; nothing to check against.",
         "expand": "Show what matched for {{name}}",
-        "failed": "Couldn't check against the sessions playing now.",
+        "failed": "Could not reach the servers to check.",
         "footnote": "Cooldowns and already-handled sessions aren't simulated.",
         "notPassed": "Did not pass",
         "passed": "Passed",
         "paused": "Paused while this saves",
-        "title": "Right now",
-        "unfinished": "Fix the problems above to check again"
+        "title": "Right now on the servers",
+        "unfinished": "Shows what this would do once the automation is complete."
       },
       "noDestinations": "No destinations yet. Add one to send notifications.",
       "noMatches": "No matches",
@@ -231,7 +234,9 @@
       "selectPlaceholder": "Select...",
       "selectedCount": "{{count}} selected",
       "sentence": {
-        "label": "What this automation does"
+        "label": "What this automation does",
+        "placeholderAction": "do something",
+        "placeholderTrigger": "something happens"
       },
       "severityLabel": "Severity",
       "when": {
@@ -649,13 +654,11 @@
     },
     "kind": {
       "notification": "Notification",
-      "notificationDescription": "Housekeeping. Runs are recorded and never become violations.",
-      "policy": "Policy",
-      "policyDescription": "Runs are violations: they carry a severity and wait to be acknowledged."
+      "policy": "Policy"
     },
     "kindColumn": "Kind",
     "name": "Automation Name",
-    "namePlaceholder": "e.g., Concurrent Stream Limit",
+    "namePlaceholder": "A name for this automation",
     "newAutomation": "New automation",
     "noAutomationsConfigured": "No automations configured",
     "noAutomationsFound": "No automations found",

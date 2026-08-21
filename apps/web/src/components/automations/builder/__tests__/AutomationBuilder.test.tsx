@@ -86,7 +86,33 @@ describe('AutomationBuilder', () => {
     renderBuilder();
 
     expect(screen.getByText('What should start this?')).toBeInTheDocument();
-    expect(screen.getByText(/When nothing yet/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /When something happens/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /do something/ })).toBeInTheDocument();
+  });
+
+  it('takes an empty slot in the sentence to the step that fills it', async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+
+    await user.click(screen.getByRole('button', { name: /do something/ }));
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        document.getElementById(nodeDomId(BUILDER_SECTIONS.actions))
+      )
+    );
+  });
+
+  it('counts what is left in a calm voice until Save asks for the form', async () => {
+    const user = userEvent.setup();
+    renderBuilder();
+
+    expect(screen.getByText('2 left to finish')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /to fix/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
+
+    expect(screen.getByRole('button', { name: /2 things to fix/ })).toBeInTheDocument();
   });
 
   it('grows the sentence as triggers land', async () => {
@@ -102,29 +128,25 @@ describe('AutomationBuilder', () => {
     const user = userEvent.setup();
     renderBuilder();
 
-    expect(screen.getByRole('button', { name: /2 problems/ })).toBeInTheDocument();
+    expect(screen.getByText('2 left to finish')).toBeInTheDocument();
 
     await addTrigger(user, /play is pressed/);
-    await user.type(screen.getByLabelText('Automation Name'), 'Nightly sweep');
+    await user.type(screen.getByLabelText('Name'), 'Nightly sweep');
 
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: /problem/ })).not.toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByText('Ready to save')).toBeInTheDocument());
   });
 
   it('greets a new automation without red until Save asks for the whole form', async () => {
     const user = userEvent.setup();
     renderBuilder();
 
-    expect(screen.queryByText('Automation name is required')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Automation Name')).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByText('Give this automation a name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).not.toHaveAttribute('aria-invalid', 'true');
 
-    await user.click(screen.getByRole('button', { name: 'Create Automation' }));
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
 
-    expect(screen.getByText('Automation name is required')).toBeInTheDocument();
-    expect(
-      screen.getByText('Pick at least one trigger, or switch one back on')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Give this automation a name')).toBeInTheDocument();
+    expect(screen.getByText('Add what starts this, or switch one back on')).toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -133,10 +155,10 @@ describe('AutomationBuilder', () => {
     renderBuilder();
 
     await addTrigger(user, /play is pressed/);
-    await user.type(screen.getByLabelText('Automation Name'), 'Nightly sweep');
-    await user.click(screen.getByRole('radio', { name: 'Specific account' }));
+    await user.type(screen.getByLabelText('Name'), 'Nightly sweep');
+    await user.click(screen.getByRole('radio', { name: 'One account' }));
 
-    await user.click(screen.getByRole('button', { name: /1 problem/ }));
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
 
     expect(document.activeElement).toBe(document.getElementById(nodeDomId(BUILDER_SECTIONS.scope)));
   });
@@ -151,8 +173,8 @@ describe('AutomationBuilder', () => {
     renderBuilder();
 
     await addTrigger(user, /paused longer than the set number of minutes/);
-    await user.type(screen.getByLabelText('Automation Name'), 'Nightly sweep');
-    await user.click(screen.getByRole('button', { name: 'Create Automation' }));
+    await user.type(screen.getByLabelText('Name'), 'Nightly sweep');
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
 
     expect(await screen.findByText('Between 1 and 1440 minutes')).toBeInTheDocument();
 
@@ -162,7 +184,7 @@ describe('AutomationBuilder', () => {
 
     expect(screen.queryByText('Between 1 and 1440 minutes')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Create Automation' }));
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
 
     await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
   });
@@ -182,9 +204,9 @@ describe('AutomationBuilder', () => {
     const user = userEvent.setup();
     renderBuilder();
 
-    await user.type(screen.getByPlaceholderText('Optional description'), 'Nightly sweep');
+    await user.type(screen.getByPlaceholderText('What this is for'), 'Nightly sweep');
 
-    expect(screen.getByPlaceholderText('Optional description')).toHaveValue('Nightly sweep');
+    expect(screen.getByPlaceholderText('What this is for')).toHaveValue('Nightly sweep');
   });
 
   it('takes the caret to an open picker rather than shutting it', async () => {
@@ -225,7 +247,7 @@ describe('AutomationBuilder', () => {
     await user.click(screen.getByRole('button', { name: /Hide this branch/ }));
     expect(screen.queryByText('Send Notification')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /1 problem/ }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.getByText('Send Notification')).toBeInTheDocument();
     await waitFor(() =>
@@ -261,7 +283,7 @@ describe('AutomationBuilder', () => {
       })
     );
 
-    await user.click(screen.getByRole('button', { name: 'Update Automation' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText('Not available for: A server goes down')).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
@@ -272,8 +294,8 @@ describe('AutomationBuilder', () => {
     renderBuilder();
 
     await addTrigger(user, /play is pressed/);
-    await user.type(screen.getByLabelText('Automation Name'), 'Nightly sweep');
-    await user.click(screen.getByRole('button', { name: 'Create Automation' }));
+    await user.type(screen.getByLabelText('Name'), 'Nightly sweep');
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
 
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     expect(create.mock.calls[0]?.[0]).toMatchObject({

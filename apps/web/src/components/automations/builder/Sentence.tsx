@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { capFragments, type DescribeFragment } from '@/lib/automations';
+import { ChevronDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { capFragments, SENTENCE_SECTIONS, type DescribeFragment } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
 interface SentenceProps {
@@ -8,24 +10,56 @@ interface SentenceProps {
   className?: string;
 }
 
+/** The steps a blank sentence still has to be filled from, drawn as invitations. */
+const SLOTS: readonly string[] = [SENTENCE_SECTIONS.triggers, SENTENCE_SECTIONS.actions];
+
+/** The punctuation that joins clauses sits outside the slot, not inside it. */
+function splitTail(text: string): [string, string] {
+  const match = /[.,;:]+$/.exec(text);
+  return match ? [text.slice(0, match.index), match[0]] : [text, ''];
+}
+
 /** The automation in one line, where every clause jumps to the row it came from. */
 export function Sentence({ fragments, onFocusNode, className }: SentenceProps) {
   const { t } = useTranslation('pages');
   const shown = capFragments(fragments, t);
+  // capFragments appends its own "+N more"; every fragment it kept is the object it was handed.
+  const last = shown[shown.length - 1];
+  const overflow = last !== undefined && !fragments.includes(last) ? last : undefined;
 
   return (
-    <p
-      role="group"
-      aria-live="polite"
-      aria-label={t('automations.builder.sentence.label')}
-      className={cn('text-muted-foreground text-sm leading-relaxed', className)}
-    >
+    <p className={cn('text-muted-foreground text-base leading-relaxed', className)}>
       {shown.map((fragment, index) => {
         const key = `${fragment.nodeId ?? 'text'}:${index}`;
+        if (fragment === overflow) {
+          return (
+            <Badge key={key} variant="secondary">
+              {fragment.text}
+            </Badge>
+          );
+        }
         if (fragment.nodeId === null) {
           return <span key={key}>{fragment.text} </span>;
         }
+
         const nodeId = fragment.nodeId;
+        if (SLOTS.includes(nodeId)) {
+          const [body, tail] = splitTail(fragment.text);
+          return (
+            <span key={key}>
+              <button
+                type="button"
+                onClick={() => onFocusNode(nodeId)}
+                className="border-primary/65 bg-primary/10 text-primary focus-visible:ring-ring/50 inline-flex items-center gap-1 rounded-sm border border-dashed px-1.5 py-0.5 text-[0.9375em] focus-visible:ring-[3px] focus-visible:outline-none"
+              >
+                {body}
+                <ChevronDown className="size-3" />
+              </button>
+              {tail}{' '}
+            </span>
+          );
+        }
+
         return (
           <span key={key}>
             <button

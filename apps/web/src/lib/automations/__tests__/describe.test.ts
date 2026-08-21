@@ -5,6 +5,7 @@ import {
   capFragments,
   describeAutomation,
   describeText,
+  SENTENCE_SECTIONS,
   type DescribableDefinition,
   type DescribeRefs,
 } from '../describe';
@@ -201,7 +202,7 @@ describe('describeAutomation', () => {
     );
 
     expect(text).toBe(
-      'When a stream has been paused for whatever you pick in total. Applies to whatever you pick.'
+      'When a stream has been paused for whatever you pick in total, do something. Applies to whatever you pick.'
     );
   });
 
@@ -228,7 +229,7 @@ describe('describeAutomation', () => {
 
     expect(text).toBe(
       'When a stream starts, only when any of: the trust score is below 50, ' +
-        'the country is one of United States, Canada.'
+        'the country is one of United States, Canada, do something.'
     );
   });
 
@@ -278,8 +279,10 @@ describe('describeAutomation', () => {
     expect(text).toContain('only when any of:');
   });
 
-  it('says nothing starts it yet when no trigger is enabled', () => {
-    expect(sentence({ kind: 'notification', triggers: [] })).toBe('When nothing yet.');
+  it('offers the trigger slot when no trigger is enabled', () => {
+    expect(sentence({ kind: 'notification', triggers: [] })).toBe(
+      'When something happens, do something.'
+    );
   });
 
   it('converts a distance threshold to the reader unit system', () => {
@@ -360,6 +363,32 @@ describe('describeAutomation', () => {
       'condition-2',
       'action-send',
     ]);
+  });
+
+  it('offers a blank draft two slots addressed to the steps that fill them', () => {
+    const fragments = describeAutomation({ kind: 'policy' }, {}, t, 'metric');
+
+    expect(fragments).toEqual([
+      { nodeId: SENTENCE_SECTIONS.triggers, text: 'When something happens,' },
+      { nodeId: SENTENCE_SECTIONS.actions, text: 'do something.' },
+    ]);
+  });
+
+  it('sends the flag clause to the setting that decides it', () => {
+    const fragments = describeAutomation(
+      {
+        kind: 'policy',
+        triggers: [{ id: 'trigger-started', type: 'session.started', enabled: true }],
+        actions: { actions: [{ id: 'action-kill', type: 'kill_stream' }] },
+      },
+      {},
+      t,
+      'metric'
+    );
+
+    expect(fragments.find((fragment) => fragment.text.startsWith('Flag it'))?.nodeId).toBe(
+      SENTENCE_SECTIONS.kind
+    );
   });
 
   it('reads an if with nothing to test as one, not as a dangling comma', () => {
@@ -443,7 +472,7 @@ describe('describeAutomation', () => {
     expect(text).toBe(
       'When a stream starts, only when all of: the trust score is below 50, ' +
         'the account age is below 7 days; and also any of: the media type is one of Movie, ' +
-        'the platform is one of Roku.'
+        'the platform is one of Roku, do something.'
     );
   });
 
@@ -487,6 +516,22 @@ describe('capFragments', () => {
       { nodeId: 'a', text: 'x'.repeat(100) },
       { nodeId: 'b', text: 'y'.repeat(50) },
       { nodeId: null, text: '+1 more' },
+    ]);
+  });
+
+  it('keeps the scope tail, whatever it had to drop to get there', () => {
+    const fragments = [
+      { nodeId: 'a', text: 'x'.repeat(100) },
+      { nodeId: 'b', text: 'y'.repeat(50) },
+      { nodeId: 'c', text: 'z'.repeat(50) },
+      { nodeId: SENTENCE_SECTIONS.scope, text: 'Applies to Beehive.' },
+    ];
+
+    expect(capFragments(fragments, t)).toEqual([
+      { nodeId: 'a', text: 'x'.repeat(100) },
+      { nodeId: 'b', text: 'y'.repeat(50) },
+      { nodeId: null, text: '+1 more' },
+      { nodeId: SENTENCE_SECTIONS.scope, text: 'Applies to Beehive.' },
     ]);
   });
 

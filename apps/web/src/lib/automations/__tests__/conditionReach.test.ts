@@ -34,7 +34,7 @@ describe('unreachableNote', () => {
     const condition = pause(60);
 
     expect(unreachableNote(t, [heldFor(30)], condition, alone(condition))).toBe(
-      'Can never pass: the trigger fires at 30 minutes'
+      'This can never pass — the trigger already fires at 30 minutes.'
     );
   });
 

@@ -12,18 +12,18 @@ const uniqueName = (label: string) => `${PREFIX} ${label} ${Date.now().toString(
 /** The scratch flow, which every test here needs before it has anything to open. */
 async function buildAutomation(page: Page, name: string) {
   await page.goto('/automations/new');
-  await expect(page.getByRole('heading', { name: 'Create Automation', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'New automation', level: 1 })).toBeVisible();
 
-  await page.getByLabel('Automation Name').fill(name);
+  await page.getByLabel('Name', { exact: true }).fill(name);
 
-  await page.getByRole('button', { name: 'Add trigger' }).click();
+  await page.getByRole('button', { name: 'Choose what starts it' }).click();
   await page.getByRole('option', { name: /play is pressed/ }).click();
 
-  await page.getByRole('button', { name: 'Add action' }).click();
+  await page.getByRole('button', { name: 'Choose what happens' }).click();
   await page.getByRole('option', { name: /Send Notification/ }).click();
   await page.getByRole('button', { name: 'Browser toasts' }).click();
 
-  await page.getByRole('button', { name: 'Create Automation' }).click();
+  await page.getByRole('button', { name: 'Create automation' }).click();
 
   await expect(page).toHaveURL(/\/automations\/[0-9a-f-]{36}$/);
 }
@@ -92,10 +92,10 @@ test.describe('Automations', () => {
 
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     await expect(page).toHaveURL(/\/automations\/[0-9a-f-]{36}\/edit$/);
-    await expect(page.getByRole('heading', { name: 'Edit Automation', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Edit automation', level: 1 })).toBeVisible();
 
-    await page.getByLabel('Automation Name').fill(renamed);
-    await page.getByRole('button', { name: 'Update Automation' }).click();
+    await page.getByLabel('Name', { exact: true }).fill(renamed);
+    await page.getByRole('button', { name: 'Save changes' }).click();
 
     await expect(page).toHaveURL(/\/automations\/[0-9a-f-]{36}$/);
     await expect(page.getByRole('heading', { name: renamed, level: 1 })).toBeVisible();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Loader2, Save, TriangleAlert } from 'lucide-react';
+import { Check, Info, Loader2, Save, TriangleAlert } from 'lucide-react';
 import type { Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -426,18 +426,31 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
             {t('pages:automations.builder.footer.search')}
           </span>
 
-          {hasIssues && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive"
-              onClick={revealFirstIssue}
-            >
-              <TriangleAlert />
-              {t('pages:automations.builder.footer.problems', { count: issues.length })}
-            </Button>
+          {/* Nothing is red until Save has asked for the whole form. */}
+          {!hasIssues && (
+            <span className="text-success flex items-center gap-1.5 text-sm">
+              <Check className="size-4" />
+              {t('pages:automations.builder.footer.ready')}
+            </span>
           )}
+          {hasIssues &&
+            (submitted ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive"
+                onClick={revealFirstIssue}
+              >
+                <TriangleAlert />
+                {t('pages:automations.builder.footer.problems', { count: issues.length })}
+              </Button>
+            ) : (
+              <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
+                <Info className="size-4" />
+                {t('pages:automations.builder.footer.remaining', { count: issues.length })}
+              </span>
+            ))}
 
           <div className="ml-auto flex items-center gap-3">
             <Button type="button" variant="outline" onClick={() => void navigate('/automations')}>

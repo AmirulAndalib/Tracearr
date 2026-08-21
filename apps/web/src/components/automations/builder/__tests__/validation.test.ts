@@ -50,7 +50,7 @@ describe('builderIssues', () => {
 
     expect(issues).toContainEqual({
       nodeId: BUILDER_SECTIONS.name,
-      message: 'Automation name is required',
+      message: 'Give this automation a name',
     });
   });
 
@@ -64,7 +64,7 @@ describe('builderIssues', () => {
     expect(builderIssues(off, t)).toEqual([
       {
         nodeId: BUILDER_SECTIONS.triggers,
-        message: 'Pick at least one trigger, or switch one back on',
+        message: 'Add what starts this, or switch one back on',
       },
     ]);
   });

@@ -114,7 +114,7 @@ describe('ActionsSection', () => {
     renderSection(pair);
 
     expect(screen.getByRole('radio', { name: 'A violation' })).toHaveAttribute('data-state', 'on');
-    expect(screen.getByRole('combobox', { name: 'Severity' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'How serious?' })).toBeInTheDocument();
   });
 
   it('leaves the recording question out while the step is empty', () => {
@@ -126,8 +126,8 @@ describe('ActionsSection', () => {
   it('shows both sides of the fork under their own labels', () => {
     renderSection(branching);
 
-    expect(screen.getByText('then')).toBeInTheDocument();
-    expect(screen.getByText('Otherwise…')).toBeInTheDocument();
+    expect(screen.getByText('Do this')).toBeInTheDocument();
+    expect(screen.getByText('Otherwise')).toBeInTheDocument();
     expect(screen.getByText('Kill Stream')).toBeInTheDocument();
     expect(screen.getByText('Trust Score')).toBeInTheDocument();
   });
@@ -146,18 +146,20 @@ describe('ActionsSection', () => {
     const user = userEvent.setup();
     renderSection(branching);
 
-    expect(screen.queryByText('If nothing yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('If nothing picked yet')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Hide this branch/ }));
 
-    expect(screen.getByText('If nothing yet')).toBeInTheDocument();
+    expect(screen.getByText('If nothing picked yet')).toBeInTheDocument();
   });
 
   it('warns that a branch does not decide the flag on a policy', () => {
     renderSection(branching);
 
     expect(
-      screen.getByText("This doesn't decide whether it's flagged — use Only when… for that")
+      screen.getByText(
+        "A branch does not decide whether this is flagged; the And only if… section does."
+      )
     ).toBeInTheDocument();
   });
 

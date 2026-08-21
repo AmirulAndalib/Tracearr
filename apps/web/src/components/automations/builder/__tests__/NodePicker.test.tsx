@@ -64,9 +64,7 @@ describe('NodePicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: /Add action/ }));
-    expect(
-      await screen.findByRole('option', { name: /Branch on a condition/ })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: /If… otherwise…/ })).toBeInTheDocument();
     unmount();
 
     render(
@@ -79,6 +77,6 @@ describe('NodePicker', () => {
 
     await user.click(screen.getByRole('button', { name: /Add action/ }));
     expect(await screen.findByText('Notify')).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Branch on a condition/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /If… otherwise…/ })).not.toBeInTheDocument();
   });
 });

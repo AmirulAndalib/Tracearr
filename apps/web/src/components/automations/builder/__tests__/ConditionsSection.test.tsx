@@ -77,7 +77,7 @@ describe('ConditionsSection', () => {
 
     expect(screen.queryByText('Where')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Add a condition/ }));
+    await user.click(screen.getByRole('button', { name: /Add a check/ }));
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'addConditionGroup' });
   });
@@ -91,8 +91,8 @@ describe('ConditionsSection', () => {
       ])
     );
 
-    const connective = screen.getByRole('combobox', { name: 'How these conditions combine' });
-    expect(connective).toHaveTextContent('all of these');
+    const connective = screen.getByRole('combobox', { name: 'Join these checks with' });
+    expect(connective).toHaveTextContent('and');
 
     await user.click(connective);
     await user.click(await screen.findByRole('option', { name: /any one check is enough/ }));
@@ -108,7 +108,7 @@ describe('ConditionsSection', () => {
     renderSection(group([condition({ id: 'c-1' })]));
 
     expect(
-      screen.queryByRole('combobox', { name: 'How these conditions combine' })
+      screen.queryByRole('combobox', { name: 'Join these checks with' })
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Where')).not.toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe('ConditionsSection', () => {
       group([condition({ id: 'c-1', field: 'is_local_network', operator: 'eq', value: true })])
     );
 
-    await user.click(screen.getByRole('combobox', { name: 'Comparison' }));
+    await user.click(screen.getByRole('combobox', { name: 'Is it' }));
 
     expect(screen.getAllByRole('option')).toHaveLength(2);
     expect(screen.getByRole('option', { name: 'equals' })).toBeInTheDocument();
@@ -180,7 +180,9 @@ describe('ConditionsSection', () => {
       [held]
     );
 
-    expect(screen.getByText('Can never pass: the trigger fires at 30 minutes')).toBeInTheDocument();
+    expect(
+      screen.getByText('This can never pass — the trigger already fires at 30 minutes.')
+    ).toBeInTheDocument();
   });
 
   it('toggles the focused row with D', async () => {

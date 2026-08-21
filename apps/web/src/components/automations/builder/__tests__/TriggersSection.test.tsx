@@ -82,13 +82,13 @@ describe('TriggersSection', () => {
   it('closes the step with the question about who it applies to, once it has a trigger', () => {
     renderSection([started]);
 
-    expect(screen.getByRole('radio', { name: 'Global' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Everyone' })).toBeInTheDocument();
   });
 
   it('asks nothing about scope while the step is empty', () => {
     renderSection([]);
 
-    expect(screen.queryByRole('radio', { name: 'Global' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Everyone' })).not.toBeInTheDocument();
   });
 
   it('puts an or between the triggers and none before the first', () => {

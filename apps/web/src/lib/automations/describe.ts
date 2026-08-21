@@ -69,6 +69,17 @@ interface Describe {
 
 const SENTENCE_LIMIT = 160;
 
+/**
+ * Fragments that address a step of the builder rather than a node inside it, so an
+ * empty slot and the settings behind the sentence still have somewhere to jump to.
+ */
+export const SENTENCE_SECTIONS = {
+  triggers: 'triggers',
+  actions: 'actions',
+  kind: 'kind',
+  scope: 'scope',
+} as const;
+
 /** The camelCase translation key for each trigger type. */
 export const TRIGGER_KEYS = {
   'session.started': 'sessionStarted',
@@ -170,9 +181,9 @@ function describeTriggers(
   const enabled = triggers.filter(isEnabled);
   if (enabled.length === 0) {
     const text = ctx.t('automations.describe.when', {
-      text: ctx.t('automations.describe.nothing'),
+      text: ctx.t('automations.builder.sentence.placeholderTrigger'),
     });
-    return [{ nodeId: null, text }];
+    return [{ nodeId: SENTENCE_SECTIONS.triggers, text }];
   }
 
   return enabled.map((trigger, index) => ({
@@ -410,7 +421,10 @@ function describeActions(
   const fragments: DescribeFragment[] = [];
   // A policy records a violation whatever else it does, so the flag opens the clause.
   if (kind === 'policy') {
-    fragments.push({ nodeId: null, text: ctx.t('automations.describe.actions.flagIt') });
+    fragments.push({
+      nodeId: SENTENCE_SECTIONS.kind,
+      text: ctx.t('automations.describe.actions.flagIt'),
+    });
   }
 
   for (const action of actions.filter(isEnabled)) {
@@ -453,7 +467,10 @@ function describeScope(ctx: Describe, definition: DescribableDefinition): Descri
   else if (userId) name = scopeName(ctx, userId, refs.users, 'person');
   if (name === null) return null;
 
-  return { nodeId: null, text: ctx.t('automations.describe.appliesTo', { name }) };
+  return {
+    nodeId: SENTENCE_SECTIONS.scope,
+    text: ctx.t('automations.describe.appliesTo', { name }),
+  };
 }
 
 /** A policy's flag opens a sentence of its own; other actions close the clause they follow. */
@@ -483,8 +500,12 @@ export function describeAutomation(
   unitSystem: UnitSystem
 ): DescribeFragment[] {
   const ctx: Describe = { t, refs, unitSystem };
+  const triggers = definition.triggers ?? [];
+  const actionNodes = definition.actions?.actions ?? [];
+  // A draft with nothing on it invites both slots; "flag it" would name a control that is not there yet.
+  const blank = triggers.length === 0 && actionNodes.length === 0;
 
-  const fragments = describeTriggers(ctx, definition.triggers ?? []);
+  const fragments = describeTriggers(ctx, triggers);
 
   const conditions = describeGroups(
     ctx,
@@ -496,10 +517,16 @@ export function describeAutomation(
     fragments.push(...conditions);
   }
 
-  const actions = describeActions(ctx, definition.actions?.actions ?? [], definition.kind);
+  const actions = blank ? [] : describeActions(ctx, actionNodes, definition.kind);
   if (actions.length > 0) {
     appendSuffix(fragments, actionSeparator(definition.kind, conditions.length > 0));
     fragments.push(...actions);
+  } else {
+    appendSuffix(fragments, ',');
+    fragments.push({
+      nodeId: SENTENCE_SECTIONS.actions,
+      text: t('automations.builder.sentence.placeholderAction'),
+    });
   }
   appendSuffix(fragments, '.');
 
@@ -514,7 +541,8 @@ export function describeAutomation(
 
 /**
  * The fragments that fit in 160 characters, plus a "+N more" fragment for the rest.
- * The first fragment is kept whole however long it runs.
+ * The first fragment is kept whole however long it runs, and the scope tail always
+ * survives: it is the only place the sentence says who the automation applies to.
  */
 export function capFragments(
   fragments: readonly DescribeFragment[],
@@ -523,17 +551,22 @@ export function capFragments(
   const kept: DescribeFragment[] = [];
   let length = 0;
 
-  for (const fragment of fragments) {
+  const last = fragments[fragments.length - 1];
+  const scope = last?.nodeId === SENTENCE_SECTIONS.scope ? last : undefined;
+  const body = scope ? fragments.slice(0, -1) : fragments;
+
+  for (const fragment of body) {
     const next = kept.length === 0 ? fragment.text.length : length + 1 + fragment.text.length;
     if (kept.length > 0 && next > SENTENCE_LIMIT) break;
     kept.push(fragment);
     length = next;
   }
 
-  const dropped = fragments.length - kept.length;
+  const dropped = body.length - kept.length;
   if (dropped > 0) {
     kept.push({ nodeId: null, text: t('automations.describe.more', { count: dropped }) });
   }
+  if (scope) kept.push(scope);
 
   return kept;
 }

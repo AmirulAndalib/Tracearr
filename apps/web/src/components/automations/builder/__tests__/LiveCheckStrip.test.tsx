@@ -82,7 +82,7 @@ describe('LiveCheckStrip', () => {
       })
     );
 
-    expect(screen.queryByText('Right now')).not.toBeInTheDocument();
+    expect(screen.queryByText('Right now on the servers')).not.toBeInTheDocument();
   });
 
   it('reads the verdict for each session back in words', () => {
@@ -91,7 +91,7 @@ describe('LiveCheckStrip', () => {
 
     expect(screen.getByText(sample.summary)).toBeInTheDocument();
     expect(
-      screen.getByText("Cooldowns and already-handled sessions aren't simulated.")
+      screen.getByText("Cooldowns and sessions already handled aren't simulated.")
     ).toBeInTheDocument();
   });
 
