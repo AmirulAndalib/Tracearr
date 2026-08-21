@@ -156,6 +156,15 @@ function buildTracearrUpdate(
   };
 }
 
+/** Both media events render off the payload's own text, so an override still wins. */
+function buildMedia(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
+  return {
+    ...textOf(payload, { title: payload.title, message: payload.message }),
+    priority: 3,
+    tags: ['tracearr'],
+  };
+}
+
 function build(payload: NotificationPayload, topic: string): NtfyMessage {
   return { topic, ...bodyOf(payload) };
 }
@@ -178,6 +187,9 @@ function bodyOf(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
       return buildServerUpdate(payload, payload.context);
     case 'tracearr_update_available':
       return buildTracearrUpdate(payload, payload.context);
+    case 'media_added':
+    case 'media_upgraded':
+      return buildMedia(payload);
   }
 }
 

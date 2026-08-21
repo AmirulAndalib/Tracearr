@@ -205,6 +205,12 @@ function buildTracearrUpdateEmbed(
   return { title: text.title, description: text.message, color: 0x3498db }; // Blue
 }
 
+/** Both media events render off the payload's own text, so an override still wins. */
+function buildMediaEmbed(payload: NotificationPayload): DiscordEmbed {
+  const text = textOf(payload, { title: payload.title, message: payload.message });
+  return { title: text.title, description: text.message, color: 0x1abc9c }; // Teal
+}
+
 function buildEmbed(payload: NotificationPayload): DiscordEmbed {
   switch (payload.context.type) {
     case 'violation_detected':
@@ -223,6 +229,9 @@ function buildEmbed(payload: NotificationPayload): DiscordEmbed {
       return buildServerUpdateEmbed(payload, payload.context);
     case 'tracearr_update_available':
       return buildTracearrUpdateEmbed(payload, payload.context);
+    case 'media_added':
+    case 'media_upgraded':
+      return buildMediaEmbed(payload);
   }
 }
 

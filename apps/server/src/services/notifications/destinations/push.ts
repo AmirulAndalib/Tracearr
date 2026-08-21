@@ -12,24 +12,38 @@ export interface PushOverride {
 
 export type PushRendered =
   | { kind: 'event'; event: NotificationEvent; override?: PushOverride }
-  /** The update events have no per-device toggle, so they carry their resolved text instead. */
-  | { kind: 'update'; title: string; body: string; data: Record<string, unknown> };
+  /** These have no per-device toggle, so they carry their resolved text instead. */
+  | {
+      kind: 'text';
+      subject: 'update' | 'library';
+      title: string;
+      body: string;
+      data: Record<string, unknown>;
+    };
 
-const UPDATE_EVENTS: ReadonlySet<NotificationEvent['type']> = new Set([
+const TEXT_RENDERED_EVENTS: ReadonlySet<NotificationEvent['type']> = new Set([
   'plugin_update_available',
   'server_update_available',
   'tracearr_update_available',
+  'media_added',
+  'media_upgraded',
+]);
+
+const LIBRARY_EVENTS: ReadonlySet<NotificationEvent['type']> = new Set([
+  'media_added',
+  'media_upgraded',
 ]);
 
 export const pushType: DestinationType<Record<string, never>, PushRendered> = {
   kind: 'push',
   events: DESTINATION_TYPES.push.events,
   render(event, _config, ctx) {
-    // An automation asking for an update is the opt-in; nothing else produces these.
-    if (ctx.source.kind === 'automation' && UPDATE_EVENTS.has(event.type)) {
+    // An automation asking for these is the opt-in; nothing else produces them.
+    if (ctx.source.kind === 'automation' && TEXT_RENDERED_EVENTS.has(event.type)) {
       const payload = toNotificationPayload(event, ctx.source);
       return {
-        kind: 'update',
+        kind: 'text',
+        subject: LIBRARY_EVENTS.has(event.type) ? 'library' : 'update',
         title: payload.title,
         body: payload.message,
         // The discriminator goes last: a payload key named `type` must never replace it.
@@ -49,8 +63,11 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
     };
   },
   async deliver(rendered) {
-    if (rendered.kind === 'update') {
-      return pushNotificationService.notifyUpdate(rendered.title, rendered.body, rendered.data);
+    if (rendered.kind === 'text') {
+      const { title, body, data } = rendered;
+      return rendered.subject === 'library'
+        ? pushNotificationService.notifyLibrary(title, body, data)
+        : pushNotificationService.notifyUpdate(title, body, data);
     }
     const e = rendered.event;
     const override = rendered.override;
@@ -76,7 +93,9 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
       case 'plugin_update_available':
       case 'server_update_available':
       case 'tracearr_update_available':
-        return; // an automation routes these as an update render; a system source has nowhere to go
+      case 'media_added':
+      case 'media_upgraded':
+        return; // an automation routes these as a text render; a system source has nowhere to go
     }
   },
   test: async () => {

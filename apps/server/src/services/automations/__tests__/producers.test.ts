@@ -55,8 +55,14 @@ vi.mock('../runRecorder.js', () => ({
   automationCoolingDown: vi.fn().mockResolvedValue(false),
   publishRunFinished: vi.fn(),
   runFinishedOf: (row: { id: string }) => ({ id: row.id }),
-  subjectKeyOf: (scope: { kind: string; sessionId?: string; serverId?: string }) => {
+  subjectKeyOf: (scope: {
+    kind: string;
+    sessionId?: string;
+    libraryItemId?: string;
+    serverId?: string;
+  }) => {
     if (scope.kind === 'session') return scope.sessionId;
+    if (scope.kind === 'media') return `media:${scope.libraryItemId ?? ''}`;
     if (scope.kind === 'server') return `server:${scope.serverId ?? ''}`;
     return 'install';
   },
@@ -72,12 +78,15 @@ vi.mock('../../../utils/logger.js', () => ({
 import { setContextAssemblyDeps } from '../events/contextAssembly.js';
 import { resetDispatcherForTests, subscribe } from '../events/dispatcher.js';
 import {
+  dispatchMediaAdded,
+  dispatchMediaUpgraded,
   dispatchPluginUpdate,
   dispatchServerHealth,
   dispatchServerHealthById,
   dispatchServerUpdate,
   dispatchSessionStopped,
   dispatchTracearrUpdate,
+  hasMediaListeners,
 } from '../events/producers.js';
 import { registerRuleSubscribers, resetRuleSubscribersForTests } from '../events/subscribers.js';
 import type { RuleEvent } from '../events/types.js';
@@ -458,5 +467,150 @@ describe('a poller server.down reaches the recorder as a server subject', () => 
     await dispatchServerHealth('server.down', server, new Date());
 
     expect(mockRecordRun).not.toHaveBeenCalled();
+  });
+});
+
+describe('media producers', () => {
+  const quality = {
+    resolution: '4k',
+    dynamicRange: 'hdr10',
+    videoCodec: 'HEVC',
+    audioCodec: 'TRUEHD',
+    audioChannels: 8,
+    fileSize: 42_000_000_000,
+  };
+  const media = {
+    libraryItemId: 'item-1',
+    title: 'Cars',
+    type: 'movie',
+    year: 2006,
+    libraryId: '1',
+    libraryName: 'Movies',
+    quality,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetDispatcherForTests();
+    mockGetActiveAutomations.mockResolvedValue([]);
+    setContextAssemblyDeps({
+      getAllActiveSessions: async () => [],
+      gracePeriodSessionIds: () => new Set<string>(),
+    });
+  });
+
+  it('reports no listener until an automation names a media trigger on this server', async () => {
+    expect(await hasMediaListeners('server-1')).toBe(false);
+
+    mockGetActiveAutomations.mockResolvedValue([
+      automation([node('media.upgraded')], { serverId: 'server-2' }),
+    ]);
+    expect(await hasMediaListeners('server-1')).toBe(false);
+
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.upgraded')])]);
+    expect(await hasMediaListeners('server-1')).toBe(true);
+  });
+
+  it('dispatches nothing when only the other media trigger is listened for', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.upgraded')])]);
+    const seen = captureEvents('media.added');
+
+    await dispatchMediaAdded({ server, media });
+
+    expect(seen).toEqual([]);
+  });
+
+  it('carries the item and the server it landed on', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.added')])]);
+    const seen = captureEvents('media.added');
+
+    await dispatchMediaAdded({ server, media });
+
+    expect(seen[0]?.event).toMatchObject({ type: 'media.added', server, media });
+  });
+
+  it('carries the quality it came from and the fields that moved', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.upgraded')])]);
+    const seen = captureEvents('media.upgraded');
+    const from = { ...quality, resolution: '1080p' };
+
+    await dispatchMediaUpgraded({ server, media, from, changed: ['resolution'] });
+
+    expect(seen[0]?.event).toMatchObject({
+      type: 'media.upgraded',
+      server,
+      media,
+      from,
+      changed: ['resolution'],
+    });
+  });
+});
+
+describe('a media add reaches the recorder as a library-item subject', () => {
+  const media = {
+    libraryItemId: 'item-1',
+    title: 'Cars',
+    type: 'movie',
+    year: 2006,
+    libraryId: '1',
+    libraryName: 'Movies',
+    quality: {
+      resolution: '4k',
+      dynamicRange: null,
+      videoCodec: 'HEVC',
+      audioCodec: 'TRUEHD',
+      audioChannels: 8,
+      fileSize: 42_000_000_000,
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetDispatcherForTests();
+    resetRuleSubscribersForTests();
+    registerRuleSubscribers();
+    setContextAssemblyDeps({
+      getAllActiveSessions: async () => [],
+      gracePeriodSessionIds: () => new Set<string>(),
+    });
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => fn({}));
+    mockRecordRun.mockResolvedValue({ id: 'run-1', automationId: 'a1' });
+    mockEvaluateRulesAsync.mockResolvedValue([
+      { ruleId: 'a1', ruleName: 'a1', matched: false, matchedGroups: [], actions: [] },
+    ]);
+  });
+
+  it('records one run per item, keyed on the library item and unkeyed on any edge', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.added')])]);
+
+    await dispatchMediaAdded({ server, media });
+
+    expect(mockRecordRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'media', libraryItemId: 'item-1' },
+        serverId: 'server-1',
+        serverUserId: null,
+        session: null,
+        trigger: expect.objectContaining({
+          type: 'media.added',
+          nodeId: 'media.added-node',
+          edgeKey: null,
+        }),
+      })
+    );
+  });
+
+  it('keys an upgrade on the quality it landed on, so a resync repeats nothing', async () => {
+    mockGetActiveAutomations.mockResolvedValue([automation([node('media.upgraded')])]);
+
+    await dispatchMediaUpgraded({
+      server,
+      media,
+      from: { ...media.quality, resolution: '1080p' },
+      changed: ['resolution'],
+    });
+
+    const [[recorded]] = mockRecordRun.mock.calls as [[{ trigger: { edgeKey: string | null } }]];
+    expect(recorded.trigger.edgeKey).toBe('4k||HEVC|TRUEHD|8|42000000000');
   });
 });

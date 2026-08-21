@@ -10,6 +10,7 @@ import {
 import { dispatch } from './dispatcher.js';
 import { matchesTrigger } from './evaluate.js';
 import type { EvaluationServer, SessionStopReason, TriggerType } from './types.js';
+import type { MediaQuality, MediaSubject } from '../types.js';
 
 /** The active automations when one of them listens for the trigger, else null: no listener, no context read. */
 async function listeningRules(trigger: TriggerType): Promise<EngineAutomation[] | null> {
@@ -34,6 +35,13 @@ async function serverListeningRules(
       (!rule.serverId || rule.serverId === serverId)
   );
   return scoped.length > 0 ? scoped : null;
+}
+
+/** Whether anything on this server listens for either media trigger, before the sync pays for a diff. */
+export async function hasMediaListeners(serverId: string): Promise<boolean> {
+  const added = await serverListeningRules('media.added', serverId);
+  const upgraded = added ?? (await serverListeningRules('media.upgraded', serverId));
+  return upgraded !== null;
 }
 
 /** Producers run after the write they announce, so a failed read must not unwind the caller. */
@@ -135,6 +143,32 @@ export async function dispatchServerUpdate(args: {
     if (!rules) return;
     const { inputs } = await serverContextFor(args.server, rules);
     await dispatch({ type: 'server.update_available', at: new Date(), ...args }, inputs);
+  });
+}
+
+export async function dispatchMediaAdded(args: {
+  server: EvaluationServer;
+  media: MediaSubject;
+}): Promise<void> {
+  await guarded('media.added', async () => {
+    const rules = await serverListeningRules('media.added', args.server.id);
+    if (!rules) return;
+    const { inputs } = await serverContextFor(args.server, rules);
+    await dispatch({ type: 'media.added', at: new Date(), ...args }, inputs);
+  });
+}
+
+export async function dispatchMediaUpgraded(args: {
+  server: EvaluationServer;
+  media: MediaSubject;
+  from: MediaQuality;
+  changed: (keyof MediaQuality)[];
+}): Promise<void> {
+  await guarded('media.upgraded', async () => {
+    const rules = await serverListeningRules('media.upgraded', args.server.id);
+    if (!rules) return;
+    const { inputs } = await serverContextFor(args.server, rules);
+    await dispatch({ type: 'media.upgraded', at: new Date(), ...args }, inputs);
   });
 }
 

@@ -132,6 +132,14 @@ function buildTracearrUpdate(
   };
 }
 
+/** Both media events render off the payload's own text, so an override still wins. */
+function buildMedia(payload: NotificationPayload): PushoverMessage {
+  return {
+    ...textOf(payload, { title: payload.title, message: payload.message }),
+    priority: '-1',
+  };
+}
+
 function build(payload: NotificationPayload): PushoverMessage {
   switch (payload.context.type) {
     case 'violation_detected':
@@ -150,6 +158,9 @@ function build(payload: NotificationPayload): PushoverMessage {
       return buildServerUpdate(payload, payload.context);
     case 'tracearr_update_available':
       return buildTracearrUpdate(payload, payload.context);
+    case 'media_added':
+    case 'media_upgraded':
+      return buildMedia(payload);
   }
 }
 

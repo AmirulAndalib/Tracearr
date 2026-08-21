@@ -972,22 +972,37 @@ export class PushNotificationService {
    * quiet hours filter here.
    */
   async notifyUpdate(title: string, body: string, data: Record<string, unknown>): Promise<void> {
+    await this.notifyText('update', 'Update Available', title, body, data);
+  }
+
+  /** The same for a library item an automation announced. */
+  async notifyLibrary(title: string, body: string, data: Record<string, unknown>): Promise<void> {
+    await this.notifyText('media', 'Library', title, body, data);
+  }
+
+  private async notifyText(
+    context: string,
+    subtitle: string,
+    title: string,
+    body: string,
+    data: Record<string, unknown>
+  ): Promise<void> {
     const sessions = await getSessionsWithPreferences();
     const eligibleSessions = sessions.filter((s) => s.pushEnabled);
     if (eligibleSessions.length === 0) {
-      console.log(`[Push] No eligible sessions for update notification`);
+      console.log(`[Push] No eligible sessions for ${context} notification`);
       return;
     }
 
-    const rateLimitedSessions = await applyRateLimiting(eligibleSessions, 'update');
+    const rateLimitedSessions = await applyRateLimiting(eligibleSessions, context);
     if (rateLimitedSessions.length === 0) {
-      console.log(`[Push] All sessions rate limited for update notification`);
+      console.log(`[Push] All sessions rate limited for ${context} notification`);
       return;
     }
 
-    const activeSessions = applyQuietHours(rateLimitedSessions, 'low', 'update');
+    const activeSessions = applyQuietHours(rateLimitedSessions, 'low', context);
     if (activeSessions.length === 0) {
-      console.log(`[Push] All sessions in quiet hours for update notification`);
+      console.log(`[Push] All sessions in quiet hours for ${context} notification`);
       return;
     }
 
@@ -997,7 +1012,7 @@ export class PushNotificationService {
     const messages = activeSessions.map((s) =>
       buildPushMessage(s.expoPushToken, s.deviceSecret, {
         title,
-        subtitle: 'Update Available',
+        subtitle,
         body,
         data,
         priority: 'default',

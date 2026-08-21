@@ -35,6 +35,31 @@ const pluginPayload = {
   downloadUrl: 'https://example.com/plugin.zip',
 };
 
+const mediaPayload = {
+  serverId: 'server-1',
+  serverName: 'Basement',
+  serverType: 'plex',
+  libraryItemId: 'item-1',
+  title: 'Cars',
+  mediaType: 'movie',
+  year: 2006,
+  libraryName: 'Movies',
+  to: {
+    resolution: '4k',
+    dynamicRange: 'hdr10',
+    videoCodec: 'HEVC',
+    audioCodec: 'TRUEHD',
+    audioChannels: 8,
+    fileSize: 42_000_000_000,
+  },
+};
+
+const upgradedPayload = {
+  ...mediaPayload,
+  from: { ...mediaPayload.to, resolution: '1080p', fileSize: 8_000_000_000 },
+  changed: ['resolution', 'fileSize'] as ('resolution' | 'fileSize')[],
+};
+
 describe('toNotificationPayload', () => {
   beforeAll(() => {
     vi.useFakeTimers();
@@ -188,5 +213,62 @@ describe('toNotificationPayload with an automation source', () => {
     );
 
     expect(payload.message).toBe('Test User / Arrival / 45');
+  });
+});
+
+describe('media events', () => {
+  it('names the item, the library and the server by default', () => {
+    const added = toNotificationPayload({ type: 'media_added', payload: mediaPayload }, system);
+
+    expect(added.title).toBe('New media added');
+    expect(added.message).toBe('Cars (2006) was added to Movies on Basement');
+    expect(added.event).toBe('media_added');
+    expect(added.context).toEqual({ type: 'media_added', ...mediaPayload });
+  });
+
+  it('leads an upgrade with the resolution pair', () => {
+    const upgraded = toNotificationPayload(
+      { type: 'media_upgraded', payload: upgradedPayload },
+      system
+    );
+
+    expect(upgraded.title).toBe('Media upgraded');
+    expect(upgraded.message).toBe('Cars on Basement: 1080p → 4K');
+  });
+
+  it('falls back to the first field that moved when the resolution held', () => {
+    const upgraded = toNotificationPayload(
+      {
+        type: 'media_upgraded',
+        payload: { ...upgradedPayload, changed: ['fileSize'] as 'fileSize'[] },
+      },
+      system
+    );
+
+    expect(upgraded.message).toBe('Cars on Basement: 7.5 GB → 39.1 GB');
+  });
+
+  it('renders the from and to variables an automation body names', () => {
+    const upgraded = toNotificationPayload(
+      { type: 'media_upgraded', payload: upgradedPayload },
+      automation({ body: '{{media.title}}: {{media.from.resolution}} → {{media.to.resolution}}' })
+    );
+
+    expect(upgraded.message).toBe('Cars: 1080p → 4K');
+  });
+
+  it('renders a missing year and the item variables as the trigger offers them', () => {
+    const added = toNotificationPayload(
+      { type: 'media_added', payload: { ...mediaPayload, year: null } },
+      automation({ body: '{{media.title}}|{{media.year}}|{{media.library}}|{{media.server}}' })
+    );
+
+    expect(added.message).toBe('Cars||Movies|Basement');
+    expect(
+      toNotificationPayload(
+        { type: 'media_added', payload: { ...mediaPayload, year: null } },
+        system
+      ).message
+    ).toBe('Cars was added to Movies on Basement');
   });
 });

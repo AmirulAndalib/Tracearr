@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ViolationWithDetails } from '@tracearr/shared';
 import { createMockActiveSession } from '../../../test/fixtures.js';
 import { jsonWebhookType, type JsonWebhookBody } from '../destinations/jsonWebhook.js';
+import type { NotificationEvent } from '../events.js';
 import type { RenderContext } from '../destinations/types.js';
 
 const config = { url: 'https://example.com/webhook' };
@@ -50,6 +51,37 @@ const render = async (
   event: Parameters<typeof jsonWebhookType.render>[0],
   ctx: RenderContext = systemCtx
 ): Promise<JsonWebhookBody> => jsonWebhookType.render(event, config, ctx);
+
+const mediaUpgraded: NotificationEvent = {
+  type: 'media_upgraded',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    libraryItemId: 'item-1',
+    title: 'Cars',
+    mediaType: 'movie',
+    year: 2006,
+    libraryName: 'Movies',
+    to: {
+      resolution: '4k',
+      dynamicRange: 'hdr10',
+      videoCodec: 'HEVC',
+      audioCodec: 'TRUEHD',
+      audioChannels: 8,
+      fileSize: 42_000_000_000,
+    },
+    from: {
+      resolution: '1080p',
+      dynamicRange: 'sdr',
+      videoCodec: 'H264',
+      audioCodec: 'AC3',
+      audioChannels: 6,
+      fileSize: 8_000_000_000,
+    },
+    changed: ['resolution'],
+  },
+};
 
 describe('jsonWebhookType.render', () => {
   it('builds the violation body with user, rule and violation blocks', async () => {
@@ -247,6 +279,13 @@ describe('jsonWebhookType.render with an automation source', () => {
       title: 'Heads up',
       message: 'testuser pressed play',
     });
+  });
+
+  it('carries the whole media payload as data under the event name', async () => {
+    const body = await render(mediaUpgraded, automationCtx());
+
+    expect(body.event).toBe('media_upgraded');
+    expect(body.data).toEqual(mediaUpgraded.payload);
   });
 
   it('names the automation with no overrides to carry', async () => {

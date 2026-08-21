@@ -2,8 +2,16 @@
  * Notification payload types shared by every destination type module.
  */
 
+import { BYTES_PER_GB, normalizeResolutionLabel } from '@tracearr/shared';
+import { MEDIA_QUALITY_FIELDS } from '../automations/types.js';
 import type { ViolationWithDetails, ActiveSession, NotificationEventType } from '@tracearr/shared';
-import type { NotificationEvent, NotificationSource } from './events.js';
+import type { MediaQuality } from '../automations/types.js';
+import type {
+  MediaEventPayload,
+  MediaUpgradedPayload,
+  NotificationEvent,
+  NotificationSource,
+} from './events.js';
 
 // Re-export for convenience
 export type { ViolationWithDetails, ActiveSession, NotificationEventType };
@@ -75,6 +83,20 @@ export interface TracearrUpdateContext {
 }
 
 /**
+ * Context provided with a library item that just appeared
+ */
+export interface MediaAddedContext extends MediaEventPayload {
+  type: 'media_added';
+}
+
+/**
+ * Context provided with a library item whose quality signature moved
+ */
+export interface MediaUpgradedContext extends MediaUpgradedPayload {
+  type: 'media_upgraded';
+}
+
+/**
  * Union of all notification contexts
  */
 export type NotificationContext =
@@ -83,7 +105,9 @@ export type NotificationContext =
   | ServerContext
   | PluginUpdateContext
   | ServerUpdateContext
-  | TracearrUpdateContext;
+  | TracearrUpdateContext
+  | MediaAddedContext
+  | MediaUpgradedContext;
 
 /**
  * Unified notification payload for all agents
@@ -112,6 +136,24 @@ export interface NotificationPayload {
 
   /** The automation whose send produced this, with whatever text it overrode already rendered. */
   automation?: { id: string; name: string; title?: string; message?: string };
+}
+
+const titleWithYear = (ctx: MediaEventPayload): string =>
+  ctx.year === null ? ctx.title : `${ctx.title} (${String(ctx.year)})`;
+
+/** Values as a message shows them: bytes in GB, a resolution in its display spelling. */
+function qualityText(field: keyof MediaQuality, value: string | number | null): string {
+  if (value === null) return '';
+  if (field === 'fileSize') return `${(Number(value) / BYTES_PER_GB).toFixed(1)} GB`;
+  if (field === 'resolution') return normalizeResolutionLabel(String(value)) ?? String(value);
+  return String(value);
+}
+
+/** The resolution pair when that is what moved, else the first field that did. */
+function qualityMove(ctx: MediaUpgradedPayload): string {
+  const field = ctx.changed.includes('resolution') ? 'resolution' : ctx.changed[0];
+  if (!field) return '';
+  return `: ${qualityText(field, ctx.from[field])} → ${qualityText(field, ctx.to[field])}`;
 }
 
 /**
@@ -201,6 +243,28 @@ export const PayloadBuilders = {
     };
   },
 
+  fromMediaAdded(ctx: MediaEventPayload): NotificationPayload {
+    return {
+      event: 'media_added',
+      title: 'New media added',
+      message: `${titleWithYear(ctx)} was added to ${ctx.libraryName} on ${ctx.serverName}`,
+      severity: 'low',
+      timestamp: new Date().toISOString(),
+      context: { type: 'media_added', ...ctx },
+    };
+  },
+
+  fromMediaUpgraded(ctx: MediaUpgradedPayload): NotificationPayload {
+    return {
+      event: 'media_upgraded',
+      title: 'Media upgraded',
+      message: `${ctx.title} on ${ctx.serverName}${qualityMove(ctx)}`,
+      severity: 'low',
+      timestamp: new Date().toISOString(),
+      context: { type: 'media_upgraded', ...ctx },
+    };
+  },
+
   fromPluginUpdate(
     serverId: string,
     serverName: string,
@@ -234,6 +298,27 @@ function scalar(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return '';
+}
+
+function mediaVariables(payload: MediaEventPayload): Record<string, string> {
+  return {
+    'media.title': payload.title,
+    'media.type': payload.mediaType,
+    'media.year': payload.year === null ? '' : String(payload.year),
+    'media.library': payload.libraryName,
+    'media.server': payload.serverName,
+    'server.name': payload.serverName,
+    'server.type': payload.serverType,
+  };
+}
+
+function qualityVariables(side: 'from' | 'to', quality: MediaQuality): Record<string, string> {
+  return Object.fromEntries(
+    MEDIA_QUALITY_FIELDS.map((field) => [
+      `media.${side}.${field}`,
+      qualityText(field, quality[field]),
+    ])
+  );
 }
 
 /** The TRIGGERS variable vocabulary, read off whatever the event carries. */
@@ -299,6 +384,14 @@ function variablesOf(event: NotificationEvent): Record<string, string> {
         latest: event.payload.latest,
         releaseUrl: event.payload.releaseUrl,
       };
+    case 'media_added':
+      return mediaVariables(event.payload);
+    case 'media_upgraded':
+      return {
+        ...mediaVariables(event.payload),
+        ...qualityVariables('from', event.payload.from),
+        ...qualityVariables('to', event.payload.to),
+      };
   }
 }
 
@@ -341,6 +434,10 @@ export function toNotificationPayload(
         return PayloadBuilders.fromServerUpdate(event.payload);
       case 'tracearr_update_available':
         return PayloadBuilders.fromTracearrUpdate(event.payload);
+      case 'media_added':
+        return PayloadBuilders.fromMediaAdded(event.payload);
+      case 'media_upgraded':
+        return PayloadBuilders.fromMediaUpgraded(event.payload);
     }
   })();
   if (source.kind === 'rule') {

@@ -24,13 +24,16 @@ describe('DESTINATION_TYPES', () => {
       expect(DESTINATION_TYPES[kind].events).not.toContain('plugin_update_available');
     }
   });
-  it('every kind can carry the update events an automation renders', () => {
+  it('every kind can carry the update and media events an automation renders', () => {
     for (const kind of DESTINATION_KINDS) {
       expect(DESTINATION_TYPES[kind].events).toContain('server_update_available');
       expect(DESTINATION_TYPES[kind].events).toContain('tracearr_update_available');
+      expect(DESTINATION_TYPES[kind].events).toContain('media_added');
+      expect(DESTINATION_TYPES[kind].events).toContain('media_upgraded');
     }
-    expect(NOTIFICATION_EVENT_TYPES).toContain('server_update_available');
-    expect(NOTIFICATION_EVENT_TYPES).toContain('tracearr_update_available');
+    expect(NOTIFICATION_EVENT_TYPES).toContain('media_upgraded');
+    // The automation is the only way in: nothing subscribes to a media event directly.
+    expect(SUBSCRIBABLE_EVENTS).toEqual(['violation_detected']);
   });
   it('every url field is secret and every secret field is marked', () => {
     for (const kind of DESTINATION_KINDS) {

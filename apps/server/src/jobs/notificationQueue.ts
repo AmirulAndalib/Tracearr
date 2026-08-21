@@ -212,6 +212,12 @@ function dedupeKey(
       tail = `${event.type}-${sessionId}-${automation}${bucket}`;
       break;
     }
+    case 'media_added':
+    case 'media_upgraded': {
+      // The default arm keys on the server, which would collapse a whole batch into one job.
+      tail = `${event.type}-${event.payload.libraryItemId}-${automation}${bucket}`;
+      break;
+    }
     default: {
       // The tracearr release is about the install, not a server.
       const serverId = 'serverId' in event.payload ? event.payload.serverId : 'install';

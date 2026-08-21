@@ -36,6 +36,11 @@ const ALWAYS_MATCH_CONDITIONS: AutomationConditions = {
   groups: [{ conditions: [{ field: 'trust_score', operator: 'gte', value: 0 }] }],
 };
 
+/** Every definition needs an enabled trigger; a session one supplies the account these scope on. */
+const SESSION_TRIGGER = [
+  { id: '9d3f1c6a-2b4e-4a7d-8f10-000000000001', type: 'session.started' as const, enabled: true },
+];
+
 async function insertRule(overrides: {
   name: string;
   userId?: string | null;
@@ -409,6 +414,7 @@ describe('account-scoped automations', () => {
         kind: 'policy',
         severity: 'warning',
         serverUserId: targetSu.id,
+        triggers: SESSION_TRIGGER,
         conditions: ALWAYS_MATCH_CONDITIONS,
         actions: { actions: [] },
       },
@@ -502,6 +508,7 @@ describe('automation scope validation', () => {
       severity: 'warning',
       serverId: randomUUID(),
       userId: randomUUID(),
+      triggers: SESSION_TRIGGER,
       conditions: ALWAYS_MATCH_CONDITIONS,
       actions: { actions: [] },
     });
@@ -514,6 +521,7 @@ describe('automation scope validation', () => {
       kind: 'policy',
       severity: 'warning',
       userId: randomUUID(),
+      triggers: SESSION_TRIGGER,
       conditions: ALWAYS_MATCH_CONDITIONS,
       actions: { actions: [] },
     });

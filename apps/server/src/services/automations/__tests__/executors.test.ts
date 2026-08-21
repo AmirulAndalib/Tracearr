@@ -450,6 +450,63 @@ describe('Action Executor Registry', () => {
         });
       });
 
+      it('sends media_upgraded from a media context, which has no account to fall back on', async () => {
+        const quality = {
+          resolution: '4k',
+          dynamicRange: 'hdr10',
+          videoCodec: 'HEVC',
+          audioCodec: 'TRUEHD',
+          audioChannels: 8,
+          fileSize: 42_000_000_000,
+        };
+        const media = {
+          libraryItemId: 'item-1',
+          title: 'Cars',
+          type: 'movie',
+          year: 2006,
+          libraryId: '1',
+          libraryName: 'Movies',
+          quality,
+        };
+        const context: EvaluationContext = {
+          ...createMockContext({ rule: createMockRule({ kind: 'notification' }) }),
+          session: null,
+          serverUser: null,
+          media,
+          subjectKey: 'media:item-1',
+          activeSessions: [],
+          recentSessions: [],
+          trigger: {
+            type: 'media.upgraded',
+            at: new Date(),
+            server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+            media,
+            from: { ...quality, resolution: '1080p' },
+            changed: ['resolution'],
+          },
+        };
+
+        const result = await executeAction(context, { type: 'send', to: ['d1'] });
+
+        expect(result.skipped).toBeUndefined();
+        expect(enqueueCall().event).toEqual({
+          type: 'media_upgraded',
+          payload: {
+            serverId: 'server-1',
+            serverName: 'Test Server',
+            serverType: 'plex',
+            libraryItemId: 'item-1',
+            title: 'Cars',
+            mediaType: 'movie',
+            year: 2006,
+            libraryName: 'Movies',
+            to: quality,
+            from: { ...quality, resolution: '1080p' },
+            changed: ['resolution'],
+          },
+        });
+      });
+
       it('keeps the violation shape for a policy run on a native trigger', async () => {
         const context = createMockContext({ rule: createMockRule({ kind: 'policy' }) });
         context.trigger = {

@@ -22,6 +22,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   'plugin_update_available',
   'server_update_available',
   'tracearr_update_available',
+  'media_added',
+  'media_upgraded',
 ] as const satisfies readonly NotificationEventType[];
 
 /** What a destination may subscribe to on its own; every other event reaches it through an automation. */

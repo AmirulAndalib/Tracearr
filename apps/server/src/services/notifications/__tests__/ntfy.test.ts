@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ViolationWithDetails } from '@tracearr/shared';
 import { createMockActiveSession } from '../../../test/fixtures.js';
 import { ntfyType, type NtfyConfig, type NtfyMessage } from '../destinations/ntfy.js';
+import type { NotificationEvent } from '../events.js';
 import type { RenderContext } from '../destinations/types.js';
 
 const config: NtfyConfig = {
@@ -39,6 +40,37 @@ const render = async (
   event: Parameters<typeof ntfyType.render>[0],
   ctx: RenderContext = systemCtx
 ): Promise<NtfyMessage> => ntfyType.render(event, config, ctx);
+
+const mediaUpgraded: NotificationEvent = {
+  type: 'media_upgraded',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    libraryItemId: 'item-1',
+    title: 'Cars',
+    mediaType: 'movie',
+    year: 2006,
+    libraryName: 'Movies',
+    to: {
+      resolution: '4k',
+      dynamicRange: 'hdr10',
+      videoCodec: 'HEVC',
+      audioCodec: 'TRUEHD',
+      audioChannels: 8,
+      fileSize: 42_000_000_000,
+    },
+    from: {
+      resolution: '1080p',
+      dynamicRange: 'sdr',
+      videoCodec: 'H264',
+      audioCodec: 'AC3',
+      audioChannels: 6,
+      fileSize: 8_000_000_000,
+    },
+    changed: ['resolution'],
+  },
+};
 
 describe('ntfyType.render', () => {
   it('builds the violation message with the severity priority', async () => {
@@ -231,6 +263,15 @@ describe('ntfyType.render with an automation source', () => {
 
     expect(message.title).toBe('Heads up');
     expect(message.message).toBe('testuser pressed play');
+  });
+
+  it('renders a media upgrade, and an override still wins', async () => {
+    const message = await render(mediaUpgraded, automationCtx());
+    expect(message.title).toBe('Media upgraded');
+    expect(message.message).toBe('Cars on Basement: 1080p → 4K');
+
+    const overridden = await render(mediaUpgraded, automationCtx({ body: '4K at last' }));
+    expect(overridden.message).toBe('4K at last');
   });
 
   it('honors an override on a violation, where the builtin formatter used to win', async () => {

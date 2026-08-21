@@ -136,6 +136,41 @@ describe('webToastType.render', () => {
 
     expect(rendered.toast?.title).toBe('Tracearr Update Available');
   });
+
+  it('toasts a media add with the automation behind it and nothing for a system source', async () => {
+    const event = {
+      type: 'media_added',
+      payload: {
+        serverId: 'server-1',
+        serverName: 'Basement',
+        serverType: 'plex',
+        libraryItemId: 'item-1',
+        title: 'Cars',
+        mediaType: 'movie',
+        year: 2006,
+        libraryName: 'Movies',
+        to: {
+          resolution: '4k',
+          dynamicRange: 'hdr10',
+          videoCodec: 'HEVC',
+          audioCodec: 'TRUEHD',
+          audioChannels: 8,
+          fileSize: 42_000_000_000,
+        },
+      },
+    } as const;
+
+    const rendered = await render(event, automationCtx());
+
+    expect(rendered.toast).toEqual({
+      title: 'New media added',
+      message: 'Cars (2006) was added to Movies on Basement',
+      automationId: 'a-1',
+      automationName: 'Now playing',
+      severity: 'low',
+    });
+    expect(await render(event)).toEqual({});
+  });
 });
 
 describe('webToastType.deliver', () => {

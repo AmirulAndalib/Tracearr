@@ -400,6 +400,43 @@ describe('enqueueNotification - dedupe ids', () => {
     expect(bulkEntries()[0]?.opts.jobId).toBe(`d1|violation-su-1-rule-1-a-1-${bucket()}`);
   });
 
+  it('keys media on the library item, so one batch is not one job', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+    const added = (libraryItemId: string) =>
+      ({
+        type: 'media_added',
+        payload: {
+          serverId: 'srv-1',
+          serverName: 'Basement',
+          serverType: 'plex',
+          libraryItemId,
+          title: 'Cars',
+          mediaType: 'movie',
+          year: 2006,
+          libraryName: 'Movies',
+          to: {
+            resolution: '4k',
+            dynamicRange: null,
+            videoCodec: 'HEVC',
+            audioCodec: 'TRUEHD',
+            audioChannels: 8,
+            fileSize: 42_000_000_000,
+          },
+        },
+      }) as const;
+    const source = { kind: 'automation', automationId: 'a-1', automationName: 'One' } as const;
+
+    await mod.enqueueNotification(added('item-1'), { to: ['d1'], source });
+    const first = bulkEntries()[0]?.opts.jobId;
+    mainQueue().addBulk.mockClear();
+    await mod.enqueueNotification(added('item-2'), { to: ['d1'], source });
+    const second = bulkEntries()[0]?.opts.jobId;
+
+    expect(first).toBe(`d1|media_added-item-1-a-1-${bucket()}`);
+    expect(second).toBe(`d1|media_added-item-2-a-1-${bucket()}`);
+  });
+
   it('keys an install-wide event that carries no server', async () => {
     const mod = await loadInitializedQueue();
     mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));

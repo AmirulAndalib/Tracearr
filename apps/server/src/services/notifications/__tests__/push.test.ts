@@ -39,6 +39,28 @@ const tracearrUpdate = {
   payload: { current: '2.0.0', latest: '2.1.0', releaseUrl: 'https://example.com/r' },
 } as const;
 
+const mediaAdded = {
+  type: 'media_added',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    libraryItemId: 'item-1',
+    title: 'Cars',
+    mediaType: 'movie',
+    year: 2006,
+    libraryName: 'Movies',
+    to: {
+      resolution: '4k',
+      dynamicRange: 'hdr10',
+      videoCodec: 'HEVC',
+      audioCodec: 'TRUEHD',
+      audioChannels: 8,
+      fileSize: 42_000_000_000,
+    },
+  },
+} as const;
+
 const render = async (
   event: Parameters<typeof pushType.render>[0],
   ctx: RenderContext = systemCtx
@@ -70,7 +92,8 @@ describe('pushType.render', () => {
 
   it('renders the three update events with their resolved text', async () => {
     expect(await render(tracearrUpdate, automationCtx())).toEqual({
-      kind: 'update',
+      kind: 'text',
+      subject: 'update',
       title: 'Tracearr Update Available',
       body: 'Tracearr 2.1.0 is out (running 2.0.0)',
       data: {
@@ -79,6 +102,16 @@ describe('pushType.render', () => {
         latest: '2.1.0',
         releaseUrl: 'https://example.com/r',
       },
+    });
+  });
+
+  it('renders a media event as library text', async () => {
+    expect(await render(mediaAdded, automationCtx())).toEqual({
+      kind: 'text',
+      subject: 'library',
+      title: 'New media added',
+      body: 'Cars (2006) was added to Movies on Basement',
+      data: { ...mediaAdded.payload, type: 'media_added' },
     });
   });
 });
@@ -101,6 +134,7 @@ function spyOnNotifiers() {
       .spyOn(pushNotificationService, 'notifyServerUp')
       .mockResolvedValue(undefined),
     notifyUpdate: vi.spyOn(pushNotificationService, 'notifyUpdate').mockResolvedValue(undefined),
+    notifyLibrary: vi.spyOn(pushNotificationService, 'notifyLibrary').mockResolvedValue(undefined),
   };
 }
 
@@ -190,7 +224,13 @@ describe('pushType.deliver', () => {
 
   it('sends a tracearr release through notifyUpdate', async () => {
     await pushType.deliver(
-      { kind: 'update', title: 'Tracearr 2.1.0', body: 'time to pull', data: { type: 'x' } },
+      {
+        kind: 'text',
+        subject: 'update',
+        title: 'Tracearr 2.1.0',
+        body: 'time to pull',
+        data: { type: 'x' },
+      },
       {},
       deliverCtx
     );
@@ -199,5 +239,26 @@ describe('pushType.deliver', () => {
       type: 'x',
     });
     expect(spies.notifyViolation).not.toHaveBeenCalled();
+  });
+
+  it('sends a library announcement through notifyLibrary', async () => {
+    await pushType.deliver(
+      {
+        kind: 'text',
+        subject: 'library',
+        title: 'New media added',
+        body: 'Cars (2006) was added to Movies on Basement',
+        data: { type: 'media_added' },
+      },
+      {},
+      deliverCtx
+    );
+
+    expect(spies.notifyLibrary).toHaveBeenCalledWith(
+      'New media added',
+      'Cars (2006) was added to Movies on Basement',
+      { type: 'media_added' }
+    );
+    expect(spies.notifyUpdate).not.toHaveBeenCalled();
   });
 });

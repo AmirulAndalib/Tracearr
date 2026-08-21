@@ -3,6 +3,8 @@ import { toNotificationPayload } from '../types.js';
 import { deliverFetch } from './fetch.js';
 import { getMediaDisplay, getPlaybackType, getUserDisplayName } from './sessionText.js';
 import type {
+  MediaAddedContext,
+  MediaUpgradedContext,
   NotificationPayload,
   PluginUpdateContext,
   ServerContext,
@@ -183,6 +185,14 @@ function buildTracearrUpdate(
   };
 }
 
+function buildMedia(
+  payload: NotificationPayload,
+  ctx: MediaAddedContext | MediaUpgradedContext
+): JsonWebhookBody {
+  const { type, ...data } = ctx;
+  return { event: type, timestamp: payload.timestamp, data };
+}
+
 function build(payload: NotificationPayload): JsonWebhookBody {
   const body = bodyOf(payload);
   return payload.automation ? { ...body, automation: payload.automation } : body;
@@ -206,6 +216,9 @@ function bodyOf(payload: NotificationPayload): JsonWebhookBody {
       return buildServerUpdate(payload, payload.context);
     case 'tracearr_update_available':
       return buildTracearrUpdate(payload, payload.context);
+    case 'media_added':
+    case 'media_upgraded':
+      return buildMedia(payload, payload.context);
   }
 }
 

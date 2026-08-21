@@ -258,6 +258,29 @@ function nativeEventFor(context: EvaluationContext): NotificationEvent | null {
           releaseUrl: trigger.releaseUrl,
         },
       };
+    case 'media.added':
+    case 'media.upgraded': {
+      // A media context has no account, so the violation shape would skip the send entirely.
+      const { media } = context;
+      if (!media || !server) return null;
+      const payload = {
+        serverId: server.id,
+        serverName: server.name,
+        serverType: server.type,
+        libraryItemId: media.libraryItemId,
+        title: media.title,
+        mediaType: media.type,
+        year: media.year,
+        libraryName: media.libraryName,
+        to: media.quality,
+      };
+      return trigger.type === 'media.added'
+        ? { type: 'media_added', payload }
+        : {
+            type: 'media_upgraded',
+            payload: { ...payload, from: trigger.from, changed: trigger.changed },
+          };
+    }
     default:
       return null;
   }
