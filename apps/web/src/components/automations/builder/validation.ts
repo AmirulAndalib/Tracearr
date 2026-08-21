@@ -20,6 +20,7 @@ export const BUILDER_SECTIONS = {
   conditions: 'conditions',
   actions: 'actions',
   scope: 'scope',
+  kind: 'kind',
 } as const;
 
 export interface BuilderIssue {

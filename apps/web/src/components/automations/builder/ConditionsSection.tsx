@@ -1,12 +1,14 @@
-import { Fragment, useId } from 'react';
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { contextOf, fieldsAvailableFor, type AutomationConditions } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { FieldSeparator } from '@/components/ui/field';
+import { Item, ItemContent, ItemActions } from '@/components/ui/item';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ConditionGroupCard } from './ConditionGroupCard';
+import { FlowStep } from './FlowStep';
 import { RowIssues } from './RowActions';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
 import type { BuilderRefs } from './builderRefs';
@@ -19,7 +21,7 @@ interface ConditionsSectionProps {
   dispatch: BuilderDispatch;
 }
 
-/** What has to hold before the automation goes ahead; absent until it is asked for. */
+/** What has to hold before the automation goes ahead. */
 export function ConditionsSection({
   conditions,
   refs,
@@ -28,70 +30,87 @@ export function ConditionsSection({
   dispatch,
 }: ConditionsSectionProps) {
   const { t } = useTranslation('pages');
-  const headingId = useId();
 
   const { groups } = conditions;
   const hasFields = fieldsAvailableFor(contextOf(refs.triggers)).length > 0;
   const sectionIssues = issues.get(BUILDER_SECTIONS.conditions);
 
-  const addGroup = (
+  const addFirst = (
     <Button
       type="button"
-      variant={groups.length === 0 ? 'outline' : 'ghost'}
+      variant="outline"
       size="sm"
       disabled={!hasFields}
-      className={groups.length === 0 ? undefined : 'text-muted-foreground'}
       onClick={() => dispatch({ type: 'addConditionGroup' })}
     >
       <Plus />
-      {groups.length === 0
-        ? t('automations.builder.conditions.reveal')
-        : t('automations.builder.conditions.addGroup')}
+      {t('automations.builder.conditions.addFirst')}
     </Button>
   );
 
   return (
-    <section
+    <FlowStep
+      step={2}
+      title={t('automations.builder.conditions.sectionTitle')}
+      optional={t('automations.builder.conditions.optional')}
+      helper={t('automations.builder.conditions.helper')}
       id={nodeDomId(BUILDER_SECTIONS.conditions)}
-      tabIndex={-1}
-      aria-labelledby={groups.length > 0 ? headingId : undefined}
-      className="space-y-3 outline-none"
     >
-      {groups.length > 0 && (
-        <h2 id={headingId} className="text-base font-semibold">
-          {t('automations.builder.conditions.sectionTitle')}
-        </h2>
-      )}
+      {groups.length === 0 ? (
+        <Item variant="muted" size="sm" className="border border-dashed">
+          <ItemContent>
+            <p className="text-muted-foreground text-sm">
+              {hasFields
+                ? t('automations.builder.conditions.emptyLine')
+                : t('automations.builder.conditions.noFields')}
+            </p>
+          </ItemContent>
+          <ItemActions>
+            {hasFields ? (
+              addFirst
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">{addFirst}</span>
+                </TooltipTrigger>
+                <TooltipContent>{t('automations.builder.conditions.noFields')}</TooltipContent>
+              </Tooltip>
+            )}
+          </ItemActions>
+        </Item>
+      ) : (
+        <>
+          {groups.map((group, index) => (
+            <Fragment key={idOf(group)}>
+              {index > 0 && (
+                <FieldSeparator align="start" role="presentation">
+                  {t('automations.builder.conditions.groupSeparator')}
+                </FieldSeparator>
+              )}
+              <ConditionGroupCard
+                group={group}
+                refs={refs}
+                issues={issues}
+                pulseId={pulseId}
+                dispatch={dispatch}
+              />
+            </Fragment>
+          ))}
 
-      {groups.map((group, index) => (
-        <Fragment key={idOf(group)}>
-          {index > 0 && (
-            <FieldSeparator role="presentation">
-              {t('automations.builder.conditions.groupSeparator')}
-            </FieldSeparator>
-          )}
-          <ConditionGroupCard
-            group={group}
-            refs={refs}
-            issues={issues}
-            pulseId={pulseId}
-            dispatch={dispatch}
-          />
-        </Fragment>
-      ))}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground mt-3"
+            onClick={() => dispatch({ type: 'addConditionGroup' })}
+          >
+            <Plus />
+            {t('automations.builder.conditions.addGroup')}
+          </Button>
+        </>
+      )}
 
       <RowIssues issues={sectionIssues} />
-
-      {hasFields ? (
-        addGroup
-      ) : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="inline-flex">{addGroup}</span>
-          </TooltipTrigger>
-          <TooltipContent>{t('automations.builder.conditions.noFields')}</TooltipContent>
-        </Tooltip>
-      )}
-    </section>
+    </FlowStep>
   );
 }

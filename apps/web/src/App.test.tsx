@@ -20,7 +20,7 @@ vi.mock('@/hooks/queries/useAutomations', () => ({
 }));
 
 vi.mock('@/components/automations/builder', () => ({
-  AutomationBuilder: () => null,
+  AutomationBuilder: () => <h1>automation builder</h1>,
 }));
 
 vi.mock('@/pages/Dashboard', () => ({
@@ -45,9 +45,7 @@ describe('App routes', () => {
   it('renders the builder page for a new automation', () => {
     renderAt('/automations/new');
 
-    expect(
-      screen.getByRole('heading', { name: 'pages:automations.createAutomation' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'automation builder' })).toBeInTheDocument();
   });
 
   it('still resolves the routes that were there before', () => {
@@ -59,8 +57,6 @@ describe('App routes', () => {
   it('renders the builder page for an existing automation', () => {
     renderAt('/automations/7fd0f2e1/edit');
 
-    expect(
-      screen.getByRole('heading', { name: 'pages:automations.editAutomation' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'automation builder' })).toBeInTheDocument();
   });
 });

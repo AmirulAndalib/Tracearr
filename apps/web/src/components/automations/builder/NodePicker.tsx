@@ -21,6 +21,8 @@ interface NodePickerProps {
   suggested?: readonly string[];
   onSelect: (value: string) => void;
   label: string;
+  /** Drawn as the primary action when it is the one thing an empty step offers. */
+  primary?: boolean;
 }
 
 /**
@@ -34,7 +36,13 @@ function matchesQuery(value: string, search: string, keywords?: string[]): numbe
   return haystack.includes(needle) ? 1 : 0;
 }
 
-export function NodePicker({ entries, suggested = [], onSelect, label }: NodePickerProps) {
+export function NodePicker({
+  entries,
+  suggested = [],
+  onSelect,
+  label,
+  primary = false,
+}: NodePickerProps) {
   const { t } = useTranslation('pages');
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -57,7 +65,12 @@ export function NodePicker({ entries, suggested = [], onSelect, label }: NodePic
       }}
     >
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" data-node-picker>
+        <Button
+          type="button"
+          variant={primary ? 'default' : 'outline'}
+          size={primary ? 'default' : 'sm'}
+          data-node-picker
+        >
           <Plus />
           {label}
         </Button>

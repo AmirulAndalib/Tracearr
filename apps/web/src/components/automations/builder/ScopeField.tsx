@@ -7,8 +7,6 @@ import {
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldLegend,
-  FieldSet,
 } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -23,6 +21,8 @@ import {
   type AutomationScope,
   type AutomationScopeMode,
 } from '@/lib/automations/scope';
+import { SELECTED_TOGGLE } from './selection';
+import { StepFooterField } from './StepFooterField';
 
 interface ScopeFieldProps {
   scope: AutomationScope;
@@ -75,28 +75,27 @@ export function ScopeField({
   const incomplete = showErrors && !isScopeComplete(scope);
 
   return (
-    <FieldSet>
-      <FieldLegend variant="label">{t('automations.builder.scope.label')}</FieldLegend>
-
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        size="sm"
-        value={scope.mode}
-        onValueChange={handleModeChange}
-        className="flex-wrap"
-      >
-        {modes.map((mode) => (
-          <ToggleGroupItem
-            key={mode}
-            value={mode}
-            className="data-[state=on]:bg-primary/15 data-[state=on]:text-primary"
-          >
-            {t(`automations.builder.scope.${mode}`)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-
+    <StepFooterField
+      labelId={`${fieldId}-label`}
+      label={t('automations.builder.scope.label')}
+      control={
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          size="sm"
+          value={scope.mode}
+          aria-labelledby={`${fieldId}-label`}
+          onValueChange={handleModeChange}
+          className="flex-wrap"
+        >
+          {modes.map((mode) => (
+            <ToggleGroupItem key={mode} value={mode} className={SELECTED_TOGGLE}>
+              {t(`automations.builder.scope.${mode}`)}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      }
+    >
       {scope.mode !== 'global' && (
         <FieldGroup>
           {servers.length === 0 && scope.mode !== 'person' ? (
@@ -168,6 +167,7 @@ export function ScopeField({
                     searchPlaceholder={t('automations.builder.searchPlaceholder')}
                     emptyText={t('automations.builder.noMatches')}
                   />
+                  <FieldDescription>{t('automations.builder.scope.personHelper')}</FieldDescription>
                 </Field>
               )}
             </div>
@@ -194,6 +194,6 @@ export function ScopeField({
           </FieldContent>
         </Field>
       )}
-    </FieldSet>
+    </StepFooterField>
   );
 }

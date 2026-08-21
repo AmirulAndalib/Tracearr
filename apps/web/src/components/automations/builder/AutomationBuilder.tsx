@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Save, TriangleAlert } from 'lucide-react';
 import type { Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Kbd } from '@/components/ui/kbd';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useCreateAutomation, useUpdateAutomation } from '@/hooks/queries/useAutomations';
@@ -28,10 +30,11 @@ import {
   type BuilderAction,
 } from './builderReducer';
 import { ActionsSection } from './ActionsSection';
+import { BuilderTitleBar } from './BuilderTitleBar';
 import { ConditionsSection } from './ConditionsSection';
-import { HeaderCard } from './HeaderCard';
 import { LiveCheckStrip } from './LiveCheckStrip';
 import { Sentence } from './Sentence';
+import { SummaryCard } from './SummaryCard';
 import { TriggersSection } from './TriggersSection';
 import type { BranchExpansion, BuilderRefs } from './builderRefs';
 import {
@@ -113,6 +116,7 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
+  const noteId = useId();
 
   const blocker = useUnsavedChanges(state.dirty);
 
@@ -357,49 +361,79 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div ref={pageRef} className="mx-auto w-full max-w-5xl space-y-6">
-        <HeaderCard
-          state={state}
+      <div ref={pageRef} className="@container mx-auto w-full max-w-4xl">
+        <BuilderTitleBar
+          title={
+            automation
+              ? t('pages:automations.editAutomation')
+              : t('pages:automations.newAutomation')
+          }
+          active={state.isActive}
+          onActiveChange={(value) => track.header({ type: 'setActive', value })}
+          onBack={() => void navigate('/automations')}
+        />
+
+        <SummaryCard
+          name={state.name}
           issues={byNode}
-          canEnforceAcrossServers={canEnforceAcrossServers(state.scope, state.conditions)}
-          sentence={
-            <>
-              <Sentence fragments={fragments} onFocusNode={focusNode} />
-              <LiveCheckStrip
-                definition={input}
-                ready={localIssues.length === 0}
-                paused={isPending}
-              />
-            </>
+          sentence={<Sentence fragments={fragments} onFocusNode={focusNode} />}
+          liveCheck={
+            <LiveCheckStrip
+              definition={input}
+              ready={localIssues.length === 0}
+              paused={isPending}
+            />
           }
           dispatch={track.header}
         />
 
-        <TriggersSection
-          triggers={state.triggers}
-          issues={byNode}
-          pulseId={pulseId}
-          dispatch={track.triggers}
-        />
+        <ol className="mt-8">
+          <TriggersSection
+            triggers={state.triggers}
+            scope={state.scope}
+            enforceAcrossServers={state.enforceAcrossServers}
+            canEnforceAcrossServers={canEnforceAcrossServers(state.scope, state.conditions)}
+            issues={byNode}
+            pulseId={pulseId}
+            dispatch={track.triggers}
+          />
 
-        <ConditionsSection
-          conditions={state.conditions}
-          refs={refs}
-          issues={byNode}
-          pulseId={pulseId}
-          dispatch={track.conditions}
-        />
+          <ConditionsSection
+            conditions={state.conditions}
+            refs={refs}
+            issues={byNode}
+            pulseId={pulseId}
+            dispatch={track.conditions}
+          />
 
-        <ActionsSection
-          actions={state.actions}
-          refs={refs}
-          issues={byNode}
-          pulseId={pulseId}
-          expansion={expansion}
-          dispatch={track.actions}
-        />
+          <ActionsSection
+            actions={state.actions}
+            kind={state.kind}
+            severity={state.severity}
+            refs={refs}
+            issues={byNode}
+            pulseId={pulseId}
+            expansion={expansion}
+            dispatch={track.actions}
+          />
+        </ol>
 
-        <div className="bg-background/95 sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
+        <Field className="mt-7">
+          <FieldLabel htmlFor={noteId}>
+            {t('pages:automations.builder.descriptionLabel')}
+          </FieldLabel>
+          <Textarea
+            id={noteId}
+            rows={2}
+            value={state.description}
+            placeholder={t('pages:automations.builder.descriptionPlaceholder')}
+            onChange={(event) =>
+              track.header({ type: 'setDescription', value: event.target.value })
+            }
+          />
+        </Field>
+
+        <div className="bg-background/95 sticky bottom-0 z-10 mt-7 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
           <span className="text-muted-foreground hidden items-center gap-1 text-xs sm:flex">
             <Kbd>/</Kbd>
             {t('pages:automations.builder.footer.search')}

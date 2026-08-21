@@ -6,6 +6,9 @@ import { initI18n } from '@tracearr/translations';
 import type { TriggerNode } from '@tracearr/shared';
 import { TriggersSection } from '../TriggersSection';
 
+vi.mock('@/hooks/useServer', () => ({ useServer: () => ({ servers: [] }) }));
+vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined }) }));
+
 beforeAll(async () => {
   await initI18n({ lng: 'en' });
 });
@@ -30,7 +33,15 @@ const held: TriggerNode = {
 function renderSection(triggers: TriggerNode[]) {
   const dispatch = vi.fn();
   render(
-    <TriggersSection triggers={triggers} issues={new Map()} pulseId={null} dispatch={dispatch} />
+    <TriggersSection
+      triggers={triggers}
+      scope={{ mode: 'global' }}
+      enforceAcrossServers={false}
+      canEnforceAcrossServers={false}
+      issues={new Map()}
+      pulseId={null}
+      dispatch={dispatch}
+    />
   );
   return { dispatch };
 }
@@ -41,6 +52,9 @@ function StatefulSection({ initial }: { initial: TriggerNode[] }) {
   return (
     <TriggersSection
       triggers={triggers}
+      scope={{ mode: 'global' }}
+      enforceAcrossServers={false}
+      canEnforceAcrossServers={false}
       issues={new Map()}
       pulseId={null}
       dispatch={(action) => {
@@ -52,11 +66,29 @@ function StatefulSection({ initial }: { initial: TriggerNode[] }) {
   );
 }
 
+/** The step is an <li> of its own, so its rows start after it. */
+function rows() {
+  return screen.getAllByRole('listitem').slice(1);
+}
+
 describe('TriggersSection', () => {
   it('says what the section is for while it is empty', () => {
     renderSection([]);
 
-    expect(screen.getByText('Pick what starts this automation.')).toBeInTheDocument();
+    expect(screen.getByText('What should start this?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Choose what starts it/ })).toBeInTheDocument();
+  });
+
+  it('closes the step with the question about who it applies to, once it has a trigger', () => {
+    renderSection([started]);
+
+    expect(screen.getByRole('radio', { name: 'Global' })).toBeInTheDocument();
+  });
+
+  it('asks nothing about scope while the step is empty', () => {
+    renderSection([]);
+
+    expect(screen.queryByRole('radio', { name: 'Global' })).not.toBeInTheDocument();
   });
 
   it('puts an or between the triggers and none before the first', () => {
@@ -98,7 +130,7 @@ describe('TriggersSection', () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection([started]);
 
-    screen.getAllByRole('listitem')[0]?.focus();
+    rows()[0]?.focus();
     await user.keyboard('d');
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'toggleNode', id: started.id });
@@ -113,12 +145,12 @@ describe('TriggersSection', () => {
     const user = userEvent.setup();
     render(<StatefulSection initial={[started, paused]} />);
 
-    screen.getAllByRole('listitem')[0]?.focus();
+    rows()[0]?.focus();
     await user.keyboard('{Delete}');
 
-    const rows = screen.getAllByRole('listitem');
-    expect(rows).toHaveLength(1);
-    expect(document.activeElement).toBe(rows[0]);
+    const remaining = rows();
+    expect(remaining).toHaveLength(1);
+    expect(document.activeElement).toBe(remaining[0]);
   });
 
   it('shows what a row got wrong', () => {
@@ -126,6 +158,9 @@ describe('TriggersSection', () => {
     render(
       <TriggersSection
         triggers={[started]}
+        scope={{ mode: 'global' }}
+        enforceAcrossServers={false}
+        canEnforceAcrossServers={false}
         issues={new Map([[started.id, [{ nodeId: started.id, message: 'Not available here' }]]])}
         pulseId={null}
         dispatch={dispatch}

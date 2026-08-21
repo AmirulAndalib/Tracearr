@@ -77,7 +77,7 @@ function renderBuilder(automation?: Automation) {
 }
 
 async function addTrigger(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
-  await user.click(screen.getByRole('button', { name: /Add trigger/ }));
+  await user.click(screen.getByRole('button', { name: /Choose what starts it/ }));
   await user.click(await screen.findByRole('option', { name }));
 }
 
@@ -85,7 +85,7 @@ describe('AutomationBuilder', () => {
   it('opens on an empty When section and a sentence that says so', () => {
     renderBuilder();
 
-    expect(screen.getByText('Pick what starts this automation.')).toBeInTheDocument();
+    expect(screen.getByText('What should start this?')).toBeInTheDocument();
     expect(screen.getByText(/When nothing yet/)).toBeInTheDocument();
   });
 
@@ -178,13 +178,10 @@ describe('AutomationBuilder', () => {
     ).toBeInTheDocument();
   });
 
-  it('keeps the description out of the way until it is asked for', async () => {
+  it('takes a note below the flow, out of the way of the steps', async () => {
     const user = userEvent.setup();
     renderBuilder();
 
-    expect(screen.queryByPlaceholderText('Optional description')).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /Add description/ }));
     await user.type(screen.getByPlaceholderText('Optional description'), 'Nightly sweep');
 
     expect(screen.getByPlaceholderText('Optional description')).toHaveValue('Nightly sweep');

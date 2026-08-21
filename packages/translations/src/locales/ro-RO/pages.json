@@ -74,8 +74,11 @@
         "collapseBranch": "Hide this branch's steps",
         "confirmRemoveDescription": "Stops happening on save.",
         "confirmRemoveTitle": "Remove this action?",
-        "empty": "Nothing happens yet. Pick what this automation should do.",
+        "emptyAction": "Choose what happens",
+        "emptyDescription": "Send a notification, stop the stream, adjust someone's trust score — or run some steps only when an extra check passes.",
+        "emptyTitle": "What should happen?",
         "expandBranch": "Show this branch's steps",
+        "helper": "These run in order, top to bottom.",
         "ifConditions": "Only when…",
         "ifNothing": "nothing yet",
         "menu": "More for {{name}}",
@@ -85,7 +88,6 @@
         "sectionTitle": "Do this…"
       },
       "activeLabel": "Active",
-      "addDescription": "Add description",
       "clearSelection": "Clear selection",
       "conditions": {
         "addAnother": "Add another condition",
@@ -97,16 +99,18 @@
         "any": "any of these",
         "canNeverPass": "Can never pass: the trigger fires at {{threshold}}",
         "deviceTypesHint": "Only count streams from the selected device types. Leave empty to count every device.",
+        "emptyLine": "No extra checks — this runs every time.",
         "fieldLabel": "Condition",
         "fieldPlaceholder": "Select field",
         "groupSeparator": "and also",
+        "helper": "Checks that must pass first. Empty means it runs every time.",
         "matchLabel": "How these conditions combine",
         "no": "No",
         "noFields": "The triggers you picked don't supply any conditions yet.",
         "operatorLabel": "Comparison",
         "operatorPlaceholder": "Operator",
+        "optional": "optional",
         "recentlySeen": "Recently seen",
-        "reveal": "Only when…",
         "sectionTitle": "Only when…",
         "uniqueDevices": "Unique devices",
         "uniqueDevicesHint": "When checked, only compares sessions from different physical devices. Uncheck to include all sessions regardless of device.",
@@ -184,6 +188,13 @@
         "searchPlaceholder": "Search or describe what should happen",
         "select": "pick"
       },
+      "recordAs": {
+        "label": "When this runs, record it as",
+        "notification": "An alert",
+        "notificationDescription": "Recorded in Activity; never a violation.",
+        "policy": "A violation",
+        "policyDescription": "Listed in Violations; can be acknowledged."
+      },
       "rows": {
         "expandHint": "open",
         "moveHint": "reorder",
@@ -204,6 +215,7 @@
         "label": "Scope",
         "noServers": "No servers connected yet.",
         "person": "Person (all their servers)",
+        "personHelper": "Matches this person on every server they have an account on.",
         "personLabel": "Person",
         "personPlaceholder": "Select person",
         "server": "Specific server",
@@ -219,7 +231,10 @@
       "severityLabel": "Severity",
       "when": {
         "add": "Add trigger",
-        "empty": "Pick what starts this automation.",
+        "emptyAction": "Choose what starts it",
+        "emptyDescription": "Pick the moment that kicks it off — a stream starting, a server going down, an account going quiet.",
+        "emptyTitle": "What should start this?",
+        "helper": "Any one of these starts it. At least one is required.",
         "or": "or",
         "title": "When…"
       }
@@ -322,7 +337,6 @@
       "user_attributes": "User Attributes"
     },
     "createAutomation": "Create Automation",
-    "createDescription": "Set up a new automation for your media servers.",
     "createFirstAutomation": "Create your first automation to start watching your servers.",
     "customAutomation": "Custom automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
@@ -637,6 +651,7 @@
     "kindColumn": "Kind",
     "name": "Automation Name",
     "namePlaceholder": "e.g., Concurrent Stream Limit",
+    "newAutomation": "New automation",
     "noAutomationsConfigured": "No automations configured",
     "noAutomationsFound": "No automations found",
     "operators": {
@@ -759,8 +774,7 @@
       "mbps": "Mbps",
       "minutes": "minutes"
     },
-    "updateAutomation": "Update Automation",
-    "updateDescription": "Update this automation below."
+    "updateAutomation": "Update Automation"
   },
   "dashboard": {
     "activeUsers": "Utilizatori activi",

@@ -83,6 +83,8 @@ function Section({
   return (
     <ActionsSection
       actions={actions}
+      kind={kind}
+      severity="warning"
       refs={refs}
       issues={new Map()}
       pulseId={null}
@@ -102,13 +104,30 @@ function renderSection(actions: AutomationActions, kind: BuilderRefs['kind'] = '
   return { dispatch };
 }
 
+/** The step is an <li> of its own, so its rows start after it. */
+function rows() {
+  return screen.getAllByRole('listitem').slice(1);
+}
+
 describe('ActionsSection', () => {
   it('says what the section is for while it is empty', () => {
     renderSection({ actions: [] });
 
-    expect(
-      screen.getByText('Nothing happens yet. Pick what this automation should do.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('What should happen?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Choose what happens/ })).toBeInTheDocument();
+  });
+
+  it('asks how a run is recorded once there is something to record', () => {
+    renderSection(pair);
+
+    expect(screen.getByRole('radio', { name: 'A violation' })).toHaveAttribute('data-state', 'on');
+    expect(screen.getByRole('combobox', { name: 'Severity' })).toBeInTheDocument();
+  });
+
+  it('leaves the recording question out while the step is empty', () => {
+    renderSection({ actions: [] });
+
+    expect(screen.queryByRole('radio', { name: 'A violation' })).not.toBeInTheDocument();
   });
 
   it('shows the then rows and keeps Otherwise folded away until asked', async () => {
@@ -135,7 +154,7 @@ describe('ActionsSection', () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection(pair);
 
-    screen.getAllByRole('listitem')[1]?.focus();
+    rows()[1]?.focus();
     await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'moveAction', id: 'kill-2', delta: -1 });
@@ -147,7 +166,7 @@ describe('ActionsSection', () => {
 
     expect(screen.getByText('Kill Stream')).toBeInTheDocument();
 
-    screen.getAllByRole('listitem')[0]?.focus();
+    rows()[0]?.focus();
     await user.keyboard('e');
 
     expect(screen.queryByText('Kill Stream')).not.toBeInTheDocument();
@@ -157,7 +176,7 @@ describe('ActionsSection', () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection(pair);
 
-    screen.getAllByRole('listitem')[0]?.focus();
+    rows()[0]?.focus();
     await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'moveAction', id: 'send-1', delta: 1 });
@@ -166,16 +185,16 @@ describe('ActionsSection', () => {
   it('offers E only on the row that has something to open', () => {
     renderSection({ actions: [...branching.actions, ...pair.actions] });
 
-    const rows = screen.getAllByRole('listitem');
-    expect(rows[0]).toHaveAttribute('aria-keyshortcuts', expect.stringContaining('E'));
-    expect(rows[1]?.getAttribute('aria-keyshortcuts')).not.toContain('E');
+    const listed = rows();
+    expect(listed[0]).toHaveAttribute('aria-keyshortcuts', expect.stringContaining('E'));
+    expect(listed[1]?.getAttribute('aria-keyshortcuts')).not.toContain('E');
   });
 
   it('adds what the picker was asked for', async () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection({ actions: [] });
 
-    await user.click(screen.getByRole('button', { name: /Add action/ }));
+    await user.click(screen.getByRole('button', { name: /Choose what happens/ }));
     await user.click(await screen.findByRole('option', { name: /Send Notification/ }));
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'addAction', actionType: 'send' });

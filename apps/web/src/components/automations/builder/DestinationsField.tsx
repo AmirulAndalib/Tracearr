@@ -5,7 +5,7 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Destination } from '@tracearr/shared';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +15,7 @@ import { DestinationDialog } from '@/components/settings/destinations/Destinatio
 import { iconFor } from '@/components/settings/destinations/destinationIcons';
 import { useDestinations } from '@/hooks/queries/useDestinations';
 import { cn } from '@/lib/utils';
+import { SELECTED_TOGGLE } from './selection';
 
 interface DestinationsFieldProps {
   value: string[];
@@ -71,6 +72,7 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
             type="multiple"
             variant="outline"
             size="sm"
+            spacing={2}
             value={value}
             onValueChange={onChange}
             aria-labelledby={labelId}
@@ -78,17 +80,15 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
           >
             {rows.map((row) => {
               const Icon = iconFor(row.type);
+              const picked = value.includes(row.id);
               // A disabled row stays pickable so an existing rule can keep it; the tooltip says why it is dimmed.
               const item = (
                 <ToggleGroupItem
                   key={row.id}
                   value={row.id}
-                  className={cn(
-                    'data-[state=on]:bg-primary/15 data-[state=on]:text-primary',
-                    !row.enabled && 'opacity-60'
-                  )}
+                  className={cn('rounded-full', SELECTED_TOGGLE, !row.enabled && 'opacity-60')}
                 >
-                  <Icon className="h-4 w-4" />
+                  {picked ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                   {row.name}
                 </ToggleGroupItem>
               );

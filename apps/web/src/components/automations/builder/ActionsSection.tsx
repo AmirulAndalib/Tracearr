@@ -1,11 +1,13 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowUp, MoreHorizontal } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bell, MoreHorizontal } from 'lucide-react';
 import {
   ACTION_TYPES,
   type Action,
   type ActionType,
   type AutomationActions,
+  type AutomationKind,
+  type ViolationSeverity,
 } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -20,15 +22,20 @@ import { Kbd } from '@/components/ui/kbd';
 import { actionLabel, actionPickerEntries, suggestedValues } from '@/lib/automations';
 import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ActionRow } from './ActionRow';
+import { FlowStep } from './FlowStep';
 import { IfRow } from './IfRow';
 import { NodePicker } from './NodePicker';
+import { RecordAsField } from './RecordAsField';
 import { RowIssues } from './RowActions';
+import { SectionEmpty } from './SectionEmpty';
 import { useRowKeyboard } from './useRowKeyboard';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
 import type { BranchExpansion, BuilderRefs } from './builderRefs';
 
 interface ActionsSectionProps {
   actions: AutomationActions;
+  kind: AutomationKind;
+  severity: ViolationSeverity;
   refs: BuilderRefs;
   issues: NodeIssues;
   pulseId: string | null;
@@ -55,6 +62,8 @@ function rowName(t: ReturnType<typeof useTranslation<'pages'>>['t'], action: Act
 /** What happens once the triggers fire and the conditions hold, in order. */
 export function ActionsSection({
   actions,
+  kind,
+  severity,
   refs,
   issues,
   pulseId,
@@ -62,7 +71,6 @@ export function ActionsSection({
   dispatch,
 }: ActionsSectionProps) {
   const { t } = useTranslation(['pages', 'common']);
-  const headingId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   const [pending, setPending] = useState<PendingRemoval | null>(null);
 
@@ -123,21 +131,33 @@ export function ActionsSection({
   );
 
   return (
-    <section
-      ref={sectionRef}
+    <FlowStep
+      step={3}
+      title={t('pages:automations.builder.actions.sectionTitle')}
+      helper={t('pages:automations.builder.actions.helper')}
       id={nodeDomId(BUILDER_SECTIONS.actions)}
-      tabIndex={-1}
-      aria-labelledby={headingId}
-      className="space-y-3 outline-none"
+      sectionRef={sectionRef}
+      footer={
+        list.length > 0 && <RecordAsField kind={kind} severity={severity} dispatch={dispatch} />
+      }
     >
-      <h2 id={headingId} className="text-base font-semibold">
-        {t('pages:automations.builder.actions.sectionTitle')}
-      </h2>
-
       {list.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          {t('pages:automations.builder.actions.empty')}
-        </p>
+        <SectionEmpty
+          icon={<Bell />}
+          title={t('pages:automations.builder.actions.emptyTitle')}
+          description={t('pages:automations.builder.actions.emptyDescription')}
+          action={
+            <NodePicker
+              primary
+              entries={entries}
+              suggested={suggested}
+              label={t('pages:automations.builder.actions.emptyAction')}
+              onSelect={(value) => {
+                if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
+              }}
+            />
+          }
+        />
       ) : (
         <ItemGroup className="gap-2">
           {list.map((action, index) =>
@@ -177,37 +197,37 @@ export function ActionsSection({
 
       <RowIssues issues={sectionIssues} />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <NodePicker
-          entries={entries}
-          suggested={suggested}
-          label={t('pages:automations.builder.actions.add')}
-          onSelect={(value) => {
-            if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
-          }}
-        />
-        {list.length > 0 && (
-          <span className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+      {list.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <NodePicker
+            entries={entries}
+            suggested={suggested}
+            label={t('pages:automations.builder.actions.add')}
+            onSelect={(value) => {
+              if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
+            }}
+          />
+          <span className="text-muted-foreground ml-auto flex flex-wrap items-center gap-3 text-xs">
             <span className="flex items-center gap-1">
               <Kbd>D</Kbd>
               {t('pages:automations.builder.rows.toggleHint')}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 @max-lg:hidden">
               <Kbd>E</Kbd>
               {t('pages:automations.builder.rows.expandHint')}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 @max-lg:hidden">
               <Kbd>Alt</Kbd>
               <Kbd>↑</Kbd>
               {t('pages:automations.builder.rows.moveHint')}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 @max-lg:hidden">
               <Kbd>Del</Kbd>
               {t('pages:automations.builder.rows.removeHint')}
             </span>
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={pending !== null}
@@ -225,6 +245,6 @@ export function ActionsSection({
           setPending(null);
         }}
       />
-    </section>
+    </FlowStep>
   );
 }

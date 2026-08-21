@@ -65,6 +65,11 @@ function renderSection(
   return { dispatch };
 }
 
+/** The step is an <li> of its own, so its rows start after it. */
+function rows() {
+  return screen.getAllByRole('listitem').slice(1);
+}
+
 describe('ConditionsSection', () => {
   it('stays behind one affordance until the first group is asked for', async () => {
     const user = userEvent.setup();
@@ -72,7 +77,7 @@ describe('ConditionsSection', () => {
 
     expect(screen.queryByText('Where')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Only when/ }));
+    await user.click(screen.getByRole('button', { name: /Add a condition/ }));
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'addConditionGroup' });
   });
@@ -160,7 +165,7 @@ describe('ConditionsSection', () => {
     const user = userEvent.setup();
     const { dispatch } = renderSection(group([condition({ id: 'c-1' })]));
 
-    screen.getAllByRole('listitem')[0]?.focus();
+    rows()[0]?.focus();
     await user.keyboard('d');
 
     expect(dispatch).toHaveBeenCalledWith({ type: 'toggleNode', id: 'c-1' });
