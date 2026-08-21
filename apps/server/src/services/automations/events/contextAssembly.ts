@@ -94,11 +94,15 @@ export async function loadEvaluationServerUser(
   return su ?? null;
 }
 
-/** Refs plus inputs for producers that hold only ids (SSE updates, wakes); the poller already has the rows. */
+/**
+ * Refs plus inputs for producers that hold only ids (SSE updates, wakes); the poller
+ * already has the rows. `known` skips the server read for a caller that just did it.
+ */
 export async function loadEvaluationContext(
   serverId: string,
   serverUserId: string,
-  rules: EngineAutomation[]
+  rules: EngineAutomation[],
+  known?: EvaluationServer
 ): Promise<{
   server: EvaluationServer;
   serverUser: EvaluationServerUser;
@@ -106,13 +110,18 @@ export async function loadEvaluationContext(
 } | null> {
   const su = await loadEvaluationServerUser(serverUserId);
   if (!su) return null;
-  const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1);
-  if (!srv) return null;
-  const server: EvaluationServer = { id: srv.id, name: srv.name, type: srv.type };
+  const server = known ?? (await readEvaluationServer(serverId));
+  if (!server) return null;
   const serverUser: EvaluationServerUser = { ...su, identityServerUserIds: [] };
   const inputs = await assembleEvaluationInputs({ rules, server, serverUser });
   serverUser.identityServerUserIds = inputs.identityServerUserIds ?? [];
   return { server, serverUser, inputs };
+}
+
+/** The three columns every trigger context names a server by; null when the row is gone. */
+async function readEvaluationServer(serverId: string): Promise<EvaluationServer | null> {
+  const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1);
+  return srv ? { id: srv.id, name: srv.name, type: srv.type } : null;
 }
 
 /** The server row plus the inputs its triggers evaluate in; null when the row is already gone. */
@@ -120,9 +129,9 @@ export async function loadServerContext(
   serverId: string,
   rules: EngineAutomation[]
 ): Promise<{ server: EvaluationServer; inputs: EvaluationInputs } | null> {
-  const [srv] = await db.select().from(servers).where(eq(servers.id, serverId)).limit(1);
-  if (!srv) return null;
-  return serverContextFor({ id: srv.id, name: srv.name, type: srv.type }, rules);
+  const server = await readEvaluationServer(serverId);
+  if (!server) return null;
+  return serverContextFor(server, rules);
 }
 
 /** For the producers that already hold the row (the poller tick, the plugin checker). */

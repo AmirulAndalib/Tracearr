@@ -15,6 +15,7 @@ import type {
   AuthUser,
   AutomationActions,
   AutomationConditions,
+  DryRunSample,
   TriggerNode,
 } from '@tracearr/shared';
 import { inflateRawSync } from 'node:zlib';
@@ -40,6 +41,11 @@ vi.mock('../../services/notifications/destinationRefs.js', () => ({
 vi.mock('../../services/userService.js', () => ({
   recomputeIdentityAggregatesForServerUser: vi.fn(),
 }));
+vi.mock('../../services/automations/dryRun.js', () => ({ dryRun: vi.fn() }));
+vi.mock('../../services/cache.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getCacheService: vi.fn(),
+}));
 vi.mock('../../services/automations/templates/store.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getTemplate: vi.fn(),
@@ -47,6 +53,8 @@ vi.mock('../../services/automations/templates/store.js', async (importOriginal) 
 }));
 
 import { db } from '../../db/client.js';
+import { dryRun } from '../../services/automations/dryRun.js';
+import { getCacheService } from '../../services/cache.js';
 import { invalidateAutomationsCache } from '../../jobs/poller/database.js';
 import { BUILTIN_ENVELOPES } from '../../services/automations/templates/builtin/index.js';
 import { getTemplate, getTemplateVersion } from '../../services/automations/templates/store.js';
@@ -66,6 +74,7 @@ const TEMPLATE_ID = randomUUID();
 const SERVER_ID = randomUUID();
 const DESTINATION_ID = randomUUID();
 const TRIGGER_ID = randomUUID();
+const SESSION_ID = randomUUID();
 
 function envelopeOf(slug: string) {
   const found = BUILTIN_ENVELOPES.find((envelope) => envelope.slug === slug);
@@ -149,8 +158,15 @@ const viewerUser: AuthUser = {
   serverIds: ['srv-1'],
 };
 
+/** What each route registered, so a per-route rate limit is visible without the plugin. */
+const registeredRoutes = new Map<string, unknown>();
+
 async function buildTestApp(authUser: AuthUser): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
+  registeredRoutes.clear();
+  app.addHook('onRoute', (route) => {
+    registeredRoutes.set(`${String(route.method)} ${route.url}`, route.config);
+  });
   await app.register(sensible);
 
   app.decorate('authenticate', async (request: unknown) => {
@@ -488,6 +504,106 @@ describe('Automation routes', () => {
       const response = await app.inject({ method: 'POST', url: '/automations', payload: body });
 
       expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe('POST /automations/dry-run', () => {
+    const definition = {
+      name: 'movies only',
+      kind: 'policy',
+      severity: 'warning',
+      triggers: [{ id: TRIGGER_ID, type: 'session.started', enabled: true }],
+      conditions: {
+        groups: [{ conditions: [{ field: 'media_type', operator: 'in', value: ['movie'] }] }],
+      },
+      actions: { actions: [] },
+    };
+
+    const sample: DryRunSample = {
+      subject: {
+        sessionId: SESSION_ID,
+        user: { id: 'su1', name: 'Connor' },
+        server: { id: SERVER_ID, name: 'Plex' },
+      },
+      triggers: ['session.started'],
+      conditions: [],
+      actions: [],
+      wouldRun: true,
+      summary: 'Would run for Connor on Plex.',
+    };
+
+    it('rejects a definition the schema will not take', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations/dry-run',
+        payload: { definition: { ...definition, kind: 'nonsense' } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(vi.mocked(dryRun)).not.toHaveBeenCalled();
+    });
+
+    it('404s a sample session the caller cannot see', async () => {
+      app = await buildTestApp(viewerUser);
+      const [chain] = setupSelect([]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations/dry-run',
+        payload: { definition, sample: { sessionId: SESSION_ID } },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(vi.mocked(dryRun)).not.toHaveBeenCalled();
+      const where = renderCall(chain);
+      expect(where.text).toBe('(sessions.id = $1 and sessions.server_id = $2)');
+      expect(where.params).toEqual([SESSION_ID, 'srv-1']);
+    });
+
+    it('checks only the sampled session', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([{ id: SESSION_ID, serverId: SERVER_ID, serverUserId: 'su1' }]);
+      vi.mocked(dryRun).mockResolvedValue({ samples: [sample] });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations/dry-run',
+        payload: { definition, sample: { sessionId: SESSION_ID } },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ samples: [sample] });
+      const args = vi.mocked(dryRun).mock.calls[0]?.[0];
+      expect(args?.sessions.map((session) => session.id)).toEqual([SESSION_ID]);
+      expect(args?.user).toEqual(ownerUser);
+    });
+
+    it('checks the live sessions when no sample is named', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(getCacheService).mockReturnValue({
+        getAllActiveSessions: () => Promise.resolve([{ id: SESSION_ID }]),
+      } as unknown as ReturnType<typeof getCacheService>);
+      vi.mocked(dryRun).mockResolvedValue({ samples: [sample] });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/automations/dry-run',
+        payload: { definition },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().samples[0].subject.sessionId).toBe(SESSION_ID);
+      expect(vi.mocked(dryRun).mock.calls[0]?.[0].sessions).toHaveLength(1);
+    });
+
+    it('carries a rate limit of its own', async () => {
+      app = await buildTestApp(ownerUser);
+
+      expect(registeredRoutes.get('POST /automations/dry-run')).toEqual({
+        rateLimit: { max: 60, timeWindow: '1 minute' },
+      });
     });
   });
 

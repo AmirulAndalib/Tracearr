@@ -1,11 +1,8 @@
 import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import {
-  CONDITION_FIELD_LABELS,
-  OPERATOR_LABELS,
   REDIS_KEYS,
   WS_EVENTS,
   type AutomationRunSummary,
-  type ConditionEvidence,
   type GroupEvidence,
   type RunFinishedEvent,
   type NearMissEntry,
@@ -16,6 +13,7 @@ import { db } from '../../db/client.js';
 import { automationRuns } from '../../db/schema.js';
 import { getRedis } from '../../lib/redisShared.js';
 import { getPubSubService, type PubSubService } from '../cache.js';
+import { stoppedSummary } from './engine.js';
 import { armCooldown, isCoolingDown } from './v2Integration.js';
 import { recomputeIdentityAggregatesForServerUser } from '../userService.js';
 import type { DbTx, TriggerType } from './events/types.js';
@@ -88,22 +86,6 @@ function relatedSessionIdsOf(result: EvaluationResult): string[] {
     }
   }
   return Array.from(ids);
-}
-
-const describeCondition = (cond: ConditionEvidence): string =>
-  `${CONDITION_FIELD_LABELS[cond.field] ?? cond.field} ${
-    OPERATOR_LABELS[cond.operator] ?? cond.operator
-  } ${String(cond.threshold)}`;
-
-/** An all-of group stops on the conditions that failed; an any-of group failed every one of them. */
-function stoppedSummary(stoppedBy: GroupEvidence | undefined): string {
-  if (!stoppedBy || stoppedBy.conditions.length === 0) return 'No conditions matched';
-  if (stoppedBy.match === 'all') {
-    const failed = stoppedBy.conditions.filter((cond) => !cond.matched).map(describeCondition);
-    return `Condition not met: ${failed.join(', ')}`;
-  }
-  const parts = stoppedBy.conditions.map(describeCondition);
-  return `No condition matched in group ${stoppedBy.groupIndex + 1}: ${parts.join(', ')}`;
 }
 
 /** The failing values, without the evidence bulk: a stopped row is a diagnostic, not history. */

@@ -348,6 +348,12 @@ export type {
   TemplateDefinition,
   TemplateEnvelope,
   ShareCodeReason,
+  DryRunRequest,
+  DryRunSubject,
+  DryRunCondition,
+  DryRunAction,
+  DryRunSample,
+  DryRunResponse,
 } from './automations/index.js';
 
 // Automation constants and schemas
@@ -375,6 +381,7 @@ export {
   createAutomationSchema,
   updateAutomationSchema,
   automationListQuerySchema,
+  dryRunRequestSchema,
   runListQuerySchema,
   NEAR_MISS_REASONS,
   nearMissEntrySchema,

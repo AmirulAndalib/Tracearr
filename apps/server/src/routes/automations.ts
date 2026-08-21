@@ -1,6 +1,7 @@
 /**
  * Automation routes - the rules engine's definitions. Reads are open to any
  * authenticated caller, scoped to the servers it can reach; writes are owner only.
+ * The dry run posts a draft but reads nothing back into the database.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -16,6 +17,7 @@ import {
   bulkDeleteAutomationsSchema,
   bulkUpdateAutomationsSchema,
   createAutomationSchema,
+  dryRunRequestSchema,
   hasAtMostOneScope,
   nearMissEntrySchema,
   runListQuerySchema,
@@ -38,10 +40,12 @@ import {
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { isUniqueViolation } from '../db/pg.js';
-import { automationRuns, automations } from '../db/schema.js';
+import { automationRuns, automations, sessions } from '../db/schema.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateAutomationsCache } from '../jobs/poller/database.js';
 import { violationAliasConditions } from '../services/automations/aliasFilter.js';
+import { dryRun } from '../services/automations/dryRun.js';
+import { toRuleSession } from '../services/automations/events/contextAssembly.js';
 import {
   automationSelect,
   loadAutomation,
@@ -69,9 +73,11 @@ import {
   storedSeverity,
   type AutomationRow,
 } from '../services/automations/versions.js';
+import { getCacheService } from '../services/cache.js';
 import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
 import { recomputeIdentityAggregatesForServerUser } from '../services/userService.js';
 import { buildOrderBy, likePattern, type SortKey } from '../utils/listQuery.js';
+import { buildMultiServerCondition, resolveServerIds } from '../utils/serverFiltering.js';
 import { firstIssueMessage } from '../utils/zod.js';
 import {
   buildRunSummaryQuery,
@@ -323,6 +329,44 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     const detail = await loadAutomation(created.id, request.user);
     return reply.code(201).send(toAutomation(detail ?? created));
   });
+
+  /**
+   * POST /automations/dry-run - What a draft would do against the sessions playing now.
+   * No run is recorded and no action executes; cooldowns and the notification gate are
+   * not simulated, so a sample that would run may still be suppressed for real.
+   */
+  app.post(
+    '/dry-run',
+    { ...authed, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = dryRunRequestSchema.safeParse(request.body);
+      if (!body.success) {
+        return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
+      }
+
+      const { definition, sample } = body.data;
+      const visibleIds = resolveServerIds(request.user, undefined, undefined);
+
+      if (sample) {
+        const [row] = await db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              eq(sessions.id, sample.sessionId),
+              buildMultiServerCondition(visibleIds, sessions.serverId)
+            )
+          )
+          .limit(1);
+        if (!row) return reply.notFound('Session not found');
+        return await dryRun({ definition, sessions: [toRuleSession(row)], user: request.user });
+      }
+
+      const cacheService = getCacheService();
+      const active = cacheService ? await cacheService.getAllActiveSessions() : [];
+      return await dryRun({ definition, sessions: active, user: request.user });
+    }
+  );
 
   /**
    * PATCH /automations/:id - Update an automation; a definition change takes a new version

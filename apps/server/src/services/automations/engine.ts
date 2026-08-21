@@ -1,4 +1,9 @@
-import { CONDITION_FIELDS, TRIGGER_CONTEXT_RANK } from '@tracearr/shared';
+import {
+  CONDITION_FIELDS,
+  CONDITION_FIELD_LABELS,
+  OPERATOR_LABELS,
+  TRIGGER_CONTEXT_RANK,
+} from '@tracearr/shared';
 import type {
   AutomationConditions,
   ConditionGroup,
@@ -35,6 +40,22 @@ function toConditionEvidence(condition: Condition, result: EvaluatorResult): Con
     evidence.details = result.details;
   }
   return evidence;
+}
+
+const describeCondition = (cond: ConditionEvidence): string =>
+  `${CONDITION_FIELD_LABELS[cond.field] ?? cond.field} ${
+    OPERATOR_LABELS[cond.operator] ?? cond.operator
+  } ${String(cond.threshold)}`;
+
+/** An all-of group stops on the conditions that failed; an any-of group failed every one of them. */
+export function stoppedSummary(stoppedBy: GroupEvidence | undefined): string {
+  if (!stoppedBy || stoppedBy.conditions.length === 0) return 'No conditions matched';
+  if (stoppedBy.match === 'all') {
+    const failed = stoppedBy.conditions.filter((cond) => !cond.matched).map(describeCondition);
+    return `Condition not met: ${failed.join(', ')}`;
+  }
+  const parts = stoppedBy.conditions.map(describeCondition);
+  return `No condition matched in group ${stoppedBy.groupIndex + 1}: ${parts.join(', ')}`;
 }
 
 interface GroupResult {
