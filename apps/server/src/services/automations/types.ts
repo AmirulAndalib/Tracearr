@@ -75,7 +75,6 @@ export interface EvaluatorResult {
 
 /** The contexts by depth: each one supplies everything its parent does and more. */
 export type ServerEvaluationContext = EvaluationContext & { server: Server };
-export type MediaEvaluationContext = ServerEvaluationContext & { media: MediaSubject };
 export type AccountEvaluationContext = ServerEvaluationContext & { serverUser: ServerUser };
 export type SessionEvaluationContext = AccountEvaluationContext & { session: Session };
 

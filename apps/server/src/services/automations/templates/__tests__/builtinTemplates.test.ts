@@ -53,6 +53,8 @@ const TABLE: Array<[string, string, string]> = [
   ['stream-ended', 'notifications', 'notification'],
   ['transcode-started', 'notifications', 'notification'],
   ['paused-too-long', 'notifications', 'notification'],
+  ['media-added', 'notifications', 'notification'],
+  ['media-upgraded', 'notifications', 'notification'],
   ['server-down', 'server_health', 'notification'],
   ['server-up', 'server_health', 'notification'],
   ['plugin-update', 'server_health', 'notification'],
@@ -69,7 +71,7 @@ const TABLE: Array<[string, string, string]> = [
 ];
 
 describe('builtin template envelopes', () => {
-  it('bundles the seventeen the design names, in its order', () => {
+  it('bundles the nineteen the design names, in its order', () => {
     expect(BUILTIN_ENVELOPES.map((envelope) => envelope.slug)).toEqual(TABLE.map(([slug]) => slug));
   });
 
@@ -122,6 +124,34 @@ describe('builtin template envelopes', () => {
       { name: 'every server' }
     );
     expect(created.serverId).toBeUndefined();
+  });
+
+  it('takes a media automation with no server bound and every library on it', () => {
+    const envelope = BUILTIN_ENVELOPES.find((candidate) => candidate.slug === 'media-added');
+    if (!envelope) throw new Error('media-added is missing');
+
+    const created = materializeTemplate(
+      envelope,
+      { server: null, to: [DESTINATION_ID] },
+      { name: 'New in the library' }
+    );
+
+    expect(createAutomationSchema.safeParse(created).success).toBe(true);
+    expect(created.serverId ?? null).toBeNull();
+    expect(created.triggers?.map((trigger) => trigger.type)).toEqual(['media.added']);
+    expect(created.actions.actions).toEqual([
+      expect.objectContaining({ type: 'send', to: [DESTINATION_ID] }),
+    ]);
+  });
+
+  it('leaves the media send its own default copy, with no title or body', () => {
+    for (const slug of ['media-added', 'media-upgraded']) {
+      const envelope = BUILTIN_ENVELOPES.find((candidate) => candidate.slug === slug);
+      const send = envelope?.definition.actions.actions[0];
+      expect(send).toMatchObject({ type: 'send' });
+      expect(send && 'title' in send ? send.title : undefined).toBeUndefined();
+      expect(send && 'body' in send ? send.body : undefined).toBeUndefined();
+    }
   });
 
   it('converts a duration input into the unit its slot stores', () => {

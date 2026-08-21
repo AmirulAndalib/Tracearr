@@ -8,6 +8,7 @@ import {
   type DescribableDefinition,
   type DescribeRefs,
 } from '../describe';
+import { triggerPickerEntries } from '../catalog';
 import type { Translate } from '../conditionFields';
 
 let t: Translate;
@@ -517,5 +518,48 @@ describe('describeText', () => {
     const text = describeText(fragments, t);
 
     expect(text).toBe(`${'x'.repeat(100)} ${'y'.repeat(50)} +2 more`);
+  });
+});
+
+describe('the media triggers in the picker and the sentence', () => {
+  it('offers both under the Library group with words to search them by', () => {
+    const entries = triggerPickerEntries(t);
+    const library = entries.filter((entry) => entry.group === 'Library');
+
+    expect(library.map((entry) => entry.value)).toEqual(['media.added', 'media.upgraded']);
+    expect(library[0]?.label).toBe('Media is added');
+    expect(library[1]?.synonyms).toContain('upgrade');
+  });
+
+  it('reads the media-upgraded template as a sentence with its destination slot', () => {
+    const fragments = describeAutomation(
+      {
+        kind: 'notification',
+        triggers: [{ id: 'trigger-upgraded', type: 'media.upgraded', enabled: true }],
+        conditions: { groups: [] },
+        actions: { actions: [{ id: 'action-send', type: 'send', to: { $input: 'to' } }] },
+        inputs: [{ key: 'to', label: 'Send to' }],
+      },
+      {},
+      t,
+      'metric'
+    );
+
+    expect(describeText(fragments, t)).toBe('When media is upgraded, send to [Send to].');
+  });
+
+  it('names the library and the resolution a media condition reads', () => {
+    const text = sentence({
+      kind: 'notification',
+      triggers: [{ id: 'trigger-added', type: 'media.added', enabled: true }],
+      conditions: conditions(
+        { field: 'library_name', operator: 'eq', value: 'Movies' },
+        { field: 'resolution_after', operator: 'gte', value: '4K' }
+      ),
+      actions: { actions: [] },
+    });
+
+    expect(text).toContain('the library is Movies');
+    expect(text).toContain('the resolution is at least 4K');
   });
 });
