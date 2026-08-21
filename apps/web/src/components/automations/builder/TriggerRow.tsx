@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import type { TriggerNode } from '@tracearr/shared';
-import { FieldError } from '@/components/ui/field';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -12,8 +11,9 @@ import {
   type BuilderDispatch,
   type TriggerParamPatch,
 } from './builderReducer';
-import { RowActions } from './RowActions';
+import { RowActions, RowIssues } from './RowActions';
 import type { RowProps } from './useRowKeyboard';
+import type { BuilderIssue } from './validation';
 
 /** The row's own sentence, with the threshold sitting inside it where it is read. */
 function TriggerTitle({
@@ -79,7 +79,7 @@ function TriggerTitle({
 
 interface TriggerRowProps {
   trigger: TriggerNode;
-  issues: string[] | undefined;
+  issues: BuilderIssue[] | undefined;
   pulsing: boolean;
   rowProps: RowProps;
   dispatch: BuilderDispatch;
@@ -99,11 +99,8 @@ export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: Tri
       id={nodeDomId(trigger.id)}
       variant="outline"
       size="sm"
-      tabIndex={rowProps.tabIndex}
-      aria-keyshortcuts="D Delete"
+      {...rowProps}
       data-pulse={pulsing}
-      onFocus={rowProps.onFocus}
-      onKeyDown={rowProps.onKeyDown}
       className={cn(
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
         !trigger.enabled && 'opacity-60'
@@ -114,9 +111,7 @@ export function TriggerRow({ trigger, issues, pulsing, rowProps, dispatch }: Tri
         <ItemTitle className="flex-wrap gap-2">
           <TriggerTitle trigger={trigger} setParam={setParam} />
         </ItemTitle>
-        {issues?.map((message) => (
-          <FieldError key={message}>{message}</FieldError>
-        ))}
+        <RowIssues issues={issues} />
       </ItemContent>
       <ItemActions>
         <RowActions

@@ -90,6 +90,7 @@ describe('builderIssues', () => {
     expect(issues).toContainEqual({
       nodeId: '55555555-5555-4555-8555-555555555555',
       message: 'Not available for: A server goes down',
+      tone: 'warning',
     });
   });
 
@@ -168,6 +169,24 @@ describe('builderIssues', () => {
   });
 });
 
+describe('builderIssues actions', () => {
+  it('asks a send for a destination on the action that has none', () => {
+    const state = builderStateFrom(
+      automation({
+        triggers: [
+          { id: '11111111-1111-4111-8111-111111111111', type: 'session.started', enabled: true },
+        ],
+        actions: { actions: [{ id: 'send-1', type: 'send', to: [] }] },
+      })
+    );
+
+    expect(builderIssues(state, t)).toContainEqual({
+      nodeId: 'send-1',
+      message: 'Pick at least one destination',
+    });
+  });
+});
+
 describe('serverIssues', () => {
   it('points a rejected field at the row that holds it', () => {
     const state = builderStateFrom(
@@ -201,6 +220,7 @@ describe('serverIssues', () => {
       {
         nodeId: '55555555-5555-4555-8555-555555555555',
         message: 'Not available for: A server goes down',
+        tone: 'warning',
       },
     ]);
   });
@@ -220,8 +240,8 @@ describe('issuesByNode', () => {
 
     const byNode = issuesByNode(issues);
 
-    expect(byNode.get('55555555-5555-4555-8555-555555555555')).toEqual(['first', 'second']);
-    expect(byNode.get(BUILDER_SECTIONS.name)).toEqual(['named']);
+    expect(byNode.get('55555555-5555-4555-8555-555555555555')).toEqual([issues[0], issues[1]]);
+    expect(byNode.get(BUILDER_SECTIONS.name)).toEqual([issues[2]]);
     expect(byNode.get('nothing')).toBeUndefined();
   });
 });

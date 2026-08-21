@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -5,7 +6,8 @@ import { initI18n } from '@tracearr/translations';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { AutomationActions, TriggerNode } from '@tracearr/shared';
 import { ActionsSection } from '../ActionsSection';
-import type { BuilderRefs } from '../builderRefs';
+import type { BuilderDispatch } from '../builderReducer';
+import type { BranchExpansion, BuilderRefs } from '../builderRefs';
 
 vi.mock('@/hooks/queries/useDestinations', () => ({
   useDestinations: () => ({ data: [], isLoading: false }),
@@ -41,24 +43,60 @@ const pair: AutomationActions = {
   ],
 };
 
-function renderSection(actions: AutomationActions, kind: BuilderRefs['kind'] = 'policy') {
-  const dispatch = vi.fn();
+/** The page owns which branches are open, so the test plays that part. */
+function Section({
+  actions,
+  kind,
+  dispatch,
+}: {
+  actions: AutomationActions;
+  kind: BuilderRefs['kind'];
+  dispatch: BuilderDispatch;
+}) {
+  const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
+  const [elses, setElses] = useState<ReadonlySet<string>>(() => new Set());
+  const flip = (
+    set: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void,
+    id: string
+  ) =>
+    set((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const expansion: BranchExpansion = {
+    isOpen: (id) => !closed.has(id),
+    isElseOpen: (id) => elses.has(id),
+    toggle: (id) => flip(setClosed, id),
+    toggleElse: (id) => flip(setElses, id),
+  };
   const refs: BuilderRefs = {
     triggers: [started],
     kind,
+    conditions: { groups: [] },
     filterOptions: undefined,
     describe: {},
     unitSystem: 'metric',
   };
+
+  return (
+    <ActionsSection
+      actions={actions}
+      refs={refs}
+      issues={new Map()}
+      pulseId={null}
+      expansion={expansion}
+      dispatch={dispatch}
+    />
+  );
+}
+
+function renderSection(actions: AutomationActions, kind: BuilderRefs['kind'] = 'policy') {
+  const dispatch = vi.fn();
   render(
     <TooltipProvider>
-      <ActionsSection
-        actions={actions}
-        refs={refs}
-        issues={new Map()}
-        pulseId={null}
-        dispatch={dispatch}
-      />
+      <Section actions={actions} kind={kind} dispatch={dispatch} />
     </TooltipProvider>
   );
   return { dispatch };
@@ -113,6 +151,24 @@ describe('ActionsSection', () => {
     await user.keyboard('e');
 
     expect(screen.queryByText('Kill Stream')).not.toBeInTheDocument();
+  });
+
+  it('reorders the other way too', async () => {
+    const user = userEvent.setup();
+    const { dispatch } = renderSection(pair);
+
+    screen.getAllByRole('listitem')[0]?.focus();
+    await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
+
+    expect(dispatch).toHaveBeenCalledWith({ type: 'moveAction', id: 'send-1', delta: 1 });
+  });
+
+  it('offers E only on the row that has something to open', () => {
+    renderSection({ actions: [...branching.actions, ...pair.actions] });
+
+    const rows = screen.getAllByRole('listitem');
+    expect(rows[0]).toHaveAttribute('aria-keyshortcuts', expect.stringContaining('E'));
+    expect(rows[1]?.getAttribute('aria-keyshortcuts')).not.toContain('E');
   });
 
   it('adds what the picker was asked for', async () => {

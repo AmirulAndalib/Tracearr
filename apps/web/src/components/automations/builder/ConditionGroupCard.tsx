@@ -35,6 +35,7 @@ export function ConditionGroupCard({
 
   const rows = useRowKeyboard({
     ids: group.conditions.map(idOf),
+    sectionRef: cardRef,
     onToggle: (id) => dispatch({ type: 'toggleNode', id }),
     onRemove: (id, index) => {
       dispatch({ type: 'removeNode', id });
@@ -91,7 +92,7 @@ export function ConditionGroupCard({
         onClick={() => dispatch({ type: 'addCondition', groupId })}
       >
         <Plus />
-        {t('automations.builder.conditions.addCondition')}
+        {t('automations.builder.conditions.addAnother')}
       </Button>
     </div>
   );

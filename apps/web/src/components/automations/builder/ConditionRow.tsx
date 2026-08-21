@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TriangleAlert } from 'lucide-react';
 import {
   contextOf,
   fieldsAvailableFor,
@@ -9,7 +8,6 @@ import {
   type Operator,
 } from '@tracearr/shared';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
-import { FieldError } from '@/components/ui/field';
 import {
   Select,
   SelectContent,
@@ -35,16 +33,17 @@ import {
 import { cn } from '@/lib/utils';
 import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ConditionParams, FieldControl, conditionValueView } from './fields';
-import { RowActions } from './RowActions';
+import { RowActions, RowIssues, RowWarning } from './RowActions';
 import type { BuilderRefs } from './builderRefs';
 import type { RowProps } from './useRowKeyboard';
+import type { BuilderIssue } from './validation';
 
 interface ConditionRowProps {
   condition: Condition;
   /** The cell that opens the row: "Where", the logic toggle, or the logic in words. */
   lead: ReactNode;
   refs: BuilderRefs;
-  issues: string[] | undefined;
+  issues: BuilderIssue[] | undefined;
   pulsing: boolean;
   rowProps: RowProps;
   dispatch: BuilderDispatch;
@@ -118,19 +117,16 @@ export function ConditionRow({
   });
   const name = fieldLabel(t, condition.field);
   const orphaned = orphaningTriggers(t, refs.triggers, condition.field);
-  const unreachable = unreachableNote(t, refs.triggers, condition);
+  const unreachable = unreachableNote(t, refs.triggers, condition, refs.conditions);
   const enabled = condition.enabled !== false;
 
   return (
     <div
       role="listitem"
       id={nodeDomId(id)}
-      tabIndex={rowProps.tabIndex}
-      aria-keyshortcuts="D Delete"
+      {...rowProps}
       data-pulse={pulsing}
-      data-orphaned={orphaned.length > 0 && issues !== undefined}
-      onFocus={rowProps.onFocus}
-      onKeyDown={rowProps.onKeyDown}
+      data-orphaned={orphaned.length > 0}
       className={cn(
         'rounded-md p-1 outline-none',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
@@ -191,20 +187,8 @@ export function ConditionRow({
         </div>
       </div>
 
-      {orphaned.length > 0
-        ? issues?.map((message) => <RowWarning key={message} message={message} />)
-        : issues?.map((message) => <FieldError key={message}>{message}</FieldError>)}
+      <RowIssues issues={issues} />
       {unreachable && <RowWarning message={unreachable} />}
     </div>
-  );
-}
-
-/** A row that will not do what it looks like it does, said in plain words. */
-export function RowWarning({ message }: { message: string }) {
-  return (
-    <p className="text-warning mt-1.5 flex items-start gap-1.5 text-xs">
-      <TriangleAlert className="mt-0.5 size-3 shrink-0" />
-      {message}
-    </p>
   );
 }

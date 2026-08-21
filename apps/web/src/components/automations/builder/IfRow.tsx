@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Plus } from 'lucide-react';
 import type { IfAction, LeafActionType } from '@tracearr/shared';
@@ -6,7 +6,6 @@ import { LEAF_ACTION_TYPES } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { FieldError } from '@/components/ui/field';
 import {
   Item,
   ItemActions,
@@ -27,9 +26,9 @@ import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ActionRow } from './ActionRow';
 import { ConditionGroupCard } from './ConditionGroupCard';
 import { NodePicker } from './NodePicker';
-import { RowActions } from './RowActions';
+import { RowActions, RowIssues } from './RowActions';
 import { useRowKeyboard } from './useRowKeyboard';
-import type { BuilderRefs } from './builderRefs';
+import type { BranchExpansion, BuilderRefs } from './builderRefs';
 import type { RowProps } from './useRowKeyboard';
 import type { NodeIssues } from './validation';
 
@@ -39,9 +38,7 @@ interface IfRowProps {
   issues: NodeIssues;
   pulseId: string | null;
   rowProps: RowProps;
-  shortcuts: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  expansion: BranchExpansion;
   menu?: ReactNode;
   onRemove: () => void;
   onRemoveBranchAction: (id: string, reclaim: () => void) => void;
@@ -59,9 +56,7 @@ export function IfRow({
   issues,
   pulseId,
   rowProps,
-  shortcuts,
-  open,
-  onOpenChange,
+  expansion,
   menu,
   onRemove,
   onRemoveBranchAction,
@@ -69,7 +64,8 @@ export function IfRow({
 }: IfRowProps) {
   const { t } = useTranslation('pages');
   const id = idOf(action);
-  const [elseOpen, setElseOpen] = useState(false);
+  const open = expansion.isOpen(id);
+  const elseOpen = expansion.isElseOpen(id);
   const enabled = action.enabled !== false;
 
   const summary = useMemo(() => {
@@ -92,11 +88,8 @@ export function IfRow({
       id={nodeDomId(id)}
       variant="outline"
       size="sm"
-      tabIndex={rowProps.tabIndex}
-      aria-keyshortcuts={shortcuts}
+      {...rowProps}
       data-pulse={pulseId === id}
-      onFocus={rowProps.onFocus}
-      onKeyDown={rowProps.onKeyDown}
       className={cn(
         'flex-col items-stretch gap-3',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
@@ -116,10 +109,10 @@ export function IfRow({
             aria-expanded={open}
             aria-label={
               open
-                ? t('automations.builder.actions.collapse', { name: summary })
-                : t('automations.builder.actions.expand', { name: summary })
+                ? t('automations.builder.actions.collapseBranch')
+                : t('automations.builder.actions.expandBranch')
             }
-            onClick={() => onOpenChange(!open)}
+            onClick={() => expansion.toggle(id)}
           >
             <ChevronDown className={cn('transition-transform', open && 'rotate-180')} />
           </Button>
@@ -134,7 +127,7 @@ export function IfRow({
         </ItemActions>
       </div>
 
-      <Collapsible open={open} onOpenChange={onOpenChange}>
+      <Collapsible open={open} onOpenChange={() => expansion.toggle(id)}>
         <CollapsibleContent className="border-primary/40 ml-2 space-y-4 border-l-2 pl-4">
           <div className="space-y-2">
             <p className="text-muted-foreground text-xs font-medium">
@@ -159,12 +152,10 @@ export function IfRow({
             >
               <Plus />
               {action.conditions.groups.length === 0
-                ? t('automations.builder.conditions.addCondition')
+                ? t('automations.builder.conditions.addFirst')
                 : t('automations.builder.conditions.addGroup')}
             </Button>
-            {issues.get(id)?.map((message) => (
-              <FieldError key={message}>{message}</FieldError>
-            ))}
+            <RowIssues issues={issues.get(id)} />
           </div>
 
           <Branch
@@ -178,7 +169,7 @@ export function IfRow({
             dispatch={dispatch}
           />
 
-          <Collapsible open={elseOpen} onOpenChange={setElseOpen}>
+          <Collapsible open={elseOpen} onOpenChange={() => expansion.toggleElse(id)}>
             <CollapsibleTrigger asChild>
               <Button type="button" variant="ghost" size="sm" className="text-muted-foreground">
                 <ChevronDown className={cn('transition-transform', elseOpen && 'rotate-180')} />
@@ -267,7 +258,6 @@ function Branch({
               issues={issues.get(idOf(action))}
               pulsing={pulseId === idOf(action)}
               rowProps={rows.rowProps(index)}
-              shortcuts={rows.shortcuts}
               onRemove={() => onRemoveBranchAction(idOf(action), () => rows.reclaim(index))}
               dispatch={dispatch}
             />

@@ -21,6 +21,13 @@ export function useDryRun(definition: CreateAutomationInput, { enabled }: DryRun
     mutationFn: (input: CreateAutomationInput) => api.automations.dryRun({ definition: input }),
   });
 
+  const { mutate, reset } = check;
+
+  // A disabled check has nothing true left to show, so its last answer goes with it.
+  useEffect(() => {
+    if (!enabled) reset();
+  }, [enabled, reset]);
+
   const latest = useRef(definition);
   useEffect(() => {
     latest.current = definition;
@@ -28,7 +35,6 @@ export function useDryRun(definition: CreateAutomationInput, { enabled }: DryRun
 
   // The body is the whole definition, so its contents are what a re-check waits on.
   const key = JSON.stringify(definition);
-  const { mutate } = check;
 
   useEffect(() => {
     if (!enabled) return;

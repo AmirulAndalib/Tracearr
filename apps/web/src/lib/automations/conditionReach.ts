@@ -6,6 +6,7 @@
 import {
   TRIGGERS,
   TRIGGER_CONTEXT_RANK,
+  type AutomationConditions,
   type Condition,
   type TriggerNode,
 } from '@tracearr/shared';
@@ -86,7 +87,8 @@ function holdsOpen(conditions: AutomationConditions): boolean {
 export function unreachableNote(
   t: Translate,
   triggers: readonly TriggerNode[],
-  condition: Pick<Condition, 'field' | 'operator' | 'value'>
+  condition: Pick<Condition, 'field' | 'operator' | 'value'>,
+  conditions: AutomationConditions
 ): string | null {
   if (typeof condition.value !== 'number') return null;
   if (condition.operator !== 'gt' && condition.operator !== 'gte') return null;
@@ -95,11 +97,8 @@ export function unreachableNote(
   if (!pair) return null;
 
   const threshold = firingThreshold(triggers, pair);
-  if (threshold === undefined) return null;
-
-  const beyond =
-    condition.operator === 'gt' ? condition.value >= threshold : condition.value > threshold;
-  if (!beyond) return null;
+  if (threshold === undefined || condition.value <= threshold) return null;
+  if (holdsOpen(conditions)) return null;
 
   return t('automations.builder.conditions.canNeverPass', {
     threshold: t('automations.describe.duration.minutes', { count: threshold }),

@@ -20,6 +20,7 @@ import {
   type DescribeRefs,
 } from '@/lib/automations';
 import {
+  branchOf,
   builderReducer,
   emptyBuilderState,
   nodeDomId,
@@ -32,7 +33,7 @@ import { HeaderCard } from './HeaderCard';
 import { LiveCheckStrip } from './LiveCheckStrip';
 import { Sentence } from './Sentence';
 import { TriggersSection } from './TriggersSection';
-import type { BuilderRefs } from './builderRefs';
+import type { BranchExpansion, BuilderRefs } from './builderRefs';
 import {
   BUILDER_SECTIONS,
   builderIssues,
@@ -103,6 +104,11 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
   const [submitted, setSubmitted] = useState(false);
   const [pulseId, setPulseId] = useState<string | null>(null);
+  // An `if` body opens by default and its else branch does not; these hold the exceptions.
+  const [closedIfs, setClosedIfs] = useState<ReadonlySet<string>>(() => new Set());
+  const [openElses, setOpenElses] = useState<ReadonlySet<string>>(() => new Set());
+  const [focusTarget, setFocusTarget] = useState<{ id: string; seq: number } | null>(null);
+  const focusSeq = useRef(0);
   const [rejected, setRejected] = useState<BuilderIssue[]>([]);
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
@@ -183,11 +189,12 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
     () => ({
       triggers: state.triggers,
       kind: state.kind,
+      conditions: state.conditions,
       filterOptions,
       describe: describeRefs,
       unitSystem: settings?.unitSystem ?? 'metric',
     }),
-    [state.triggers, state.kind, filterOptions, describeRefs, settings]
+    [state.triggers, state.kind, state.conditions, filterOptions, describeRefs, settings]
   );
 
   const fragments = useMemo(
@@ -212,17 +219,65 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const issues = useMemo(() => [...localIssues, ...rejected], [localIssues, rejected]);
   // The footer counts everything from the first paint; a row only turns red once its
   // own field has been touched, or once Save has asked for the whole form.
+  // A warning is about what the rest of the definition did, so it never waits to be touched.
   const byNode = useMemo(
-    () => issuesByNode(submitted ? issues : issues.filter((issue) => touched.has(issue.nodeId))),
+    () =>
+      issuesByNode(
+        submitted
+          ? issues
+          : issues.filter((issue) => issue.tone === 'warning' || touched.has(issue.nodeId))
+      ),
     [issues, submitted, touched]
   );
 
+  const toggleIn = (
+    set: (update: (current: ReadonlySet<string>) => ReadonlySet<string>) => void,
+    id: string
+  ) =>
+    set((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+
+  const expansion = useMemo<BranchExpansion>(
+    () => ({
+      isOpen: (ifId) => !closedIfs.has(ifId),
+      isElseOpen: (ifId) => openElses.has(ifId),
+      toggle: (ifId) => toggleIn(setClosedIfs, ifId),
+      toggleElse: (ifId) => toggleIn(setOpenElses, ifId),
+    }),
+    [closedIfs, openElses]
+  );
+
+  // Radix unmounts a closed branch, so whatever holds the node is opened first and the
+  // focus waits for that render.
   const focusNode = (nodeId: string) => {
     setPulseId(nodeId);
-    const node = document.getElementById(nodeDomId(nodeId));
+    const owner = branchOf(state.actions, nodeId);
+    if (owner) {
+      setClosedIfs((current) => {
+        if (!current.has(owner.ifId)) return current;
+        const next = new Set(current);
+        next.delete(owner.ifId);
+        return next;
+      });
+      if (owner.side === 'else') {
+        setOpenElses((current) =>
+          current.has(owner.ifId) ? current : new Set(current).add(owner.ifId)
+        );
+      }
+    }
+    focusSeq.current += 1;
+    setFocusTarget({ id: nodeId, seq: focusSeq.current });
+  };
+
+  useEffect(() => {
+    if (focusTarget === null) return;
+    const node = document.getElementById(nodeDomId(focusTarget.id));
     node?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     node?.focus();
-  };
+  }, [focusTarget]);
 
   const revealFirstIssue = () => {
     setSubmitted(true);
@@ -310,7 +365,11 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
           sentence={
             <>
               <Sentence fragments={fragments} onFocusNode={focusNode} />
-              <LiveCheckStrip definition={input} ready={localIssues.length === 0 && !isPending} />
+              <LiveCheckStrip
+                definition={input}
+                ready={localIssues.length === 0}
+                paused={isPending}
+              />
             </>
           }
           dispatch={track.header}
@@ -336,6 +395,7 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
           refs={refs}
           issues={byNode}
           pulseId={pulseId}
+          expansion={expansion}
           dispatch={track.actions}
         />
 

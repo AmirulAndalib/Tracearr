@@ -14,8 +14,30 @@ import { cn } from '@/lib/utils';
 
 interface LiveCheckStripProps {
   definition: CreateAutomationInput;
-  /** False while the page has problems of its own, or a save is in flight. */
+  /** False while the page has problems of its own; the draft would be rejected as it stands. */
   ready: boolean;
+  /** A save is in flight, so nothing is asked until it lands. */
+  paused: boolean;
+}
+
+/** Why there is nothing to read yet, or nothing to read at all. */
+function statusOf(
+  t: Translate,
+  state: {
+    active: boolean;
+    ready: boolean;
+    check: { isPending: boolean; isError: boolean };
+    samples: readonly unknown[];
+  }
+): string | null {
+  if (!state.active) {
+    return state.ready
+      ? t('automations.builder.liveCheck.paused')
+      : t('automations.builder.liveCheck.unfinished');
+  }
+  if (state.check.isPending) return t('automations.builder.liveCheck.checking');
+  if (state.check.isError) return t('automations.builder.liveCheck.failed');
+  return state.samples.length === 0 ? t('automations.builder.liveCheck.empty') : null;
 }
 
 /** A threshold or a reading, as the reader would say it. */
@@ -36,18 +58,19 @@ function conditionText(t: Translate, evidence: ConditionEvidence): string {
  * What the draft would do to the sessions playing right now. The page fetches no
  * sessions of its own: the answer names the ones it was checked against.
  */
-export function LiveCheckStrip({ definition, ready }: LiveCheckStripProps) {
+export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProps) {
   const { t } = useTranslation('pages');
 
   const reachesSessions = definition.triggers.some(
     (trigger) => trigger.enabled && TRIGGERS[trigger.type].context === 'session'
   );
-  const check = useDryRun(definition, { enabled: ready && reachesSessions });
+  const active = ready && !paused;
+  const check = useDryRun(definition, { enabled: active && reachesSessions });
 
   if (!reachesSessions) return null;
-  if (!check.data && !check.isPending && !check.isError) return null;
 
-  const samples = check.data?.samples ?? [];
+  const samples = active ? (check.data?.samples ?? []) : [];
+  const status = statusOf(t, { active, ready, check, samples });
 
   return (
     <div className="bg-muted/40 mt-3 space-y-2 rounded-md border p-3" aria-live="polite">
@@ -56,17 +79,7 @@ export function LiveCheckStrip({ definition, ready }: LiveCheckStripProps) {
         {t('automations.builder.liveCheck.title')}
       </p>
 
-      {check.isPending && (
-        <p className="text-muted-foreground text-sm">
-          {t('automations.builder.liveCheck.checking')}
-        </p>
-      )}
-      {check.isError && (
-        <p className="text-muted-foreground text-sm">{t('automations.builder.liveCheck.failed')}</p>
-      )}
-      {!check.isPending && !check.isError && samples.length === 0 && (
-        <p className="text-muted-foreground text-sm">{t('automations.builder.liveCheck.empty')}</p>
-      )}
+      {status !== null && <p className="text-muted-foreground text-sm">{status}</p>}
 
       {samples.map((sample) => (
         <SampleRow key={sample.subject.sessionId} sample={sample} />

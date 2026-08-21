@@ -46,6 +46,7 @@ function renderSection(
   const refs: BuilderRefs = {
     triggers,
     kind: 'policy',
+    conditions,
     filterOptions: undefined,
     describe: {},
     unitSystem: 'metric',
@@ -129,7 +130,18 @@ describe('ConditionsSection', () => {
     renderSection(
       group([condition({ id: 'c-1', field: 'trust_score', operator: 'lt', value: 50 })]),
       [down],
-      new Map([['c-1', ['Not available for: A server goes down']]])
+      new Map([
+        [
+          'c-1',
+          [
+            {
+              nodeId: 'c-1',
+              message: 'Not available for: A server goes down',
+              tone: 'warning' as const,
+            },
+          ],
+        ],
+      ])
     );
 
     expect(screen.getByText('Not available for: A server goes down')).toHaveClass('text-warning');

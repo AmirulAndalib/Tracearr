@@ -25,9 +25,11 @@ export const BUILDER_SECTIONS = {
 export interface BuilderIssue {
   nodeId: string;
   message: string;
+  /** An amber note about what the rest of the definition did, not about this field's own value. */
+  tone?: 'warning';
 }
 
-export type NodeIssues = Map<string, string[]>;
+export type NodeIssues = Map<string, BuilderIssue[]>;
 
 /** `path` starts at the `groups` key, whether the groups are the page's or an `if`'s. */
 function groupsNodeId(
@@ -95,6 +97,22 @@ function conditionById(state: BuilderState, nodeId: string): Condition | undefin
   return groups.flatMap((group) => group.conditions).find((condition) => condition.id === nodeId);
 }
 
+/** What an action got wrong; a condition inside an `if` reads as a condition, not as an action. */
+function actionMessage(t: Translate, key: PropertyKey): string | undefined {
+  switch (key) {
+    case 'to':
+      return t('automations.builder.errors.sendNeedsDestination');
+    case 'amount':
+      return t('automations.builder.errors.trustAmountRange');
+    case 'value':
+      return t('automations.builder.errors.trustValueRange');
+    case 'message':
+      return t('automations.builder.errors.messageRequired');
+    default:
+      return undefined;
+  }
+}
+
 /** A field the triggers cannot supply is best named by the trigger that cannot supply it. */
 function unavailableField(t: Translate, state: BuilderState, nodeId: string): string {
   const field = conditionById(state, nodeId)?.field;
@@ -111,7 +129,13 @@ function messageFor(
   state: BuilderState,
   nodeId: string
 ): string {
-  switch (path[path.length - 1]) {
+  const last = path[path.length - 1] ?? '';
+  if (path[0] === 'actions' && !path.includes('conditions')) {
+    const message = actionMessage(t, last);
+    if (message !== undefined) return message;
+  }
+
+  switch (last) {
     case 'field':
       return unavailableField(t, state, nodeId);
     case 'operator':
@@ -142,6 +166,11 @@ function messageFor(
   }
 }
 
+/** Availability is a consequence of the triggers, so it reads amber and shows untouched. */
+function toneFor(path: readonly PropertyKey[]): Pick<BuilderIssue, 'tone'> {
+  return path[path.length - 1] === 'field' ? { tone: 'warning' } : {};
+}
+
 export function builderIssues(state: BuilderState, t: Translate): BuilderIssue[] {
   const issues: BuilderIssue[] = [];
 
@@ -149,7 +178,8 @@ export function builderIssues(state: BuilderState, t: Translate): BuilderIssue[]
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const nodeId = nodeIdForPath(state, issue.path);
-      issues.push({ nodeId, message: messageFor(t, issue.path, issue.message, state, nodeId) });
+      const message = messageFor(t, issue.path, issue.message, state, nodeId);
+      issues.push({ nodeId, message, ...toneFor(issue.path) });
     }
   }
 
@@ -192,16 +222,17 @@ export function serverIssues(state: BuilderState, error: unknown, t: Translate):
   return record.fields.filter(isServerField).map((entry) => {
     const path = pathFromField(entry.field);
     const nodeId = nodeIdForPath(state, path);
-    return { nodeId, message: messageFor(t, path, entry.message, state, nodeId) };
+    const message = messageFor(t, path, entry.message, state, nodeId);
+    return { nodeId, message, ...toneFor(path) };
   });
 }
 
 export function issuesByNode(issues: readonly BuilderIssue[]): NodeIssues {
   const byNode: NodeIssues = new Map();
   for (const issue of issues) {
-    const messages = byNode.get(issue.nodeId);
-    if (messages) messages.push(issue.message);
-    else byNode.set(issue.nodeId, [issue.message]);
+    const held = byNode.get(issue.nodeId);
+    if (held) held.push(issue);
+    else byNode.set(issue.nodeId, [issue]);
   }
   return byNode;
 }

@@ -299,36 +299,61 @@ function addAction(state: BuilderState, actionType: ActionType, branch?: BranchT
   });
 }
 
-/** A row moves within the list it sits in, whether that is the page's or a branch's. */
+/** A row moves within the list it sits in; null when it is already at that end. */
 function moveWithin<T extends { id?: string }>(
   nodes: readonly T[],
   id: string,
   delta: number
-): T[] {
+): T[] | null {
   const from = nodes.findIndex((node) => node.id === id);
   const to = from + delta;
-  if (from === -1 || to < 0 || to >= nodes.length) return [...nodes];
+  if (from === -1 || to < 0 || to >= nodes.length) return null;
   const moved = [...nodes];
   const [node] = moved.splice(from, 1);
   if (node) moved.splice(to, 0, node);
   return moved;
 }
 
-function moveAction(actions: AutomationActions, id: string, delta: number): AutomationActions {
-  if (actions.actions.some((action) => action.id === id)) {
-    return { actions: moveWithin(actions.actions, id, delta) };
+function moveAction(
+  actions: AutomationActions,
+  id: string,
+  delta: number
+): AutomationActions | null {
+  const top = moveWithin(actions.actions, id, delta);
+  if (top) return { actions: top };
+
+  let moved = false;
+  const next = actions.actions.map((action) => {
+    if (action.type !== 'if') return action;
+    const then = moveWithin(action.then, id, delta);
+    const otherwise = moveWithin(action.else, id, delta);
+    if (!then && !otherwise) return action;
+    moved = true;
+    return { ...action, then: then ?? action.then, else: otherwise ?? action.else };
+  });
+  return moved ? { actions: next } : null;
+}
+
+/** Which branch a node sits in, so a collapsed `if` can be opened before it is focused. */
+export interface NodeBranch {
+  ifId: string;
+  /** null when the node is the `if` itself or one of its own conditions. */
+  side: 'then' | 'else' | null;
+}
+
+export function branchOf(actions: AutomationActions, nodeId: string): NodeBranch | null {
+  for (const action of actions.actions) {
+    if (action.type !== 'if') continue;
+    const ifId = idOf(action);
+    if (action.then.some((leaf) => leaf.id === nodeId)) return { ifId, side: 'then' };
+    if (action.else.some((leaf) => leaf.id === nodeId)) return { ifId, side: 'else' };
+    const owned = action.conditions.groups.some(
+      (group) =>
+        group.id === nodeId || group.conditions.some((condition) => condition.id === nodeId)
+    );
+    if (owned) return { ifId, side: null };
   }
-  return {
-    actions: actions.actions.map((action) =>
-      action.type === 'if'
-        ? {
-            ...action,
-            then: moveWithin(action.then, id, delta),
-            else: moveWithin(action.else, id, delta),
-          }
-        : action
-    ),
-  };
+  return null;
 }
 
 /** The row hands back the whole node, so it carries its own id and enabled flag. */
@@ -474,8 +499,11 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       };
     case 'setAction':
       return { ...state, actions: setAction(state.actions, action.id, action.action), dirty: true };
-    case 'moveAction':
-      return { ...state, actions: moveAction(state.actions, action.id, action.delta), dirty: true };
+    case 'moveAction': {
+      // A row already at the end of its list has not changed, so nothing is dirty.
+      const moved = moveAction(state.actions, action.id, action.delta);
+      return moved ? { ...state, actions: moved, dirty: true } : state;
+    }
     case 'toggleNode':
       return editNode(state, action.id, 'toggle');
     case 'removeNode':

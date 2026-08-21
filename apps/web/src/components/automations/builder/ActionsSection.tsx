@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useId } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, MoreHorizontal } from 'lucide-react';
 import {
@@ -15,7 +15,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FieldError } from '@/components/ui/field';
 import { ItemGroup } from '@/components/ui/item';
 import { Kbd } from '@/components/ui/kbd';
 import { actionLabel, actionPickerEntries, suggestedValues } from '@/lib/automations';
@@ -23,15 +22,17 @@ import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ActionRow } from './ActionRow';
 import { IfRow } from './IfRow';
 import { NodePicker } from './NodePicker';
+import { RowIssues } from './RowActions';
 import { useRowKeyboard } from './useRowKeyboard';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
-import type { BuilderRefs } from './builderRefs';
+import type { BranchExpansion, BuilderRefs } from './builderRefs';
 
 interface ActionsSectionProps {
   actions: AutomationActions;
   refs: BuilderRefs;
   issues: NodeIssues;
   pulseId: string | null;
+  expansion: BranchExpansion;
   dispatch: BuilderDispatch;
 }
 
@@ -52,12 +53,18 @@ function rowName(t: ReturnType<typeof useTranslation<'pages'>>['t'], action: Act
 }
 
 /** What happens once the triggers fire and the conditions hold, in order. */
-export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: ActionsSectionProps) {
+export function ActionsSection({
+  actions,
+  refs,
+  issues,
+  pulseId,
+  expansion,
+  dispatch,
+}: ActionsSectionProps) {
   const { t } = useTranslation(['pages', 'common']);
   const headingId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   const [pending, setPending] = useState<PendingRemoval | null>(null);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
 
   const list = actions.actions;
   const entries = useMemo(() => actionPickerEntries(t), [t]);
@@ -70,12 +77,7 @@ export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: Act
     [entries, list]
   );
 
-  const toggleCollapsed = (id: string) =>
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  const branches = new Set(list.filter((action) => action.type === 'if').map(idOf));
 
   const rows = useRowKeyboard({
     ids: list.map(idOf),
@@ -83,7 +85,8 @@ export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: Act
     onToggle: (id) => dispatch({ type: 'toggleNode', id }),
     onRemove: (id, index) => setPending({ id, reclaim: () => rows.reclaim(index) }),
     onMove: (id, delta) => dispatch({ type: 'moveAction', id, delta }),
-    onExpand: toggleCollapsed,
+    onExpand: expansion.toggle,
+    canExpand: (id) => branches.has(id),
   });
 
   const sectionIssues = issues.get(BUILDER_SECTIONS.actions);
@@ -146,9 +149,7 @@ export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: Act
                 issues={issues}
                 pulseId={pulseId}
                 rowProps={rows.rowProps(index)}
-                shortcuts={rows.shortcuts}
-                open={!collapsed.has(idOf(action))}
-                onOpenChange={() => toggleCollapsed(idOf(action))}
+                expansion={expansion}
                 menu={menuFor(action, index)}
                 onRemove={() =>
                   setPending({ id: idOf(action), reclaim: () => rows.reclaim(index) })
@@ -163,7 +164,6 @@ export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: Act
                 issues={issues.get(idOf(action))}
                 pulsing={pulseId === idOf(action)}
                 rowProps={rows.rowProps(index)}
-                shortcuts={rows.shortcuts}
                 menu={menuFor(action, index)}
                 onRemove={() =>
                   setPending({ id: idOf(action), reclaim: () => rows.reclaim(index) })
@@ -175,9 +175,7 @@ export function ActionsSection({ actions, refs, issues, pulseId, dispatch }: Act
         </ItemGroup>
       )}
 
-      {sectionIssues?.map((message) => (
-        <FieldError key={message}>{message}</FieldError>
-      ))}
+      <RowIssues issues={sectionIssues} />
 
       <div className="flex flex-wrap items-center gap-3">
         <NodePicker

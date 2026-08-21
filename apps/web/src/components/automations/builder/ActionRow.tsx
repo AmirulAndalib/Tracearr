@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LeafAction } from '@tracearr/shared';
-import { FieldError } from '@/components/ui/field';
 import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@/components/ui/item';
 import {
   actionHint,
@@ -13,16 +12,15 @@ import {
 import { cn } from '@/lib/utils';
 import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ActionConfigField } from './fields';
-import { RowActions } from './RowActions';
-import { RowWarning } from './ConditionRow';
+import { RowActions, RowIssues, RowWarning } from './RowActions';
 import type { RowProps } from './useRowKeyboard';
+import type { BuilderIssue } from './validation';
 
 interface ActionRowProps {
   action: LeafAction;
-  issues: string[] | undefined;
+  issues: BuilderIssue[] | undefined;
   pulsing: boolean;
   rowProps: RowProps;
-  shortcuts: string;
   /** The overflow menu, when the row sits in a list that can be reordered. */
   menu?: ReactNode;
   /** Removal is confirmed by the section, so the row only asks for it. */
@@ -36,7 +34,6 @@ export function ActionRow({
   issues,
   pulsing,
   rowProps,
-  shortcuts,
   menu,
   onRemove,
   dispatch,
@@ -55,11 +52,8 @@ export function ActionRow({
       id={nodeDomId(id)}
       variant="outline"
       size="sm"
-      tabIndex={rowProps.tabIndex}
-      aria-keyshortcuts={shortcuts}
+      {...rowProps}
       data-pulse={pulsing}
-      onFocus={rowProps.onFocus}
-      onKeyDown={rowProps.onKeyDown}
       className={cn(
         '@container items-start',
         'data-[pulse=true]:ring-primary/60 data-[pulse=true]:ring-2',
@@ -87,9 +81,7 @@ export function ActionRow({
           ))}
         </div>
         {hint && <RowWarning message={hint} />}
-        {issues?.map((message) => (
-          <FieldError key={message}>{message}</FieldError>
-        ))}
+        <RowIssues issues={issues} />
       </ItemContent>
       <ItemActions>
         <RowActions

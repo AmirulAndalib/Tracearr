@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import {
   Field,
   FieldContent,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -26,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SEVERITIES, severityLabel } from '@/lib/automations';
 import { nodeDomId, type BuilderDispatch, type BuilderState } from './builderReducer';
+import { RowIssues } from './RowActions';
 import { ScopeField } from './ScopeField';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
 
@@ -68,9 +68,7 @@ export function HeaderCard({
               aria-invalid={nameIssues !== undefined}
               onChange={(event) => dispatch({ type: 'setName', value: event.target.value })}
             />
-            {nameIssues?.map((message) => (
-              <FieldError key={message}>{message}</FieldError>
-            ))}
+            <RowIssues issues={nameIssues} />
             {hasDescription ? (
               <>
                 <FieldLabel htmlFor={`${fieldId}-description`} className="sr-only">

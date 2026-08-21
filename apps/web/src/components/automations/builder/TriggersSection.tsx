@@ -1,12 +1,13 @@
 import { Fragment, useId, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TRIGGERS, type TriggerNode, type TriggerType } from '@tracearr/shared';
-import { FieldError, FieldSeparator } from '@/components/ui/field';
+import { FieldSeparator } from '@/components/ui/field';
 import { ItemGroup } from '@/components/ui/item';
 import { Kbd } from '@/components/ui/kbd';
 import { suggestedValues, triggerPickerEntries } from '@/lib/automations';
 import { nodeDomId, type BuilderDispatch } from './builderReducer';
 import { NodePicker } from './NodePicker';
+import { RowIssues } from './RowActions';
 import { TriggerRow } from './TriggerRow';
 import { useRowKeyboard } from './useRowKeyboard';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
@@ -84,9 +85,7 @@ export function TriggersSection({ triggers, issues, pulseId, dispatch }: Trigger
         </ItemGroup>
       )}
 
-      {sectionIssues?.map((message) => (
-        <FieldError key={message}>{message}</FieldError>
-      ))}
+      <RowIssues issues={sectionIssues} />
 
       <div className="flex flex-wrap items-center gap-3">
         <NodePicker

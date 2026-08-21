@@ -398,7 +398,10 @@
         "minutesRange": "Between {{min}} and {{max}} minutes",
         "daysRange": "Between {{min}} and {{max}} days",
         "measureInvalid": "Pick how the minutes are counted",
-        "fieldNotAvailableFor": "Not available for: {{triggers}}"
+        "fieldNotAvailableFor": "Not available for: {{triggers}}",
+        "trustAmountRange": "Trust changes by between -100 and 100 points",
+        "trustValueRange": "Trust score is between 0 and 100",
+        "messageRequired": "Type the message to show"
       },
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Optional description",
@@ -460,7 +463,9 @@
         "valueLabel": "Value",
         "canNeverPass": "Can never pass: the trigger fires at {{threshold}}",
         "noFields": "The triggers you picked don't supply any conditions yet.",
-        "groupSeparator": "and also"
+        "groupSeparator": "and also",
+        "addAnother": "Add another condition",
+        "addFirst": "Add a condition"
       },
       "actions": {
         "title": "Actions",
@@ -481,9 +486,9 @@
         "branchElse": "Otherwise…",
         "ifNothing": "nothing yet",
         "addBranch": "Add action",
-        "expand": "Show what {{name}} does",
-        "collapse": "Hide what {{name}} does",
-        "ifConditions": "Only when…"
+        "ifConditions": "Only when…",
+        "expandBranch": "Show this branch's steps",
+        "collapseBranch": "Hide this branch's steps"
       },
       "when": {
         "title": "When…",
@@ -542,7 +547,9 @@
         "expand": "Show what matched for {{name}}",
         "passed": "Passed",
         "notPassed": "Did not pass",
-        "actual": "now {{value}}"
+        "actual": "now {{value}}",
+        "unfinished": "Fix the problems above to check again",
+        "paused": "Paused while this saves"
       }
     },
     "categories": {

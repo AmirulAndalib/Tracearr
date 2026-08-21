@@ -68,7 +68,7 @@ function definition(overrides: Partial<CreateAutomationInput> = {}): CreateAutom
 }
 
 function renderStrip(input = definition()) {
-  render(<LiveCheckStrip definition={input} ready />);
+  render(<LiveCheckStrip definition={input} ready paused={false} />);
 }
 
 describe('LiveCheckStrip', () => {

@@ -203,6 +203,40 @@ describe('AutomationBuilder', () => {
     expect(document.activeElement).toBe(search);
   });
 
+  it('opens the branch it is pointing at before it lands on the row', async () => {
+    const user = userEvent.setup();
+    renderBuilder(
+      storedAutomation({
+        name: 'Branching',
+        triggers: [
+          { id: '99999999-9999-4999-8999-999999999999', type: 'session.started', enabled: true },
+        ],
+        actions: {
+          actions: [
+            {
+              id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+              type: 'if',
+              conditions: { groups: [] },
+              then: [],
+              else: [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', type: 'send', to: [] }],
+            },
+          ],
+        },
+      })
+    );
+
+    expect(screen.queryByText('Send Notification')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /1 problem/ }));
+
+    expect(screen.getByText('Send Notification')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        document.getElementById(nodeDomId('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))
+      )
+    );
+  });
+
   it('refuses to save a condition the triggers cannot supply, and says which', async () => {
     const user = userEvent.setup();
     renderBuilder(

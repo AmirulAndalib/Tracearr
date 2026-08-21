@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { contextOf, fieldsAvailableFor, type AutomationConditions } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
-import { FieldError, FieldSeparator } from '@/components/ui/field';
+import { FieldSeparator } from '@/components/ui/field';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { idOf, nodeDomId, type BuilderDispatch } from './builderReducer';
 import { ConditionGroupCard } from './ConditionGroupCard';
+import { RowIssues } from './RowActions';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
 import type { BuilderRefs } from './builderRefs';
 
@@ -79,9 +80,7 @@ export function ConditionsSection({
         </Fragment>
       ))}
 
-      {sectionIssues?.map((message) => (
-        <FieldError key={message}>{message}</FieldError>
-      ))}
+      <RowIssues issues={sectionIssues} />
 
       {hasFields ? (
         addGroup

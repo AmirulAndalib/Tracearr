@@ -126,7 +126,7 @@ describe('TriggersSection', () => {
     render(
       <TriggersSection
         triggers={[started]}
-        issues={new Map([[started.id, ['Not available here']]])}
+        issues={new Map([[started.id, [{ nodeId: started.id, message: 'Not available here' }]]])}
         pulseId={null}
         dispatch={dispatch}
       />

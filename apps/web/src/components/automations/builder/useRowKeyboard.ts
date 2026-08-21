@@ -10,17 +10,18 @@ interface RowKeyboardOptions {
   onRemove: (id: string, index: number) => void;
   onMove?: (id: string, delta: number) => void;
   onExpand?: (id: string) => void;
+  /** Which rows have something to open; without it, none of them do. */
+  canExpand?: (id: string) => boolean;
 }
 
 export interface RowProps {
   tabIndex: number;
+  'aria-keyshortcuts': string;
   onFocus: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }
 
 export interface RowKeyboard {
-  /** For `aria-keyshortcuts` on every row this hook drives. */
-  shortcuts: string;
   rowProps: (index: number) => RowProps;
   /** Call after a removal so the neighbouring row takes the keyboard. */
   reclaim: (index: number) => void;
@@ -37,6 +38,7 @@ export function useRowKeyboard({
   onRemove,
   onMove,
   onExpand,
+  canExpand,
 }: RowKeyboardOptions): RowKeyboard {
   const [activeIndex, setActiveIndex] = useState(0);
   const [reclaimIndex, setReclaimIndex] = useState<number | null>(null);
@@ -61,6 +63,14 @@ export function useRowKeyboard({
     setActiveIndex(index);
     document.getElementById(nodeDomId(target))?.focus();
   };
+
+  const expands = (id: string) => onExpand !== undefined && (canExpand?.(id) ?? false);
+
+  /** Only what this row actually answers to; a leaf action has nothing to open. */
+  const shortcutsFor = (id: string) =>
+    ['D', expands(id) && 'E', 'Delete', onMove && 'Alt+ArrowUp Alt+ArrowDown']
+      .filter((key): key is string => typeof key === 'string')
+      .join(' ');
 
   const handleKeyDown = (index: number) => (event: KeyboardEvent<HTMLElement>) => {
     // Arrows and Delete belong to whatever control the row holds once focus is inside it.
@@ -89,7 +99,7 @@ export function useRowKeyboard({
       onToggle(id);
       return;
     }
-    if (onExpand && (event.key === 'e' || event.key === 'E')) {
+    if (onExpand && expands(id) && (event.key === 'e' || event.key === 'E')) {
       event.preventDefault();
       onExpand(id);
       return;
@@ -100,15 +110,11 @@ export function useRowKeyboard({
     }
   };
 
-  const shortcuts = ['D', onExpand && 'E', 'Delete', onMove && 'Alt+ArrowUp Alt+ArrowDown']
-    .filter((key): key is string => typeof key === 'string')
-    .join(' ');
-
   return {
-    shortcuts,
     reclaim: setReclaimIndex,
     rowProps: (index) => ({
       tabIndex: index === Math.min(activeIndex, ids.length - 1) ? 0 : -1,
+      'aria-keyshortcuts': shortcutsFor(ids[index] ?? ''),
       onFocus: () => setActiveIndex(index),
       onKeyDown: handleKeyDown(index),
     }),
