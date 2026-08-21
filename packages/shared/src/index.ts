@@ -347,6 +347,10 @@ export type {
   LeafActionType,
   LeafAction,
   IfAction,
+  TemplateInput,
+  TemplateDefinition,
+  TemplateEnvelope,
+  ShareCodeReason,
 } from './automations/index.js';
 
 // Automation constants and schemas
@@ -377,6 +381,19 @@ export {
   definitionRefinements,
   contextOf,
   fieldsAvailableFor,
+  TEMPLATE_GROUPS,
+  TEMPLATE_SCHEMA_VERSION,
+  TEMPLATE_MIN_SERVER_VERSION,
+  templateEnvelopeSchema,
+  materializeTemplate,
+  slotValueFor,
+  liftAutomation,
+  TemplateBindingError,
+  ShareCodeError,
+  canonicalJson,
+  fingerprintOf,
+  encodeShareCode,
+  decodeShareCode,
 } from './automations/index.js';
 
 // Schema exports
