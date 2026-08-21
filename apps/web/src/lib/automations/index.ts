@@ -8,3 +8,4 @@ export * from './actionDefinitions';
 export * from './describe';
 export * from './icons';
 export * from './classicRuleTemplates';
+export * from './catalog';

@@ -1,18 +1,23 @@
 /**
- * The icon an automation shows in a list, taken from its first condition field.
+ * The icons automations show: one per trigger group, and one for an automation as a
+ * whole taken from its first condition field.
  */
 
 import { createElement, type ReactElement } from 'react';
-import type { ConditionField } from '@tracearr/shared';
+import { TRIGGERS, type ConditionField, type TriggerType } from '@tracearr/shared';
 import {
+  ArrowUpFromLine,
   Clock,
   Globe,
   MapPin,
   Monitor,
   Pause,
+  Play,
   RefreshCw,
+  Server,
   Settings2,
   Shield,
+  UserRound,
   Users,
   Wifi,
   Zap,
@@ -40,6 +45,18 @@ const CONDITION_FIELD_ICONS: Partial<Record<ConditionField, LucideIcon>> = {
   is_local_network: Wifi,
   ip_in_range: Globe,
 };
+
+const TRIGGER_GROUP_ICONS = {
+  sessions: Play,
+  accounts: UserRound,
+  servers: Server,
+  updates: ArrowUpFromLine,
+} as const satisfies Record<(typeof TRIGGERS)[TriggerType]['group'], LucideIcon>;
+
+/** Triggers share an icon per group: the group is what a reader scans for. */
+export function triggerIcon(type: TriggerType): ReactElement {
+  return createElement(TRIGGER_GROUP_ICONS[TRIGGERS[type].group], { className: 'size-4' });
+}
 
 /** Built with createElement so this stays a plain module and callers stay one expression. */
 export function automationIcon(automation: DescribableDefinition): ReactElement {

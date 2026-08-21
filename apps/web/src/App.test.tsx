@@ -15,6 +15,14 @@ vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ isAuthenticated: true, isLoading: false }),
 }));
 
+vi.mock('@/hooks/queries/useAutomations', () => ({
+  useAutomation: () => ({ data: undefined, isLoading: false }),
+}));
+
+vi.mock('@/components/automations/builder', () => ({
+  AutomationBuilder: () => null,
+}));
+
 vi.mock('@/pages/Dashboard', () => ({
   Dashboard: () => <h1>dashboard</h1>,
 }));

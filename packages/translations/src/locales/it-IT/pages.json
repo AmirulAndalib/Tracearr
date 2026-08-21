@@ -104,15 +104,61 @@
       "descriptionPlaceholder": "Optional description",
       "destinationDisabled": "Disabled destination",
       "errors": {
+        "actionUnavailable": "These triggers do not supply what this action needs",
         "conditionRequired": "Each condition group must have at least one condition",
+        "daysRange": "Between {{min}} and {{max}} days",
+        "fieldUnavailable": "This condition is not available for every trigger you picked",
         "groupRequired": "At least one condition group is required",
+        "measureInvalid": "Pick how the minutes are counted",
+        "minutesRange": "Between {{min}} and {{max}} minutes",
         "nameRequired": "Automation name is required",
+        "operatorInvalid": "This comparison does not fit the condition",
+        "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
         "scopeIncomplete": "Pick a target for the selected scope",
         "sendNeedsDestination": "Pick at least one destination",
-        "title": "Please fix the following errors:"
+        "title": "Please fix the following errors:",
+        "triggerRequired": "Pick at least one trigger, or switch one back on",
+        "valueInvalid": "This value does not fit the condition",
+        "variableUnavailable": "The message names something not every trigger here supplies"
+      },
+      "footer": {
+        "problems_one": "{{count}} problem",
+        "problems_other": "{{count}} problems",
+        "search": "to search"
+      },
+      "heldFor": {
+        "current": "this time",
+        "measureLabel": "Counted",
+        "minutesLabel": "Minutes",
+        "prefix": "A stream has been paused for",
+        "total": "in total",
+        "unit": "minutes"
+      },
+      "inactiveFor": {
+        "daysLabel": "Days",
+        "prefix": "An account has been inactive for",
+        "unit": "days"
+      },
+      "leave": {
+        "confirm": "Leave",
+        "title": "Leave without saving?"
       },
       "noDestinations": "No destinations yet. Add one to send notifications.",
       "noMatches": "No matches",
+      "picker": {
+        "close": "close",
+        "empty": "Nothing matches that.",
+        "navigate": "move",
+        "searchPlaceholder": "Search or describe what should happen",
+        "select": "pick"
+      },
+      "rows": {
+        "remove": "Remove {{name}}",
+        "removeHint": "remove",
+        "skipped": "Skipped",
+        "toggle": "Include {{name}}",
+        "toggleHint": "skip"
+      },
       "saving": "Saving...",
       "scope": {
         "account": "Specific account",
@@ -133,7 +179,95 @@
       "searchPlaceholder": "Search...",
       "selectPlaceholder": "Select...",
       "selectedCount": "{{count}} selected",
-      "severityLabel": "Severity"
+      "sentence": {
+        "label": "What this automation does"
+      },
+      "severityLabel": "Severity",
+      "when": {
+        "add": "Add trigger",
+        "empty": "Pick what starts this automation.",
+        "or": "or",
+        "title": "When…"
+      }
+    },
+    "catalog": {
+      "actions": {
+        "if": {
+          "description": "Run one set of steps when a condition holds and another when it does not.",
+          "label": "Branch on a condition",
+          "synonyms": "if, else, otherwise, branch, split, condition"
+        },
+        "kill_stream": {
+          "synonyms": "stop, terminate, cut, end playback"
+        },
+        "message_client": {
+          "synonyms": "warn, tell, notice, on screen"
+        },
+        "send": {
+          "synonyms": "notify, alert, discord, email, webhook, push"
+        },
+        "trust": {
+          "synonyms": "score, reputation, penalise, reward"
+        }
+      },
+      "groups": {
+        "accounts": "Accounts",
+        "control": "Control flow",
+        "notify": "Notify",
+        "policy": "Policy",
+        "servers": "Servers",
+        "sessions": "Sessions",
+        "updates": "Updates"
+      },
+      "suggested": "Suggested",
+      "triggers": {
+        "accountInactiveFor": {
+          "description": "An account has watched nothing for the set number of days.",
+          "label": "An account goes quiet",
+          "synonyms": "inactive, dormant, unused, stale, cleanup"
+        },
+        "pluginUpdateAvailable": {
+          "description": "The Tracearr plugin on a server has a newer release.",
+          "synonyms": "plugin, upgrade, version, release"
+        },
+        "serverDown": {
+          "description": "A media server stops answering.",
+          "synonyms": "unreachable, offline, outage, down"
+        },
+        "serverUp": {
+          "description": "A media server answers again.",
+          "synonyms": "online, recovered, restored, back"
+        },
+        "serverUpdateAvailable": {
+          "description": "A media server has a newer release.",
+          "synonyms": "upgrade, version, release, patch"
+        },
+        "sessionHeldFor": {
+          "description": "A stream has been paused longer than the set number of minutes.",
+          "label": "A stream sits paused",
+          "synonyms": "pause, idle, abandoned, stuck, afk"
+        },
+        "sessionPaused": {
+          "description": "The moment a stream is paused.",
+          "synonyms": "pause, hold, idle"
+        },
+        "sessionStarted": {
+          "description": "The moment play is pressed.",
+          "synonyms": "play, watch, begin, start, viewing"
+        },
+        "sessionStopped": {
+          "description": "Playback ends, however it ended.",
+          "synonyms": "end, finish, quit, close"
+        },
+        "sessionTranscodeChanged": {
+          "description": "The server switches a stream between direct play and transcoding.",
+          "synonyms": "transcode, convert, direct play, cpu"
+        },
+        "tracearrUpdateAvailable": {
+          "description": "Tracearr itself has a newer release.",
+          "synonyms": "upgrade, version, release, self"
+        }
+      }
     },
     "categories": {
       "device_client": "Device & Client",

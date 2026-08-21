@@ -69,7 +69,8 @@ interface Describe {
 
 const SENTENCE_LIMIT = 160;
 
-const TRIGGER_KEYS = {
+/** The camelCase translation key for each trigger type. */
+export const TRIGGER_KEYS = {
   'session.started': 'sessionStarted',
   'session.stopped': 'sessionStopped',
   'session.transcode_changed': 'sessionTranscodeChanged',
@@ -120,7 +121,7 @@ function appendSuffix(fragments: DescribeFragment[], suffix: string): void {
 }
 
 /** An `if` closes on a full stop, so whatever follows it opens a sentence. */
-function capitalize(text: string): string {
+export function capitalize(text: string): string {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 }
 

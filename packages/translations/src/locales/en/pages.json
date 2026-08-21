@@ -386,7 +386,17 @@
         "title": "Please fix the following errors:",
         "groupRequired": "At least one condition group is required",
         "conditionRequired": "Each condition group must have at least one condition",
-        "scopeIncomplete": "Pick a target for the selected scope"
+        "scopeIncomplete": "Pick a target for the selected scope",
+        "triggerRequired": "Pick at least one trigger, or switch one back on",
+        "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
+        "fieldUnavailable": "This condition is not available for every trigger you picked",
+        "operatorInvalid": "This comparison does not fit the condition",
+        "valueInvalid": "This value does not fit the condition",
+        "actionUnavailable": "These triggers do not supply what this action needs",
+        "variableUnavailable": "The message names something not every trigger here supplies",
+        "minutesRange": "Between {{min}} and {{max}} minutes",
+        "daysRange": "Between {{min}} and {{max}} days",
+        "measureInvalid": "Pick how the minutes are counted"
       },
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Optional description",
@@ -445,6 +455,51 @@
         "remove": "Remove action",
         "typePlaceholder": "Select action",
         "typeLabel": "Action"
+      },
+      "when": {
+        "title": "When…",
+        "empty": "Pick what starts this automation.",
+        "add": "Add trigger",
+        "or": "or"
+      },
+      "heldFor": {
+        "prefix": "A stream has been paused for",
+        "minutesLabel": "Minutes",
+        "unit": "minutes",
+        "measureLabel": "Counted",
+        "current": "this time",
+        "total": "in total"
+      },
+      "inactiveFor": {
+        "prefix": "An account has been inactive for",
+        "daysLabel": "Days",
+        "unit": "days"
+      },
+      "rows": {
+        "toggle": "Include {{name}}",
+        "remove": "Remove {{name}}",
+        "skipped": "Skipped",
+        "toggleHint": "skip",
+        "removeHint": "remove"
+      },
+      "picker": {
+        "searchPlaceholder": "Search or describe what should happen",
+        "empty": "Nothing matches that.",
+        "navigate": "move",
+        "select": "pick",
+        "close": "close"
+      },
+      "sentence": {
+        "label": "What this automation does"
+      },
+      "footer": {
+        "problems_one": "{{count}} problem",
+        "problems_other": "{{count}} problems",
+        "search": "to search"
+      },
+      "leave": {
+        "title": "Leave without saving?",
+        "confirm": "Leave"
       }
     },
     "categories": {
@@ -840,7 +895,86 @@
       "hours": "hours"
     },
     "updateAutomation": "Update Automation",
-    "updateDescription": "Update this automation below."
+    "updateDescription": "Update this automation below.",
+    "catalog": {
+      "groups": {
+        "sessions": "Sessions",
+        "accounts": "Accounts",
+        "servers": "Servers",
+        "updates": "Updates",
+        "notify": "Notify",
+        "policy": "Policy",
+        "control": "Control flow"
+      },
+      "suggested": "Suggested",
+      "triggers": {
+        "sessionStarted": {
+          "description": "The moment play is pressed.",
+          "synonyms": "play, watch, begin, start, viewing"
+        },
+        "sessionStopped": {
+          "description": "Playback ends, however it ended.",
+          "synonyms": "end, finish, quit, close"
+        },
+        "sessionTranscodeChanged": {
+          "description": "The server switches a stream between direct play and transcoding.",
+          "synonyms": "transcode, convert, direct play, cpu"
+        },
+        "sessionPaused": {
+          "description": "The moment a stream is paused.",
+          "synonyms": "pause, hold, idle"
+        },
+        "sessionHeldFor": {
+          "label": "A stream sits paused",
+          "description": "A stream has been paused longer than the set number of minutes.",
+          "synonyms": "pause, idle, abandoned, stuck, afk"
+        },
+        "accountInactiveFor": {
+          "label": "An account goes quiet",
+          "description": "An account has watched nothing for the set number of days.",
+          "synonyms": "inactive, dormant, unused, stale, cleanup"
+        },
+        "serverDown": {
+          "description": "A media server stops answering.",
+          "synonyms": "unreachable, offline, outage, down"
+        },
+        "serverUp": {
+          "description": "A media server answers again.",
+          "synonyms": "online, recovered, restored, back"
+        },
+        "pluginUpdateAvailable": {
+          "description": "The Tracearr plugin on a server has a newer release.",
+          "synonyms": "plugin, upgrade, version, release"
+        },
+        "serverUpdateAvailable": {
+          "description": "A media server has a newer release.",
+          "synonyms": "upgrade, version, release, patch"
+        },
+        "tracearrUpdateAvailable": {
+          "description": "Tracearr itself has a newer release.",
+          "synonyms": "upgrade, version, release, self"
+        }
+      },
+      "actions": {
+        "send": {
+          "synonyms": "notify, alert, discord, email, webhook, push"
+        },
+        "trust": {
+          "synonyms": "score, reputation, penalise, reward"
+        },
+        "kill_stream": {
+          "synonyms": "stop, terminate, cut, end playback"
+        },
+        "message_client": {
+          "synonyms": "warn, tell, notice, on screen"
+        },
+        "if": {
+          "label": "Branch on a condition",
+          "description": "Run one set of steps when a condition holds and another when it does not.",
+          "synonyms": "if, else, otherwise, branch, split, condition"
+        }
+      }
+    }
   },
   "terminateStream": {
     "title": "Terminate Stream",

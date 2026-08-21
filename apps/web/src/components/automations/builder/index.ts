@@ -2,4 +2,4 @@
  * Automation builder components
  */
 
-export { ScopeField } from './ScopeField';
+export { AutomationBuilder } from './AutomationBuilder';
