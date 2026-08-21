@@ -7,7 +7,13 @@ import type {
   ViolationSeverity,
 } from '@tracearr/shared';
 import type { Executor } from '../../db/client.js';
-import { automationVersions } from '../../db/schema.js';
+import { automationVersions, type automations } from '../../db/schema.js';
+
+export type AutomationRow = typeof automations.$inferSelect;
+
+/** The column has no null state; a notification automation keeps the default it ignores. */
+export const storedSeverity = (severity: ViolationSeverity | null | undefined): ViolationSeverity =>
+  severity ?? 'warning';
 
 /**
  * The snapshot an automation_versions row stores; scope and definition, no runtime

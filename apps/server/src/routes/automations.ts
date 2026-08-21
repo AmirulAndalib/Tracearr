@@ -61,6 +61,8 @@ import {
   canonicalEqual,
   insertAutomationVersion,
   sameDefinition,
+  storedSeverity,
+  type AutomationRow,
 } from '../services/automations/versions.js';
 import { unknownDestinationIds } from '../services/notifications/destinationRefs.js';
 import { hasInactivityCondition } from '../services/automations/engine.js';
@@ -85,12 +87,6 @@ const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
   kind: { key: sql`${automations.kind}`, defaultDir: 'asc' },
   isActive: { key: sql`${automations.isActive}`, defaultDir: 'desc' },
 };
-
-type AutomationRow = typeof automations.$inferSelect;
-
-/** The column has no null state; a notification automation keeps the default it ignores. */
-const storedSeverity = (severity: ViolationSeverity | null | undefined): ViolationSeverity =>
-  severity ?? 'warning';
 
 /**
  * The version number is `max + 1`, so two concurrent definition writes pick the same one

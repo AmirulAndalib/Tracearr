@@ -106,6 +106,7 @@ import {
   shutdownNotificationQueue,
 } from './jobs/notificationQueue.js';
 import { runAutomationModelMigration } from './services/automations/modelMigration.js';
+import { seedBuiltinTemplates } from './services/automations/templates/seeder.js';
 import { initDestinationCrypto } from './services/notifications/destinationCrypto.js';
 import { invalidateDestinationsCache } from './services/notifications/destinationStore.js';
 import {
@@ -819,6 +820,10 @@ async function initializeServices(app: FastifyInstance) {
   // Runs after the destinations rewrite so node ids land on the final action set, and unwrapped
   // for the same reason: a half-migrated automation model must not survive into serving.
   await runAutomationModelMigration();
+
+  // Unwrapped like its neighbours: a catalog that failed to seed would leave the gallery
+  // and every bound instance pointing at a template version that was never written.
+  await seedBuiltinTemplates();
 
   try {
     await sweepDestinationConfigs();
