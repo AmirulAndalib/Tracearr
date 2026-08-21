@@ -23,11 +23,11 @@ import {
   SaveStatusIndicator,
 } from '@/components/ui/autosave-field';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CopyButton } from '@/components/ui/copy-button';
 import {
   RefreshCw,
   ExternalLink,
   Loader2,
-  Copy,
   Globe,
   AlertTriangle,
   KeyRound,
@@ -43,7 +43,6 @@ import {
   Gauge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 import { useTheme, ACCENT_PRESETS } from '@/components/theme-provider';
 import { useDebouncedSave, TEXT_INPUT_DELAY } from '@/hooks/useDebouncedSave';
 import { useSettings, useApiKey, useRegenerateApiKey } from '@/hooks/queries';
@@ -67,24 +66,13 @@ const THEME_MODES = [
 ];
 
 function ApiKeyCard() {
-  const { t } = useTranslation(['settings', 'common', 'notifications']);
+  const { t } = useTranslation(['settings', 'common']);
   const { data: apiKeyData, isLoading } = useApiKey();
   const regenerateApiKey = useRegenerateApiKey();
   const [showConfirm, setShowConfirm] = useState(false);
 
   const token = apiKeyData?.token;
   const hasKey = !!token;
-
-  const handleCopy = async () => {
-    if (token) {
-      try {
-        await navigator.clipboard.writeText(token);
-        toast.success(t('notifications:toast.success.copiedToClipboard.title'));
-      } catch {
-        toast.error(t('notifications:toast.error.copyFailed'));
-      }
-    }
-  };
 
   const handleRegenerate = () => {
     if (hasKey) {
@@ -131,15 +119,11 @@ function ApiKeyCard() {
                   placeholder={t('general.noApiKeyGenerated')}
                   className="font-mono text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopy}
+                <CopyButton
+                  value={token ?? ''}
+                  label={t('general.copyToClipboard')}
                   disabled={!hasKey}
-                  title={t('general.copyToClipboard')}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
+                />
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-sm">

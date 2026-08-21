@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { CopyButton } from '@/components/ui/copy-button';
 import {
   Select,
   SelectContent,
@@ -37,7 +38,6 @@ import {
   Check,
   Zap,
   Radio,
-  Copy,
   ArrowUpCircle,
   Image as ImageIcon,
 } from 'lucide-react';
@@ -1022,7 +1022,6 @@ function RealtimeSetupDialog({
   connectionStatus?: ServerConnectionStatus;
 }) {
   const { t } = useTranslation(['settings']);
-  const [copied, setCopied] = useState(false);
   const repoUrl = t('servers.realtimeDialog.jellyfinRepoUrl');
 
   const issueMessage =
@@ -1033,13 +1032,6 @@ function RealtimeSetupDialog({
         : connectionStatus?.pluginIssue === 'malfunctioned'
           ? t('servers.realtimeDialog.issueMalfunctioned')
           : null;
-
-  const handleCopy = (text: string) => {
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -1098,18 +1090,13 @@ function RealtimeSetupDialog({
                   <code className="bg-muted flex-1 truncate rounded px-2 py-1 text-xs">
                     {repoUrl}
                   </code>
-                  <button
-                    type="button"
-                    aria-label={t('servers.realtimeDialog.copyUrl')}
-                    className="hover:text-foreground shrink-0"
-                    onClick={() => handleCopy(repoUrl)}
-                  >
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
+                  <CopyButton
+                    value={repoUrl}
+                    label={t('servers.realtimeDialog.copyUrl')}
+                    variant="ghost"
+                    size="icon-sm"
+                    className="shrink-0"
+                  />
                 </div>
               </div>
             </>
