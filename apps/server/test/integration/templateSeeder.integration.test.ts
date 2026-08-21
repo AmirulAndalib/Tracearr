@@ -20,7 +20,12 @@ import {
 } from '../../src/db/schema.js';
 import { BUILTIN_ENVELOPES } from '../../src/services/automations/templates/builtin/index.js';
 import { seedBuiltinTemplates } from '../../src/services/automations/templates/seeder.js';
-import { instantiateTemplate, sha256Hex } from '../../src/services/automations/templates/store.js';
+import { materializeInstance } from '../../src/services/automations/templates/materialize.js';
+import {
+  getTemplate,
+  instantiateTemplate,
+  sha256Hex,
+} from '../../src/services/automations/templates/store.js';
 
 const DESTINATION_ID = '8c4a0d31-4f5b-4d0e-9a12-77c6d5b3e401';
 
@@ -90,8 +95,13 @@ async function templateBySlug(slug: string) {
 }
 
 async function instantiate(templateId: string, name: string) {
+  const template = await getTemplate(templateId);
+  if (!template) throw new Error(`no template ${templateId}`);
+  const inputs = { to: [DESTINATION_ID] };
+  const bound = materializeInstance(template.version, inputs, name);
+  if (!bound.ok) throw new Error(bound.reason);
   return db.transaction((tx) =>
-    instantiateTemplate(tx, templateId, { to: [DESTINATION_ID] }, { name })
+    instantiateTemplate(tx, template, { definition: bound.definition, inputs }, {})
   );
 }
 

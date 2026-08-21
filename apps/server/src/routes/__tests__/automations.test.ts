@@ -1123,6 +1123,61 @@ describe('Automation routes', () => {
       expect(db.transaction).not.toHaveBeenCalled();
     });
 
+    it('409s an edit to the scope or the kind the template decides', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { serverId: randomUUID(), kind: 'policy' },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().message).toContain('kind');
+      expect(response.json().message).toContain('serverId');
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('409s a scope edit that rides along with new inputs', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+      vi.mocked(getTemplateVersion).mockResolvedValue(templateVersion(1));
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: {
+          templateInputs: { to: [DESTINATION_ID], server: SERVER_ID },
+          enforceAcrossServers: true,
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(getTemplateVersion).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('keeps taking the fields the instance owns', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = boundRow();
+      setupSelect([stored]);
+      const harness = setupTransaction([[{ ...stored, isActive: false, severity: 'high' }]]);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: `/automations/${AUTOMATION_ID}`,
+        payload: { isActive: false, severity: 'high', retentionDays: 14 },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(harness.updateSets[0]).toMatchObject({
+        isActive: false,
+        severity: 'high',
+        retentionDays: 14,
+      });
+    });
+
     it('re-materializes new inputs against the pinned version and keeps the instance fields', async () => {
       app = await buildTestApp(ownerUser);
       const stored = boundRow();
@@ -1417,6 +1472,31 @@ describe('Automation routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json().envelope.author).toBe('Ada');
+    });
+
+    it('takes the group the caller picked over the one the kind implies', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow({ serverName: 'Plex' })]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export?group=housekeeping`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().envelope.group).toBe('housekeeping');
+    });
+
+    it('400s a group that is not one of the four', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow()]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export?group=misc`,
+      });
+
+      expect(response.statusCode).toBe(400);
     });
 
     it('404s an automation the caller cannot see', async () => {

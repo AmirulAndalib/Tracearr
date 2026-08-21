@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto';
 import { and, count, eq, like, or, sql } from 'drizzle-orm';
 import {
   fingerprintOf,
-  materializeTemplate,
   type AutomationKind,
+  type CreateAutomationInput,
   type TEMPLATE_GROUPS,
   type TemplateDefinition,
   type TemplateEnvelope,
@@ -20,7 +20,6 @@ import {
   automations,
   automationTemplates,
   automationTemplateVersions,
-  servers,
 } from '../../../db/schema.js';
 import {
   automationDefinition,
@@ -188,7 +187,9 @@ export async function matchTemplate(envelope: {
         eq(automationTemplates.fingerprint, envelope.fingerprint),
         eq(automationTemplates.slug, envelope.slug)
       )
-    );
+    )
+    // Oldest first, so preview and import name the same row when several match.
+    .orderBy(automationTemplates.createdAt, automationTemplates.id);
   const found = rows.find((row) => row.fingerprint === envelope.fingerprint) ?? rows[0];
   if (!found) return null;
   return {
@@ -274,12 +275,20 @@ export async function createTemplate(
       }
     }
 
+    // The same body is the same template whatever slug it landed under.
+    const matched = (
+      await tx
+        .select()
+        .from(automationTemplates)
+        .where(eq(automationTemplates.fingerprint, envelope.fingerprint))
+        .orderBy(automationTemplates.createdAt, automationTemplates.id)
+        .limit(1)
+    )[0];
+    if (matched) return { id: matched.id, version: matched.currentVersion, created: false };
+
     const existing = (
       await tx.select().from(automationTemplates).where(eq(automationTemplates.slug, envelope.slug))
     )[0];
-    if (existing?.fingerprint === envelope.fingerprint) {
-      return { id: existing.id, version: existing.currentVersion, created: false };
-    }
 
     const inserted = await tx
       .insert(automationTemplates)
@@ -328,23 +337,7 @@ export async function deleteTemplate(
   });
 }
 
-/** The displayed default names the server the instance is pinned to; exports never carry it. */
-async function defaultName(
-  executor: Executor,
-  templateName: string,
-  serverId: string | null | undefined
-): Promise<string> {
-  if (!serverId) return templateName;
-  const rows = await executor
-    .select({ name: servers.name })
-    .from(servers)
-    .where(eq(servers.id, serverId));
-  const server = rows[0];
-  return server ? `${templateName} — ${server.name}` : templateName;
-}
-
 export interface InstanceOverrides {
-  name?: string;
   isActive?: boolean;
   severity?: ViolationSeverity | null;
   cooldownMinutes?: number | null;
@@ -352,29 +345,16 @@ export interface InstanceOverrides {
 }
 
 /**
- * Bind a template's inputs into an automation row. Node ids come from the envelope,
- * so nothing here re-stamps or re-synthesizes what the template already decided.
+ * Store a binding the caller has already materialized. Node ids and the name come
+ * with it, so nothing here re-stamps or re-materializes what has been decided.
  */
 export async function instantiateTemplate(
   tx: Executor,
-  templateId: string,
-  inputs: Record<string, unknown>,
+  template: { id: string; description: string; version: { version: number } },
+  binding: { definition: CreateAutomationInput; inputs: Record<string, unknown> },
   overrides: InstanceOverrides
 ): Promise<AutomationRow> {
-  const template = await getTemplate(templateId, tx);
-  if (!template) throw new Error(`template ${templateId} has no current version`);
-
-  const serverKey = template.version.inputs.find((input) => input.kind === 'server')?.key;
-  const boundServer = serverKey === undefined ? undefined : inputs[serverKey];
-  const name =
-    overrides.name ??
-    (await defaultName(
-      tx,
-      template.name,
-      typeof boundServer === 'string' ? boundServer : undefined
-    ));
-
-  const created = materializeTemplate(template.version, inputs, { name });
+  const created = binding.definition;
   const inserted = await tx
     .insert(automations)
     .values({
@@ -395,11 +375,11 @@ export async function instantiateTemplate(
       isActive: overrides.isActive,
       templateId: template.id,
       templateVersion: template.version.version,
-      templateInputs: inputs,
+      templateInputs: binding.inputs,
     })
     .returning();
   const row = inserted[0];
-  if (!row) throw new Error(`failed to instantiate template ${templateId}`);
+  if (!row) throw new Error(`failed to instantiate template ${template.id}`);
   await insertAutomationVersion(tx, row.id, automationDefinition(row));
   return row;
 }

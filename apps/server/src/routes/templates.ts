@@ -3,7 +3,7 @@
  * binding form. Reads are open to any authenticated caller; writes are owner only.
  */
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import {
   ShareCodeError,
@@ -11,11 +11,22 @@ import {
   fingerprintOf,
   templateEnvelopeSchema,
   uuidSchema,
+  type ShareCodeReason,
   type TemplateEnvelope,
 } from '@tracearr/shared';
 import { db } from '../db/client.js';
 import { scheduleInactivityChecks } from '../jobs/inactivityCheckQueue.js';
 import { invalidateAutomationsCache } from '../jobs/poller/database.js';
+import {
+  loadAutomation,
+  missingScopeRef,
+  needsInactivitySweep,
+  toAutomation,
+} from '../services/automations/read.js';
+import {
+  defaultInstanceName,
+  materializeInstance,
+} from '../services/automations/templates/materialize.js';
 import { decodeTemplateCode } from '../services/automations/templates/shareCode.js';
 import {
   createTemplate,
@@ -31,13 +42,6 @@ import { unknownDestinationIds } from '../services/notifications/destinationRefs
 import { getCurrentVersion } from '../utils/buildInfo.js';
 import { compareVersions } from '../utils/pluginVersion.js';
 import { firstIssueMessage } from '../utils/zod.js';
-import {
-  loadAutomation,
-  materializeInstance,
-  missingScopeRef,
-  needsInactivitySweep,
-  toAutomation,
-} from './automations.js';
 
 const idParamSchema = z.object({ id: uuidSchema });
 
@@ -82,7 +86,26 @@ function minServerVersionState(required: string): MinServerVersion {
   };
 }
 
-type EnvelopeResult = { ok: true; envelope: TemplateEnvelope } | { ok: false; message: string };
+// The reason travels with the message so the web can branch without reading English.
+const SHARE_CODE_MESSAGES: Record<ShareCodeReason, string> = {
+  prefix: 'This is not a Tracearr share code',
+  too_long: 'This share code is too long',
+  incomplete: 'This share code looks cut off',
+  too_deep: 'This share code is nested too deeply',
+  invalid_json: 'This share code does not carry valid JSON',
+};
+
+type EnvelopeResult =
+  | { ok: true; envelope: TemplateEnvelope }
+  | { ok: false; message: string; reason?: ShareCodeReason };
+
+const rejectEnvelope = (reply: FastifyReply, read: { message: string; reason?: ShareCodeReason }) =>
+  reply.code(400).send({
+    statusCode: 400,
+    error: 'Bad Request',
+    message: read.message,
+    ...(read.reason === undefined ? {} : { reason: read.reason }),
+  });
 
 /** A share code and a pasted envelope are the same payload once the code is unwrapped. */
 function readEnvelope(body: { code?: string; envelope?: unknown }): EnvelopeResult {
@@ -92,7 +115,7 @@ function readEnvelope(body: { code?: string; envelope?: unknown }): EnvelopeResu
       payload = decodeTemplateCode(body.code);
     } catch (error) {
       if (error instanceof ShareCodeError) {
-        return { ok: false, message: `Share code rejected: ${error.reason}` };
+        return { ok: false, message: SHARE_CODE_MESSAGES[error.reason], reason: error.reason };
       }
       throw error;
     }
@@ -155,7 +178,7 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const read = readEnvelope(body.data);
-    if (!read.ok) return reply.badRequest(read.message);
+    if (!read.ok) return rejectEnvelope(reply, read);
 
     const existing = await matchTemplate(read.envelope);
     return {
@@ -176,7 +199,7 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const read = readEnvelope(body.data);
-    if (!read.ok) return reply.badRequest(read.message);
+    if (!read.ok) return rejectEnvelope(reply, read);
 
     const support = minServerVersionState(read.envelope.minServerVersion);
     if (!support.satisfied) {
@@ -230,11 +253,11 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
 
     // The refs are checked against the definition the bindings produce, not the
     // bindings themselves, so the same checks a builder save runs apply here.
-    const { inputs, ...overrides } = body.data;
+    const { inputs, name, ...overrides } = body.data;
     const materialized = materializeInstance(
       template.version,
       inputs,
-      overrides.name ?? template.name
+      name ?? (await defaultInstanceName(db, template.name, template.version, inputs))
     );
     if (!materialized.ok) return reply.badRequest(materialized.reason);
 
@@ -247,7 +270,7 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const created = await db.transaction((tx) =>
-      instantiateTemplate(tx, template.id, inputs, overrides)
+      instantiateTemplate(tx, template, { definition: materialized.definition, inputs }, overrides)
     );
 
     invalidateAutomationsCache();

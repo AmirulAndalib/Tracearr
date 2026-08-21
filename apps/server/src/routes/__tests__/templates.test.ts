@@ -63,6 +63,7 @@ import { templateRoutes } from '../templates.js';
 const TEMPLATE_ID = randomUUID();
 const AUTOMATION_ID = randomUUID();
 const DESTINATION_ID = randomUUID();
+const SERVER_ID = randomUUID();
 
 const envelopeOf = (slug: string): TemplateEnvelope => {
   const found = BUILTIN_ENVELOPES.find((envelope) => envelope.slug === slug);
@@ -322,6 +323,18 @@ describe('Template routes', () => {
       });
     });
 
+    it('is owner only', async () => {
+      app = await buildTestApp(viewerUser);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/templates/preview',
+        payload: { envelope: envelopeOf('stream-started') },
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+
     it('reports the version this build cannot run', async () => {
       app = await buildTestApp(ownerUser);
       vi.mocked(getCurrentVersion).mockReturnValue('2.1.9-beta.3');
@@ -350,7 +363,11 @@ describe('Template routes', () => {
       });
 
       expect(response.statusCode).toBe(400);
-      expect(response.json().message).toContain('prefix');
+      // A plain sentence for the reader, the reason for the client.
+      expect(response.json()).toMatchObject({
+        message: 'This is not a Tracearr share code',
+        reason: 'prefix',
+      });
     });
 
     it('400s on an envelope the schema rejects', async () => {
@@ -412,6 +429,25 @@ describe('Template routes', () => {
 
       expect(response.statusCode).toBe(200);
       expect(response.json().id).toBe(TEMPLATE_ID);
+    });
+
+    it('200s the template a matching body already sits in under another slug', async () => {
+      app = await buildTestApp(ownerUser);
+      const envelope = envelopeOf('stream-started');
+      vi.mocked(createTemplate).mockResolvedValue({ id: TEMPLATE_ID, version: 2, created: false });
+      vi.mocked(getTemplate).mockResolvedValue({
+        ...summary({ slug: 'renamed-elsewhere', currentVersion: 2 }),
+        version: currentVersion(envelope),
+      } as never);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/templates',
+        payload: { envelope },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ id: TEMPLATE_ID, slug: 'renamed-elsewhere' });
     });
 
     it('carries a local save and the template it replaces to the store', async () => {
@@ -543,9 +579,12 @@ describe('Template routes', () => {
       expect(response.statusCode).toBe(201);
       expect(instantiateTemplate).toHaveBeenCalledWith(
         expect.anything(),
-        TEMPLATE_ID,
-        { to: [DESTINATION_ID] },
-        expect.objectContaining({ name: 'Now playing' })
+        expect.objectContaining({ id: TEMPLATE_ID }),
+        {
+          definition: expect.objectContaining({ name: 'Now playing' }),
+          inputs: { to: [DESTINATION_ID] },
+        },
+        {}
       );
       expect(response.json()).toMatchObject({ id: AUTOMATION_ID, kind: 'notification' });
       expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
@@ -582,6 +621,43 @@ describe('Template routes', () => {
 
       expect(response.statusCode).toBe(201);
       expect(scheduleInactivityChecks).toHaveBeenCalledTimes(1);
+    });
+
+    it('materializes once, with a default name the column can hold', async () => {
+      app = await buildTestApp(ownerUser);
+      bindStreamStarted();
+      const created = automationRow();
+      vi.mocked(instantiateTemplate).mockResolvedValue(created as never);
+      setupTransaction();
+      // The server the binding names, then the ref check, then the reply's read.
+      setupSelect([{ name: 'A'.repeat(100) }], [{ id: SERVER_ID }], [created]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/templates/${TEMPLATE_ID}/instantiate`,
+        payload: { inputs: { to: [DESTINATION_ID], server: SERVER_ID } },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(instantiateTemplate).toHaveBeenCalledTimes(1);
+      const binding = vi.mocked(instantiateTemplate).mock.calls[0]?.[2];
+      expect(binding?.definition.name).toHaveLength(100);
+      expect(binding?.definition.name.startsWith('Stream started — AAA')).toBe(true);
+    });
+
+    it('400s an input the template never declared', async () => {
+      app = await buildTestApp(ownerUser);
+      bindStreamStarted();
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/templates/${TEMPLATE_ID}/instantiate`,
+        payload: { inputs: { to: [DESTINATION_ID], sneaky: 'value' } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('Unknown input(s): sneaky');
+      expect(db.transaction).not.toHaveBeenCalled();
     });
 
     it('400s listing the required inputs nothing bound', async () => {

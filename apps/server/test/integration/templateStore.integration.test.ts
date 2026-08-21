@@ -7,15 +7,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { eq } from 'drizzle-orm';
-import {
-  TemplateBindingError,
-  fingerprintOf,
-  templateEnvelopeSchema,
-  type TemplateEnvelope,
-} from '@tracearr/shared';
+import { fingerprintOf, templateEnvelopeSchema, type TemplateEnvelope } from '@tracearr/shared';
 import { db } from '../../src/db/client.js';
 import { automationTemplates, automationVersions, servers } from '../../src/db/schema.js';
 import { BUILTIN_ENVELOPES } from '../../src/services/automations/templates/builtin/index.js';
+import {
+  defaultInstanceName,
+  materializeInstance,
+} from '../../src/services/automations/templates/materialize.js';
 import { seedBuiltinTemplates } from '../../src/services/automations/templates/seeder.js';
 import {
   TemplateFingerprintError,
@@ -51,12 +50,24 @@ function variant(slug: string, title: string): TemplateEnvelope {
 
 const imported = { source: 'import' } as const;
 
+/** What the instantiate route does: name it, bind it, then store the binding. */
 async function instantiate(
   templateId: string,
   inputs: Record<string, unknown>,
-  overrides: Parameters<typeof instantiateTemplate>[3] = {}
+  options: { name?: string } & Parameters<typeof instantiateTemplate>[3] = {}
 ) {
-  return db.transaction((tx) => instantiateTemplate(tx, templateId, inputs, overrides));
+  const { name, ...overrides } = options;
+  const template = await getTemplate(templateId);
+  if (!template) throw new Error(`no template ${templateId}`);
+  const bound = materializeInstance(
+    template.version,
+    inputs,
+    name ?? (await defaultInstanceName(db, template.name, template.version, inputs))
+  );
+  if (!bound.ok) throw new Error(bound.reason);
+  return db.transaction((tx) =>
+    instantiateTemplate(tx, template, { definition: bound.definition, inputs }, overrides)
+  );
 }
 
 describe('template store', () => {
@@ -164,6 +175,19 @@ describe('template store', () => {
         builtin: false,
         fingerprintMatch: false,
       });
+    });
+
+    it('lands an import on the same body under another slug', async () => {
+      const envelope = builtin('stream-started');
+      const first = await createTemplate(
+        templateEnvelopeSchema.parse({ ...envelope, slug: 'renamed-elsewhere' }),
+        imported
+      );
+
+      const second = await createTemplate(envelope, imported);
+
+      expect(second).toEqual({ id: first.id, version: 1, created: false });
+      expect(await db.select().from(automationTemplates)).toHaveLength(1);
     });
 
     it('finds nothing when neither the slug nor the body is stored', async () => {
@@ -280,10 +304,48 @@ describe('template store', () => {
       expect(named.name).toBe('My own name');
     });
 
+    it('keeps a long server name inside the name column', async () => {
+      const inserted = await db
+        .insert(servers)
+        .values({
+          name: 'A'.repeat(100),
+          type: 'plex',
+          url: 'http://localhost:32401',
+          token: 'x',
+        })
+        .returning();
+      const server = inserted[0];
+      if (!server) throw new Error('failed to insert the server');
+      const created = await createTemplate(builtin('stream-started'), imported);
+
+      const row = await instantiate(created.id, { server: server.id, to: [DESTINATION_ID] });
+
+      expect(row.name).toHaveLength(100);
+      expect(row.name.startsWith('Stream started — AAA')).toBe(true);
+    });
+
     it('lists the required inputs a caller left unbound', async () => {
       const created = await createTemplate(builtin('geo-restriction'), imported);
+      const template = await getTemplate(created.id);
+      if (!template) throw new Error('no template');
 
-      await expect(instantiate(created.id, {})).rejects.toBeInstanceOf(TemplateBindingError);
+      const bound = materializeInstance(template.version, {}, 'Blocked countries');
+
+      expect(bound).toEqual({ ok: false, reason: expect.stringContaining('countries') });
+    });
+
+    it('names an input the version never declared', async () => {
+      const created = await createTemplate(builtin('stream-started'), imported);
+      const template = await getTemplate(created.id);
+      if (!template) throw new Error('no template');
+
+      const bound = materializeInstance(
+        template.version,
+        { to: [DESTINATION_ID], nope: 1 },
+        'Stream started'
+      );
+
+      expect(bound).toEqual({ ok: false, reason: 'Unknown input(s): nope' });
     });
   });
 });

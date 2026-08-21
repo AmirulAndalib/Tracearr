@@ -9,6 +9,7 @@ import {
   fingerprintOf,
   liftAutomation,
   templateEnvelopeSchema,
+  type TEMPLATE_GROUPS,
   type TemplateEnvelope,
 } from '@tracearr/shared';
 import { firstIssueMessage } from '../../../utils/zod.js';
@@ -40,7 +41,11 @@ function exportedName(name: string, serverName: string | null | undefined): stri
 
 export function exportEnvelope(
   automation: AutomationRow,
-  context: { author?: string; serverName?: string | null }
+  context: {
+    author?: string;
+    group?: (typeof TEMPLATE_GROUPS)[number];
+    serverName?: string | null;
+  }
 ): ExportResult {
   const lifted = liftAutomation({
     name: automation.name,
@@ -62,7 +67,7 @@ export function exportEnvelope(
     slug: slugFor(name),
     name,
     description: (automation.description ?? '').slice(0, 300),
-    group: automation.kind === 'notification' ? 'notifications' : 'policies',
+    group: context.group ?? (automation.kind === 'notification' ? 'notifications' : 'policies'),
     kind: automation.kind,
     ...(context.author === undefined ? {} : { author: context.author }),
     minServerVersion: TEMPLATE_MIN_SERVER_VERSION,
