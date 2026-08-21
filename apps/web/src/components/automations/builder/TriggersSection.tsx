@@ -65,6 +65,10 @@ export function TriggersSection({
   const sectionIssues = issues.get(BUILDER_SECTIONS.triggers);
   const scopeIssues = issues.get(BUILDER_SECTIONS.scope);
 
+  const addTrigger = (value: string) => {
+    if (isTriggerType(value)) dispatch({ type: 'addTrigger', triggerType: value });
+  };
+
   return (
     <FlowStep
       step={1}
@@ -100,9 +104,7 @@ export function TriggersSection({
               entries={entries}
               suggested={suggested}
               label={t('automations.builder.when.emptyAction')}
-              onSelect={(value) => {
-                if (isTriggerType(value)) dispatch({ type: 'addTrigger', triggerType: value });
-              }}
+              onSelect={addTrigger}
             />
           }
         />
@@ -135,9 +137,7 @@ export function TriggersSection({
             entries={entries}
             suggested={suggested}
             label={t('automations.builder.when.add')}
-            onSelect={(value) => {
-              if (isTriggerType(value)) dispatch({ type: 'addTrigger', triggerType: value });
-            }}
+            onSelect={addTrigger}
           />
           <span className="text-muted-foreground ml-auto flex items-center gap-3 text-xs">
             <span className="flex items-center gap-1">

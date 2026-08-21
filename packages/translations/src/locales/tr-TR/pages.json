@@ -413,6 +413,8 @@
         "video_codec_after": "the video codec"
       },
       "includesSameDevice": "includes same device",
+      "joinAll": "and",
+      "joinAny": "or",
       "more_one": "+{{count}} more",
       "more_other": "+{{count}} more",
       "noValues": "(none)",

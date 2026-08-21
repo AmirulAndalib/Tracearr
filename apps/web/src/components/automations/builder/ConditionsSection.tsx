@@ -59,7 +59,7 @@ export function ConditionsSection({
       id={nodeDomId(BUILDER_SECTIONS.conditions)}
     >
       {groups.length === 0 ? (
-        <Item variant="muted" size="sm" className="border border-dashed">
+        <Item variant="outline" size="sm" className="bg-muted/20 border-dashed">
           <ItemContent>
             <p className="text-muted-foreground text-sm">
               {hasFields

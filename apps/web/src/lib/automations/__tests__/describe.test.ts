@@ -90,8 +90,8 @@ describe('describeAutomation', () => {
         servers: { 'server-1': 'Beehive' },
       })
     ).toBe(
-      'When a stream starts or a stream has been paused for 30 minutes, only when all of: ' +
-        'the user is not on the local network, the stream is transcoding; send to team-discord, ' +
+      'When a stream starts or a stream has been paused for 30 minutes, and only if ' +
+        'the user is not on the local network and the stream is transcoding; send to team-discord, ' +
         'then if the country is not US, stop the stream. Otherwise do nothing. Applies to Beehive.'
     );
   });
@@ -137,7 +137,7 @@ describe('describeAutomation', () => {
     const text = sentence(definition, { destinations: { 'destination-1': 'team-discord' } });
 
     expect(text).toBe(
-      'When a stream starts, only when the trust score is below 50; send to team-discord, ' +
+      'When a stream starts, and only if the trust score is below 50; send to team-discord, ' +
         'then if the user is on the local network, message the player. Otherwise do nothing.'
     );
     expect(text).not.toContain('a stream stops');
@@ -154,7 +154,7 @@ describe('describeAutomation', () => {
     });
 
     expect(text).toBe(
-      'When a stream starts, only when the stream count is above 3. Flag it, then stop the stream.'
+      'When a stream starts, and only if the stream count is above 3. Flag it, then stop the stream.'
     );
   });
 
@@ -206,7 +206,7 @@ describe('describeAutomation', () => {
     );
   });
 
-  it('says which way a group matches once it holds more than one condition', () => {
+  it('joins two conditions with the word for the way they match', () => {
     const text = sentence(
       {
         kind: 'notification',
@@ -228,11 +228,34 @@ describe('describeAutomation', () => {
     );
 
     expect(text).toBe(
-      'When a stream starts, only when any of: the trust score is below 50, ' +
+      'When a stream starts, and only if the trust score is below 50 or ' +
         'the country is one of United States, Canada, do something.'
     );
   });
 
+  it('lists three or more conditions rather than stringing the word between them', () => {
+    const text = sentence({
+      kind: 'notification',
+      triggers: [{ id: 'trigger-started', type: 'session.started', enabled: true }],
+      conditions: {
+        groups: [
+          {
+            match: 'all',
+            conditions: [
+              { field: 'trust_score', operator: 'lt', value: 50 },
+              { field: 'account_age_days', operator: 'lt', value: 7 },
+              { field: 'is_local_network', operator: 'eq', value: false },
+            ],
+          },
+        ],
+      },
+      actions: { actions: [] },
+    });
+
+    expect(text).toBe(
+      'When a stream starts, and only if all of: the trust score is below 50, ' +
+        'the account age is below 7 days, the user is not on the local network, do something.'
+    );
   it('separates one group from the next even when its list was cut short', () => {
     const text = sentence(
       {
@@ -276,7 +299,7 @@ describe('describeAutomation', () => {
       actions: { actions: [] },
     });
 
-    expect(text).toContain('only when any of:');
+    expect(text).toContain('the trust score is below 50 or the account age is below 7 days');
   });
 
   it('offers the trigger slot when no trigger is enabled', () => {
@@ -360,6 +383,8 @@ describe('describeAutomation', () => {
       'trigger-started',
       'group-1',
       'condition-1',
+      // the word joining the two checks came from neither of them
+      null,
       'condition-2',
       'action-send',
     ]);
@@ -470,8 +495,8 @@ describe('describeAutomation', () => {
     });
 
     expect(text).toBe(
-      'When a stream starts, only when all of: the trust score is below 50, ' +
-        'the account age is below 7 days; and also any of: the media type is one of Movie, ' +
+      'When a stream starts, and only if the trust score is below 50 and ' +
+        'the account age is below 7 days; and also the media type is one of Movie or ' +
         'the platform is one of Roku, do something.'
     );
   });

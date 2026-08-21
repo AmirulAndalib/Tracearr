@@ -99,6 +99,10 @@ export function ActionsSection({
 
   const sectionIssues = issues.get(BUILDER_SECTIONS.actions);
 
+  const addAction = (value: string) => {
+    if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
+  };
+
   const menuFor = (action: Action, index: number) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -152,9 +156,7 @@ export function ActionsSection({
               entries={entries}
               suggested={suggested}
               label={t('pages:automations.builder.actions.emptyAction')}
-              onSelect={(value) => {
-                if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
-              }}
+              onSelect={addAction}
             />
           }
         />
@@ -203,9 +205,7 @@ export function ActionsSection({
             entries={entries}
             suggested={suggested}
             label={t('pages:automations.builder.actions.add')}
-            onSelect={(value) => {
-              if (isActionType(value)) dispatch({ type: 'addAction', actionType: value });
-            }}
+            onSelect={addAction}
           />
           <span className="text-muted-foreground ml-auto flex flex-wrap items-center gap-3 text-xs">
             <span className="flex items-center gap-1">

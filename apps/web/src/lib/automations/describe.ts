@@ -305,7 +305,8 @@ function describeCondition(ctx: Describe, condition: DescribableCondition): stri
 
 /**
  * The condition groups as fragments. `lead` opens the first group; the rest carry
- * "and also", and a group of one condition needs no all-of / any-of at all.
+ * "and also". Two conditions read as a sentence joined by "and" or "or"; three or
+ * more take the list form, where the joining word would be lost among the commas.
  */
 function describeGroups(
   ctx: Describe,
@@ -324,15 +325,24 @@ function describeGroups(
       connector = ctx.t('automations.describe.andAlso');
     }
     // A group saved before `match` existed matches any of its conditions.
-    const match =
-      conditions.length > 1
-        ? ctx.t(group.match === 'all' ? 'automations.describe.allOf' : 'automations.describe.anyOf')
-        : null;
+    const all = group.match === 'all';
+    const listed = conditions.length > 2;
+    const match = listed
+      ? ctx.t(all ? 'automations.describe.allOf' : 'automations.describe.anyOf')
+      : null;
     const prefix = [connector, match].filter((part) => part !== null).join(' ');
     if (prefix) fragments.push({ nodeId: group.id ?? null, text: prefix });
 
     conditions.forEach((condition, index) => {
-      if (index > 0) appendSuffix(fragments, ',');
+      if (index > 0) {
+        if (listed) appendSuffix(fragments, ',');
+        else {
+          fragments.push({
+            nodeId: null,
+            text: ctx.t(all ? 'automations.describe.joinAll' : 'automations.describe.joinAny'),
+          });
+        }
+      }
       fragments.push({ nodeId: condition.id ?? null, text: describeCondition(ctx, condition) });
     });
   }
