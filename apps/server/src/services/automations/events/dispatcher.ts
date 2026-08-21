@@ -1,4 +1,4 @@
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import type {
   DispatchOptions,
   DispatchResult,
@@ -64,7 +64,7 @@ export async function dispatch(
       outcomes.push({ subscriber: name, ok: true });
     } catch (error) {
       if (opts.tx) throw error;
-      rulesLogger.error('Rule subscriber failed', {
+      automationsLogger.error('Rule subscriber failed', {
         trigger: event.type,
         subscriber: name,
         subject: subjectOf(event),

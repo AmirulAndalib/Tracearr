@@ -10,7 +10,7 @@ import { eq, sql } from 'drizzle-orm';
 import { REDIS_KEYS } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
 import { serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
-import { rulesLogger } from '../../utils/logger.js';
+import { automationsLogger } from '../../utils/logger.js';
 import { recomputeIdentityAggregates } from '../userService.js';
 import {
   setActionExecutorDeps,
@@ -87,7 +87,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         source: { kind: 'rule', title, message },
       });
       if (count > 0) {
-        rulesLogger.info(`Notification enqueued: ${title}`, { to, count });
+        automationsLogger.info(`Notification enqueued: ${title}`, { to, count });
       }
       return count;
     },
@@ -116,7 +116,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         }
       });
 
-      rulesLogger.debug(`Adjusted trust score by ${delta}`, { userId: serverUserId });
+      automationsLogger.debug(`Adjusted trust score by ${delta}`, { userId: serverUserId });
     },
 
     /**
@@ -141,7 +141,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         }
       });
 
-      rulesLogger.debug(`Set trust score to ${clampedValue}`, { userId: serverUserId });
+      automationsLogger.debug(`Set trust score to ${clampedValue}`, { userId: serverUserId });
     },
 
     /**
@@ -163,7 +163,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         }
       });
 
-      rulesLogger.debug('Reset trust score to 100', { userId: serverUserId });
+      automationsLogger.debug('Reset trust score to 100', { userId: serverUserId });
     },
 
     /**
@@ -202,7 +202,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
         delaySeconds
       );
 
-      rulesLogger.debug('Kill enqueued', {
+      automationsLogger.debug('Kill enqueued', {
         targetSessionId: sessionId,
         triggeringSessionId: triggeringSessionId ?? sessionId,
         serverId,
@@ -230,13 +230,13 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       });
 
       if (!session) {
-        rulesLogger.warn('Cannot send message: session not found', { sessionId });
+        automationsLogger.warn('Cannot send message: session not found', { sessionId });
         return;
       }
 
       // Plex doesn't support client messaging
       if (session.server.type === 'plex') {
-        rulesLogger.debug('Skipping message_client for Plex (not supported)', { sessionId });
+        automationsLogger.debug('Skipping message_client for Plex (not supported)', { sessionId });
         return;
       }
 
@@ -251,7 +251,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       // Jellyfin/Emby use sessionKey for API calls
       if ('sendMessage' in client && typeof client.sendMessage === 'function') {
         await client.sendMessage(session.sessionKey, message, 'Tracearr', 10000);
-        rulesLogger.debug('Client message sent', { sessionId, message });
+        automationsLogger.debug('Client message sent', { sessionId, message });
       }
     },
 
@@ -269,7 +269,7 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       const key = REDIS_KEYS.ACTION_COOLDOWN(ruleId, targetId);
       await armCooldown(redis, key, cooldownMinutes);
 
-      rulesLogger.debug(`Set cooldown for ${cooldownMinutes} minutes`, {
+      automationsLogger.debug(`Set cooldown for ${cooldownMinutes} minutes`, {
         ruleId,
         targetId,
         key,
@@ -336,12 +336,12 @@ export async function convertV1Rule(executor: Executor, row: LegacyAutomationRow
  * @param redis - Redis client for cooldown tracking
  */
 export async function initializeV2Rules(redis: Redis): Promise<void> {
-  rulesLogger.info('Initializing V2 rules system...');
+  automationsLogger.info('Initializing V2 rules system...');
 
   // Wire action executor dependencies
   const deps = createActionExecutorDeps(redis);
   setActionExecutorDeps(deps);
-  rulesLogger.debug('Action executor dependencies wired');
+  automationsLogger.debug('Action executor dependencies wired');
 
-  rulesLogger.info('V2 rules system initialized');
+  automationsLogger.info('V2 rules system initialized');
 }

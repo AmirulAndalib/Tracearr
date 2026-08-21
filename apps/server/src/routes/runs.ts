@@ -96,7 +96,7 @@ export async function countRuns(where: SQL | undefined): Promise<number> {
 export type RunSummaryRow = Awaited<ReturnType<typeof buildRunSummaryQuery>>[number];
 
 export const mapRunSummary = (row: RunSummaryRow): AutomationRunSummary =>
-  toRunSummary(row, row.automationName, row.serverId);
+  toRunSummary(row, row.automationName);
 
 /** Runs are attributed through their server account; a caller sees the servers it can reach. */
 export function runAccessCondition(authUser: AuthUser): {

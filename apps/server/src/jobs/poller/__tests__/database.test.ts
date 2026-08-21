@@ -23,7 +23,7 @@ vi.mock('../../../db/schema.js', async (importOriginal) => {
 const mockWarn = vi.fn();
 vi.mock('../../../utils/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
-  rulesLogger: {
+  automationsLogger: {
     info: vi.fn(),
     warn: (...a: unknown[]) => mockWarn(...a),
     error: vi.fn(),
@@ -36,7 +36,7 @@ import {
   getActiveAutomations,
   invalidateAutomationsCache,
   mapAutomationRow,
-  maxWindowHoursFromRules,
+  maxWindowHoursFromAutomations,
 } from '../database.js';
 import type { EngineAutomation } from '@tracearr/shared';
 
@@ -213,7 +213,7 @@ describe('mapAutomationRow triggers', () => {
   });
 });
 
-describe('maxWindowHoursFromRules', () => {
+describe('maxWindowHoursFromAutomations', () => {
   const windowedRule = (windowHours?: number) =>
     ({
       conditions: {
@@ -233,19 +233,21 @@ describe('maxWindowHoursFromRules', () => {
     }) as EngineAutomation;
 
   it('defaults to 24 when no rule sets a window', () => {
-    expect(maxWindowHoursFromRules([])).toBe(24);
-    expect(maxWindowHoursFromRules([windowedRule()])).toBe(24);
+    expect(maxWindowHoursFromAutomations([])).toBe(24);
+    expect(maxWindowHoursFromAutomations([windowedRule()])).toBe(24);
   });
 
   it('returns the largest window across rules', () => {
-    expect(maxWindowHoursFromRules([windowedRule(48), windowedRule(72), windowedRule(6)])).toBe(72);
+    expect(
+      maxWindowHoursFromAutomations([windowedRule(48), windowedRule(72), windowedRule(6)])
+    ).toBe(72);
   });
 
   it('never drops below 24 for short windows', () => {
-    expect(maxWindowHoursFromRules([windowedRule(2)])).toBe(24);
+    expect(maxWindowHoursFromAutomations([windowedRule(2)])).toBe(24);
   });
 
   it('caps at 168 hours', () => {
-    expect(maxWindowHoursFromRules([windowedRule(500)])).toBe(168);
+    expect(maxWindowHoursFromAutomations([windowedRule(500)])).toBe(168);
   });
 });

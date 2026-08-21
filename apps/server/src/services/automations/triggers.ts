@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { rulesLogger } from '../../utils/logger.js';
+import { automationsLogger } from '../../utils/logger.js';
 import type {
   Condition,
   ConditionField,
@@ -47,7 +47,7 @@ function threshold(condition: Condition, max: number, automationId?: string): nu
   if (typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= max) {
     return value;
   }
-  rulesLogger.warn('Condition threshold outside the trigger range; node stamped disabled', {
+  automationsLogger.warn('Condition threshold outside the trigger range; node stamped disabled', {
     automationId: automationId ?? null,
     field: condition.field,
     operator: condition.operator,

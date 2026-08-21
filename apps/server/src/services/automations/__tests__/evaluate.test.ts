@@ -9,15 +9,17 @@ import type {
 import type {
   AccountInactiveForEvent,
   EvaluationInputs,
+  ServerDownEvent,
   SessionHeldForEvent,
   SessionPausedEvent,
   SessionStartedEvent,
   SessionTranscodeChangedEvent,
+  TracearrUpdateEvent,
   TriggerType,
 } from '../events/types.js';
 
 vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 
@@ -176,7 +178,7 @@ describe('triggerCandidates', () => {
       next: { videoDecision: 'transcode', audioDecision: 'copy' },
     };
 
-    const { rules, baseContext } = triggerCandidates(event, inputs);
+    const { rules, baseContext } = triggerCandidates(event, inputs, 's1');
 
     expect(rules.map((r) => r.id)).toEqual(['t']);
     expect(baseContext.session).toBe(session);
@@ -201,7 +203,7 @@ describe('triggerCandidates', () => {
       session,
       pauseData: { lastPausedAt: new Date(), pausedDurationMs: 0 },
     };
-    const { baseContext } = triggerCandidates(event, inputs);
+    const { baseContext } = triggerCandidates(event, inputs, 's1');
     expect(baseContext.activeSessions).toHaveLength(1);
   });
 
@@ -220,7 +222,7 @@ describe('triggerCandidates', () => {
       session: null,
     };
 
-    const { rules, baseContext } = triggerCandidates(event, inputs);
+    const { rules, baseContext } = triggerCandidates(event, inputs, 'su1');
 
     expect(rules.map((r) => r.id)).toEqual(['i']);
     expect(baseContext.session).toBeNull();
@@ -241,7 +243,7 @@ describe('triggerCandidates', () => {
       session,
       pauseData: { lastPausedAt: new Date(), pausedDurationMs: 0 },
     };
-    expect(triggerCandidates(event, inputs).rules).toEqual([]);
+    expect(triggerCandidates(event, inputs, 's1').rules).toEqual([]);
   });
 
   it('drops rules the scope filters exclude before anything is evaluated', () => {
@@ -264,7 +266,68 @@ describe('triggerCandidates', () => {
       session,
     };
 
-    expect(triggerCandidates(event, inputs).rules.map((r) => r.id)).toEqual(['c']);
+    expect(triggerCandidates(event, inputs, 's1').rules.map((r) => r.id)).toEqual(['c']);
+  });
+});
+
+describe('triggerCandidates without a user', () => {
+  const notify = (id: string, type: TriggerNode['type']): EngineAutomation =>
+    ({
+      id,
+      name: id,
+      isActive: true,
+      kind: 'notification',
+      severity: null,
+      conditions: { groups: [] },
+      actions: { actions: [] },
+      triggers: [{ id: `${id}-node`, type, enabled: true }],
+    }) as unknown as EngineAutomation;
+
+  const downEvent: ServerDownEvent = { type: 'server.down', at: new Date(), server };
+
+  it('builds a server-only context and keeps the server-scoped automation', () => {
+    const scoped = { ...notify('down', 'server.down'), serverId: 'srv1' };
+    const elsewhere = { ...notify('elsewhere', 'server.down'), serverId: 'srv2' };
+    const account = { ...notify('account', 'server.down'), serverUserId: 'su1' };
+    const inputs: EvaluationInputs = {
+      activeAutomations: [scoped, elsewhere, account, ...all],
+      activeSessions: [session],
+      recentSessions: [],
+    };
+
+    const { rules, baseContext } = triggerCandidates(downEvent, inputs, 'server:srv1');
+
+    expect(rules.map((r) => r.id)).toEqual(['down']);
+    expect(baseContext.session).toBeNull();
+    expect(baseContext.serverUser).toBeNull();
+    expect(baseContext.server).toMatchObject({ id: 'srv1', type: 'plex' });
+    expect(baseContext.subjectKey).toBe('server:srv1');
+    expect(baseContext.activeSessions).toBe(inputs.activeSessions);
+    expect(baseContext.recentSessions).toEqual([]);
+    expect(baseContext.identityServerUserIds).toEqual([]);
+  });
+
+  it('builds an install context with no server behind it', () => {
+    const install = notify('update', 'tracearr.update_available');
+    const event: TracearrUpdateEvent = {
+      type: 'tracearr.update_available',
+      at: new Date(),
+      current: '1.0.0',
+      latest: '1.1.0',
+      releaseUrl: 'https://example.test',
+    };
+    const inputs: EvaluationInputs = {
+      activeAutomations: [install, { ...install, id: 'scoped', serverId: 'srv1' }],
+      activeSessions: [],
+      recentSessions: [],
+    };
+
+    const { rules, baseContext } = triggerCandidates(event, inputs, 'install');
+
+    expect(rules.map((r) => r.id)).toEqual(['update']);
+    expect(baseContext.server).toBeNull();
+    expect(baseContext.serverUser).toBeNull();
+    expect(baseContext.subjectKey).toBe('install');
   });
 });
 

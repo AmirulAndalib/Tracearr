@@ -2,11 +2,11 @@
  * Run Retention Queue - BullMQ-based daily purge of aged automation runs
  *
  * Completed runs age out on their kind's window (notification 30 days, policy
- * 365) unless the automation overrides it with retention_days, and only
- * session-bound ones go. Account-keyed completed runs are excluded for both
- * kinds: inactivity dedup blocks on any row for user + automation, and
- * account.inactive_for notifications carry a constant edgeKey, so deleting the
- * row re-fires the automation every cycle.
+ * 365) unless the automation overrides it with retention_days. Account-keyed
+ * completed runs are the one exemption, for both kinds: inactivity dedup blocks
+ * on any row for user + automation, and account.inactive_for notifications carry
+ * a constant edgeKey, so deleting the row re-fires the automation every cycle.
+ * Session, server and install rows all carry a moving edge, so they purge.
  *
  * Non-completed runs are diagnostics, written per candidate automation per
  * event: they go at 30 days flat whatever the kind, the override or the session
@@ -248,7 +248,8 @@ function completedOfGroup(kind: AutomationKind, group: RetentionGroup): SQL {
     group.automationIds.map((id) => sql`${id}`),
     sql`, `
   );
-  return sql`ar.kind = ${kind} AND ar.outcome = 'completed' AND ar.session_id IS NOT NULL
+  return sql`ar.kind = ${kind} AND ar.outcome = 'completed'
+    AND (ar.session_id IS NOT NULL OR ar.server_user_id IS NULL)
     AND ar.rule_id IN (${ids}) AND ar.finished_at < ${group.cutoff}`;
 }
 

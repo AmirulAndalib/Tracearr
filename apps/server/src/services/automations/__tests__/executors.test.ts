@@ -10,7 +10,7 @@ import type {
   KillStreamAction,
   MessageClientAction,
 } from '@tracearr/shared';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import { synthesizeTriggers } from '../triggers.js';
 import {
   setActionExecutorDeps,
@@ -21,7 +21,11 @@ import {
   executorRegistry,
   type ActionExecutorDeps,
 } from '../executors/index.js';
-import type { EvaluationContext, SessionEvaluationContext } from '../types.js';
+import type {
+  AccountEvaluationContext,
+  EvaluationContext,
+  SessionEvaluationContext,
+} from '../types.js';
 
 // Mock factories for testing - matching actual types from @tracearr/shared
 function createMockSession(overrides: Partial<Session> = {}): Session {
@@ -167,6 +171,7 @@ function createMockContext(
     session,
     server: createMockServer(),
     serverUser: createMockServerUser(),
+    subjectKey: session.id,
     rule: createMockRule(),
     activeSessions: [session],
     recentSessions: [session],
@@ -324,7 +329,7 @@ describe('Action Executor Registry', () => {
 
       it('logs when no enabled destination resolves', async () => {
         (mockDeps.enqueueRuleNotification as ReturnType<typeof vi.fn>).mockResolvedValue(0);
-        const info = vi.spyOn(rulesLogger, 'info').mockImplementation(() => undefined);
+        const info = vi.spyOn(automationsLogger, 'info').mockImplementation(() => undefined);
         const context = createMockContext();
 
         await executeAction(context, { type: 'send', to: ['d1'] });
@@ -503,7 +508,7 @@ describe('Action Executor Registry', () => {
         expect(mockDeps.setCooldown).not.toHaveBeenCalled();
       });
 
-      it('should carry cooldown_minutes and the triggering serverUserId through to terminateSession', async () => {
+      it('should carry cooldown_minutes and the cooldown account through to terminateSession', async () => {
         const context = createMockContext();
         const action: KillStreamAction = { type: 'kill_stream', cooldown_minutes: 10 };
 
@@ -871,6 +876,25 @@ describe('Action Executor Registry', () => {
           5
         );
       });
+
+      it('falls back to the run subject when the context has no account', async () => {
+        const context: EvaluationContext = {
+          ...createMockContext(),
+          session: null,
+          serverUser: null,
+          subjectKey: 'server:server-1',
+          activeSessions: [],
+          recentSessions: [],
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'], cooldown_minutes: 5 });
+
+        expect(mockDeps.checkCooldown).toHaveBeenCalledWith(
+          context.rule.id,
+          `${context.rule.id}:server:server-1:send`,
+          5
+        );
+      });
     });
 
     describe('Error Handling', () => {
@@ -945,15 +969,189 @@ describe('Action Executor Registry', () => {
     });
   });
 
+  describe('disabled nodes', () => {
+    let mockDeps: ActionExecutorDeps;
+
+    beforeEach(() => {
+      mockDeps = createMockDeps();
+      setActionExecutorDeps(mockDeps);
+    });
+
+    afterEach(() => {
+      resetActionExecutorDeps();
+    });
+
+    it('records a disabled action as skipped and runs nothing', async () => {
+      const context = createMockContext();
+      const actions: Action[] = [
+        { type: 'send', to: ['d1'], cooldown_minutes: 5, enabled: false },
+        { type: 'trust', mode: 'reset' },
+      ];
+
+      const results = await executeActions(context, actions);
+
+      expect(results).toHaveLength(2);
+      expect(results[0]).toMatchObject({ success: true, skipped: true, skipReason: 'disabled' });
+      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+      expect(mockDeps.checkCooldown).not.toHaveBeenCalled();
+      expect(mockDeps.setCooldown).not.toHaveBeenCalled();
+      expect(mockDeps.resetUserTrust).toHaveBeenCalled();
+    });
+
+    it('skips a disabled if with one step and leaves both branches alone', async () => {
+      const context = createMockContext();
+      const actions: Action[] = [
+        {
+          type: 'if',
+          id: 'if-1',
+          enabled: false,
+          conditions: {
+            groups: [{ conditions: [{ field: 'media_type', operator: 'eq', value: 'movie' }] }],
+          },
+          then: [{ type: 'trust', mode: 'reset' }],
+          else: [{ type: 'send', to: ['d1'] }],
+        },
+      ];
+
+      const results = await executeActions(context, actions);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({ success: true, skipped: true, skipReason: 'disabled' });
+      expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('if', () => {
+    let mockDeps: ActionExecutorDeps;
+
+    beforeEach(() => {
+      mockDeps = createMockDeps();
+      setActionExecutorDeps(mockDeps);
+    });
+
+    afterEach(() => {
+      resetActionExecutorDeps();
+    });
+
+    const ifAction = (value: string): Action => ({
+      type: 'if',
+      id: 'if-1',
+      conditions: {
+        groups: [{ conditions: [{ field: 'media_type', operator: 'eq', value }] }],
+      },
+      then: [{ type: 'trust', mode: 'reset' }],
+      else: [
+        { type: 'send', to: ['d1'] },
+        { type: 'message_client', message: 'stop' },
+      ],
+    });
+
+    it('runs the then branch and paths its leaves under the node', async () => {
+      const context = createMockContext();
+
+      const results = await executeActions(context, [ifAction('movie')]);
+
+      expect(results).toHaveLength(2);
+      expect(results[0]).toMatchObject({ success: true, branch: 'then', matched: true });
+      expect(results[0]?.evidence?.[0]).toMatchObject({ groupIndex: 0, matched: true });
+      expect(results[0]?.path).toBeUndefined();
+      expect(results[1]).toMatchObject({ success: true, path: 'if-1.then.0' });
+      expect(results[1]?.action.type).toBe('trust');
+      expect(mockDeps.resetUserTrust).toHaveBeenCalled();
+      expect(mockDeps.enqueueRuleNotification).not.toHaveBeenCalled();
+    });
+
+    it('runs the else branch when the conditions fail', async () => {
+      const context = createMockContext();
+
+      const results = await executeActions(context, [ifAction('episode')]);
+
+      expect(results).toHaveLength(3);
+      expect(results[0]).toMatchObject({ branch: 'else', matched: false });
+      expect(results.map((r) => r.path)).toEqual([undefined, 'if-1.else.0', 'if-1.else.1']);
+      expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
+      expect(mockDeps.enqueueRuleNotification).toHaveBeenCalled();
+      expect(mockDeps.sendClientMessage).toHaveBeenCalled();
+    });
+
+    it('skips a disabled leaf inside a branch and keeps its path', async () => {
+      const context = createMockContext();
+      const action: Action = {
+        type: 'if',
+        id: 'if-1',
+        conditions: {
+          groups: [{ conditions: [{ field: 'media_type', operator: 'eq', value: 'movie' }] }],
+        },
+        then: [{ type: 'trust', mode: 'reset', enabled: false }],
+        else: [],
+      };
+
+      const results = await executeActions(context, [action]);
+
+      expect(results[1]).toMatchObject({
+        skipped: true,
+        skipReason: 'disabled',
+        path: 'if-1.then.0',
+      });
+      expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
+    });
+
+    it('paths an if with no id by its place in the action list', async () => {
+      const context = createMockContext();
+      const unstamped = (): Action => ({
+        type: 'if',
+        conditions: {
+          groups: [{ conditions: [{ field: 'media_type', operator: 'eq', value: 'movie' }] }],
+        },
+        then: [{ type: 'trust', mode: 'reset' }],
+        else: [],
+      });
+
+      const results = await executeActions(context, [unstamped(), unstamped()]);
+
+      expect(results.map((r) => r.path)).toEqual([
+        undefined,
+        'if@0.then.0',
+        undefined,
+        'if@1.then.0',
+      ]);
+    });
+
+    it('runs a branch leaf through the same cooldown and skip rules', async () => {
+      (mockDeps.checkCooldown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+      const context = createMockContext();
+      const action: Action = {
+        type: 'if',
+        id: 'if-1',
+        conditions: {
+          groups: [{ conditions: [{ field: 'media_type', operator: 'eq', value: 'movie' }] }],
+        },
+        then: [{ type: 'send', to: ['d1'], cooldown_minutes: 5 }],
+        else: [],
+      };
+
+      const results = await executeActions(context, [action]);
+
+      expect(mockDeps.checkCooldown).toHaveBeenCalledWith(
+        context.rule.id,
+        `${context.rule.id}:${context.serverUser.id}:send`,
+        5
+      );
+      expect(results[1]).toMatchObject({ skipped: true, path: 'if-1.then.0' });
+    });
+  });
+
   describe('without a session (account violations)', () => {
     let mockDeps: ActionExecutorDeps;
     const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
 
-    function createAccountContext(serverUser: ServerUser): EvaluationContext {
+    function createAccountContext(serverUser: ServerUser): AccountEvaluationContext {
       return {
         ...createMockContext(),
         session: null,
         serverUser,
+        subjectKey: serverUser.id,
         activeSessions: [],
         recentSessions: [],
       };
@@ -1104,6 +1302,26 @@ describe('Action Executor Registry', () => {
       expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
       expect(results[0]).toMatchObject({ success: false, message: 'discord webhook 500' });
       expect(results[1]).toMatchObject({ success: true });
+    });
+
+    it('skips trust when there is no account to adjust', async () => {
+      const context: EvaluationContext = {
+        ...createMockContext(),
+        session: null,
+        serverUser: null,
+        subjectKey: 'server:server-1',
+        activeSessions: [],
+        recentSessions: [],
+      };
+
+      const results = await executeActions(context, [{ type: 'trust', mode: 'reset' }]);
+
+      expect(results[0]).toMatchObject({
+        success: true,
+        skipped: true,
+        skipReason: 'No account to adjust',
+      });
+      expect(mockDeps.resetUserTrust).not.toHaveBeenCalled();
     });
 
     it('does nothing when the rule has no actions', async () => {

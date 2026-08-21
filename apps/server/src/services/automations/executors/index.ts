@@ -1,6 +1,8 @@
 import { TIME_MS } from '@tracearr/shared';
 import type {
   Action,
+  GroupEvidence,
+  IfAction,
   LeafActionType,
   SendAction,
   TrustAction,
@@ -8,8 +10,9 @@ import type {
   MessageClientAction,
   ServerUser,
 } from '@tracearr/shared';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import type { NotificationEvent } from '../../notifications/events.js';
+import { evaluateAllGroupsAsync } from '../engine.js';
 import type { ActionExecutor, EvaluationContext } from '../types.js';
 import { resolveTargetSessions } from './targeting.js';
 
@@ -25,6 +28,12 @@ export interface ActionResult {
   /** kill_stream only: target session ids actually handed to the kill queue.
    *  Enqueue, not execution - reverify can still abort before terminating. */
   enqueuedSessionIds?: string[];
+  /** `if` only: which branch ran, whether its conditions matched, and what they read. */
+  branch?: 'then' | 'else';
+  matched?: boolean;
+  evidence?: GroupEvidence[];
+  /** A leaf inside a branch: `<ifNodeId>.<then|else>.<index>`. */
+  path?: string;
 }
 
 /**
@@ -50,9 +59,9 @@ export interface ActionExecutorDeps {
     delay?: number,
     message?: string,
     identityServerUserIds?: string[],
-    /** Rule's cooldown_minutes at match time, keyed to the triggering
-     *  account. Carried through so the kill worker can arm the cooldown
-     *  only once the kill actually executes, not at enqueue time. */
+    /** Rule's cooldown_minutes at match time, keyed like every other action
+     *  cooldown. Carried through so the kill worker can arm the cooldown only
+     *  once the kill actually executes, not at enqueue time. */
     cooldown?: { minutes: number; triggeringServerUserId: string },
     /** The session that matched the rule. Carried alongside the target so the
      *  kill worker re-verifies the condition against the trigger's context, not
@@ -152,14 +161,14 @@ function accountInactivityMessage(serverUser: ServerUser): string {
 const executeSend: ActionExecutor = async (
   context: EvaluationContext,
   action: Action
-): Promise<void> => {
+): Promise<{ skipReason: string } | void> => {
   const { session, serverUser, server, rule } = context;
   const typedAction = action as SendAction;
   const to = typedAction.to;
 
-  if (to.length === 0) {
-    return;
-  }
+  if (to.length === 0) return;
+  // Until each trigger renders its own event, the notification is user-shaped.
+  if (!serverUser || !server) return { skipReason: 'No account to notify about' };
 
   const title = `Rule Triggered: ${rule.name}`;
   const message = session
@@ -203,7 +212,7 @@ const executeSend: ActionExecutor = async (
 
   const enqueued = await currentDeps.enqueueRuleNotification({ to, title, message, event });
   if (enqueued === 0) {
-    rulesLogger.info('send resolved no enabled destination', { ruleId: rule.id, to });
+    automationsLogger.info('send resolved no enabled destination', { ruleId: rule.id, to });
   }
 };
 
@@ -213,8 +222,9 @@ const executeSend: ActionExecutor = async (
 const executeTrust: ActionExecutor = async (
   context: EvaluationContext,
   action: Action
-): Promise<void> => {
+): Promise<{ skipReason: string } | void> => {
   const { serverUser } = context;
+  if (!serverUser) return { skipReason: 'No account to adjust' };
   const typedAction = action as TrustAction;
 
   switch (typedAction.mode) {
@@ -244,7 +254,7 @@ const executeKillStream: ActionExecutor = async (
   context: EvaluationContext,
   action: Action
 ): Promise<{ enqueuedSessionIds: string[]; queueFailure: boolean }> => {
-  const { session, serverUser, activeSessions, rule, identityServerUserIds } = context;
+  const { session, activeSessions, rule, identityServerUserIds } = context;
   if (!session) return { enqueuedSessionIds: [], queueFailure: false };
   const typedAction = action as KillStreamAction;
   const delaySeconds = typedAction.delay_seconds ?? 0;
@@ -257,7 +267,7 @@ const executeKillStream: ActionExecutor = async (
   // target session ends up killed.
   const cooldown =
     cooldownMinutes && cooldownMinutes > 0
-      ? { minutes: cooldownMinutes, triggeringServerUserId: serverUser.id }
+      ? { minutes: cooldownMinutes, triggeringServerUserId: cooldownTargetOf(context) }
       : undefined;
 
   // Include triggering session in activeSessions if not already present.
@@ -275,7 +285,7 @@ const executeKillStream: ActionExecutor = async (
   const sessionsToKill = resolveTargetSessions({
     target,
     triggeringSession: session,
-    serverUserId: serverUser.id,
+    serverUserId: session.serverUserId,
     activeSessions: sessionsForTargeting,
     identityServerUserIds: rule.enforceAcrossServers ? identityServerUserIds : undefined,
   });
@@ -321,7 +331,7 @@ const executeMessageClient: ActionExecutor = async (
   context: EvaluationContext,
   action: Action
 ): Promise<void> => {
-  const { session, serverUser, activeSessions, rule, identityServerUserIds } = context;
+  const { session, activeSessions, rule, identityServerUserIds } = context;
   if (!session) return;
   const typedAction = action as MessageClientAction;
   const message = typedAction.message;
@@ -343,7 +353,7 @@ const executeMessageClient: ActionExecutor = async (
   const sessionsToMessage = resolveTargetSessions({
     target,
     triggeringSession: session,
-    serverUserId: serverUser.id,
+    serverUserId: session.serverUserId,
     activeSessions: sessionsForTargeting,
     identityServerUserIds: rule.enforceAcrossServers ? identityServerUserIds : undefined,
   });
@@ -376,10 +386,24 @@ export const executorRegistry: Record<LeafActionType, ActionExecutor> = {
  */
 export function cooldownTargetId(
   ruleId: string,
-  serverUserId: string,
+  target: string,
   actionType: Action['type']
 ): string {
-  return `${ruleId}:${serverUserId}:${actionType}`;
+  return `${ruleId}:${target}:${actionType}`;
+}
+
+/**
+ * Per-action cooldowns stay account-level wherever there is an account, so a
+ * send cooldown still spans that user's sessions; server and install runs have
+ * no account and key on the run's subject instead.
+ */
+function cooldownTargetOf(context: EvaluationContext): string {
+  return context.serverUser?.id ?? context.subjectKey;
+}
+
+/** One shape for every node the executor declines to run. */
+function skippedResult(action: Action, skipReason: string): ActionResult {
+  return { action, success: true, skipped: true, skipReason };
 }
 
 /**
@@ -389,7 +413,7 @@ export async function executeAction(
   context: EvaluationContext,
   action: Action
 ): Promise<ActionResult> {
-  const { rule, serverUser } = context;
+  const { rule } = context;
   // `if` is a control node, not an effect, so it has no executor.
   const executor = action.type === 'if' ? undefined : executorRegistry[action.type];
 
@@ -402,39 +426,30 @@ export async function executeAction(
   }
 
   if (!context.session && (action.type === 'kill_stream' || action.type === 'message_client')) {
-    return {
-      action,
-      success: true,
-      skipped: true,
-      skipReason: 'No active session for an inactivity violation',
-    };
+    return skippedResult(action, 'No active session for an inactivity violation');
   }
 
   // Check cooldown
   const cooldownMinutes = getCooldownMinutes(action);
   if (cooldownMinutes && cooldownMinutes > 0) {
-    const targetId = cooldownTargetId(rule.id, serverUser.id, action.type);
+    const targetId = cooldownTargetId(rule.id, cooldownTargetOf(context), action.type);
     const onCooldown = await currentDeps.checkCooldown(rule.id, targetId, cooldownMinutes);
 
     if (onCooldown) {
-      return {
-        action,
-        success: true,
-        skipped: true,
-        skipReason: `On cooldown (${cooldownMinutes} minutes)`,
-      };
+      return skippedResult(action, `On cooldown (${cooldownMinutes} minutes)`);
     }
   }
 
   // Execute the action
   try {
     const executorResult = await executor(context, action);
+    if (executorResult?.skipReason) return skippedResult(action, executorResult.skipReason);
 
     // Set cooldown after successful execution. kill_stream is excluded: its
     // cooldown arms later, once the queue reports the kill actually executed
     // (see killQueue.ts) - an aborted kill must not start the cooldown.
     if (cooldownMinutes && cooldownMinutes > 0 && action.type !== 'kill_stream') {
-      const targetId = cooldownTargetId(rule.id, serverUser.id, action.type);
+      const targetId = cooldownTargetId(rule.id, cooldownTargetOf(context), action.type);
       await currentDeps.setCooldown(rule.id, targetId, cooldownMinutes);
     }
 
@@ -477,7 +492,43 @@ export async function executeAction(
 }
 
 /**
- * Execute all actions for a matched rule.
+ * Run an `if` node: its conditions read the same context the automation's own
+ * did, and the branch it picks runs through the same leaf executor.
+ */
+async function executeIfAction(
+  context: EvaluationContext,
+  action: IfAction,
+  position: number
+): Promise<ActionResult[]> {
+  const { matchedGroups, evidence } = await evaluateAllGroupsAsync(context, action.conditions);
+  const matched = matchedGroups !== null;
+  const branch = matched ? 'then' : 'else';
+  const results: ActionResult[] = [{ action, success: true, branch, matched, evidence }];
+
+  // An unstamped node is addressed by its place in the list; two of them must not collide.
+  const node = action.id ?? `if@${position}`;
+  const leaves = matched ? action.then : action.else;
+  for (const [index, leaf] of leaves.entries()) {
+    const [result] = await runAction(context, leaf, index);
+    if (result) results.push({ ...result, path: `${node}.${branch}.${index}` });
+  }
+  return results;
+}
+
+/** The one entry point every action node goes through, branch leaves included. */
+async function runAction(
+  context: EvaluationContext,
+  action: Action,
+  position: number
+): Promise<ActionResult[]> {
+  if (action.enabled === false) return [skippedResult(action, 'disabled')];
+  if (action.type === 'if') return executeIfAction(context, action, position);
+  return [await executeAction(context, action)];
+}
+
+/**
+ * Execute all actions for a matched rule, flattening each `if` into its own
+ * step followed by the leaves of the branch it took.
  */
 export async function executeActions(
   context: EvaluationContext,
@@ -485,9 +536,8 @@ export async function executeActions(
 ): Promise<ActionResult[]> {
   const results: ActionResult[] = [];
 
-  for (const action of actions) {
-    const result = await executeAction(context, action);
-    results.push(result);
+  for (const [index, action] of actions.entries()) {
+    results.push(...(await runAction(context, action, index)));
   }
 
   return results;

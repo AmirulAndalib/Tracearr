@@ -26,15 +26,16 @@ export type SessionEvaluatingEvent =
 /** The events that carry the account a run is about. */
 export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
 
-/** One per catalog trigger. Stopped, server and install events reach the seam with no context to evaluate in. */
-export type EvaluatingEvent =
-  | UserEvaluatingEvent
-  | SessionStoppedEvent
-  | ServerDownEvent
-  | ServerUpEvent
-  | PluginUpdateEvent
-  | ServerUpdateEvent
-  | TracearrUpdateEvent;
+/** The events about a server and nobody on it. */
+export type ServerEvaluatingEvent =
+  ServerDownEvent | ServerUpEvent | PluginUpdateEvent | ServerUpdateEvent;
+
+/** Every event that carries a context to evaluate in; only the stopped ref is left out. */
+export type ContextEvaluatingEvent =
+  UserEvaluatingEvent | ServerEvaluatingEvent | TracearrUpdateEvent;
+
+/** One per catalog trigger. The stopped event still reaches the seam as a ref, with nothing to evaluate. */
+export type EvaluatingEvent = ContextEvaluatingEvent | SessionStoppedEvent;
 
 // The seam declares two trigger types the catalog does not: resumed and media_changed
 // only cancel wakes and must never reach evaluation even if a stored node names one.
@@ -63,7 +64,7 @@ function inactiveDays(lastActivityAt: Date | null, at: Date): number | null {
 }
 
 /** Params are the trigger's own test: held_for and inactive_for fire only once the event clears the node. */
-export function paramsPass(node: TriggerNode, event: UserEvaluatingEvent): boolean {
+export function paramsPass(node: TriggerNode, event: ContextEvaluatingEvent): boolean {
   if (node.type === 'session.held_for') {
     if (event.type !== 'session.held_for' || !event.pauseData.lastPausedAt) return false;
     const minutes = pauseMinutes(node.params.measure, {
@@ -87,7 +88,7 @@ export function paramsPass(node: TriggerNode, event: UserEvaluatingEvent): boole
  */
 export function firingNodeFor(
   rule: Pick<EngineAutomation, 'triggers'>,
-  event: UserEvaluatingEvent
+  event: ContextEvaluatingEvent
 ): TriggerNode | null {
   const nodes = rule.triggers.filter((node) => node.enabled && node.type === event.type);
   const named =
@@ -110,22 +111,44 @@ export interface TriggerCandidates {
   baseContext: Omit<EvaluationContext, 'rule'>;
 }
 
-/** The rules this event can evaluate and the context to evaluate them in. Touches no database. */
-export function triggerCandidates(
-  event: UserEvaluatingEvent,
-  inputs: EvaluationInputs
-): TriggerCandidates {
+/** The context an event carries: everything below its own rank is null. */
+function baseContextOf(
+  event: ContextEvaluatingEvent,
+  inputs: EvaluationInputs,
+  subjectKey: string
+): Omit<EvaluationContext, 'rule'> {
+  if (!('serverUser' in event)) {
+    return {
+      session: null,
+      serverUser: null,
+      server: 'server' in event ? toRuleServer(event.server) : null,
+      subjectKey,
+      activeSessions: inputs.activeSessions,
+      recentSessions: [],
+      identityServerUserIds: [],
+    };
+  }
   const session = event.session;
-  const baseContext: Omit<EvaluationContext, 'rule'> = {
+  return {
     session,
     serverUser: toRuleServerUser(event.serverUser, event.server.id),
     server: toRuleServer(event.server),
+    subjectKey,
     activeSessions: session
       ? buildRuleContextSessions(inputs.activeSessions, session, null)
       : inputs.activeSessions,
     recentSessions: inputs.recentSessions,
     identityServerUserIds: inputs.identityServerUserIds ?? event.serverUser.identityServerUserIds,
   };
+}
+
+/** The rules this event can evaluate and the context to evaluate them in. Touches no database. */
+export function triggerCandidates(
+  event: ContextEvaluatingEvent,
+  inputs: EvaluationInputs,
+  subjectKey: string
+): TriggerCandidates {
+  const baseContext = baseContextOf(event, inputs, subjectKey);
   const rules = rulesForTrigger(event.type, inputs.activeAutomations).filter((rule) =>
     ruleAppliesTo(rule, baseContext)
   );

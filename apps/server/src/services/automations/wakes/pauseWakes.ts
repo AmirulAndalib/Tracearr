@@ -4,7 +4,7 @@ import { db } from '../../../db/client.js';
 import { sessions } from '../../../db/schema.js';
 import { getActiveAutomations, onActiveAutomationsRefill } from '../../../jobs/poller/database.js';
 import { broadcastViolations } from '../../../jobs/poller/violations.js';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import { isLeader } from '../../leaderLease.js';
 import { loadEvaluationContext, toRuleSession } from '../events/contextAssembly.js';
 import { dispatch, subscribe } from '../events/dispatcher.js';
@@ -149,7 +149,7 @@ async function fire(sessionId: string, gen: number): Promise<void> {
     }
     if (owned(sessionId, gen)) schedulePauseWake(row, rules);
   } catch (error) {
-    rulesLogger.error('Pause wake failed', { sessionId, error });
+    automationsLogger.error('Pause wake failed', { sessionId, error });
     if (owned(sessionId, gen)) arm(sessionId, Date.now() + RETRY_MS, entry.anchor, entry.nodeId);
   }
 }
@@ -209,7 +209,7 @@ export function registerPauseWakeSubscriptions(): void {
     lastFingerprint = fp;
     if (baseline || !isLeader()) return;
     void rehydratePauseWakes().catch((error: unknown) => {
-      rulesLogger.error('Pause wake rehydrate failed', { error });
+      automationsLogger.error('Pause wake rehydrate failed', { error });
     });
   });
 }

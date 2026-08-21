@@ -122,12 +122,12 @@ describe('processRunRetention', () => {
     expect(Number(defaultWindow?.params[2])).toBeLessThan(Number(shortWindow?.params[2]));
   });
 
-  it('keeps the completed passes session bound and lets diagnostics take account-keyed rows', async () => {
+  it('exempts account-keyed completed rows and purges session, server and install ones', async () => {
     await processRunRetention();
 
     const [notification, policy, ...diagnostics] = rendered();
     for (const query of [notification, policy]) {
-      expect(query?.sql).toContain('ar.session_id is not null');
+      expect(query?.sql).toContain('(ar.session_id is not null or ar.server_user_id is null)');
     }
     for (const query of diagnostics) {
       expect(query.sql).not.toContain('session_id');

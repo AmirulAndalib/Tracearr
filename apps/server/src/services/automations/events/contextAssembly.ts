@@ -10,12 +10,12 @@ import { db } from '../../../db/client.js';
 import { servers, serverUsers, users } from '../../../db/schema.js';
 import {
   batchGetRecentUserSessions,
-  maxWindowHoursFromRules,
+  maxWindowHoursFromAutomations,
   mergeRecentSessionsForIdentity,
 } from '../../../jobs/poller/database.js';
 import { mapSessionRow } from '../../../jobs/poller/sessionMapper.js';
 import { excludeUncountableSessions } from '../../../jobs/poller/utils.js';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import { getIdentityServerUserIds } from '../../userService.js';
 import type {
   EvaluationInputs,
@@ -144,20 +144,55 @@ export async function assembleEvaluationInputs(args: {
   try {
     identityServerUserIds = await getIdentityServerUserIds(serverUser.userId);
   } catch (error) {
-    rulesLogger.error('Failed to resolve identity server users, evaluating this server only', {
-      serverUserId: serverUser.id,
-      error,
-    });
+    automationsLogger.error(
+      'Failed to resolve identity server users, evaluating this server only',
+      {
+        serverUserId: serverUser.id,
+        error,
+      }
+    );
     identityServerUserIds = [serverUser.id];
   }
 
   const recentSessions = await fetchRecentSessionsForIdentity(
     serverUser.id,
     identityServerUserIds,
-    maxWindowHoursFromRules(rules)
+    maxWindowHoursFromAutomations(rules)
   );
 
   return { activeAutomations: rules, activeSessions, recentSessions, identityServerUserIds };
+}
+
+/**
+ * The inputs a server or install trigger evaluates in: no account, so no identity
+ * and no history. The active sessions ride along even though nothing at server
+ * context can read them, so a later trigger context needs no second builder.
+ */
+export async function assembleServerInputs(args: {
+  rules: EngineAutomation[];
+  server: EvaluationServer;
+}): Promise<EvaluationInputs> {
+  const { rules, server } = args;
+  if (rules.length === 0) {
+    return {
+      activeAutomations: rules,
+      activeSessions: [],
+      recentSessions: [],
+      identityServerUserIds: [],
+    };
+  }
+  if (!deps) throw new Error('setContextAssemblyDeps has not been called');
+
+  const activeSessions = excludeUncountableSessions(
+    await deps.getAllActiveSessions(),
+    deps.gracePeriodSessionIds()
+  );
+  return {
+    activeAutomations: rules,
+    activeSessions: activeSessions.filter((session) => session.serverId === server.id),
+    recentSessions: [],
+    identityServerUserIds: [],
+  };
 }
 
 /** History for windowed rules across every server_user of the identity; a failed wide read falls back to this server alone. */
@@ -171,7 +206,7 @@ export async function fetchRecentSessionsForIdentity(
     const recentMap = await batchGetRecentUserSessions(ids, windowHours);
     return mergeRecentSessionsForIdentity(recentMap, ids);
   } catch (error) {
-    rulesLogger.error('Failed to fetch recent sessions, falling back to this server only', {
+    automationsLogger.error('Failed to fetch recent sessions, falling back to this server only', {
       serverUserId,
       error,
     });

@@ -3,23 +3,24 @@ import type {
   Condition,
   ConditionField,
   DeviceType,
-  INACTIVITY_COMPATIBLE_FIELDS,
   Platform,
   Session,
   TranscodingConditionValue,
   VideoResolution,
 } from '@tracearr/shared';
 import { isIpInCidr, toNetworkKey, unmapIpv4Mapped } from '../../../utils/ip.js';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import { LOCAL_NETWORK_COUNTRY, normalizeToCountryCode } from '../../../utils/country.js';
 import { normalizeResolution } from '../../../utils/resolutionNormalizer.js';
 import { geoipService } from '../../geoip.js';
 import { compare } from '../comparisons.js';
 import type {
   AccountConditionEvaluator,
+  AccountEvaluationContext,
   ConditionEvaluator,
-  EvaluationContext,
   EvaluatorResult,
+  ServerConditionEvaluator,
+  ServerEvaluationContext,
   SessionEvaluationContext,
 } from '../types.js';
 
@@ -206,7 +207,7 @@ function normalizePlatform(platform: string | null): Platform {
  * the triggering one, in executors/index.ts. Do not add an enforceAcrossServers
  * check here; do not remove the gate there either.
  */
-function belongsToIdentity(context: EvaluationContext): (s: Session) => boolean {
+function belongsToIdentity(context: AccountEvaluationContext): (s: Session) => boolean {
   const ids = context.identityServerUserIds;
   let matchesUser: (s: Session) => boolean;
   if (ids && ids.length > 0) {
@@ -509,7 +510,7 @@ const evaluateUniqueDevicesInWindow: ConditionEvaluator = (
 
 /** Never-active accounts are infinitely inactive: gte/gt/neq match, eq/lt/lte do not; the hourly inactivity job's semantic since 860501ac. */
 const evaluateInactiveDays: AccountConditionEvaluator = (
-  context: EvaluationContext,
+  context: AccountEvaluationContext,
   condition: Condition
 ): EvaluatorResult => {
   const { serverUser } = context;
@@ -764,7 +765,7 @@ const evaluateSourceBitrateMbps: ConditionEvaluator = (
 // ============================================================================
 
 const evaluateUserId: AccountConditionEvaluator = (
-  context: EvaluationContext,
+  context: AccountEvaluationContext,
   condition: Condition
 ): EvaluatorResult => {
   const { serverUser } = context;
@@ -792,7 +793,7 @@ const evaluateUserId: AccountConditionEvaluator = (
 };
 
 const evaluateTrustScore: AccountConditionEvaluator = (
-  context: EvaluationContext,
+  context: AccountEvaluationContext,
   condition: Condition
 ): EvaluatorResult => {
   const { serverUser } = context;
@@ -804,7 +805,7 @@ const evaluateTrustScore: AccountConditionEvaluator = (
 };
 
 const evaluateAccountAgeDays: AccountConditionEvaluator = (
-  context: EvaluationContext,
+  context: AccountEvaluationContext,
   condition: Condition
 ): EvaluatorResult => {
   const { serverUser } = context;
@@ -915,7 +916,7 @@ const evaluateCountry: ConditionEvaluator = (
   // "country neq US" rule must not fire on them regardless of operator.
   if (!raw || raw === LOCAL_NETWORK_COUNTRY) {
     if (!raw) {
-      rulesLogger.debug(
+      automationsLogger.debug(
         `country condition skipped: session ${session.id} has no geo data (ip: ${session.ipAddress ?? 'unknown'})`
       );
     }
@@ -926,7 +927,7 @@ const evaluateCountry: ConditionEvaluator = (
   // the geo lookup had no code; normalize both sides to ISO before comparing.
   const country = normalizeToCountryCode(raw);
   if (!country) {
-    rulesLogger.debug(
+    automationsLogger.debug(
       `country condition skipped: session ${session.id} country '${raw}' did not normalize to an ISO code`
     );
     return { matched: false, actual: raw };
@@ -981,8 +982,8 @@ const evaluateIpInRange: ConditionEvaluator = (
 // Scope Evaluators
 // ============================================================================
 
-const evaluateServerId: AccountConditionEvaluator = (
-  context: EvaluationContext,
+const evaluateServerId: ServerConditionEvaluator = (
+  context: ServerEvaluationContext,
   condition: Condition
 ): EvaluatorResult => {
   const { server } = context;
@@ -1009,11 +1010,9 @@ const evaluateMediaType: ConditionEvaluator = (
 // Evaluator Registry
 // ============================================================================
 
-type AccountField = (typeof INACTIVITY_COMPATIBLE_FIELDS)[number];
-
-export const evaluatorRegistry: {
-  [F in ConditionField]: F extends AccountField ? AccountConditionEvaluator : ConditionEvaluator;
-} = {
+// Each evaluator is annotated with the context it reads; the engine checks the
+// field's `requires` against the context before it calls one.
+export const evaluatorRegistry: Record<ConditionField, ConditionEvaluator> = {
   // Session behavior
   concurrent_streams: evaluateConcurrentStreams,
   active_session_distance_km: evaluateActiveSessionDistanceKm,

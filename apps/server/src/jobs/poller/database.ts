@@ -25,7 +25,7 @@ import {
   libraryItems,
   media,
 } from '../../db/schema.js';
-import { rulesLogger } from '../../utils/logger.js';
+import { automationsLogger } from '../../utils/logger.js';
 import { getPubSubService } from '../../services/cache.js';
 import { mapSessionRow } from './sessionMapper.js';
 
@@ -92,14 +92,14 @@ export async function batchGetLibraryItemIdentity(
 
 // Fetch-window ceiling: 7 days keeps the query inside the uncompressed
 // chunks of the sessions hypertable and matches the builder's largest window.
-const MAX_RULE_WINDOW_HOURS = 168;
+const MAX_AUTOMATION_WINDOW_HOURS = 168;
 
 /**
  * Largest window_hours any of the given rules asks for, floored at 24 so
  * evaluators without windows keep their day of context, capped at
- * MAX_RULE_WINDOW_HOURS.
+ * MAX_AUTOMATION_WINDOW_HOURS.
  */
-export function maxWindowHoursFromRules(rulesList: EngineAutomation[]): number {
+export function maxWindowHoursFromAutomations(rulesList: EngineAutomation[]): number {
   let max = 24;
   for (const rule of rulesList) {
     for (const group of rule.conditions?.groups ?? []) {
@@ -109,12 +109,12 @@ export function maxWindowHoursFromRules(rulesList: EngineAutomation[]): number {
       }
     }
   }
-  return Math.min(max, MAX_RULE_WINDOW_HOURS);
+  return Math.min(max, MAX_AUTOMATION_WINDOW_HOURS);
 }
 
 /** History window implied by the cached active automations; 24h until the cache fills. */
 export function defaultRecentSessionWindowHours(): number {
-  return automationsCache ? maxWindowHoursFromRules(automationsCache.data) : 24;
+  return automationsCache ? maxWindowHoursFromAutomations(automationsCache.data) : 24;
 }
 
 /**
@@ -368,7 +368,7 @@ export async function publishServersChanged(): Promise<void> {
   await getPubSubService()
     ?.publish(WS_EVENTS.SERVERS_CHANGED, {})
     .catch((error: unknown) => {
-      rulesLogger.warn(
+      automationsLogger.warn(
         'servers:changed publish failed; other instances fall back to the cache TTL',
         {
           error,
@@ -406,7 +406,7 @@ export function mapAutomationRow(
 ): EngineAutomation {
   if (!r.triggers && !warnedUntriggeredAutomationIds.has(r.id)) {
     warnedUntriggeredAutomationIds.add(r.id);
-    rulesLogger.warn('Automation has no stored triggers and will never evaluate', {
+    automationsLogger.warn('Automation has no stored triggers and will never evaluate', {
       automationId: r.id,
       name: r.name,
     });

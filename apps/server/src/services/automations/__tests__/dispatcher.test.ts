@@ -5,7 +5,7 @@ import type { EvaluationInputs, SessionRefEvent } from '../events/types.js';
 const { errorLog } = vi.hoisted(() => ({ errorLog: vi.fn() }));
 
 vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: errorLog, debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: errorLog, debug: vi.fn() },
 }));
 
 const stoppedEvent: SessionRefEvent = {

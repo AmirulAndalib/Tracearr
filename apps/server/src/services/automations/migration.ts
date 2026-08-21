@@ -23,7 +23,7 @@ import type {
   GeoRestrictionParams,
   AccountInactivityParams,
 } from '@tracearr/shared';
-import { rulesLogger as logger } from '../../utils/logger.js';
+import { automationsLogger as logger } from '../../utils/logger.js';
 
 /** Mirrors the dropped `automations.type` enum, for upgrades that skip a version. */
 export const LEGACY_RULE_TYPES = [

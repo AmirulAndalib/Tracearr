@@ -5,6 +5,7 @@ import {
   REDIS_KEYS,
   WS_EVENTS,
   type AutomationRunSummary,
+  type ConditionEvidence,
   type GroupEvidence,
   type RunFinishedEvent,
   type NearMissEntry,
@@ -25,7 +26,9 @@ export type AutomationRunRow = typeof automationRuns.$inferSelect;
 export type RunScope =
   /** fresh: the session id was created in this transaction; nothing can contend it, so no lock and no gate. */
   | { kind: 'session'; sessionId: string; fresh?: boolean }
-  | { kind: 'account'; serverUserId: string };
+  | { kind: 'account'; serverUserId: string }
+  | { kind: 'server'; serverId: string }
+  | { kind: 'install' };
 
 export interface RunTrigger {
   type: TriggerType;
@@ -40,8 +43,10 @@ export interface RunTrigger {
 export interface RecordRunArgs {
   automation: EngineAutomation;
   result: EvaluationResult;
-  serverUserId: string;
-  serverId: string;
+  /** null for server and install runs, which are about no account. */
+  serverUserId: string | null;
+  /** null for install runs, the only ones no server is behind. */
+  serverId: string | null;
   scope: RunScope;
   session: Session | null;
   trigger: RunTrigger;
@@ -62,8 +67,18 @@ export type NearMiss = Omit<NearMissEntry, 'at'>;
 export const EVAL_RING_SIZE = 50;
 const EVAL_RING_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-export const subjectKeyOf = (scope: RunScope): string =>
-  scope.kind === 'session' ? scope.sessionId : scope.serverUserId;
+export const subjectKeyOf = (scope: RunScope): string => {
+  switch (scope.kind) {
+    case 'session':
+      return scope.sessionId;
+    case 'account':
+      return scope.serverUserId;
+    case 'server':
+      return `server:${scope.serverId}`;
+    case 'install':
+      return 'install';
+  }
+};
 
 function relatedSessionIdsOf(result: EvaluationResult): string[] {
   const ids = new Set<string>();
@@ -75,15 +90,19 @@ function relatedSessionIdsOf(result: EvaluationResult): string[] {
   return Array.from(ids);
 }
 
-/** Conditions inside a group are OR'd, so the group that ended the walk failed all of them. */
+const describeCondition = (cond: ConditionEvidence): string =>
+  `${CONDITION_FIELD_LABELS[cond.field] ?? cond.field} ${
+    OPERATOR_LABELS[cond.operator] ?? cond.operator
+  } ${String(cond.threshold)}`;
+
+/** An all-of group stops on the conditions that failed; an any-of group failed every one of them. */
 function stoppedSummary(stoppedBy: GroupEvidence | undefined): string {
   if (!stoppedBy || stoppedBy.conditions.length === 0) return 'No conditions matched';
-  const parts = stoppedBy.conditions.map(
-    (cond) =>
-      `${CONDITION_FIELD_LABELS[cond.field] ?? cond.field} ${
-        OPERATOR_LABELS[cond.operator] ?? cond.operator
-      } ${String(cond.threshold)}`
-  );
+  if (stoppedBy.match === 'all') {
+    const failed = stoppedBy.conditions.filter((cond) => !cond.matched).map(describeCondition);
+    return `Condition not met: ${failed.join(', ')}`;
+  }
+  const parts = stoppedBy.conditions.map(describeCondition);
   return `No condition matched in group ${stoppedBy.groupIndex + 1}: ${parts.join(', ')}`;
 }
 
@@ -170,6 +189,12 @@ function gateFor(args: RecordRunArgs): SQL | undefined {
     );
   }
 
+  if (scope.kind === 'server' || scope.kind === 'install') {
+    // Validation keeps policy automations on session and account triggers, so a
+    // policy run here has no subject the violation gate could key on.
+    throw new Error(`policy automation ${automation.id} cannot run on a ${scope.kind} subject`);
+  }
+
   if (scope.kind === 'session') {
     // Acknowledged-and-not-dismissed re-arms; open or dismissed blocks. The index alone
     // cannot express the re-arm case, which is why the pre-check exists at all.
@@ -202,7 +227,8 @@ export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow |
   const values = buildRunValues(args);
   const subjectKey = subjectKeyOf(scope);
   const guarded = result.matched && !(scope.kind === 'session' && scope.fresh);
-  const counted = result.matched && automation.kind === 'policy';
+  /** The account whose violation totals this run moves; null when nothing counts. */
+  const counted = result.matched && automation.kind === 'policy' ? serverUserId : null;
   // The recount takes a predicate lock on automation_runs, which pivots against
   // every concurrent insert; inside a serializable caller both transactions abort.
   const recountAfterCommit = tx !== undefined && defer !== undefined;
@@ -227,7 +253,7 @@ export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow |
     const row = rows[0];
     if (!row) return null;
     if (counted && !recountAfterCommit) {
-      await recomputeIdentityAggregatesForServerUser(serverUserId, executor);
+      await recomputeIdentityAggregatesForServerUser(counted, executor);
     }
     return row;
   };
@@ -255,7 +281,7 @@ export async function recordRun(args: RecordRunArgs): Promise<AutomationRunRow |
 
   const announce = async (): Promise<void> => {
     if (counted && recountAfterCommit) {
-      await recomputeIdentityAggregatesForServerUser(serverUserId);
+      await recomputeIdentityAggregatesForServerUser(counted);
     }
     if (result.matched && automation.cooldownMinutes) {
       await armCooldown(
@@ -290,7 +316,7 @@ const FAILURE_DETAIL_LIMIT = 200;
  */
 export async function noteRunFailure(args: {
   run: AutomationRunRow;
-  serverId: string;
+  serverId: string | null;
   message: string;
 }): Promise<void> {
   // Driver errors can carry the statement's parameter values, so only the head is stored.
@@ -347,6 +373,7 @@ export function toRunSummary(
     | 'humanSummary'
     | 'severity'
     | 'serverUserId'
+    | 'serverId'
     | 'sessionId'
     | 'subjectKey'
     | 'startedAt'
@@ -355,8 +382,7 @@ export function toRunSummary(
     | 'acknowledgedAt'
     | 'dismissedAt'
   >,
-  automationName: string,
-  serverId: string | null
+  automationName: string
 ): AutomationRunSummary {
   return {
     id: row.id,
@@ -368,7 +394,7 @@ export function toRunSummary(
     severity: row.severity ?? null,
     serverUserId: row.serverUserId,
     sessionId: row.sessionId,
-    serverId,
+    serverId: row.serverId,
     subjectKey: row.subjectKey,
     startedAt: (row.startedAt ?? row.createdAt).toISOString(),
     finishedAt: row.finishedAt?.toISOString() ?? null,

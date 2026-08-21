@@ -190,6 +190,7 @@ function createTestContext(
     session,
     serverUser,
     server,
+    subjectKey: session.id,
     activeSessions: [session],
     recentSessions: [session],
     rule: createMockRule(),

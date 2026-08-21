@@ -3,7 +3,11 @@ import type { AutomationConditions, TriggerNode } from '@tracearr/shared';
 
 const mockWarn = vi.fn();
 vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: (...args: unknown[]) => mockWarn(...args), error: vi.fn() },
+  automationsLogger: {
+    info: vi.fn(),
+    warn: (...args: unknown[]) => mockWarn(...args),
+    error: vi.fn(),
+  },
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 

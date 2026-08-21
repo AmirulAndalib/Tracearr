@@ -47,7 +47,7 @@ vi.mock('../../../jobs/poller/violations.js', () => ({
 const mockIsLeader = vi.fn(() => true);
 vi.mock('../../leaderLease.js', () => ({ isLeader: () => mockIsLeader() }));
 vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import {

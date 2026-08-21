@@ -52,7 +52,7 @@ import { getCacheService } from '../cache.js';
 import {
   batchGetIdentityServerUserIds,
   batchGetRecentUserSessions,
-  maxWindowHoursFromRules,
+  maxWindowHoursFromAutomations,
   getSessionsTerminatedByViolation,
   mapAutomationRow,
   widenRecentSessionsForMergedIdentities,
@@ -61,7 +61,7 @@ import { excludeUncountableSessions } from '../../jobs/poller/utils.js';
 import { gracePeriodSessionIds } from '../../jobs/poller/processor.js';
 import { buildRuleContextSessions } from '../../jobs/poller/sessionLifecycle.js';
 import { terminateSession } from '../termination.js';
-import { rulesLogger } from '../../utils/logger.js';
+import { automationsLogger } from '../../utils/logger.js';
 import { evaluateRulesAsync } from './engine.js';
 import type { EvaluationContext } from './types.js';
 
@@ -195,11 +195,14 @@ export async function reverifyKillCondition(
         (rule.serverId != null && rule.serverId !== targetRow.serverId) ||
         (rule.serverUserId != null && rule.serverUserId !== targetRow.serverUserId);
       if (targetOutOfScope) {
-        rulesLogger.info('Kill queue: trigger gone, target out of rule scope, cannot re-verify', {
-          triggeringSessionId,
-          targetSessionId,
-          ruleId,
-        });
+        automationsLogger.info(
+          'Kill queue: trigger gone, target out of rule scope, cannot re-verify',
+          {
+            triggeringSessionId,
+            targetSessionId,
+            ruleId,
+          }
+        );
         return {
           outcome: 'skipped_condition_cleared',
           skipReason: 'trigger_gone_cross_server_unverifiable',
@@ -210,7 +213,7 @@ export async function reverifyKillCondition(
       // Non-identity rule with the trigger gone: the condition can no longer be
       // evaluated as-at-trigger and the target's context never matched on its
       // own, so abort instead of killing on a context that was never checked.
-      rulesLogger.info('Kill queue: trigger session gone, aborting kill', {
+      automationsLogger.info('Kill queue: trigger session gone, aborting kill', {
         triggeringSessionId,
         targetSessionId,
         ruleId,
@@ -281,7 +284,7 @@ export async function reverifyKillCondition(
   // The kill worker runs on every instance while the rules cache (and the
   // window default it feeds) only refreshes where rules evaluate, so the
   // window must be derived from THIS rule, never from the module default.
-  const ruleWindowHours = maxWindowHoursFromRules([rule]);
+  const ruleWindowHours = maxWindowHoursFromAutomations([rule]);
   const recentSessionsMap = await batchGetRecentUserSessions(
     recentSessionsUserIds,
     ruleWindowHours
@@ -313,6 +316,7 @@ export async function reverifyKillCondition(
     session: contextSession,
     serverUser: contextSession.serverUser,
     server: contextSession.server,
+    subjectKey: contextSession.id,
     activeSessions,
     recentSessions,
     identityServerUserIds,
@@ -338,7 +342,7 @@ export async function reverifyKillCondition(
       return { outcome: 'failed', error: result.error ?? 'Termination failed' };
     }
 
-    rulesLogger.info('Kill queue: terminated session after re-verification', {
+    automationsLogger.info('Kill queue: terminated session after re-verification', {
       triggeringSessionId,
       targetSessionId,
       serverId,

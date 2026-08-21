@@ -277,6 +277,8 @@ export interface ConditionEvidence {
 export interface GroupEvidence {
   groupIndex: number;
   matched: boolean;
+  /** The group's logic, so a summary can name the failing condition rather than the whole group. */
+  match?: 'all' | 'any';
   conditions: ConditionEvidence[];
 }
 

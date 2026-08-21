@@ -13,15 +13,16 @@ vi.mock('../../../jobs/poller/database.js', () => ({
   batchGetRecentUserSessions: (...args: unknown[]) => mockBatchGetRecentUserSessions(...args),
   mergeRecentSessionsForIdentity: (...args: unknown[]) =>
     mockMergeRecentSessionsForIdentity(...args),
-  maxWindowHoursFromRules: (rules: EngineAutomation[]) => (rules.length > 0 ? 72 : 24),
+  maxWindowHoursFromAutomations: (rules: EngineAutomation[]) => (rules.length > 0 ? 72 : 24),
 }));
 
 vi.mock('../../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import {
   assembleEvaluationInputs,
+  assembleServerInputs,
   setContextAssemblyDeps,
   toRuleServer,
   toRuleServerUser,
@@ -134,6 +135,44 @@ describe('assembleEvaluationInputs', () => {
     expect(result.identityServerUserIds).toEqual(['su1']);
     expect(mockBatchGetRecentUserSessions).toHaveBeenLastCalledWith(['su1'], 72);
     expect(result.recentSessions.map((s) => s.id)).toEqual(['mine']);
+  });
+});
+
+describe('assembleServerInputs', () => {
+  const graceIds = new Set<string>();
+  const cached: ActiveSession[] = [];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    graceIds.clear();
+    cached.length = 0;
+    setContextAssemblyDeps({
+      getAllActiveSessions: async () => cached,
+      gracePeriodSessionIds: () => graceIds,
+    });
+  });
+
+  it('carries this server active sessions and looks up no identity or history', async () => {
+    cached.push(session('a'), session('b'), session('elsewhere', { serverId: 'srv2' }));
+    graceIds.add('b');
+    const rules = [{ id: 'r1' } as EngineAutomation];
+
+    const result = await assembleServerInputs({ rules, server });
+
+    expect(result.activeAutomations).toBe(rules);
+    expect(result.activeSessions.map((s) => s.id)).toEqual(['a']);
+    expect(result.recentSessions).toEqual([]);
+    expect(result.identityServerUserIds).toEqual([]);
+    expect(mockGetIdentityServerUserIds).not.toHaveBeenCalled();
+    expect(mockBatchGetRecentUserSessions).not.toHaveBeenCalled();
+  });
+
+  it('short-circuits with empty arrays when there are no rules', async () => {
+    cached.push(session('a'));
+
+    const result = await assembleServerInputs({ rules: [], server });
+
+    expect(result.activeSessions).toEqual([]);
   });
 });
 

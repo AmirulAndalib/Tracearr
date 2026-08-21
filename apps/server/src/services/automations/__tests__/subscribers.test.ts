@@ -58,8 +58,17 @@ vi.mock('../runRecorder.js', () => ({
     kind: row.kind,
     outcome: row.outcome,
   }),
-  subjectKeyOf: (scope: { kind: string; sessionId?: string; serverUserId?: string }) =>
-    scope.kind === 'session' ? scope.sessionId : scope.serverUserId,
+  subjectKeyOf: (scope: {
+    kind: string;
+    sessionId?: string;
+    serverUserId?: string;
+    serverId?: string;
+  }) => {
+    if (scope.kind === 'session') return scope.sessionId;
+    if (scope.kind === 'account') return scope.serverUserId;
+    if (scope.kind === 'server') return `server:${scope.serverId ?? ''}`;
+    return 'install';
+  },
 }));
 const mockExecuteActions = vi.fn();
 vi.mock('../executors/index.js', () => ({
@@ -71,7 +80,7 @@ vi.mock('../v2Integration.js', () => ({
 }));
 vi.mock('../../../utils/logger.js', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('../../geoip.js', () => ({
   geoipService: {
@@ -1711,6 +1720,42 @@ describe('runRulePipeline', () => {
     ]);
   });
 
+  it('records the branch an if took and the path of the leaves under it', async () => {
+    mockEvaluateRulesAsync.mockResolvedValue([
+      {
+        ruleId: 'rule-transcode-1',
+        ruleName: 'Block 4K Transcoding',
+        matched: true,
+        matchedGroups: [0],
+        actions: [{ type: 'if', id: 'if-1', conditions: { groups: [] }, then: [], else: [] }],
+      },
+    ]);
+    mockRecordRun.mockResolvedValue({ id: 'run-1' });
+    mockExecuteActions.mockResolvedValue([
+      {
+        action: { type: 'if', id: 'if-1' },
+        success: true,
+        branch: 'then',
+        matched: true,
+        evidence: [{ groupIndex: 0, matched: true, match: 'all', conditions: [] }],
+      },
+      { action: { type: 'trust' }, success: true, path: 'if-1.then.0' },
+    ]);
+
+    await runTranscode(createTranscodeInput());
+
+    expect(mockAppendRunSteps).toHaveBeenCalledWith('run-1', [
+      {
+        action: 'if',
+        success: true,
+        branch: 'then',
+        matched: true,
+        evidence: [{ groupIndex: 0, matched: true, match: 'all', conditions: [] }],
+      },
+      { action: 'trust', success: true, path: 'if-1.then.0' },
+    ]);
+  });
+
   it('notes a bookkeeping failure and still acts on the sibling runs', async () => {
     mockEvaluateRulesAsync.mockResolvedValue([
       {
@@ -2154,25 +2199,114 @@ describe('edgeKeyOf', () => {
 });
 
 describe('server and install triggers', () => {
+  const serverAutomation = (
+    id: string,
+    type: 'server.down' | 'tracearr.update_available',
+    overrides: Partial<EngineAutomation> = {}
+  ): EngineAutomation =>
+    migrated(
+      {
+        id,
+        name: id,
+        description: null,
+        serverId: null,
+        serverUserId: null,
+        userId: null,
+        enforceAcrossServers: false,
+        severity: 'warning',
+        isActive: true,
+        conditions: { groups: [] },
+        actions: { actions: [{ type: 'send', to: ['d1'] }] },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        kind: 'notification',
+        triggers: [{ id: `${id}-node`, type, enabled: true }],
+        ...overrides,
+      }
+    );
+
+  const inputs = (activeAutomations: EngineAutomation[]): EvaluationInputs => ({
+    activeAutomations,
+    activeSessions: [],
+    recentSessions: [],
+  });
+
+  const downRun = { ...transcodeViolation, id: 'run-down', ruleId: 'down' };
+
   beforeEach(() => {
     resetDispatcherForTests();
     resetRuleSubscribersForTests();
     registerRuleSubscribers();
+    mockRecordRun.mockResolvedValue(downRun);
+    mockEvaluateRulesAsync.mockResolvedValue([
+      { ruleId: 'down', ruleName: 'down', matched: true, matchedGroups: [], actions: [] },
+    ]);
   });
 
-  it.each([
-    { type: 'server.down' as const, at: new Date(), server },
-    { type: 'server.up' as const, at: new Date(), server },
-  ])('$type reaches the registry and evaluates nothing yet', async (event) => {
-    const result = await dispatch(event, {
-      activeAutomations: [createTranscodeRule()],
-      activeSessions: [],
-      recentSessions: [],
-    });
+  it('records a server.down run against the server subject with the server on it', async () => {
+    const automation = { ...serverAutomation('down', 'server.down'), serverId: 'server-1' };
+    const event = { type: 'server.down' as const, at: new Date(), server };
 
+    const result = await dispatch(event, inputs([automation]));
+
+    expect(result.outcomes).toEqual([{ subscriber: 'server-rules', ok: true }]);
+    expect(mockRecordRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scope: { kind: 'server', serverId: 'server-1' },
+        serverUserId: null,
+        serverId: 'server-1',
+        session: null,
+      })
+    );
+    const [[recorded]] = mockRecordRun.mock.calls as [[{ trigger: { edgeKey: string | null } }]];
+    expect(recorded.trigger.edgeKey).toBe(event.at.toISOString());
+    // A notification run is nobody's violation.
     expect(result.violations).toEqual([]);
-    expect(result.outcomes).toEqual([{ subscriber: 'system-rules', ok: true }]);
+  });
+
+  it('leaves an account-scoped automation out of the candidates', async () => {
+    const automation = { ...serverAutomation('down', 'server.down'), serverUserId: 'user-1' };
+
+    await dispatch({ type: 'server.down', at: new Date(), server }, inputs([automation]));
+
     expect(mockEvaluateRulesAsync).not.toHaveBeenCalled();
     expect(mockRecordRun).not.toHaveBeenCalled();
+  });
+
+  it('records a tracearr update against the install subject with no server', async () => {
+    const automation = serverAutomation('update', 'tracearr.update_available');
+    const event = {
+      type: 'tracearr.update_available' as const,
+      at: new Date(),
+      current: '1.0.0',
+      latest: '1.1.0',
+      releaseUrl: 'https://example.test',
+    };
+    mockEvaluateRulesAsync.mockResolvedValue([
+      { ruleId: 'update', ruleName: 'update', matched: true, matchedGroups: [], actions: [] },
+    ]);
+
+    const result = await dispatch(event, inputs([automation]));
+
+    expect(result.outcomes).toEqual([{ subscriber: 'install-rules', ok: true }]);
+    expect(mockRecordRun).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: { kind: 'install' }, serverUserId: null, serverId: null })
+    );
+    const [[recorded]] = mockRecordRun.mock.calls as [[{ trigger: { edgeKey: string | null } }]];
+    expect(recorded.trigger.edgeKey).toBe('1.1.0');
+  });
+
+  it('evaluates the server context with no user and no history', async () => {
+    const automation = serverAutomation('down', 'server.down');
+
+    await dispatch({ type: 'server.down', at: new Date(), server }, inputs([automation]));
+
+    const [context] = mockEvaluateRulesAsync.mock.calls[0] as [Record<string, unknown>];
+    expect(context.session).toBeNull();
+    expect(context.serverUser).toBeNull();
+    expect(context.server).toMatchObject({ id: 'server-1' });
+    expect(context.subjectKey).toBe('server:server-1');
   });
 });

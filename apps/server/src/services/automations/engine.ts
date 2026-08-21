@@ -1,23 +1,21 @@
-import { INACTIVITY_COMPATIBLE_FIELDS } from '@tracearr/shared';
+import { CONDITION_FIELDS, TRIGGER_CONTEXT_RANK } from '@tracearr/shared';
 import type {
   AutomationConditions,
   ConditionGroup,
   Condition,
-  ConditionField,
   EngineAutomation,
   ConditionEvidence,
   GroupEvidence,
+  TriggerContext,
 } from '@tracearr/shared';
 import type {
-  AccountConditionEvaluator,
   EvaluationContext,
   EvaluationResult,
-  ConditionEvaluator,
   EvaluatorResult,
   SessionEvaluationContext,
 } from './types.js';
 import { evaluatorRegistry } from './evaluators/index.js';
-import { rulesLogger as logger } from '../../utils/logger.js';
+import { automationsLogger as logger } from '../../utils/logger.js';
 
 /**
  * Convert an evaluator result to condition evidence.
@@ -44,12 +42,19 @@ interface GroupResult {
   conditions: ConditionEvidence[];
 }
 
-interface AllGroupsResult {
+export interface AllGroupsResult {
+  /** null when a group ended the walk. */
   matchedGroups: number[] | null;
   evidence: GroupEvidence[];
 }
 
-const ACCOUNT_CONDITION_FIELDS: ReadonlySet<ConditionField> = new Set(INACTIVITY_COMPATIBLE_FIELDS);
+/** The narrowest trigger context this evaluation could have come from. */
+function contextOf(context: EvaluationContext): TriggerContext {
+  if (context.session) return 'session';
+  if (context.serverUser) return 'account';
+  if (context.server) return 'server';
+  return 'install';
+}
 
 function unmatchedEvidence(condition: Condition): ConditionEvidence {
   return {
@@ -69,23 +74,22 @@ async function evaluateConditionAsync(
   context: EvaluationContext,
   condition: Condition
 ): Promise<ConditionEvidence> {
-  const evaluator: ConditionEvaluator | AccountConditionEvaluator | undefined =
-    evaluatorRegistry[condition.field];
+  const descriptor = CONDITION_FIELDS[condition.field];
+  const evaluator = evaluatorRegistry[condition.field];
 
-  if (!evaluator) {
+  if (!descriptor || !evaluator) {
     logger.warn(`No evaluator found for condition field: ${condition.field}`, {
       field: condition.field,
     });
     return unmatchedEvidence(condition);
   }
 
+  // Defensive: the definition schema rejects a field the enabled triggers cannot supply.
+  if (TRIGGER_CONTEXT_RANK[descriptor.requires] > TRIGGER_CONTEXT_RANK[contextOf(context)]) {
+    return unmatchedEvidence(condition);
+  }
+
   try {
-    if (context.session === null) {
-      if (!ACCOUNT_CONDITION_FIELDS.has(condition.field)) return unmatchedEvidence(condition);
-      const result = (evaluator as AccountConditionEvaluator)(context, condition);
-      const resolved = result instanceof Promise ? await result : result;
-      return toConditionEvidence(condition, resolved);
-    }
     const result = evaluator(context as SessionEvaluationContext, condition);
     // Handle both sync and async evaluators
     const resolved = result instanceof Promise ? await result : result;
@@ -100,30 +104,35 @@ async function evaluateConditionAsync(
 }
 
 /**
- * Evaluate a condition group (conditions within a group are OR'd).
+ * Evaluate a condition group. A disabled condition is absent, so a group with
+ * nothing enabled left passes; `match` names the logic and defaults to 'any'.
  * Evaluates ALL conditions in parallel to collect full evidence.
  */
 async function evaluateConditionGroupAsync(
   context: EvaluationContext,
   group: ConditionGroup
 ): Promise<GroupResult> {
-  if (group.conditions.length === 0) {
+  const enabled = group.conditions.filter((condition) => condition.enabled !== false);
+  if (enabled.length === 0) {
     return { matched: true, conditions: [] };
   }
 
   // Evaluate all conditions in parallel, collecting full evidence
   const conditions = await Promise.all(
-    group.conditions.map((condition) => evaluateConditionAsync(context, condition))
+    enabled.map((condition) => evaluateConditionAsync(context, condition))
   );
 
-  return { matched: conditions.some((c) => c.matched), conditions };
+  const matched =
+    group.match === 'all' ? conditions.every((c) => c.matched) : conditions.some((c) => c.matched);
+  return { matched, conditions };
 }
 
 /**
- * Evaluate all condition groups (groups are AND'd together).
+ * Evaluate all condition groups (groups are AND'd together). Serves the
+ * automation's own conditions and an `if` node's alike.
  * Returns evidence for all evaluated groups.
  */
-async function evaluateAllGroupsAsync(
+export async function evaluateAllGroupsAsync(
   context: EvaluationContext,
   conditions: AutomationConditions
 ): Promise<AllGroupsResult> {
@@ -137,12 +146,13 @@ async function evaluateAllGroupsAsync(
   // Evaluate groups sequentially (AND logic requires early exit on failure)
   for (let i = 0; i < conditions.groups.length; i++) {
     const group = conditions.groups[i];
-    if (!group) continue;
+    if (!group || group.enabled === false) continue;
 
     const groupResult = await evaluateConditionGroupAsync(context, group);
     evidence.push({
       groupIndex: i,
       matched: groupResult.matched,
+      match: group.match ?? 'any',
       conditions: groupResult.conditions,
     });
 
@@ -192,9 +202,11 @@ export function ruleAppliesTo(
   baseContext: Omit<EvaluationContext, 'rule'>
 ): boolean {
   if (!rule.isActive) return false;
-  if (rule.serverId && rule.serverId !== baseContext.server.id) return false;
-  if (rule.serverUserId && rule.serverUserId !== baseContext.serverUser.id) return false;
-  if (rule.userId && rule.userId !== baseContext.serverUser.userId) return false;
+  // A scope the context cannot name never matches: an account-scoped automation
+  // has nothing to compare against on a server or install event.
+  if (rule.serverId && rule.serverId !== baseContext.server?.id) return false;
+  if (rule.serverUserId && rule.serverUserId !== baseContext.serverUser?.id) return false;
+  if (rule.userId && rule.userId !== baseContext.serverUser?.userId) return false;
   return true;
 }
 

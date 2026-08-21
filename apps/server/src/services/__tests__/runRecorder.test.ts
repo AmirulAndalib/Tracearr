@@ -93,7 +93,7 @@ vi.mock('../../lib/redisShared.js', () => ({
   }),
 }));
 vi.mock('../../utils/logger.js', () => ({
-  rulesLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
 import {
@@ -171,6 +171,7 @@ const inserted = {
   id: 'v1',
   automationId: 'r1',
   serverUserId: 'su1',
+  serverId: 'srv1',
   sessionId: 's1',
   kind: 'policy',
   outcome: 'completed',
@@ -319,6 +320,77 @@ describe('recordRun', () => {
 
       expect(run).toBeNull();
       expect(mockInsertReturning).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('server and install scopes', () => {
+    const notify = { ...automation, kind: 'notification' } as EngineAutomation;
+    const downEdge = {
+      type: 'server.down' as const,
+      nodeId: 'node-3',
+      edgeKey: '2026-08-20T10:00:00.000Z',
+      at: eventAt,
+    };
+    const userless = {
+      automation: notify,
+      serverUserId: null,
+      trigger: downEdge,
+      session: null,
+    };
+
+    it('keys a server subject on the server id and writes no account', async () => {
+      const values = buildRunValues(
+        args({ ...userless, scope: { kind: 'server', serverId: 'srv1' } })
+      );
+
+      expect(values.subjectKey).toBe('server:srv1');
+      expect(values.serverUserId).toBeNull();
+      expect(values.sessionId).toBeNull();
+      expect(values.serverId).toBe('srv1');
+    });
+
+    it('keys an install subject on the install itself and carries no server', async () => {
+      const values = buildRunValues(
+        args({ ...userless, scope: { kind: 'install' }, serverId: null })
+      );
+
+      expect(values.subjectKey).toBe('install');
+      expect(values.serverUserId).toBeNull();
+      expect(values.serverId).toBeNull();
+    });
+
+    it('gates a server subject per edge, like any other notification', async () => {
+      await recordRun(args({ ...userless, scope: { kind: 'server', serverId: 'srv1' } }));
+
+      const lock = render(capturedLockSql);
+      expect(lock.params).toEqual(['server:srv1', 'r1']);
+      const gate = render(capturedWhere);
+      expect(gate.params).toEqual([
+        'r1',
+        'server:srv1',
+        'notification',
+        'completed',
+        'node-3',
+        '2026-08-20T10:00:00.000Z',
+      ]);
+    });
+
+    it('recomputes no aggregates for a run with no account', async () => {
+      await recordRun(args({ ...userless, scope: { kind: 'install' }, serverId: null }));
+
+      expect(mockRecompute).not.toHaveBeenCalled();
+    });
+
+    it('refuses a policy run on a user-less subject', async () => {
+      await expect(
+        recordRun(
+          args({
+            ...userless,
+            automation,
+            scope: { kind: 'server', serverId: 'srv1' },
+          })
+        )
+      ).rejects.toThrow(/policy/);
     });
   });
 
@@ -604,6 +676,35 @@ describe('buildRunValues', () => {
   });
 });
 
+describe('the summary of a stopped run', () => {
+  it('names the failing conditions of an all-of group', () => {
+    const values = buildRunValues(
+      args({
+        result: {
+          ...stoppedResult,
+          stoppedBy: {
+            groupIndex: 0,
+            matched: false,
+            match: 'all',
+            conditions: [
+              { field: 'trust_score', operator: 'lt', threshold: 50, actual: 90, matched: false },
+              {
+                field: 'concurrent_streams',
+                operator: 'gte',
+                threshold: 2,
+                actual: 3,
+                matched: true,
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    expect(values.humanSummary).toBe('Condition not met: Trust Score < 50');
+  });
+});
+
 describe('run finalization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -700,7 +801,7 @@ describe('near misses and cooldown', () => {
 
 describe('toRunSummary', () => {
   it('serializes the wire shape with ISO dates', () => {
-    expect(toRunSummary(inserted as never, 'Rule', 'srv1')).toEqual({
+    expect(toRunSummary(inserted as never, 'Rule')).toEqual({
       id: 'v1',
       automationId: 'r1',
       automationName: 'Rule',

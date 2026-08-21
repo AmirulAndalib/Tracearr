@@ -550,7 +550,7 @@ export const automationRuns = pgTable(
     humanSummary: text('human_summary'),
     definitionVersionId: uuid('definition_version_id').references(() => automationVersions.id),
     steps: jsonb('steps').$type<unknown[]>(),
-    // Session id or server user id, by scope; the dedup key for policy runs.
+    // What the run was about, by scope: session id, server user id, `server:<id>` or `install`.
     subjectKey: text('subject_key'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),

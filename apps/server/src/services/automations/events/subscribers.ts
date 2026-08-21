@@ -12,7 +12,7 @@ import {
   type AutomationRunRow,
   type RunScope,
 } from '../runRecorder.js';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import { evaluateRulesAsync } from '../engine.js';
 import { executeActions, type ActionResult } from '../executors/index.js';
 import { storeActionResults } from '../v2Integration.js';
@@ -21,9 +21,9 @@ import {
   firingNodeFor,
   paramsPass,
   triggerCandidates,
+  type ContextEvaluatingEvent,
   type EvaluatingEvent,
   type SessionEvaluatingEvent,
-  type UserEvaluatingEvent,
 } from './evaluate.js';
 import type { EvaluationContext, EvaluationResult } from '../types.js';
 import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
@@ -46,6 +46,10 @@ function actionStep(result: ActionResult): Record<string, unknown> {
   return {
     action: result.action.type,
     success: result.success,
+    ...(result.branch
+      ? { branch: result.branch, matched: result.matched ?? false, evidence: result.evidence ?? [] }
+      : {}),
+    ...(result.path ? { path: result.path } : {}),
     ...(result.skipped ? { skipped: true, skipReason: result.skipReason ?? null } : {}),
     ...(result.success ? {} : { message: result.message ?? null }),
   };
@@ -66,10 +70,10 @@ async function runActs(pending: PendingAct[]): Promise<ActionResult[]> {
     } catch (error) {
       await noteRunFailure({
         run,
-        serverId: context.server.id,
+        serverId: context.server?.id ?? null,
         message: error instanceof Error ? error.message : String(error),
       });
-      rulesLogger.error('Automation actions failed', {
+      automationsLogger.error('Automation actions failed', {
         automation: rule.id,
         run: run.id,
         error,
@@ -113,14 +117,14 @@ export function edgeKeyOf(event: EvaluatingEvent, node: TriggerNode | null): str
  * follow it, so nothing acts on a run the database has not kept.
  */
 export async function runRulePipeline(
-  event: UserEvaluatingEvent,
+  event: ContextEvaluatingEvent,
   inputs: EvaluationInputs,
   opts: DispatchOptions,
   scope: RunScope,
   marker?: Record<string, true>
 ): Promise<SubscriberResult> {
-  const { rules, baseContext } = triggerCandidates(event, inputs);
   const subjectKey = subjectKeyOf(scope);
+  const { rules, baseContext } = triggerCandidates(event, inputs, subjectKey);
   const violations: ViolationInsertResult[] = [];
   const pending: PendingAct[] = [];
   const effects: Array<() => Promise<void>> = [];
@@ -171,10 +175,10 @@ export async function runRulePipeline(
       const run = await recordRun({
         automation: rule,
         result,
-        serverUserId: event.serverUser.id,
-        serverId: event.server.id,
+        serverUserId: baseContext.serverUser?.id ?? null,
+        serverId: baseContext.server?.id ?? null,
         scope,
-        session: event.session,
+        session: baseContext.session,
         trigger: {
           type: event.type,
           nodeId: node.id,
@@ -211,7 +215,7 @@ export async function runRulePipeline(
       try {
         await effect();
       } catch (error) {
-        rulesLogger.warn('Post-commit run effect failed', {
+        automationsLogger.warn('Post-commit run effect failed', {
           trigger: event.type,
           subject: subjectKey,
           error,
@@ -264,12 +268,11 @@ function sessionRules(marker?: Record<string, true>, fresh?: boolean) {
   };
 }
 
-const SYSTEM_TRIGGERS = [
+const SERVER_TRIGGERS = [
   'server.down',
   'server.up',
   'plugin.update_available',
   'server.update_available',
-  'tracearr.update_available',
 ] as const;
 
 let registered = false;
@@ -289,10 +292,16 @@ export function registerRuleSubscribers(): void {
       serverUserId: event.serverUser.id,
     });
   });
-  // Server and install events have no evaluation context yet; the registry accepts and skips them.
-  for (const trigger of SYSTEM_TRIGGERS) {
-    subscribe(trigger, 'system-rules', async () => ({ violations: [] }));
+  for (const trigger of SERVER_TRIGGERS) {
+    subscribe(trigger, 'server-rules', async (event, inputs, opts) => {
+      if (!inputs) return;
+      return runRulePipeline(event, inputs, opts, { kind: 'server', serverId: event.server.id });
+    });
   }
+  subscribe('tracearr.update_available', 'install-rules', async (event, inputs, opts) => {
+    if (!inputs) return;
+    return runRulePipeline(event, inputs, opts, { kind: 'install' });
+  });
 }
 
 export function resetRuleSubscribersForTests(): void {

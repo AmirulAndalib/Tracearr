@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Redis } from 'ioredis';
-import { rulesLogger } from '../../../utils/logger.js';
+import { automationsLogger } from '../../../utils/logger.js';
 import type { NotificationEvent } from '../../notifications/events.js';
 
 const { mockEnqueueNotification } = vi.hoisted(() => ({
@@ -81,7 +81,7 @@ describe('createActionExecutorDeps - enqueueRuleNotification', () => {
 
   it('returns the queue count when nothing was enqueued and does not log an enqueue', async () => {
     mockEnqueueNotification.mockResolvedValueOnce(0);
-    const info = vi.spyOn(rulesLogger, 'info');
+    const info = vi.spyOn(automationsLogger, 'info');
     const deps = createActionExecutorDeps({} as unknown as Redis);
 
     const count = await deps.enqueueRuleNotification({

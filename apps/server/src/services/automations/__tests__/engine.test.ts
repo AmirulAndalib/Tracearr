@@ -166,6 +166,7 @@ function createTestContext(
     session,
     serverUser,
     server,
+    subjectKey: session.id,
     activeSessions: [session],
     recentSessions: [session],
     rule,
@@ -294,6 +295,124 @@ describe('evaluateRuleAsync', () => {
       const result = await evaluateRuleAsync(ctx);
 
       expect(result.matched).toBe(false);
+    });
+  });
+
+  describe('match: all within a group', () => {
+    it('requires every enabled condition', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            {
+              match: 'all',
+              conditions: [
+                { field: 'source_resolution', operator: 'eq', value: '1080p' },
+                { field: 'is_transcoding', operator: 'eq', value: 'video' },
+              ],
+            },
+          ],
+        },
+      });
+      const ctx = createTestContext(rule, {
+        session: createMockSession({ sourceVideoWidth: 1920, sourceVideoHeight: 1080 }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(false);
+      expect(result.stoppedBy?.match).toBe('all');
+    });
+
+    it('matches when every enabled condition holds', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            {
+              match: 'all',
+              conditions: [
+                { field: 'source_resolution', operator: 'eq', value: '1080p' },
+                { field: 'is_transcoding', operator: 'eq', value: 'neither' },
+              ],
+            },
+          ],
+        },
+      });
+      const ctx = createTestContext(rule, {
+        session: createMockSession({ sourceVideoWidth: 1920, sourceVideoHeight: 1080 }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(true);
+    });
+  });
+
+  describe('disabled nodes', () => {
+    it('ignores a disabled condition inside a group', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            {
+              match: 'all',
+              conditions: [
+                { field: 'source_resolution', operator: 'eq', value: '1080p' },
+                { field: 'source_resolution', operator: 'eq', value: '4K', enabled: false },
+              ],
+            },
+          ],
+        },
+      });
+      const ctx = createTestContext(rule, {
+        session: createMockSession({ sourceVideoWidth: 1920, sourceVideoHeight: 1080 }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(true);
+      expect(result.evidence?.[0]?.conditions).toHaveLength(1);
+    });
+
+    it('passes a group whose conditions are all disabled', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            {
+              conditions: [
+                { field: 'source_resolution', operator: 'eq', value: '4K', enabled: false },
+              ],
+            },
+          ],
+        },
+      });
+      const ctx = createTestContext(rule, {
+        session: createMockSession({ sourceVideoWidth: 1920, sourceVideoHeight: 1080 }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(true);
+      expect(result.evidence?.[0]?.conditions).toEqual([]);
+    });
+
+    it('skips a disabled group entirely', async () => {
+      const rule = createMockRule({
+        conditions: {
+          groups: [
+            {
+              enabled: false,
+              conditions: [{ field: 'source_resolution', operator: 'eq', value: '4K' }],
+            },
+          ],
+        },
+      });
+      const ctx = createTestContext(rule, {
+        session: createMockSession({ sourceVideoWidth: 1920, sourceVideoHeight: 1080 }),
+      });
+
+      const result = await evaluateRuleAsync(ctx);
+
+      expect(result.matched).toBe(true);
+      expect(result.evidence).toEqual([]);
     });
   });
 
@@ -701,6 +820,70 @@ describe('session-less context', () => {
   });
 });
 
+describe('a field the context cannot supply', () => {
+  it('is unmatched without evaluating, on a server-only context', async () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
+      },
+    });
+    const ctx = {
+      ...createTestContext(rule),
+      session: null,
+      serverUser: null,
+      subjectKey: 'server:server-1',
+      activeSessions: [],
+      recentSessions: [],
+    };
+
+    const result = await evaluateRuleAsync(ctx);
+
+    expect(result.matched).toBe(false);
+    expect(result.stoppedBy?.conditions[0]).toMatchObject({ actual: null, matched: false });
+  });
+
+  it('still evaluates server_id on a server-only context', async () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'server_id', operator: 'eq', value: 'server-1' }] }],
+      },
+    });
+    const ctx = {
+      ...createTestContext(rule),
+      session: null,
+      serverUser: null,
+      subjectKey: 'server:server-1',
+      activeSessions: [],
+      recentSessions: [],
+    };
+
+    const result = await evaluateRuleAsync(ctx);
+
+    expect(result.matched).toBe(true);
+  });
+
+  it('leaves an install context with nothing to read', async () => {
+    const rule = createMockRule({
+      conditions: {
+        groups: [{ conditions: [{ field: 'server_id', operator: 'eq', value: 'server-1' }] }],
+      },
+    });
+    const ctx = {
+      ...createTestContext(rule),
+      session: null,
+      serverUser: null,
+      server: null,
+      subjectKey: 'install',
+      activeSessions: [],
+      recentSessions: [],
+    };
+
+    const result = await evaluateRuleAsync(ctx);
+
+    expect(result.matched).toBe(false);
+  });
+});
+
 describe('evaluateRulesAsync', () => {
   it('returns only matching rules', async () => {
     const rules: EngineAutomation[] = [
@@ -729,7 +912,14 @@ describe('evaluateRulesAsync', () => {
     });
 
     const results = await evaluateRulesAsync(
-      { session, serverUser, server, activeSessions: [session], recentSessions: [session] },
+      {
+        session,
+        serverUser,
+        server,
+        subjectKey: session.id,
+        activeSessions: [session],
+        recentSessions: [session],
+      },
       rules
     );
 
@@ -756,7 +946,14 @@ describe('evaluateRulesAsync', () => {
     const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
 
     const results = await evaluateRulesAsync(
-      { session, serverUser, server, activeSessions: [session], recentSessions: [session] },
+      {
+        session,
+        serverUser,
+        server,
+        subjectKey: session.id,
+        activeSessions: [session],
+        recentSessions: [session],
+      },
       rules
     );
 
@@ -788,7 +985,14 @@ describe('evaluateRulesAsync', () => {
     const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
 
     const results = await evaluateRulesAsync(
-      { session, serverUser, server, activeSessions: [session], recentSessions: [session] },
+      {
+        session,
+        serverUser,
+        server,
+        subjectKey: session.id,
+        activeSessions: [session],
+        recentSessions: [session],
+      },
       rules
     );
 
@@ -820,7 +1024,14 @@ describe('evaluateRulesAsync', () => {
     const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
 
     const results = await evaluateRulesAsync(
-      { session, serverUser, server, activeSessions: [session], recentSessions: [session] },
+      {
+        session,
+        serverUser,
+        server,
+        subjectKey: session.id,
+        activeSessions: [session],
+        recentSessions: [session],
+      },
       rules
     );
 
@@ -854,6 +1065,7 @@ describe('evaluateRulesAsync', () => {
         session: sessionA,
         serverUser: serverUserOnA,
         server: serverA,
+        subjectKey: sessionA.id,
         activeSessions: [sessionA],
         recentSessions: [sessionA],
       },
@@ -864,6 +1076,7 @@ describe('evaluateRulesAsync', () => {
         session: sessionB,
         serverUser: serverUserOnB,
         server: serverB,
+        subjectKey: sessionB.id,
         activeSessions: [sessionB],
         recentSessions: [sessionB],
       },
@@ -902,6 +1115,7 @@ describe('evaluateRulesAsync', () => {
       session,
       serverUser,
       server,
+      subjectKey: session.id,
       activeSessions: [session],
       recentSessions: [session],
     };
@@ -943,7 +1157,14 @@ describe('evaluateRulesAsync', () => {
     const evaluateFor = (serverUser: ReturnType<typeof createMockServerUser>) => {
       const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
       return evaluateRulesAsync(
-        { session, serverUser, server, activeSessions: [session], recentSessions: [session] },
+        {
+          session,
+          serverUser,
+          server,
+          subjectKey: session.id,
+          activeSessions: [session],
+          recentSessions: [session],
+        },
         [rule]
       );
     };
@@ -959,7 +1180,14 @@ describe('ruleAppliesTo', () => {
     const server = createMockServer({ id: 'server-1' });
     const serverUser = createMockServerUser({ id: 'su-1', serverId: server.id, userId: 'ident-1' });
     const session = createMockSession({ serverId: server.id, serverUserId: serverUser.id });
-    return { session, serverUser, server, activeSessions: [session], recentSessions: [session] };
+    return {
+      session,
+      serverUser,
+      server,
+      subjectKey: session.id,
+      activeSessions: [session],
+      recentSessions: [session],
+    };
   };
 
   it('rejects an inactive rule', () => {
@@ -980,5 +1208,27 @@ describe('ruleAppliesTo', () => {
   it('rejects another identity', () => {
     expect(ruleAppliesTo(createMockRule({ userId: 'ident-2' }), baseContext())).toBe(false);
     expect(ruleAppliesTo(createMockRule({ userId: 'ident-1' }), baseContext())).toBe(true);
+  });
+
+  describe('without a user', () => {
+    const serverContext = () => ({
+      ...baseContext(),
+      session: null,
+      serverUser: null,
+      subjectKey: 'server:server-1',
+    });
+
+    it('keeps a server-scoped automation and drops account and person scopes', () => {
+      expect(ruleAppliesTo(createMockRule({ serverId: 'server-1' }), serverContext())).toBe(true);
+      expect(ruleAppliesTo(createMockRule({ serverId: 'server-2' }), serverContext())).toBe(false);
+      expect(ruleAppliesTo(createMockRule({ serverUserId: 'su-1' }), serverContext())).toBe(false);
+      expect(ruleAppliesTo(createMockRule({ userId: 'ident-1' }), serverContext())).toBe(false);
+    });
+
+    it('drops every scope on an install context', () => {
+      const install = { ...serverContext(), server: null, subjectKey: 'install' };
+      expect(ruleAppliesTo(createMockRule({ serverId: 'server-1' }), install)).toBe(false);
+      expect(ruleAppliesTo(createMockRule(), install)).toBe(true);
+    });
   });
 });
