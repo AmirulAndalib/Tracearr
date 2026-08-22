@@ -1608,6 +1608,7 @@ export class LibrarySyncService {
               ratingKey: libraryItems.ratingKey,
               firstSeenAt: libraryItems.firstSeenAt,
               title: libraryItems.title,
+              grandparentTitle: libraryItems.grandparentTitle,
               mediaType: libraryItems.mediaType,
               year: libraryItems.year,
               resolution: libraryItems.videoResolution,
@@ -1623,6 +1624,7 @@ export class LibrarySyncService {
                 ratingKey: row.ratingKey,
                 firstSeenAt: row.firstSeenAt,
                 title: row.title,
+                grandparentTitle: row.grandparentTitle,
                 mediaType: row.mediaType,
                 year: row.year,
                 quality: {

@@ -293,6 +293,7 @@ interface TxState {
 function buildTx(state: TxState) {
   const log: string[] = [];
   const inserted: Array<Record<string, unknown>> = [];
+  const seeded: Array<Record<string, unknown>> = [];
   const updates: Array<{ table: unknown; patch: Record<string, unknown> }> = [];
   const deletes: Array<unknown> = [];
   let nextId = 0;
@@ -326,6 +327,7 @@ function buildTx(state: TxState) {
       values: (values: Record<string, unknown> | Array<Record<string, unknown>>) => {
         if (Array.isArray(values)) {
           log.push(`insert:${nameFor(table)}:builtins`);
+          seeded.push(...values);
         } else {
           log.push(`insert:${nameFor(table)}:${String(values.name)}`);
           inserted.push(values);
@@ -357,7 +359,7 @@ function buildTx(state: TxState) {
     }),
   };
 
-  return { tx, log, inserted, updates, deletes };
+  return { tx, log, inserted, seeded, updates, deletes };
 }
 
 describe('runDestinationsMigration', () => {
@@ -438,6 +440,34 @@ describe('runDestinationsMigration', () => {
     expect(invalidateDestinationsCache).toHaveBeenCalledTimes(1);
     expect(resetSettingsCache).toHaveBeenCalledTimes(1);
     expect(publishDestinationsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the four events that post-date the routing table off every row it writes', async () => {
+    const harness = await runWith({
+      builtinRows: [
+        { id: 'push-row', type: 'push' },
+        { id: 'toast-row', type: 'web_toast' },
+      ],
+      settingRows: [{ name: 'discordWebhookUrl', value: 'https://d/h' }],
+      ruleRows: [],
+      routingRows: [],
+      routingExists: false,
+      builtinsInserted: true,
+    });
+
+    const written = [...harness.seeded, ...harness.inserted];
+    expect(written).toHaveLength(3);
+    for (const row of written) {
+      expect(row.events).toContain('violation_detected');
+      expect(row.events).toEqual(
+        expect.not.arrayContaining([
+          'server_update_available',
+          'tracearr_update_available',
+          'media_added',
+          'media_upgraded',
+        ])
+      );
+    }
   });
 
   it('deletes exactly the seven legacy setting names', async () => {

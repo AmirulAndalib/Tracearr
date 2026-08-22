@@ -191,18 +191,6 @@ describe('evaluateRuleAsync', () => {
       expect(result.actions).toEqual([{ type: 'trust', mode: 'reset' }]);
       expect(result.evidence).toEqual([]);
     });
-
-    it('does not match when conditions is null', async () => {
-      const rule = createMockRule({
-        conditions: null as unknown as { groups: [] },
-      });
-      const ctx = createTestContext(rule);
-
-      const result = await evaluateRuleAsync(ctx);
-
-      expect(result.matched).toBe(false);
-      expect(result.evidence).toBeUndefined();
-    });
   });
 
   describe('single condition', () => {
@@ -874,6 +862,7 @@ describe('a field the context cannot supply', () => {
       media: {
         libraryItemId: 'item-1',
         title: 'Cars',
+        grandparentTitle: null,
         type: 'movie',
         year: 2006,
         libraryId: '1',

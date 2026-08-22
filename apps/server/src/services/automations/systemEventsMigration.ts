@@ -59,8 +59,11 @@ const NEEDS_PARAMS = sql`triggers IS NOT NULL AND EXISTS (
     AND node->'params' IS NULL
 )`;
 
-/** `is_transcoding` took a boolean before it took a decision; both mean a stream state now. */
-const BOOLEAN_TRANSCODE = sql`conditions IS NOT NULL AND EXISTS (
+/**
+ * `is_transcoding` took a boolean before it took a decision; both mean a stream state now.
+ * A row still holding null triggers is left for the boot that stamps them.
+ */
+const BOOLEAN_TRANSCODE = sql`conditions IS NOT NULL AND triggers IS NOT NULL AND EXISTS (
   SELECT 1
   FROM jsonb_array_elements(conditions->'groups') AS grp,
        jsonb_array_elements(grp->'conditions') AS condition

@@ -5,11 +5,6 @@ import type { NotificationEvent, NotificationSource } from '../events.js';
 import type { DestinationType } from './types.js';
 
 export interface ToastRendered {
-  /** The data emit the browser's health banner reads; independent of any toast. */
-  server?: {
-    event: typeof WS_EVENTS.SERVER_DOWN | typeof WS_EVENTS.SERVER_UP;
-    data: { serverId: string; serverName: string };
-  };
   toast?: NotificationToast;
 }
 
@@ -41,21 +36,15 @@ export const webToastType: DestinationType<Record<string, never>, ToastRendered>
   kind: 'web_toast',
   events: DESTINATION_TYPES.web_toast.events,
   render(event, _config, ctx) {
+    // The health banner is published by the producer, so a toast is all this carries.
     const toast = toastFor(event, ctx.source);
-    const server =
-      event.type === 'server_down'
-        ? { event: WS_EVENTS.SERVER_DOWN, data: event.payload }
-        : event.type === 'server_up'
-          ? { event: WS_EVENTS.SERVER_UP, data: event.payload }
-          : undefined;
-    return { ...(server && { server }), ...(toast && { toast }) };
+    return toast ? { toast } : {};
   },
   async deliver(rendered) {
-    if (!rendered.server && !rendered.toast) return;
+    if (!rendered.toast) return;
     const pubSub = getPubSubService();
     if (!pubSub) throw new Error('pub/sub unavailable');
-    if (rendered.server) await pubSub.publish(rendered.server.event, rendered.server.data);
-    if (rendered.toast) await pubSub.publish(WS_EVENTS.NOTIFICATION_TOAST, rendered.toast);
+    await pubSub.publish(WS_EVENTS.NOTIFICATION_TOAST, rendered.toast);
   },
   test: async () => {
     // no config to test; the route returns 400 for built-ins

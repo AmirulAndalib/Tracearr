@@ -92,7 +92,7 @@ describe('latestVersionFor', () => {
     mockFetchJson.mockReset();
   });
 
-  it('takes the newest across Plex platforms when the server platform is unknown', async () => {
+  it('takes the newest across the Plex platforms', async () => {
     mockFetchJson.mockResolvedValue(PLEX_FEED);
 
     await expect(latestVersionFor('plex')).resolves.toBe('1.44.0.11000');
@@ -100,18 +100,6 @@ describe('latestVersionFor', () => {
       'https://plex.tv/api/downloads/5.json',
       expect.objectContaining({ timeout: 10_000, service: 'plex' })
     );
-  });
-
-  it('takes the named platform when the server says which one it runs', async () => {
-    mockFetchJson.mockResolvedValue(PLEX_FEED);
-
-    await expect(latestVersionFor('plex', 'Windows')).resolves.toBe('1.43.3.10896');
-  });
-
-  it('falls back to the newest across platforms for a platform the feed does not list', async () => {
-    mockFetchJson.mockResolvedValue(PLEX_FEED);
-
-    await expect(latestVersionFor('plex', 'Netgear')).resolves.toBe('1.44.0.11000');
   });
 
   it('reads the Jellyfin release tag', async () => {

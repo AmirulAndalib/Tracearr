@@ -15,6 +15,8 @@ export interface MediaEventPayload {
   serverType: string;
   libraryItemId: string;
   title: string;
+  /** The show or artist an episode or track belongs to; null for anything standalone. */
+  grandparentTitle: string | null;
   mediaType: string;
   year: number | null;
   libraryName: string;

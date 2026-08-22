@@ -3,6 +3,7 @@ import type {
   ActiveSession,
   Action,
   EngineAutomation,
+  LeafAction,
   ViolationWithDetails,
   Session,
   Server,
@@ -271,7 +272,7 @@ describe('Action Executor Registry', () => {
 
     it('should return error for unknown action type', async () => {
       const context = createMockContext();
-      const action = { type: 'unknown_type' } as unknown as Action;
+      const action = { type: 'unknown_type' } as unknown as LeafAction;
 
       const result = await executeAction(context, action);
 
@@ -462,6 +463,7 @@ describe('Action Executor Registry', () => {
         const media = {
           libraryItemId: 'item-1',
           title: 'Cars',
+          grandparentTitle: null,
           type: 'movie',
           year: 2006,
           libraryId: '1',
@@ -497,6 +499,7 @@ describe('Action Executor Registry', () => {
             serverType: 'plex',
             libraryItemId: 'item-1',
             title: 'Cars',
+            grandparentTitle: null,
             mediaType: 'movie',
             year: 2006,
             libraryName: 'Movies',
@@ -1474,12 +1477,12 @@ describe('Action Executor Registry', () => {
       expect(results[1]).toMatchObject({
         success: true,
         skipped: true,
-        skipReason: 'No active session for an inactivity violation',
+        skipReason: 'No session to act on',
       });
       expect(results[2]).toMatchObject({
         success: true,
         skipped: true,
-        skipReason: 'No active session for an inactivity violation',
+        skipReason: 'No session to act on',
       });
     });
 
@@ -1519,6 +1522,43 @@ describe('Action Executor Registry', () => {
           }),
         })
       );
+    });
+
+    it('renders {{minutes}} as whole minutes, of the pause the firing node measures', async () => {
+      // The wake fires a second past the threshold, so the raw reading is 30.0166 minutes.
+      const at = new Date('2026-08-21T12:00:01.000Z');
+      const pauseData = {
+        lastPausedAt: new Date('2026-08-21T11:30:00.000Z'),
+        pausedDurationMs: 10 * 60_000,
+      };
+      const heldFor = (measure: 'current' | 'total'): EvaluationContext => ({
+        ...createAccountContext(createMockServerUser({ lastActivityAt: fortyFiveDaysAgo })),
+        triggerNode: {
+          id: 'node-1',
+          type: 'session.held_for',
+          enabled: true,
+          params: { minutes: 30, measure },
+        },
+        trigger: {
+          type: 'session.held_for',
+          at,
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(createMockServerUser()),
+          session: createMockSession(),
+          pauseData,
+          heldMinutes: (at.getTime() - pauseData.lastPausedAt.getTime()) / 60_000,
+        },
+      });
+
+      const minutesOf = async (measure: 'current' | 'total'): Promise<unknown> => {
+        (mockDeps.enqueueAutomationNotification as ReturnType<typeof vi.fn>).mockClear();
+        await executeActions(heldFor(measure), [{ type: 'send', to: ['d1'] }]);
+        const payload = enqueueCall().event.payload as { data: Record<string, unknown> };
+        return payload.data.minutes;
+      };
+
+      expect(await minutesOf('current')).toBe(30);
+      expect(await minutesOf('total')).toBe(40);
     });
 
     it('keys cooldowns per action type and lets other actions run', async () => {

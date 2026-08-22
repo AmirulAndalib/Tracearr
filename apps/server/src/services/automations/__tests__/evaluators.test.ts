@@ -3130,6 +3130,7 @@ describe('Media Evaluators', () => {
       media: {
         libraryItemId: 'item-1',
         title: 'Cars',
+        grandparentTitle: null,
         type: 'movie',
         year: 2006,
         libraryId: '1',

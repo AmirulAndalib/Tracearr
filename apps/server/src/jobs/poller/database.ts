@@ -12,8 +12,6 @@ import {
   WS_EVENTS,
   type Session,
   type EngineAutomation,
-  type AutomationConditions,
-  type AutomationActions,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import {
@@ -25,7 +23,7 @@ import {
   libraryItems,
   media,
 } from '../../db/schema.js';
-import { automationsLogger } from '../../utils/logger.js';
+import { automationsLogger, createLogger } from '../../utils/logger.js';
 import { getPubSubService } from '../../services/cache.js';
 import { mapSessionRow } from './sessionMapper.js';
 
@@ -357,6 +355,9 @@ const SERVERS_CACHE_TTL_MS = 10_000;
 
 let serversCache: { data: (typeof servers.$inferSelect)[]; expiresAt: number } | null = null;
 
+// The servers cache is the poller's, not the engine's.
+const serversLogger = createLogger('servers');
+
 /** Invalidate the servers cache. Call from every server create/update/delete path. */
 export function invalidateServersCache(): void {
   serversCache = null;
@@ -368,7 +369,7 @@ export async function publishServersChanged(): Promise<void> {
   await getPubSubService()
     ?.publish(WS_EVENTS.SERVERS_CHANGED, {})
     .catch((error: unknown) => {
-      automationsLogger.warn(
+      serversLogger.warn(
         'servers:changed publish failed; other instances fall back to the cache TTL',
         {
           error,
@@ -422,8 +423,9 @@ export function mapAutomationRow(
     isActive: r.isActive,
     severity: r.severity,
     kind: r.kind,
-    conditions: r.conditions as AutomationConditions,
-    actions: r.actions as AutomationActions,
+    // Both columns are nullable jsonb; a row that never held either reads as empty.
+    conditions: r.conditions ?? { groups: [] },
+    actions: r.actions ?? { actions: [] },
     triggers: r.triggers ?? [],
     currentVersionId,
     cooldownMinutes: r.cooldownMinutes,

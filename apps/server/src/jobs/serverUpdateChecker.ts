@@ -64,9 +64,8 @@ async function installedVersionOf(server: CheckedServer): Promise<string | null>
   return normalized;
 }
 
-async function checkServer(server: CheckedServer): Promise<void> {
+async function checkServer(server: CheckedServer, latest: string | null): Promise<void> {
   const installed = await installedVersionOf(server);
-  const latest = await latestVersionFor(server.type);
 
   const patch: { version?: string; latestVersion?: string } = {};
   if (installed) patch.version = installed;
@@ -115,8 +114,15 @@ export async function runServerUpdateCheck(): Promise<void> {
       })
       .from(servers);
 
+    // The vendor feed is per type, not per server: read it once however many servers share it.
+    const latestByType = new Map<ServerType, Promise<string | null>>();
     for (const server of rows) {
-      await checkServer(server);
+      let latest = latestByType.get(server.type);
+      if (!latest) {
+        latest = latestVersionFor(server.type);
+        latestByType.set(server.type, latest);
+      }
+      await checkServer(server, await latest);
     }
   } catch (error) {
     logger.error('Check failed', { error });

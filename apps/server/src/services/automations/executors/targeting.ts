@@ -34,11 +34,15 @@ export function resolveTargetSessions(input: TargetResolutionInput): Session[] {
     case 'triggering':
       return [triggeringSession];
 
-    case 'oldest':
-      return userSessions.length > 0 ? [userSessions[0]!] : [];
+    case 'oldest': {
+      const [oldest] = userSessions;
+      return oldest ? [oldest] : [];
+    }
 
-    case 'newest':
-      return userSessions.length > 0 ? [userSessions[userSessions.length - 1]!] : [];
+    case 'newest': {
+      const newest = userSessions[userSessions.length - 1];
+      return newest ? [newest] : [];
+    }
 
     case 'all_except_one':
       return userSessions.slice(1);

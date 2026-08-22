@@ -141,6 +141,30 @@ describe('pauseCrossings', () => {
     expect(after.next).toEqual({ at: t0 + 15 * MIN + HOLD_OPEN_RECHECK_MS, nodeId: null });
   });
 
+  it('a switched-off condition cannot flip, so it does not hold the wake open', () => {
+    const withDisabled = rule('d', [heldFor(10)], []);
+    withDisabled.conditions = {
+      groups: [
+        {
+          conditions: [{ field: 'concurrent_streams', operator: 'gte', value: 3, enabled: false }],
+        },
+        {
+          enabled: false,
+          conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }],
+        },
+      ],
+    };
+
+    expect(
+      pauseCrossings({
+        lastPausedAt: t0,
+        pausedDurationMs: 0,
+        now: t0 + 15 * MIN,
+        rules: [withDisabled],
+      }).holdOpen
+    ).toBe(false);
+  });
+
   it('a satisfied node whose rule only tests pause time does not hold open', () => {
     const pure = rule(
       'p',

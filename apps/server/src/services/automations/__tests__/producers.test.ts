@@ -34,6 +34,9 @@ vi.mock('../../../db/client.js', () => ({
   },
 }));
 
+const mockPublish = vi.fn().mockResolvedValue(undefined);
+vi.mock('../../cache.js', () => ({ getPubSubService: () => ({ publish: mockPublish }) }));
+
 const mockLoadEvaluationContext = vi.fn();
 vi.mock('../events/contextAssembly.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -266,6 +269,24 @@ describe('server and install producers', () => {
     expect(seen).toEqual([]);
   });
 
+  it('publishes the health banner with no automation listening, from the row and from the id', async () => {
+    await dispatchServerHealth('server.down', server, new Date());
+    await dispatchServerHealthById('server.up', 'server-1', new Date());
+
+    expect(mockPublish.mock.calls).toEqual([
+      ['server:down', { serverId: 'server-1', serverName: 'Test Plex' }],
+      ['server:up', { serverId: 'server-1', serverName: 'Test Plex' }],
+    ]);
+  });
+
+  it('publishes no banner for a server row that is already gone', async () => {
+    mockServerRows.mockReturnValue([]);
+
+    await dispatchServerHealthById('server.down', 'server-1', new Date());
+
+    expect(mockPublish).not.toHaveBeenCalled();
+  });
+
   it('dispatches the row it holds with this server active sessions', async () => {
     mockGetActiveAutomations.mockResolvedValue([automation([node('server.down')])]);
     cached.push({ id: 'sess-here', serverId: 'server-1' } as ActiveSession);
@@ -482,6 +503,7 @@ describe('media producers', () => {
   const media = {
     libraryItemId: 'item-1',
     title: 'Cars',
+    grandparentTitle: null,
     type: 'movie',
     year: 2006,
     libraryId: '1',
@@ -529,6 +551,23 @@ describe('media producers', () => {
     expect(seen[0]?.event).toMatchObject({ type: 'media.added', server, media });
   });
 
+  it('leaves the active-session cache alone, once per item across a whole sync', async () => {
+    mockGetActiveAutomations.mockResolvedValue([
+      automation([node('media.added')]),
+      automation([node('media.upgraded')], { id: 'a2' }),
+    ]);
+    const sessions = vi.fn().mockResolvedValue([]);
+    setContextAssemblyDeps({
+      getAllActiveSessions: sessions,
+      gracePeriodSessionIds: () => new Set<string>(),
+    });
+
+    await dispatchMediaAdded({ server, media });
+    await dispatchMediaUpgraded({ server, media, from: quality, changed: ['resolution'] });
+
+    expect(sessions).not.toHaveBeenCalled();
+  });
+
   it('carries the quality it came from and the fields that moved', async () => {
     mockGetActiveAutomations.mockResolvedValue([automation([node('media.upgraded')])]);
     const seen = captureEvents('media.upgraded');
@@ -550,6 +589,7 @@ describe('a media add reaches the recorder as a library-item subject', () => {
   const media = {
     libraryItemId: 'item-1',
     title: 'Cars',
+    grandparentTitle: null,
     type: 'movie',
     year: 2006,
     libraryId: '1',

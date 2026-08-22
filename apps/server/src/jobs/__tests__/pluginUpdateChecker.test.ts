@@ -1,23 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockFetchJson, mockEnqueueNotification, mockSseManager, mockGetSettings, mockDbServers } =
-  vi.hoisted(() => ({
-    mockFetchJson: vi.fn(),
-    mockEnqueueNotification: vi.fn().mockResolvedValue('job-id'),
-    mockSseManager: {
-      setLatestPluginVersion: vi.fn(),
-      getPluginVersion: vi.fn().mockReturnValue(null),
-      isInFallback: vi.fn().mockReturnValue(false),
-    },
-    mockGetSettings: vi.fn().mockResolvedValue({
-      pluginUpdateCheckEnabled: true,
-      pluginManifestUrl: null,
-    }),
-    mockDbServers: vi.fn().mockResolvedValue([]),
-  }));
+const { mockFetchJson, mockSseManager, mockGetSettings, mockDbServers } = vi.hoisted(() => ({
+  mockFetchJson: vi.fn(),
+  mockSseManager: {
+    setLatestPluginVersion: vi.fn(),
+    getPluginVersion: vi.fn().mockReturnValue(null),
+    isInFallback: vi.fn().mockReturnValue(false),
+  },
+  mockGetSettings: vi.fn().mockResolvedValue({
+    pluginUpdateCheckEnabled: true,
+    pluginManifestUrl: null,
+  }),
+  mockDbServers: vi.fn().mockResolvedValue([]),
+}));
 
 vi.mock('../../utils/http.js', () => ({ fetchJson: mockFetchJson }));
-vi.mock('../notificationQueue.js', () => ({ enqueueNotification: mockEnqueueNotification }));
 vi.mock('../../services/sseManager.js', () => ({ sseManager: mockSseManager }));
 vi.mock('../../services/settings.js', () => ({ getSettings: mockGetSettings }));
 vi.mock('../../db/client.js', () => ({
@@ -66,13 +63,6 @@ describe('runPluginUpdateCheck', () => {
       latestVersion: '0.2.0.0',
       downloadUrl: 'https://github.com/Tracearr/Media-Server-SSE/releases/latest',
     });
-  });
-
-  it('leaves the notification to whatever automation listens for the trigger', async () => {
-    mockSseManager.getPluginVersion.mockReturnValue('0.1.0.0');
-    await runPluginUpdateCheck();
-
-    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
   it('re-arms when a newer version appears', async () => {

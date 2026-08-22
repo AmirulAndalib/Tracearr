@@ -73,8 +73,11 @@ function holdsOpen(
   input: PauseCrossingInput
 ): boolean {
   if (!nodes.some((node) => satisfiedNow(node, input))) return false;
-  return rule.conditions.groups.some((group) =>
-    group.conditions.some((c) => !PAUSE_CONDITION_FIELDS.has(c.field))
+  // A disabled group or condition is absent to the engine, so it cannot flip anything either.
+  return rule.conditions.groups.some(
+    (group) =>
+      group.enabled !== false &&
+      group.conditions.some((c) => c.enabled !== false && !PAUSE_CONDITION_FIELDS.has(c.field))
   );
 }
 

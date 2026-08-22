@@ -4,23 +4,25 @@ import type {
   Action,
   GroupEvidence,
   IfAction,
-  LeafActionType,
-  SendAction,
-  TrustAction,
   KillStreamAction,
+  LeafAction,
+  LeafActionType,
   MessageClientAction,
+  SendAction,
   Server,
   ServerUser,
+  TrustAction,
 } from '@tracearr/shared';
 import { automationsLogger } from '../../../utils/logger.js';
+import { evaluateAllGroupsAsync } from '../engine.js';
+import { pauseMinutes } from '../wakes/crossings.js';
+import { resolveTargetSessions } from './targeting.js';
 import type {
   NotificationEvent,
   NotificationSource,
   ServerEventPayload,
 } from '../../notifications/events.js';
-import { evaluateAllGroupsAsync } from '../engine.js';
 import type { ActionExecutor, EvaluationContext } from '../types.js';
-import { resolveTargetSessions } from './targeting.js';
 
 /**
  * Result of executing an action.
@@ -167,11 +169,24 @@ function accountInactivityMessage(serverUser: ServerUser): string {
 
 /** The numbers a trigger measured, so `{{minutes}}` and friends render off a violation shape. */
 function triggerNumbers(context: EvaluationContext): Record<string, number> {
-  const { trigger, serverUser } = context;
+  const { trigger, triggerNode, serverUser } = context;
   if (!trigger) return {};
   switch (trigger.type) {
-    case 'session.held_for':
-      return { minutes: trigger.heldMinutes };
+    case 'session.held_for': {
+      // heldMinutes is this pause alone; a node measuring the total renders what it read.
+      const measure =
+        triggerNode?.type === 'session.held_for' ? triggerNode.params.measure : 'current';
+      const pausedAt = trigger.pauseData.lastPausedAt;
+      const minutes =
+        measure === 'total' && pausedAt
+          ? pauseMinutes(measure, {
+              lastPausedAt: pausedAt.getTime(),
+              pausedDurationMs: trigger.pauseData.pausedDurationMs,
+              now: trigger.at.getTime(),
+            })
+          : trigger.heldMinutes;
+      return { minutes: Math.round(minutes) };
+    }
     case 'session.stopped':
       return { durationMinutes: Math.round(trigger.durationMs / TIME_MS.MINUTE) };
     case 'account.inactive_for': {
@@ -269,6 +284,7 @@ function nativeEventFor(context: EvaluationContext): NotificationEvent | null {
         serverType: server.type,
         libraryItemId: media.libraryItemId,
         title: media.title,
+        grandparentTitle: media.grandparentTitle,
         mediaType: media.type,
         year: media.year,
         libraryName: media.libraryName,
@@ -570,11 +586,11 @@ function skippedResult(action: Action, skipReason: string): ActionResult {
  */
 export async function executeAction(
   context: EvaluationContext,
-  action: Action
+  action: LeafAction
 ): Promise<ActionResult> {
   const { rule } = context;
-  // `if` is a control node, not an effect, so it has no executor.
-  const executor = action.type === 'if' ? undefined : executorRegistry[action.type];
+  // A stored type this build never knew is not in the registry.
+  const executor: ActionExecutor | undefined = executorRegistry[action.type];
 
   if (!executor) {
     return {
@@ -585,7 +601,7 @@ export async function executeAction(
   }
 
   if (!context.session && (action.type === 'kill_stream' || action.type === 'message_client')) {
-    return skippedResult(action, 'No active session for an inactivity violation');
+    return skippedResult(action, 'No session to act on');
   }
 
   // Check cooldown

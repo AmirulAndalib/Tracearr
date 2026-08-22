@@ -360,7 +360,11 @@ describe('AutomationDetail activity', () => {
   it('translates each run outcome', () => {
     setRuns([
       run({ id: 'run-1', outcome: 'completed' }),
-      run({ id: 'run-2', outcome: 'stopped_by_condition', humanSummary: 'No condition matched' }),
+      run({
+        id: 'run-2',
+        outcome: 'stopped_by_condition',
+        humanSummary: 'Trust score was not below 50.',
+      }),
       run({ id: 'run-3', outcome: 'error' }),
     ]);
 
@@ -371,7 +375,7 @@ describe('AutomationDetail activity', () => {
       screen.getByText('pages:automations.activity.outcomes.stopped_by_condition')
     ).toBeInTheDocument();
     expect(screen.getByText('pages:automations.activity.outcomes.error')).toBeInTheDocument();
-    expect(screen.getByText('No condition matched')).toBeInTheDocument();
+    expect(screen.getByText('Trust score was not below 50.')).toBeInTheDocument();
   });
 
   it('drops the severity column for a notification automation', () => {

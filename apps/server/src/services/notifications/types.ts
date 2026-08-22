@@ -138,8 +138,12 @@ export interface NotificationPayload {
   automation?: { id: string; name: string; title?: string; message?: string };
 }
 
+/** An episode or track announces the show or artist it belongs to; a film names itself. */
+const mediaName = (ctx: MediaEventPayload): string =>
+  ctx.grandparentTitle === null ? ctx.title : `${ctx.grandparentTitle} — ${ctx.title}`;
+
 const titleWithYear = (ctx: MediaEventPayload): string =>
-  ctx.year === null ? ctx.title : `${ctx.title} (${String(ctx.year)})`;
+  ctx.year === null ? mediaName(ctx) : `${mediaName(ctx)} (${String(ctx.year)})`;
 
 /** Values as a message shows them: bytes in GB, a resolution in its display spelling. */
 function qualityText(field: keyof MediaQuality, value: string | number | null): string {
@@ -258,7 +262,7 @@ export const PayloadBuilders = {
     return {
       event: 'media_upgraded',
       title: 'Media upgraded',
-      message: `${ctx.title} on ${ctx.serverName}${qualityMove(ctx)}`,
+      message: `${mediaName(ctx)} on ${ctx.serverName}${qualityMove(ctx)}`,
       severity: 'low',
       timestamp: new Date().toISOString(),
       context: { type: 'media_upgraded', ...ctx },

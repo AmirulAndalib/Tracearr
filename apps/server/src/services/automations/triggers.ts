@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { automationsLogger } from '../../utils/logger.js';
 import type {
+  Action,
   Condition,
   ConditionField,
   NodeFields,
@@ -185,20 +186,31 @@ const stamp = <T extends NodeFields>(item: T): T & Required<NodeFields> => ({
   enabled: item.enabled ?? true,
 });
 
-/** The builder addresses nodes by id, so every condition and action needs one before it is stored. */
+const stampGroups = (conditions: AutomationConditions): AutomationConditions => ({
+  groups: conditions.groups.map((group) => ({
+    ...stamp(group),
+    conditions: group.conditions.map((condition) => stamp(condition)),
+  })),
+});
+
+/** A branch holds a set of checks and two lists of steps, each addressed by id of its own. */
+const stampAction = (action: Action): Action =>
+  action.type === 'if'
+    ? {
+        ...stamp(action),
+        conditions: stampGroups(action.conditions),
+        then: action.then.map((leaf) => stamp(leaf)),
+        else: action.else.map((leaf) => stamp(leaf)),
+      }
+    : stamp(action);
+
+/** The builder addresses nodes by id, so every node needs one before it is stored. */
 export function stampNodes(definition: {
   conditions: AutomationConditions | null;
   actions: AutomationActions | null;
 }): { conditions: AutomationConditions | null; actions: AutomationActions } {
   return {
-    conditions: definition.conditions
-      ? {
-          groups: definition.conditions.groups.map((group) => ({
-            ...group,
-            conditions: group.conditions.map((condition) => stamp(condition)),
-          })),
-        }
-      : null,
-    actions: { actions: (definition.actions?.actions ?? []).map((action) => stamp(action)) },
+    conditions: definition.conditions ? stampGroups(definition.conditions) : null,
+    actions: { actions: (definition.actions?.actions ?? []).map(stampAction) },
   };
 }

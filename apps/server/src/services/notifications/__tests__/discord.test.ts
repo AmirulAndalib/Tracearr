@@ -46,6 +46,7 @@ const mediaUpgraded: NotificationEvent = {
     serverType: 'plex',
     libraryItemId: 'item-1',
     title: 'Cars',
+    grandparentTitle: null,
     mediaType: 'movie',
     year: 2006,
     libraryName: 'Movies',

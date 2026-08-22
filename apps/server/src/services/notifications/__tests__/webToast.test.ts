@@ -46,20 +46,10 @@ const render = async (
 ): Promise<ToastRendered> => webToastType.render(event, {}, ctx);
 
 describe('webToastType.render', () => {
-  it('renders server down as a server:down publish', async () => {
-    expect(
-      await render({ type: 'server_down', payload: { serverName: 'Plex Server', serverId: 's1' } })
-    ).toEqual({
-      server: { event: 'server:down', data: { serverName: 'Plex Server', serverId: 's1' } },
-    });
-  });
-
-  it('renders server up as a server:up publish', async () => {
-    expect(
-      await render({ type: 'server_up', payload: { serverName: 'Plex Server', serverId: 's1' } })
-    ).toEqual({
-      server: { event: 'server:up', data: { serverName: 'Plex Server', serverId: 's1' } },
-    });
+  it('renders nothing for a server event a system source raised', async () => {
+    const down = { serverName: 'Plex Server', serverId: 's1' };
+    expect(await render({ type: 'server_down', payload: down })).toEqual({});
+    expect(await render({ type: 'server_up', payload: down })).toEqual({});
   });
 
   it('renders nothing for system stream events', async () => {
@@ -112,16 +102,13 @@ describe('webToastType.render', () => {
     });
   });
 
-  it('keeps the server data emit alongside an automation toast', async () => {
+  it('carries only the toast for a server event, never the banner the producer publishes', async () => {
     const rendered = await render(
       { type: 'server_down', payload: { serverName: 'Plex Server', serverId: 's1' } },
       automationCtx({ title: '{{server.name}} is gone' })
     );
 
-    expect(rendered.server).toEqual({
-      event: 'server:down',
-      data: { serverName: 'Plex Server', serverId: 's1' },
-    });
+    expect(Object.keys(rendered)).toEqual(['toast']);
     expect(rendered.toast?.title).toBe('Plex Server is gone');
   });
 
@@ -146,6 +133,7 @@ describe('webToastType.render', () => {
         serverType: 'plex',
         libraryItemId: 'item-1',
         title: 'Cars',
+        grandparentTitle: null,
         mediaType: 'movie',
         year: 2006,
         libraryName: 'Movies',
@@ -182,16 +170,6 @@ describe('webToastType.deliver', () => {
     mockGetPubSubService.mockReturnValue({ publish } as unknown as PubSubService);
   });
 
-  it('publishes server:down with the payload', async () => {
-    await webToastType.deliver(
-      { server: { event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } } },
-      {},
-      deliverCtx
-    );
-
-    expect(publish).toHaveBeenCalledWith('server:down', { serverName: 'Plex', serverId: 's1' });
-  });
-
   it('publishes the toast on notification:toast', async () => {
     const toast = {
       title: 'Rule fired',
@@ -206,25 +184,6 @@ describe('webToastType.deliver', () => {
     expect(publish).toHaveBeenCalledWith('notification:toast', toast);
   });
 
-  it('publishes both when a server event carries a toast', async () => {
-    await webToastType.deliver(
-      {
-        server: { event: 'server:up', data: { serverName: 'Plex', serverId: 's1' } },
-        toast: {
-          title: 'Back',
-          message: 'Plex is back',
-          automationId: 'a-1',
-          automationName: 'Server up',
-          severity: 'low',
-        },
-      },
-      {},
-      deliverCtx
-    );
-
-    expect(publish).toHaveBeenCalledTimes(2);
-  });
-
   it('publishes nothing for an empty render', async () => {
     await webToastType.deliver({}, {}, deliverCtx);
 
@@ -237,7 +196,15 @@ describe('webToastType.deliver', () => {
 
     await expect(
       webToastType.deliver(
-        { server: { event: 'server:down', data: { serverName: 'Plex', serverId: 's1' } } },
+        {
+          toast: {
+            title: 'Rule fired',
+            message: 'Too many streams',
+            automationId: 'rule-456',
+            automationName: 'Test Rule',
+            severity: 'high',
+          },
+        },
         {},
         deliverCtx
       )

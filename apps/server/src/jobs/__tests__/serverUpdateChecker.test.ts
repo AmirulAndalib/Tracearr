@@ -94,6 +94,14 @@ describe('runServerUpdateCheck', () => {
     });
   });
 
+  it('reads one vendor feed per server type, not per server', async () => {
+    mockServerRows.mockResolvedValue([JELLYFIN, { ...JELLYFIN, id: 's3', name: 'JF2' }, PLEX]);
+
+    await runServerUpdateCheck();
+
+    expect(mockLatestVersionFor.mock.calls.map(([type]) => type)).toEqual(['jellyfin', 'plex']);
+  });
+
   it('re-arms when a newer release appears', async () => {
     await runServerUpdateCheck();
     mockLatestVersionFor.mockResolvedValue('10.11.13');

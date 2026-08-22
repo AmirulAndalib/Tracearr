@@ -41,6 +41,7 @@ const mediaPayload = {
   serverType: 'plex',
   libraryItemId: 'item-1',
   title: 'Cars',
+  grandparentTitle: null,
   mediaType: 'movie',
   year: 2006,
   libraryName: 'Movies',
@@ -255,6 +256,20 @@ describe('media events', () => {
     );
 
     expect(upgraded.message).toBe('Cars: 1080p → 4K');
+  });
+
+  it('names the show or artist an episode or track belongs to', () => {
+    const episode = { ...mediaPayload, title: 'Pilot', grandparentTitle: 'Severance' };
+
+    expect(toNotificationPayload({ type: 'media_added', payload: episode }, system).message).toBe(
+      'Severance — Pilot (2006) was added to Movies on Basement'
+    );
+    expect(
+      toNotificationPayload(
+        { type: 'media_upgraded', payload: { ...upgradedPayload, ...episode } },
+        system
+      ).message
+    ).toBe('Severance — Pilot on Basement: 1080p → 4K');
   });
 
   it('renders a missing year and the item variables as the trigger offers them', () => {

@@ -44,6 +44,7 @@ const synced = (overrides: Partial<SyncedMediaRow> = {}): SyncedMediaRow => ({
   ratingKey: 'rk-1',
   firstSeenAt: earlier,
   title: 'Cars',
+  grandparentTitle: null,
   mediaType: 'movie',
   year: 2006,
   quality: quality(),
@@ -185,6 +186,7 @@ describe('announceMediaChanges', () => {
       media: {
         libraryItemId: 'item-1',
         title: 'Cars',
+        grandparentTitle: null,
         type: 'movie',
         year: 2006,
         libraryId: '1',

@@ -2370,6 +2370,7 @@ const mediaQuality = (overrides: Partial<MediaQuality> = {}): MediaQuality => ({
 const mediaSubject = (overrides: Partial<MediaSubject> = {}): MediaSubject => ({
   libraryItemId: 'item-1',
   title: 'Cars',
+  grandparentTitle: null,
   type: 'movie',
   year: 2006,
   libraryId: '1',

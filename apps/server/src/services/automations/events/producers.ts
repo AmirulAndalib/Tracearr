@@ -1,6 +1,7 @@
-import type { EngineAutomation, Session } from '@tracearr/shared';
+import { WS_EVENTS, type EngineAutomation, type Session } from '@tracearr/shared';
 import { getActiveAutomations } from '../../../jobs/poller/database.js';
 import { automationsLogger } from '../../../utils/logger.js';
+import { getPubSubService } from '../../cache.js';
 import {
   installInputs,
   loadEvaluationContext,
@@ -90,6 +91,22 @@ export async function dispatchSessionStopped(
   });
 }
 
+/**
+ * The dashboard's health banner is an operations indicator, so it goes out whether or
+ * not an automation listens, and a failed publish never costs the dispatch.
+ */
+async function publishServerHealth(
+  type: 'server.down' | 'server.up',
+  server: EvaluationServer
+): Promise<void> {
+  const event = type === 'server.down' ? WS_EVENTS.SERVER_DOWN : WS_EVENTS.SERVER_UP;
+  try {
+    await getPubSubService()?.publish(event, { serverId: server.id, serverName: server.name });
+  } catch (error) {
+    automationsLogger.warn('Server health publish failed', { event, serverId: server.id, error });
+  }
+}
+
 /** The poller holds the server row its health check just flipped. */
 export async function dispatchServerHealth(
   type: 'server.down' | 'server.up',
@@ -97,6 +114,7 @@ export async function dispatchServerHealth(
   at: Date
 ): Promise<void> {
   await guarded(type, async () => {
+    await publishServerHealth(type, server);
     const rules = await serverListeningRules(type, server.id);
     if (!rules) return;
     const { inputs } = await serverContextFor(server, rules);
@@ -112,9 +130,11 @@ export async function dispatchServerHealthById(
 ): Promise<void> {
   await guarded(type, async () => {
     const rules = await serverListeningRules(type, serverId);
-    if (!rules) return;
-    const context = await loadServerContext(serverId, rules);
+    // The banner needs the name either way, so the row is read whether or not anything listens.
+    const context = await loadServerContext(serverId, rules ?? []);
     if (!context) return;
+    await publishServerHealth(type, context.server);
+    if (!rules) return;
     await dispatch({ type, at, server: context.server }, context.inputs);
   });
 }
@@ -147,6 +167,7 @@ export async function dispatchServerUpdate(args: {
   });
 }
 
+// A media subject reads nothing from the session inputs, and a sync run dispatches per item.
 export async function dispatchMediaAdded(args: {
   server: EvaluationServer;
   media: MediaSubject;
@@ -154,8 +175,7 @@ export async function dispatchMediaAdded(args: {
   await guarded('media.added', async () => {
     const rules = await serverListeningRules('media.added', args.server.id);
     if (!rules) return;
-    const { inputs } = await serverContextFor(args.server, rules);
-    await dispatch({ type: 'media.added', at: new Date(), ...args }, inputs);
+    await dispatch({ type: 'media.added', at: new Date(), ...args }, installInputs(rules));
   });
 }
 
@@ -168,8 +188,7 @@ export async function dispatchMediaUpgraded(args: {
   await guarded('media.upgraded', async () => {
     const rules = await serverListeningRules('media.upgraded', args.server.id);
     if (!rules) return;
-    const { inputs } = await serverContextFor(args.server, rules);
-    await dispatch({ type: 'media.upgraded', at: new Date(), ...args }, inputs);
+    await dispatch({ type: 'media.upgraded', at: new Date(), ...args }, installInputs(rules));
   });
 }
 

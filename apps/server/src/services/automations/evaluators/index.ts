@@ -667,7 +667,8 @@ const evaluateIsTranscoding: ConditionEvaluator = (
         v === 'video' || v === 'audio' || v === 'video_or_audio' || v === 'neither'
     );
     // Unrecognized values never match under ANY operator, same as evaluateCountry
-    if (known.length === 0) {
+    const [first] = known;
+    if (first === undefined) {
       return { matched: false, actual: 'unknown', details };
     }
 
@@ -703,7 +704,7 @@ const evaluateIsTranscoding: ConditionEvaluator = (
       ? session.isTranscode
         ? 'transcoding'
         : 'direct'
-      : actualFor(known[0]!);
+      : actualFor(first);
     return { matched: inverted ? !anyMatch : anyMatch, actual, details };
   }
 

@@ -54,15 +54,12 @@ export function isNewerServerVersion(type: ServerType, latest: string, installed
 }
 
 /** Plex publishes one version per platform; they move together, so the newest stands in. */
-async function latestPlexVersion(platform?: string | null): Promise<string | null> {
+async function latestPlexVersion(): Promise<string | null> {
   const feed = await fetchJson<PlexDownloads>(PLEX_DOWNLOADS_URL, {
     timeout: FEED_TIMEOUT_MS,
     service: 'plex',
   });
-  const computer = feed.computer ?? {};
-  const named = platform ? computer[platform] : undefined;
-  const entries = named ? [named] : Object.values(computer);
-  const versions = entries
+  const versions = Object.values(feed.computer ?? {})
     .map((entry) =>
       typeof entry?.version === 'string' ? normalizeServerVersion('plex', entry.version) : null
     )
@@ -81,14 +78,12 @@ async function latestGithubVersion(type: 'jellyfin' | 'emby'): Promise<string | 
 }
 
 /** The newest release the vendor publishes, normalized. Any failure reads as "unknown". */
-export async function latestVersionFor(
-  type: ServerType,
-  platform?: string | null
-): Promise<string | null> {
+export async function latestVersionFor(type: ServerType): Promise<string | null> {
   try {
-    return type === 'plex' ? await latestPlexVersion(platform) : await latestGithubVersion(type);
+    return type === 'plex' ? await latestPlexVersion() : await latestGithubVersion(type);
   } catch (error) {
-    logger.debug('Latest version lookup failed', { type, error });
+    // A firewalled or renamed feed is otherwise invisible: the nudge just never comes.
+    logger.warn('Latest version lookup failed', { type, error });
     return null;
   }
 }

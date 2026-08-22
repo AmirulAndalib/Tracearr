@@ -412,6 +412,7 @@ describe('enqueueNotification - dedupe ids', () => {
           serverType: 'plex',
           libraryItemId,
           title: 'Cars',
+          grandparentTitle: null,
           mediaType: 'movie',
           year: 2006,
           libraryName: 'Movies',

@@ -46,6 +46,7 @@ export interface SyncedMediaRow {
   ratingKey: string;
   firstSeenAt: Date | null;
   title: string;
+  grandparentTitle: string | null;
   mediaType: string;
   year: number | null;
   quality: MediaQuality;
@@ -138,6 +139,7 @@ export async function announceMediaChanges(args: {
     const media: MediaSubject = {
       libraryItemId: change.row.id,
       title: change.row.title,
+      grandparentTitle: change.row.grandparentTitle,
       type: change.row.mediaType,
       year: change.row.year,
       libraryId,

@@ -1,5 +1,8 @@
 import type { EngineAutomation, RunFinishedEvent, TriggerNode } from '@tracearr/shared';
 import { db } from '../../../db/client.js';
+import { automationsLogger } from '../../../utils/logger.js';
+import { evaluateRulesAsync } from '../engine.js';
+import { executeActions, type ActionResult } from '../executors/index.js';
 import {
   appendRunSteps,
   automationCoolingDown,
@@ -12,9 +15,7 @@ import {
   type AutomationRunRow,
   type RunScope,
 } from '../runRecorder.js';
-import { automationsLogger } from '../../../utils/logger.js';
-import { evaluateRulesAsync } from '../engine.js';
-import { executeActions, type ActionResult } from '../executors/index.js';
+import { MEDIA_QUALITY_FIELDS } from '../types.js';
 import { storeActionResults } from '../v2Integration.js';
 import { subscribe } from './dispatcher.js';
 import {
@@ -24,10 +25,9 @@ import {
   type ContextEvaluatingEvent,
   type SessionEvaluatingEvent,
 } from './evaluate.js';
-import { MEDIA_QUALITY_FIELDS } from '../types.js';
+import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 import type { EvaluationContext, EvaluationResult, MediaQuality } from '../types.js';
 import type { DbTx, DispatchOptions, EvaluationInputs, SubscriberResult } from './types.js';
-import type { ViolationInsertResult } from '../../../jobs/poller/violations.js';
 
 /** A rule and the trigger node this event fires it through. */
 interface Firing {
@@ -208,7 +208,12 @@ export async function runRulePipeline(
       }
       if (result.actions.length === 0) continue;
 
-      pending.push({ context: { ...baseContext, rule, violationId: run.id }, result, rule, run });
+      pending.push({
+        context: { ...baseContext, rule, triggerNode: node, violationId: run.id },
+        result,
+        rule,
+        run,
+      });
     }
   };
 
@@ -232,6 +237,8 @@ export async function runRulePipeline(
     }
   };
 
+  // run:finished goes out before the actions run: the row is final, and its steps
+  // land on the refetch the event itself triggers.
   const postCommit = async (): Promise<void> => {
     await drainEffects();
     await publishRunFinished(finished);

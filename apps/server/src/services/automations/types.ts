@@ -1,11 +1,12 @@
 import type {
+  Action,
   Condition,
   EngineAutomation,
-  Action,
-  Session,
-  ServerUser,
-  Server,
   GroupEvidence,
+  Server,
+  ServerUser,
+  Session,
+  TriggerNode,
 } from '@tracearr/shared';
 import type { ContextEvaluatingEvent } from './events/evaluate.js';
 
@@ -33,6 +34,8 @@ export const MEDIA_QUALITY_FIELDS = [
 export interface MediaSubject {
   libraryItemId: string;
   title: string;
+  /** The show or artist an episode or track belongs to; null for anything standalone. */
+  grandparentTitle: string | null;
   type: string;
   year: number | null;
   libraryId: string;
@@ -53,6 +56,8 @@ export interface EvaluationContext {
   subjectKey: string;
   /** The event being evaluated; absent for kill re-verification, which runs no send. */
   trigger?: ContextEvaluatingEvent;
+  /** The trigger node the event fired through, so a message can render what that node measured. */
+  triggerNode?: TriggerNode;
   activeSessions: Session[];
   recentSessions: Session[];
   rule: EngineAutomation;

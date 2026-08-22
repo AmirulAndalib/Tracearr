@@ -150,6 +150,41 @@ describe('stampNodes', () => {
     expect(new Set(nodes.map((node) => node.id)).size).toBe(nodes.length);
   });
 
+  it('reaches a group, a branch and the leaves on both of its sides', () => {
+    const stamped = stampNodes({
+      conditions: {
+        groups: [{ conditions: [{ field: 'trust_score', operator: 'lt', value: 50 }] }],
+      },
+      actions: {
+        actions: [
+          {
+            type: 'if',
+            conditions: {
+              groups: [{ conditions: [{ field: 'is_transcoding', operator: 'eq', value: true }] }],
+            },
+            then: [{ type: 'trust', mode: 'reset' }],
+            else: [{ type: 'message_client', message: 'hi' }],
+          },
+        ],
+      },
+    });
+
+    const branch = stamped.actions.actions[0];
+    if (branch?.type !== 'if') throw new Error('the branch did not survive stamping');
+    const stampedNodes = [
+      ...(stamped.conditions?.groups ?? []),
+      branch,
+      ...branch.conditions.groups,
+      ...branch.conditions.groups.flatMap((group) => group.conditions),
+      ...branch.then,
+      ...branch.else,
+    ];
+    for (const node of stampedNodes) {
+      expect(node.id).toMatch(UUID);
+      expect(node.enabled).toBe(true);
+    }
+  });
+
   it('leaves null conditions null and treats missing actions as none', () => {
     expect(stampNodes({ conditions: null, actions: null })).toEqual({
       conditions: null,

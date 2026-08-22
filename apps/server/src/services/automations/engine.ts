@@ -4,12 +4,15 @@ import {
   OPERATOR_LABELS,
   contextSupplies,
 } from '@tracearr/shared';
+import { automationsLogger as logger } from '../../utils/logger.js';
+import { evaluatorRegistry } from './evaluators/index.js';
 import type {
   AutomationConditions,
-  ConditionGroup,
   Condition,
-  EngineAutomation,
   ConditionEvidence,
+  ConditionFieldDescriptor,
+  ConditionGroup,
+  EngineAutomation,
   GroupEvidence,
   TriggerContext,
 } from '@tracearr/shared';
@@ -19,8 +22,6 @@ import type {
   EvaluatorResult,
   SessionEvaluationContext,
 } from './types.js';
-import { evaluatorRegistry } from './evaluators/index.js';
-import { automationsLogger as logger } from '../../utils/logger.js';
 
 /**
  * Convert an evaluator result to condition evidence.
@@ -42,20 +43,62 @@ function toConditionEvidence(condition: Condition, result: EvaluatorResult): Con
   return evidence;
 }
 
-const describeCondition = (cond: ConditionEvidence): string =>
-  `${CONDITION_FIELD_LABELS[cond.field] ?? cond.field} ${
-    OPERATOR_LABELS[cond.operator] ?? cond.operator
-  } ${String(cond.threshold)}`;
+const UNIT_WORDS: Record<NonNullable<ConditionFieldDescriptor['unit']>, string> = {
+  km: 'km',
+  kmh: 'km/h',
+  mbps: 'Mbps',
+  days: 'days',
+  minutes: 'minutes',
+  hours: 'hours',
+  gb: 'GB',
+};
+
+/** The labels are Title Case for headings; mid-sentence only an initialism keeps its capitals. */
+const asWords = (label: string): string =>
+  label
+    .split(' ')
+    .map((word, index) => (index === 0 || /[A-Z]{2}/.test(word) ? word : word.toLowerCase()))
+    .join(' ');
+
+/** What a condition that did not hold reads as; the negative operators invert. */
+const FAILED_PHRASES: Record<string, (value: string) => string> = {
+  eq: (value) => `was not ${value}`,
+  neq: (value) => `was ${value}`,
+  gt: (value) => `was not above ${value}`,
+  gte: (value) => `was not ${value} or more`,
+  lt: (value) => `was not below ${value}`,
+  lte: (value) => `was not ${value} or less`,
+  in: (value) => `was not one of ${value}`,
+  not_in: (value) => `was one of ${value}`,
+  contains: (value) => `did not contain ${value}`,
+  not_contains: (value) => `contained ${value}`,
+};
+
+function thresholdWords(cond: ConditionEvidence): string {
+  const value = Array.isArray(cond.threshold)
+    ? cond.threshold.map((item) => String(item)).join(', ')
+    : String(cond.threshold);
+  const unit = CONDITION_FIELDS[cond.field]?.unit;
+  return unit ? `${value} ${UNIT_WORDS[unit]}` : value;
+}
+
+const describeCondition = (cond: ConditionEvidence): string => {
+  const label = asWords(CONDITION_FIELD_LABELS[cond.field] ?? cond.field);
+  const phrase = FAILED_PHRASES[cond.operator];
+  const value = thresholdWords(cond);
+  return phrase
+    ? `${label} ${phrase(value)}`
+    : `${label} ${OPERATOR_LABELS[cond.operator] ?? cond.operator} ${value}`;
+};
 
 /** An all-of group stops on the conditions that failed; an any-of group failed every one of them. */
 export function stoppedSummary(stoppedBy: GroupEvidence | undefined): string {
-  if (!stoppedBy || stoppedBy.conditions.length === 0) return 'No conditions matched';
-  if (stoppedBy.match === 'all') {
-    const failed = stoppedBy.conditions.filter((cond) => !cond.matched).map(describeCondition);
-    return `Condition not met: ${failed.join(', ')}`;
-  }
-  const parts = stoppedBy.conditions.map(describeCondition);
-  return `No condition matched in group ${stoppedBy.groupIndex + 1}: ${parts.join(', ')}`;
+  if (!stoppedBy || stoppedBy.conditions.length === 0) return 'Nothing was checked.';
+  const failed =
+    stoppedBy.match === 'all'
+      ? stoppedBy.conditions.filter((cond) => !cond.matched)
+      : stoppedBy.conditions;
+  return `${failed.map(describeCondition).join(' and ')}.`;
 }
 
 interface GroupResult {
@@ -192,16 +235,6 @@ export async function evaluateAllGroupsAsync(
  */
 export async function evaluateRuleAsync(context: EvaluationContext): Promise<EvaluationResult> {
   const { rule } = context;
-
-  if (!rule.conditions?.groups) {
-    return {
-      ruleId: rule.id,
-      ruleName: rule.name,
-      matched: false,
-      matchedGroups: [],
-      actions: [],
-    };
-  }
 
   const { matchedGroups, evidence } = await evaluateAllGroupsAsync(context, rule.conditions);
   const matched = matchedGroups !== null;

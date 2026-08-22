@@ -667,11 +667,11 @@ describe('buildRunValues', () => {
     expect(values.severity).toBe('warning');
   });
 
-  it('names the group that stopped the walk', () => {
+  it('says in plain words what an any-of group read', () => {
     const values = buildRunValues(args({ result: stoppedResult }));
 
     expect(values.outcome).toBe('stopped_by_condition');
-    expect(values.humanSummary).toBe('No condition matched in group 2: Concurrent Streams >= 3');
+    expect(values.humanSummary).toBe('Concurrent streams was not 3 or more.');
   });
 });
 
@@ -700,7 +700,66 @@ describe('the summary of a stopped run', () => {
       })
     );
 
-    expect(values.humanSummary).toBe('Condition not met: Trust Score < 50');
+    expect(values.humanSummary).toBe('Trust score was not below 50.');
+  });
+
+  it('carries the unit the field is measured in', () => {
+    const values = buildRunValues(
+      args({
+        result: {
+          ...stoppedResult,
+          stoppedBy: {
+            groupIndex: 0,
+            matched: false,
+            match: 'any',
+            conditions: [
+              {
+                field: 'travel_speed_kmh',
+                operator: 'gt',
+                threshold: 500,
+                actual: 20,
+                matched: false,
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    expect(values.humanSummary).toBe('Travel speed was not above 500 km/h.');
+  });
+
+  it('joins several failures into one sentence and inverts a negative operator', () => {
+    const values = buildRunValues(
+      args({
+        result: {
+          ...stoppedResult,
+          stoppedBy: {
+            groupIndex: 0,
+            matched: false,
+            match: 'all',
+            conditions: [
+              {
+                field: 'country',
+                operator: 'not_in',
+                threshold: ['US', 'CA'],
+                actual: 'US',
+                matched: false,
+              },
+              {
+                field: 'unique_ips_in_window',
+                operator: 'lte',
+                threshold: 2,
+                actual: 5,
+                matched: false,
+              },
+            ],
+          },
+        },
+      })
+    );
+
+    expect(values.humanSummary).toBe('Country was one of US, CA and Unique IPs was not 2 or less.');
   });
 });
 
