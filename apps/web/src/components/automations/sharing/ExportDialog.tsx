@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CopyButton } from '@/components/ui/copy-button';
 import {
   Dialog,
@@ -15,7 +17,6 @@ import {
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   TemplateSentencePanel,
   useTemplateBinding,
@@ -23,6 +24,7 @@ import {
 import { useExportAutomation } from '@/hooks/queries/useAutomations';
 import { useImportTemplate } from '@/hooks/queries/useTemplates';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { cn } from '@/lib/utils';
 
 /** Long enough that a name is finished before the code is rebuilt around it. */
 const AUTHOR_SETTLE_MS = 400;
@@ -77,36 +79,44 @@ export function ExportDialog({ automation, open, onOpenChange }: ExportDialogPro
         ) : (
           <div className="flex flex-col gap-5">
             <TemplateSentencePanel fragments={fragments} />
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              {t('pages:automations.export.carries')}
-            </p>
 
-            <Tabs defaultValue="code">
-              <TabsList>
-                <TabsTrigger value="code">{t('pages:automations.export.codeTab')}</TabsTrigger>
-                <TabsTrigger value="json">{t('pages:automations.export.jsonTab')}</TabsTrigger>
-              </TabsList>
-              <TabsContent value="code" className="flex items-start gap-2">
-                <pre className="bg-muted/40 max-h-40 flex-1 overflow-auto rounded-md p-3 font-mono text-xs break-all whitespace-pre-wrap">
-                  {data.code}
-                </pre>
-                <CopyButton
-                  value={data.code}
-                  label={t('pages:automations.export.copyCode')}
-                  disabled={isPlaceholderData}
-                />
-              </TabsContent>
-              <TabsContent value="json" className="flex items-start gap-2">
-                <pre className="bg-muted/40 max-h-40 flex-1 overflow-auto rounded-md p-3 text-xs">
-                  {JSON.stringify(data.envelope, null, 2)}
-                </pre>
-                <CopyButton
+            <div className="flex flex-col gap-2">
+              <CodeBlock
+                value={data.code}
+                copyLabel={t('pages:automations.export.copyCode')}
+                disabled={isPlaceholderData}
+                className="font-mono break-all whitespace-pre-wrap"
+              />
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {t('pages:automations.export.carries')}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <Disclosure label={t('pages:automations.export.showJson')}>
+                <CodeBlock
                   value={JSON.stringify(data.envelope, null, 2)}
-                  label={t('pages:automations.export.copyJson')}
+                  copyLabel={t('pages:automations.export.copyJson')}
                   disabled={isPlaceholderData}
                 />
-              </TabsContent>
-            </Tabs>
+              </Disclosure>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2"
+                  onClick={saveAsTemplate}
+                  disabled={save.isPending || isPlaceholderData}
+                >
+                  {t('pages:automations.export.save')}
+                </Button>
+                <span className="text-muted-foreground text-xs">
+                  {t('pages:automations.export.saveHelper')}
+                </span>
+              </div>
+            </div>
 
             <Field>
               <FieldLabel htmlFor="export-author">
@@ -125,21 +135,58 @@ export function ExportDialog({ automation, open, onOpenChange }: ExportDialogPro
         )}
 
         <DialogFooter>
-          {data && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={saveAsTemplate}
-              disabled={save.isPending || isPlaceholderData}
-            >
-              {t('pages:automations.export.save')}
-            </Button>
-          )}
           <Button type="button" onClick={() => onOpenChange(false)}>
             {t('common:actions.close')}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A block to copy, with the button beside it rather than floating over it. */
+function CodeBlock({
+  value,
+  copyLabel,
+  disabled,
+  className,
+}: {
+  value: string;
+  copyLabel: string;
+  disabled: boolean;
+  className?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <pre
+        className={cn(
+          'bg-muted/40 max-h-40 flex-1 overflow-auto rounded-md p-3 text-xs',
+          className
+        )}
+      >
+        {value}
+      </pre>
+      <CopyButton value={value} label={copyLabel} showLabel disabled={disabled} />
+    </div>
+  );
+}
+
+/** A row that opens what it names, with the chevron turning as it goes. */
+function Disclosure({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-ml-2 [&[data-state=open]>svg]:rotate-90"
+        >
+          <ChevronRight className="transition-transform" />
+          {label}
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
+    </Collapsible>
   );
 }

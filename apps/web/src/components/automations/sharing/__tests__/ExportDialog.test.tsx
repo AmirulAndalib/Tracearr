@@ -59,10 +59,19 @@ describe('ExportDialog', () => {
     await expect(navigator.clipboard.readText()).resolves.toBe(SHARE_CODE);
   });
 
-  it('offers the envelope itself on the other tab', async () => {
+  it('leads with the code, with no tab strip to pick it out of', async () => {
+    renderDialog();
+
+    await screen.findByText(SHARE_CODE);
+
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"slug": "two-places-at-once"/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the envelope itself behind a disclosure', async () => {
     const { user } = renderDialog();
 
-    await user.click(await screen.findByRole('tab', { name: 'JSON' }));
+    await user.click(await screen.findByRole('button', { name: 'Show the JSON' }));
 
     expect(screen.getByText(/"slug": "two-places-at-once"/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Copy the JSON' }));
@@ -81,7 +90,17 @@ describe('ExportDialog', () => {
     renderDialog();
 
     expect(
-      await screen.findByText(/Your destinations, servers and accounts stay here/)
+      await screen.findByText(/Destinations, servers and accounts are not included/)
+    ).toBeInTheDocument();
+  });
+
+  it('gives saving a copy its own row, so the footer holds one button', async () => {
+    renderDialog();
+
+    await screen.findByText(SHARE_CODE);
+
+    expect(
+      screen.getByText("Adds it to this server's list of ready-made automations.")
     ).toBeInTheDocument();
   });
 

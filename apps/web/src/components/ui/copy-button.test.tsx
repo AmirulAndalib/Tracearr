@@ -67,6 +67,18 @@ describe('CopyButton', () => {
     expect(toast.error).toHaveBeenCalledWith('toast.error.copyFailed');
   });
 
+  it('keeps the icon-only shape by default and writes the label beside it on request', () => {
+    const { rerender } = render(<CopyButton value="abc" label="Copy the share code" />);
+
+    expect(screen.getByRole('button', { name: 'Copy the share code' })).toHaveTextContent('');
+
+    rerender(<CopyButton value="abc" label="Copy the share code" showLabel />);
+
+    expect(screen.getByRole('button', { name: 'Copy the share code' })).toHaveTextContent(
+      'Copy the share code'
+    );
+  });
+
   it('does not copy while disabled', async () => {
     const user = userEvent.setup();
     render(<CopyButton value="abc" label="Copy token" disabled />);

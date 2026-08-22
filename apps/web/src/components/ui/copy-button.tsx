@@ -10,13 +10,16 @@ type CopyButtonProps = Omit<ComponentProps<typeof Button>, 'value' | 'onClick' |
   value: string;
   /** Accessible name for the button, e.g. "Copy API key". */
   label: string;
+  /** Renders the label beside the icon; off by default, which is the icon-only shape. */
+  showLabel?: boolean;
 };
 
 export function CopyButton({
   value,
   label,
+  showLabel = false,
   variant = 'outline',
-  size = 'icon',
+  size = showLabel ? 'default' : 'icon',
   ...props
 }: CopyButtonProps) {
   const { t } = useTranslation('notifications');
@@ -47,6 +50,7 @@ export function CopyButton({
       {...props}
     >
       {copied ? <CheckIcon className="text-success" /> : <CopyIcon />}
+      {showLabel && label}
     </Button>
   );
 }

@@ -865,8 +865,6 @@
       "title": "Share this automation",
       "description": "A code another Tracearr can paste in.",
       "carries": "The code carries the steps only. Destinations, servers and accounts are not included; the receiving side fills in its own.",
-      "codeTab": "Share code",
-      "jsonTab": "JSON",
       "copyCode": "Copy the share code",
       "copyJson": "Copy the JSON",
       "authorLabel": "Made by",
@@ -875,7 +873,9 @@
       "save": "Save as ready-made",
       "saved": "{{name}} saved as a ready-made automation.",
       "saveFailed": "Could not save it.",
-      "failed": "Couldn't make a code for this one."
+      "failed": "Couldn't make a code for this one.",
+      "showJson": "Show the JSON",
+      "saveHelper": "Adds it to this server's list of ready-made automations."
     },
     "fields": {
       "concurrent_streams": {
