@@ -439,13 +439,13 @@
       "nameLabel": "Name",
       "nameHelper": "The name in the automations list.",
       "namePlaceholder": "A name for this automation",
-      "activeLabel": "Active",
+      "activeLabel": "Turn it on now",
       "back": "Back",
       "submit": "Use this",
       "submitting": "Setting it up…",
       "customize": "Open in the builder",
       "doors": {
-        "helper": "Use this keeps the link to the ready-made automation; its answers can change later. Open in the builder makes an independent copy with every step editable."
+        "helper": "Use this keeps the steps as they are; the answers above can change later. Open in the builder makes every step editable and ends the link to the ready-made automation."
       },
       "anyServer": "Any server",
       "serverHelper": "Any server means all of them.",
@@ -455,7 +455,7 @@
       "destinationsLabel": "Send to",
       "required": "Pick at least one.",
       "needs": {
-        "title": "Fill in"
+        "title": "What it needs"
       },
       "helper": {
         "killMessage": "Shown on the player when the stream stops.",
@@ -826,7 +826,7 @@
     "disable": "Disable",
     "editAutomation": "Edit automation",
     "effects": {
-      "title": "What this does",
+      "title": "What this will do",
       "kill": "Can stop a stream that is playing.",
       "trust": "Changes trust scores.",
       "message": "Puts a message on a player.",

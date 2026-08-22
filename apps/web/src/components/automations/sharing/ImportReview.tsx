@@ -129,20 +129,16 @@ export function ImportReview({
 
         <TemplateSentencePanel fragments={answers.fragments} highlightKey={answers.focused} />
 
-        <section className="flex flex-col gap-3.5">
-          <h3 className="text-sm font-medium">{t('automations.effects.title')}</h3>
-          <TemplateEffects
-            definition={envelope.definition}
-            hasServerInput={answers.serverKey !== undefined}
-            serverName={answers.refs.servers?.[answers.boundServerId]}
-          />
-        </section>
+        <TemplateEffects
+          definition={envelope.definition}
+          hasServerInput={answers.serverKey !== undefined}
+          serverName={answers.refs.servers?.[answers.boundServerId]}
+        />
 
         {envelope.inputs.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>
         ) : (
-          <section className="flex flex-col gap-3.5">
-            <h3 className="text-sm font-medium">{t('automations.bind.needs.title')}</h3>
+          <section aria-label={t('automations.bind.needs.title')}>
             <FieldGroup className="gap-5">
               <TemplateInputRows
                 version={envelope}

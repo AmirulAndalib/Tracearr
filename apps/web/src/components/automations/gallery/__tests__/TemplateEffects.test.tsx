@@ -101,4 +101,10 @@ describe('TemplateEffects', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Runs on Beehive only.')).toBeInTheDocument();
   });
+
+  it('names its own surface, since the block has no heading', () => {
+    render(<TemplateEffects definition={definition()} hasServerInput={false} />);
+
+    expect(screen.getByRole('region', { name: 'What this will do' })).toBeInTheDocument();
+  });
 });

@@ -124,7 +124,7 @@
     "allStatuses": "All statuses",
     "bind": {
       "accountLabel": "Which account",
-      "activeLabel": "Active",
+      "activeLabel": "Turn it on now",
       "anyServer": "Any server",
       "back": "Back",
       "created": "{{name}} is set up and running.",
@@ -132,7 +132,7 @@
       "customize": "Open in the builder",
       "destinationsLabel": "Send to",
       "doors": {
-        "helper": "Use this keeps the link to the ready-made automation; its answers can change later. Open in the builder makes an independent copy with every step editable."
+        "helper": "Use this keeps the steps as they are; the answers above can change later. Open in the builder makes every step editable and ends the link to the ready-made automation."
       },
       "failed": "Couldn't set that up. Try again.",
       "helper": {
@@ -143,7 +143,7 @@
       "nameLabel": "Name",
       "namePlaceholder": "A name for this automation",
       "needs": {
-        "title": "Fill in"
+        "title": "What it needs"
       },
       "noInputs": "Nothing to fill in.",
       "personLabel": "Which person",
@@ -618,7 +618,7 @@
       "message": "Puts a message on a player.",
       "oneServer": "Runs on {{server}} only.",
       "tellsOnly": "Only notifies. Never stops a stream or changes an account.",
-      "title": "What this does",
+      "title": "What this will do",
       "trust": "Changes trust scores.",
       "violation": "Records a violation against the matched person."
     },

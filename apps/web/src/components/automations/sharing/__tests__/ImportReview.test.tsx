@@ -115,7 +115,7 @@ describe('ImportReview', () => {
   it('reads the consequences off the definition, branch and all', () => {
     renderReview();
 
-    expect(screen.getByText('What this does')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What this will do' })).toBeInTheDocument();
     // The kill sits inside an `if`, and it counts the same as one at the top.
     expect(
       screen.getByText("Can stop a stream that is playing.")
@@ -129,7 +129,7 @@ describe('ImportReview', () => {
   it('asks for the parts the code cannot carry', () => {
     renderReview();
 
-    expect(screen.getByText('Fill in')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What it needs' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Discord' })).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Which server' })).toBeInTheDocument();
   });

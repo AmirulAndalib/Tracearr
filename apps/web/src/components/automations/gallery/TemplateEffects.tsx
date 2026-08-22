@@ -97,23 +97,30 @@ export function TemplateEffects({ definition, serverName, hasServerInput }: Temp
   const { t } = useTranslation('pages');
   const lines = templateEffects(definition, { serverName, hasServerInput });
 
+  // The surface is what marks these as statements rather than more helper text,
+  // now that the block has no heading over it.
   return (
-    <ul className="flex flex-col gap-2">
-      {lines.map((line) => {
-        const Icon = EFFECT_ICONS[line];
-        return (
-          <li key={line} className="flex items-start gap-2 text-sm leading-snug">
-            <Icon
-              aria-hidden
-              className={cn(
-                'text-muted-foreground mt-0.5 size-[0.9375rem] shrink-0',
-                HARM.includes(line) && 'text-warning'
-              )}
-            />
-            {t(`automations.effects.${line}`, { server: serverName ?? '' })}
-          </li>
-        );
-      })}
-    </ul>
+    <section
+      aria-label={t('automations.effects.title')}
+      className="bg-muted/25 rounded-lg px-3.5 py-3"
+    >
+      <ul className="flex flex-col gap-2">
+        {lines.map((line) => {
+          const Icon = EFFECT_ICONS[line];
+          return (
+            <li key={line} className="flex items-start gap-2 text-sm leading-snug">
+              <Icon
+                aria-hidden
+                className={cn(
+                  'text-muted-foreground mt-0.5 size-[0.9375rem] shrink-0',
+                  HARM.includes(line) && 'text-warning'
+                )}
+              />
+              {t(`automations.effects.${line}`, { server: serverName ?? '' })}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

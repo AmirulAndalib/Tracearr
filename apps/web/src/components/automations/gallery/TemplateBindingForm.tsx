@@ -98,7 +98,7 @@ export function TemplateBindingForm({
 
   return (
     <>
-      <div className={cn('flex flex-col gap-5', bodyClassName)}>
+      <div className={cn('flex flex-col gap-7', bodyClassName)}>
         <TemplateSentencePanel
           fragments={fragments}
           label={sentenceLabel}
@@ -108,8 +108,7 @@ export function TemplateBindingForm({
         {version.inputs.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>
         ) : (
-          <section className="flex flex-col gap-3.5">
-            <h3 className="text-sm font-medium">{t('automations.bind.needs.title')}</h3>
+          <section aria-label={t('automations.bind.needs.title')}>
             <FieldGroup className="gap-5">
               <TemplateInputRows
                 version={version}
@@ -123,14 +122,11 @@ export function TemplateBindingForm({
           </section>
         )}
 
-        <section className="flex flex-col gap-3.5">
-          <h3 className="text-sm font-medium">{t('automations.effects.title')}</h3>
-          <TemplateEffects
-            definition={version.definition}
-            hasServerInput={serverKey !== undefined}
-            serverName={refs.servers?.[boundServerId]}
-          />
-        </section>
+        <TemplateEffects
+          definition={version.definition}
+          hasServerInput={serverKey !== undefined}
+          serverName={refs.servers?.[boundServerId]}
+        />
 
         {showInstanceFields && (
           <>

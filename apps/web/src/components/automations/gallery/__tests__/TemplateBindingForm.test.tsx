@@ -110,11 +110,14 @@ describe('TemplateBindingForm', () => {
   it('tells the story in order and puts the name last', () => {
     renderForm();
 
+    // The two blocks are landmarks now; the sentence panel is the only heading left.
     const headings = [...document.querySelectorAll('h2, h3')].map((node) => node.textContent);
-    expect(headings).toEqual(['In plain words', 'Fill in', 'What this does']);
+    expect(headings).toEqual(['In plain words']);
+    expect(screen.getByRole('region', { name: 'What it needs' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'What this will do' })).toBeInTheDocument();
 
     const labels = [...document.querySelectorAll('label')].map((node) => node.textContent);
-    expect(labels).toEqual(['Which server', 'Send to', 'Name', 'Active']);
+    expect(labels).toEqual(['Which server', 'Send to', 'Name', 'Turn it on now']);
   });
 
   it('says what it will do to a person', () => {
@@ -303,6 +306,6 @@ describe('TemplateBindingForm', () => {
     renderForm(NO_INPUTS);
 
     expect(screen.getByText('Nothing to fill in.')).toBeInTheDocument();
-    expect(screen.queryByText('Fill in')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'What it needs' })).not.toBeInTheDocument();
   });
 });
