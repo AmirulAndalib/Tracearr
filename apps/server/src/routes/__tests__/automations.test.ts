@@ -339,6 +339,42 @@ describe('Automation routes', () => {
       expect(renderCall(countChain).text).toBe(page.text);
     });
 
+    it('narrows to the library a row came from, counting exactly what it lists', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain, countChain } = setupListMocks([], 0);
+
+      const response = await app.inject({ method: 'GET', url: '/automations?source=import' });
+
+      expect(response.statusCode).toBe(200);
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('EXISTS (SELECT 1 FROM automation_templates t');
+      expect(page.params).toEqual(['import']);
+      // The count query has no template join of its own, so it must read the same EXISTS.
+      expect(renderCall(countChain).text).toBe(page.text);
+    });
+
+    it('reads the rows no template wrote off the null template id', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/automations?source=own' });
+
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('automations.template_id is null');
+      expect(page.text).not.toContain('automation_templates');
+    });
+
+    it('narrows to one server on the column the scope already uses', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: `/automations?serverId=${SERVER_ID}` });
+
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('automations.server_id = ');
+      expect(page.params).toEqual([SERVER_ID]);
+    });
+
     it('sorts on a whitelisted field, tiebroken on the id', async () => {
       app = await buildTestApp(ownerUser);
       const { pageChain } = setupListMocks([], 0);

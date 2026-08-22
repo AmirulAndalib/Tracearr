@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { LayoutTemplate } from 'lucide-react';
+import { ClipboardPaste, LayoutTemplate, ShieldCheck } from 'lucide-react';
 import type { AutomationTemplateRef } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { templateName } from '@/lib/automations';
@@ -22,6 +22,7 @@ export function TemplateBadge({ template, plain = false }: TemplateBadgeProps) {
   const { t } = useTranslation('pages');
   const behind = template.version < template.currentVersion;
   const name = templateName(t, { slug: template.slug, name: template.name });
+  const Glyph = SOURCE_GLYPH[template.source];
 
   const body = (
     <>

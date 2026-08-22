@@ -1134,7 +1134,17 @@
       "minutes": "minutes",
       "seconds": "seconds"
     },
-    "updateAutomation": "Update Automation"
+    "updateAutomation": "Update Automation",
+    "filters": {
+      "source": "Where it came from",
+      "allSources": "Anywhere",
+      "sources": {
+        "builtin": "Built-in",
+        "import": "Imported",
+        "local": "Saved here",
+        "own": "Built in the builder"
+      }
+    }
   },
   "dashboard": {
     "activeUsers": "活动用户",

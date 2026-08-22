@@ -12,7 +12,10 @@ import { Automations } from './Automations';
 const toggleMutate = vi.fn();
 const deleteMutate = vi.fn();
 
-const { mockUseTemplates } = vi.hoisted(() => ({ mockUseTemplates: vi.fn() }));
+const { mockUseTemplates, mockUseServer } = vi.hoisted(() => ({
+  mockUseTemplates: vi.fn(),
+  mockUseServer: vi.fn(),
+}));
 
 vi.mock('@/hooks/queries', () => ({
   useAutomations: vi.fn(),
@@ -43,9 +46,9 @@ vi.mock('@/hooks/queries/useHistory', () => ({
   useAutomationFilterOptions: () => ({ data: undefined }),
 }));
 
-vi.mock('@/hooks/useServer', () => ({
-  useServer: () => ({ servers: [{ id: 'server-1', name: 'Server One' }] }),
-}));
+vi.mock('@/hooks/useServer', () => ({ useServer: mockUseServer }));
+
+const SERVERS = [{ id: 'server-1', name: 'Server One' }];
 
 import { useAutomations } from '@/hooks/queries';
 
@@ -136,6 +139,7 @@ describe('Automations', () => {
       isError: false,
       refetch: vi.fn(),
     });
+    mockUseServer.mockReturnValue({ servers: SERVERS });
     mockList([automation()]);
   });
 
@@ -148,6 +152,21 @@ describe('Automations', () => {
     expect(screen.getByText('Concurrent cap')).toBeInTheDocument();
     expect(screen.getByText('Violation')).toBeInTheDocument();
     expect(screen.getByText('Alert')).toBeInTheDocument();
+  });
+
+  it('sends a deep-linked server on to the query', () => {
+    renderAutomations('/automations?serverId=server-1');
+
+    expect(lastQueryArgs()).toMatchObject({ serverId: 'server-1' });
+  });
+
+  it('keeps that server through the render before the servers have loaded', () => {
+    // An empty options list would read as "no such server" and drop the param.
+    mockUseServer.mockReturnValue({ servers: [] });
+
+    renderAutomations('/automations?serverId=server-1');
+
+    expect(lastQueryArgs()).toMatchObject({ serverId: 'server-1' });
   });
 
   it('reads the kind filter out of the URL and sends it to the query', () => {

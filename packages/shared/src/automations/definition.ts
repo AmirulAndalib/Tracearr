@@ -216,11 +216,20 @@ export const AUTOMATION_SORT_FIELDS = [
 ] as const;
 export type AutomationSortField = (typeof AUTOMATION_SORT_FIELDS)[number];
 
+/** The three ways a template arrives; a row no template wrote is the fourth answer. */
+const TEMPLATE_SOURCES = ['builtin', 'import', 'local'] as const;
+export const AUTOMATION_SOURCES = [...TEMPLATE_SOURCES, 'own'] as const;
+export type AutomationSource = (typeof AUTOMATION_SOURCES)[number];
+
 export const automationListQuerySchema = paginationSchema
   .extend({
     kind: z.enum(AUTOMATION_KINDS).optional(),
     enabled: booleanStringSchema.optional(),
     search: z.string().trim().min(1).max(100).optional(),
+    source: z.enum(AUTOMATION_SOURCES).optional(),
+    serverId: uuidSchema.optional(),
+    trigger: z.enum(TRIGGER_GROUPS).optional(),
+    severity: violationSeveritySchema.optional(),
   })
   .extend(listSortSchema(AUTOMATION_SORT_FIELDS).shape);
 export type AutomationListQuery = z.infer<typeof automationListQuerySchema>;
@@ -318,7 +327,7 @@ export interface AutomationTemplateRef {
   name: string;
   version: number;
   currentVersion: number;
-  source: 'builtin' | 'import' | 'local';
+  source: (typeof TEMPLATE_SOURCES)[number];
   /** Whoever the envelope named; null for anything nobody signed. */
   author: string | null;
   /** When the template entered this library, which is when an import was pasted. */

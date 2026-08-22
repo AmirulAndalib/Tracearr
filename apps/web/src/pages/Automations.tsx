@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Power, PowerOff, Share2, Trash2, Workflow } from 'lucide-react';
 import type { Automation, AutomationSortField } from '@tracearr/shared';
-import { AUTOMATION_SORT_FIELDS, listPageCount } from '@tracearr/shared';
+import { AUTOMATION_SORT_FIELDS, AUTOMATION_SOURCES, listPageCount } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { BulkActionsToolbar, type BulkAction } from '@/components/ui/bulk-actions-toolbar';
 import { Button } from '@/components/ui/button';
@@ -100,13 +100,24 @@ export function Automations() {
       },
       {
         kind: 'select',
-        key: 'kind',
-        label: t('pages:automations.kindColumn'),
-        allLabel: t('pages:automations.allKinds'),
-        options: [
-          { value: 'policy', label: t('pages:automations.kind.policy') },
-          { value: 'notification', label: t('pages:automations.kind.notification') },
-        ],
+        key: 'source',
+        label: t('pages:automations.filters.source'),
+        allLabel: t('pages:automations.filters.allSources'),
+        options: AUTOMATION_SOURCES.map((source) => ({
+          value: source,
+          label: t(`pages:automations.filters.sources.${source}`),
+        })),
+      },
+      {
+        kind: 'select',
+        key: 'serverId',
+        label: t('common:labels.server'),
+        allLabel: t('pages:automations.bind.anyServer'),
+        // Undefined until the servers land, so a deep-linked server survives the first render.
+        options:
+          servers.length > 0
+            ? servers.map((server) => ({ value: server.id, label: server.name }))
+            : undefined,
       },
       {
         kind: 'select',
@@ -118,8 +129,39 @@ export function Automations() {
           { value: 'inactive', label: t('common:states.inactive') },
         ],
       },
+      {
+        kind: 'select',
+        key: 'kind',
+        label: t('pages:automations.kindColumn'),
+        allLabel: t('pages:automations.allKinds'),
+        options: [
+          { value: 'policy', label: t('pages:automations.kind.policy') },
+          { value: 'notification', label: t('pages:automations.kind.notification') },
+        ],
+      },
+      {
+        kind: 'select',
+        key: 'trigger',
+        label: t('pages:automations.filters.trigger'),
+        allLabel: t('pages:automations.filters.allTriggers'),
+        options: TRIGGER_GROUPS.map((group) => ({
+          value: group,
+          label: t(`pages:automations.catalog.groups.${group}`),
+        })),
+      },
+      {
+        kind: 'select',
+        key: 'severity',
+        label: t('common:labels.severity'),
+        allLabel: t('pages:automations.allSeverities'),
+        options: [
+          { value: 'high', label: t('common:severity.high') },
+          { value: 'warning', label: t('common:severity.warning') },
+          { value: 'low', label: t('common:severity.low') },
+        ],
+      },
     ],
-    [t]
+    [t, servers]
   );
 
   const { filters, setFilters } = useFilterState<AutomationsFilterState>({

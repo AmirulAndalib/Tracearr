@@ -1447,6 +1447,16 @@
           "synonyms": "if, else, otherwise, branch, split, condition"
         }
       }
+    },
+    "filters": {
+      "source": "Where it came from",
+      "allSources": "Anywhere",
+      "sources": {
+        "builtin": "Built-in",
+        "import": "Imported",
+        "local": "Saved here",
+        "own": "Built in the builder"
+      }
     }
   },
   "terminateStream": {

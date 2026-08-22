@@ -5,7 +5,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { and, count, eq, ilike, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, ilike, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   REDIS_KEYS,
@@ -29,6 +29,7 @@ import {
   type AuthUser,
   type AutomationRunSummary,
   type AutomationSortField,
+  type AutomationSource,
   type CreateAutomationInput,
   type ListResponse,
   type NearMissEntry,
@@ -114,6 +115,15 @@ const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
   kind: { key: sql`${automations.kind}`, defaultDir: 'asc' },
   isActive: { key: sql`${automations.isActive}`, defaultDir: 'desc' },
 };
+
+/**
+ * Where a row came from. An EXISTS rather than a join, so the count query - which
+ * selects from `automations` alone - filters on exactly what the page filters on.
+ */
+function cameFrom(source: AutomationSource): SQL {
+  if (source === 'own') return isNull(automations.templateId);
+  return sql`EXISTS (SELECT 1 FROM automation_templates t WHERE t.id = ${automations.templateId} AND t.source = ${source})`;
+}
 
 /**
  * The version number is `max + 1`, so two concurrent definition writes pick the same one
@@ -232,12 +242,15 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('Invalid query parameters');
     }
 
-    const { page, pageSize, orderBy, orderDir, kind, enabled, search } = query.data;
+    const { page, pageSize, orderBy, orderDir, kind, enabled, search, source, serverId } =
+      query.data;
     const conditions: SQL[] = [];
     const visible = visibleAutomations(request.user);
     if (visible) conditions.push(visible);
     if (kind) conditions.push(eq(automations.kind, kind));
     if (enabled !== undefined) conditions.push(eq(automations.isActive, enabled));
+    if (source) conditions.push(cameFrom(source));
+    if (serverId) conditions.push(eq(automations.serverId, serverId));
     if (search) conditions.push(ilike(automations.name, likePattern(search)));
 
     const where = and(...conditions);
