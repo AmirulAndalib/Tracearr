@@ -267,6 +267,22 @@ describe('AutomationDetail', () => {
     expect(screen.getByText('automations.builder.sentence.label')).toBeInTheDocument();
   });
 
+  it('counts the runs that ran, not every row Activity keeps', () => {
+    setRuns([run()], { completed: 12, total: 352, lastRunAt: '2026-08-19T00:00:00.000Z' });
+
+    renderDetail();
+
+    expect(screen.getByText('automations.detail.runsLine:12')).toBeInTheDocument();
+  });
+
+  it('says so when it has never run', () => {
+    setRuns([], { completed: 0, total: 0, lastRunAt: null });
+
+    renderDetail();
+
+    expect(screen.getByText('automations.detail.noRuns')).toBeInTheDocument();
+  });
+
   it('names the person a person-scoped automation targets', () => {
     mockUseAutomation.mockReturnValue({
       data: automation({

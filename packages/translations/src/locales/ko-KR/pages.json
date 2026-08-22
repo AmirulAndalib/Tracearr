@@ -614,7 +614,10 @@
     "detail": {
       "notFound": "Automation not found",
       "title": "Automation",
-      "unsaved": "Unsaved changes"
+      "unsaved": "Unsaved changes",
+      "runsLine_one": "1 run · last run {{when}}",
+      "runsLine_other": "{{count}} runs · last run {{when}}",
+      "noRuns": "No runs yet"
     },
     "disable": "Disable",
     "editAutomation": "Edit Automation",

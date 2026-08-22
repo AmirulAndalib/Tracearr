@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Pencil, Share2 } from 'lucide-react';
 import { RETENTION_DEFAULTS, type AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +21,7 @@ import {
 import { ExportDialog } from '@/components/automations/sharing/ExportDialog';
 import { automationIcon } from '@/lib/automations';
 import { useAutomation, useToggleAutomation } from '@/hooks/queries';
+import { useRunCounts } from '@/hooks/queries/useRuns';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useServer } from '@/hooks/useServer';
 
@@ -89,6 +91,7 @@ export function AutomationDetail() {
               {template && <TemplateBadge template={template} />}
             </div>
             <ProvenanceLine automation={automation} />
+            <RunLine automationId={automation.id} />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -141,6 +144,28 @@ export function AutomationDetail() {
         }}
       />
     </div>
+  );
+}
+
+/** How much this row has done, from the counts the Activity tabs already read. */
+function RunLine({ automationId }: { automationId: string }) {
+  const { t } = useTranslation('pages');
+  const { data: counts, isLoading } = useRunCounts(automationId);
+
+  if (isLoading) return <Skeleton className="mt-1 h-4 w-56" />;
+
+  const lastRunAt = counts?.lastRunAt;
+  if (!counts || counts.completed === 0 || !lastRunAt) {
+    return <p className="text-muted-foreground text-xs">{t('automations.detail.noRuns')}</p>;
+  }
+
+  return (
+    <p className="text-muted-foreground text-xs">
+      {t('automations.detail.runsLine', {
+        count: counts.completed,
+        when: formatDistanceToNow(new Date(lastRunAt), { addSuffix: true }),
+      })}
+    </p>
   );
 }
 
