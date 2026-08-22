@@ -344,7 +344,8 @@
           "cooldown_minutes": {
             "description": "Minimum time between notifications"
           }
-        }
+        },
+        "ran": "Sent a notification"
       },
       "trust": {
         "label": "Trust Score",
@@ -360,7 +361,8 @@
           "value": {
             "label": "Value"
           }
-        }
+        },
+        "ran": "Changed the trust score"
       },
       "kill_stream": {
         "label": "Kill Stream",
@@ -379,7 +381,8 @@
           "message": {
             "placeholder": "Optional message"
           }
-        }
+        },
+        "ran": "Stopped the stream"
       },
       "message_client": {
         "label": "Message Client",
@@ -392,7 +395,8 @@
           "message": {
             "placeholder": "Message to display…"
           }
-        }
+        },
+        "ran": "Put a message on the player"
       }
     },
     "activity": {
@@ -435,7 +439,8 @@
       "emptyRan": "Nothing has matched yet",
       "emptyRanDescription_one": "{{count}} check ran and did not match.",
       "emptyRanDescription_other": "{{count}} checks ran and did not match.",
-      "item": "Item"
+      "item": "Item",
+      "recordedViolation": "Recorded a violation"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",

@@ -83,6 +83,12 @@ const runSummaryColumns = {
   itemTitle: sql<string | null>`${libraryItems.title}`,
   itemMediaType: sql<string | null>`${libraryItems.mediaType}`,
   libraryName: sql<string | null>`${libraries.name}`,
+  // What the run did, projected off the step log so the log itself stays off the wire.
+  ranActions: sql<string[] | null>`(
+    SELECT jsonb_agg(DISTINCT elem->>'action')
+    FROM jsonb_array_elements(${automationRuns.steps}) AS elem
+    WHERE jsonb_exists(elem, 'action') AND (elem->>'success')::boolean
+  )`,
   startedAt: automationRuns.startedAt,
   createdAt: automationRuns.createdAt,
   finishedAt: automationRuns.finishedAt,
@@ -189,6 +195,7 @@ export const mapRunSummary = (row: RunSummaryRow): AutomationRunSummary => ({
   serverId: row.serverId,
   subjectKey: row.subjectKey,
   subject: subjectOf(row),
+  ranActions: row.ranActions ?? [],
   startedAt: (row.startedAt ?? row.createdAt).toISOString(),
   finishedAt: row.finishedAt?.toISOString() ?? null,
   acknowledgedAt: row.acknowledgedAt?.toISOString() ?? null,

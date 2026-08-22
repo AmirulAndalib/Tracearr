@@ -118,6 +118,7 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
     sessionId: null,
     serverId: null,
     subjectKey: 'sess-1',
+    ranActions: [],
     subject: {
       kind: 'session',
       name: 'grace@plex',

@@ -224,6 +224,12 @@ export function storedActionLabel(t: Translate, action: string): string {
   return known ? actionLabel(t, action as LeafActionType) : action;
 }
 
+/** The same action in the past tense, for a row saying what a run did. */
+export function ranActionLabel(t: Translate, action: string): string | undefined {
+  if (!(LEAF_ACTION_TYPES as readonly string[]).includes(action)) return undefined;
+  return t(`automations.actions.${action as LeafActionType}.ran`);
+}
+
 /** The parameter each trust mode carries; the schema rejects a mode with its sibling's parameter. */
 export const TRUST_MODE_PARAMS: Record<TrustAction['mode'], Partial<TrustAction>> = {
   adjust: { amount: -10 },

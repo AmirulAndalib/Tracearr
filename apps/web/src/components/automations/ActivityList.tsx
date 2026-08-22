@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { UserCell } from '@/components/users/UserCell';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { useAutomationRuns, useRunCounts } from '@/hooks/queries/useRuns';
-import { runWhere, runWho } from '@/lib/automations';
+import { ranActionLabel, runWhere, runWho, type Translate } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
@@ -129,11 +129,7 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
         }),
         columnHelper.accessor('humanSummary', {
           header: t('pages:automations.activity.summary'),
-          cell: ({ row }) => (
-            <span className="text-muted-foreground line-clamp-2 text-sm">
-              {row.original.humanSummary ?? t('pages:automations.activity.noSummary')}
-            </span>
-          ),
+          cell: ({ row }) => <SummaryCell run={row.original} />,
         }),
         ...(kind === 'policy'
           ? [
@@ -246,6 +242,30 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
         />
       </DataTableRoot>
     </div>
+  );
+}
+
+/**
+ * What a run that ran did: the violation it recorded, then every action that
+ * succeeded. Null while the step log is still being appended, and for the rest.
+ */
+function ranSummary(t: Translate, run: AutomationRunSummary): string | null {
+  if (run.outcome !== 'completed') return null;
+  const parts = run.kind === 'policy' ? [t('automations.activity.recordedViolation')] : [];
+  for (const action of run.ranActions) {
+    const label = ranActionLabel(t, action);
+    if (label !== undefined) parts.push(label);
+  }
+  return parts.length === 0 ? null : parts.join(' · ');
+}
+
+/** What the run did if it did anything, and what it read if it did not. */
+function SummaryCell({ run }: { run: AutomationRunSummary }) {
+  const { t } = useTranslation('pages');
+  return (
+    <span className="line-clamp-2 text-sm">
+      {ranSummary(t, run) ?? run.humanSummary ?? t('automations.activity.noSummary')}
+    </span>
   );
 }
 

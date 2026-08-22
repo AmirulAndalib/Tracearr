@@ -27,6 +27,7 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
     sessionId: 'sess-1',
     serverId: 'srv-1',
     subjectKey: 'sess-1',
+    ranActions: [],
     subject: {
       kind: 'session',
       name: 'rebecc101',
@@ -165,6 +166,18 @@ describe('ActivityList', () => {
 
     expect(screen.queryByRole('columnheader', { name: 'Who' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Item' })).not.toBeInTheDocument();
+  });
+
+  it('says what a run that ran actually did', () => {
+    renderList([run({ ranActions: ['kill_stream'] })]);
+
+    expect(screen.getByText('Recorded a violation · Stopped the stream')).toBeInTheDocument();
+  });
+
+  it('falls back to no notes while the steps are still being written', () => {
+    renderList([run({ kind: 'notification', ranActions: [] })]);
+
+    expect(screen.getByText('No notes')).toBeInTheDocument();
   });
 
   it('says nothing has run when nothing has', () => {

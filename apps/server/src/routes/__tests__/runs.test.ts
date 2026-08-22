@@ -11,7 +11,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { randomUUID } from 'node:crypto';
 import type { AuthUser } from '@tracearr/shared';
-import { queryChain, renderCall, renderedJoins } from '../../test/helpers.js';
+import { queryChain, renderCall, renderedJoins, renderSql } from '../../test/helpers.js';
+import type { SQL } from 'drizzle-orm';
 
 vi.mock('../../db/client.js', () => ({
   db: { select: vi.fn() },
@@ -44,6 +45,7 @@ function runRow(overrides: Record<string, unknown> = {}) {
     itemTitle: null,
     itemMediaType: null,
     libraryName: null,
+    ranActions: null,
     storedMediaTitle: null,
     storedIpAddress: null,
     startedAt: new Date('2026-08-20T10:00:00.000Z'),
@@ -161,11 +163,29 @@ describe('Run routes', () => {
           libraryName: null,
           mediaType: null,
         },
+        ranActions: [],
         startedAt: '2026-08-20T10:00:00.000Z',
         finishedAt: '2026-08-20T10:00:02.000Z',
         acknowledgedAt: null,
         dismissedAt: null,
       });
+    });
+
+    it('says which actions ran, off a projection that leaves the step log behind', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks([runRow({ ranActions: ['kill_stream', 'send'] })], 1);
+
+      const body = (await app.inject({ method: 'GET', url: '/runs' })).json();
+
+      expect(body.data[0].ranActions).toEqual(['kill_stream', 'send']);
+      expect(body.data[0].steps).toBeUndefined();
+
+      const columns = vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mock
+        .calls[0]?.[0] as Record<string, SQL>;
+      const projection = renderSql(columns.ranActions as SQL).sql.replace(/\s+/g, ' ');
+      // Only steps that name an action and succeeded, so a failed kill never reads as one.
+      expect(projection).toContain("jsonb_exists(elem, 'action')");
+      expect(projection).toContain("(elem->>'success')::boolean");
     });
 
     it('falls back to the row timestamp for a run written before started_at existed', async () => {

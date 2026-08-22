@@ -41,7 +41,8 @@
             "description": "Which sessions to terminate"
           }
         },
-        "label": "Kill Stream"
+        "label": "Kill Stream",
+        "ran": "Stopped the stream"
       },
       "message_client": {
         "description": "Send a message to the media player",
@@ -54,7 +55,8 @@
           }
         },
         "hint": "Jellyfin and Emby only. Plex only supports messages when killing a stream.",
-        "label": "Message Client"
+        "label": "Message Client",
+        "ran": "Put a message on the player"
       },
       "send": {
         "description": "Send to one or more destinations",
@@ -63,7 +65,8 @@
             "description": "Minimum time between notifications"
           }
         },
-        "label": "Send Notification"
+        "label": "Send Notification",
+        "ran": "Sent a notification"
       },
       "trust": {
         "description": "Adjust, set, or reset the trust score",
@@ -79,7 +82,8 @@
             "label": "Value"
           }
         },
-        "label": "Trust Score"
+        "label": "Trust Score",
+        "ran": "Changed the trust score"
       }
     },
     "activity": {
@@ -122,7 +126,8 @@
       "emptyRan": "Nothing has matched yet",
       "emptyRanDescription_one": "{{count}} check ran and did not match.",
       "emptyRanDescription_other": "{{count}} checks ran and did not match.",
-      "item": "Item"
+      "item": "Item",
+      "recordedViolation": "Recorded a violation"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",

@@ -412,6 +412,8 @@ export interface AutomationRunSummary {
   serverId: string | null;
   subjectKey: string | null;
   subject: RunSubject;
+  /** The actions that ran and succeeded, so a row can say what it did. */
+  ranActions: string[];
   startedAt: string;
   finishedAt: string | null;
   acknowledgedAt: string | null;

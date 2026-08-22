@@ -23,6 +23,7 @@ function run(overrides: Partial<AutomationRun> = {}): AutomationRun {
     sessionId: 'sess-1',
     serverId: 'srv-1',
     subjectKey: 'sess-1',
+    ranActions: [],
     subject: {
       kind: 'session',
       name: 'grace@plex',
