@@ -84,10 +84,12 @@ const runSummaryColumns = {
   itemMediaType: sql<string | null>`${libraryItems.mediaType}`,
   libraryName: sql<string | null>`${libraries.name}`,
   // What the run did, projected off the step log so the log itself stays off the wire.
+  // Ordinality rather than DISTINCT: a DISTINCT aggregate sorts alphabetically, and
+  // the cell reads as the order the run took. The repeats come out in the mapper.
   ranActions: sql<string[] | null>`(
-    SELECT jsonb_agg(DISTINCT elem->>'action')
-    FROM jsonb_array_elements(${automationRuns.steps}) AS elem
-    WHERE jsonb_exists(elem, 'action') AND (elem->>'success')::boolean
+    SELECT jsonb_agg(step.elem->>'action' ORDER BY step.ord)
+    FROM jsonb_array_elements(${automationRuns.steps}) WITH ORDINALITY AS step(elem, ord)
+    WHERE jsonb_exists(step.elem, 'action') AND (step.elem->>'success')::boolean
   )`,
   startedAt: automationRuns.startedAt,
   createdAt: automationRuns.createdAt,
@@ -195,7 +197,7 @@ export const mapRunSummary = (row: RunSummaryRow): AutomationRunSummary => ({
   serverId: row.serverId,
   subjectKey: row.subjectKey,
   subject: subjectOf(row),
-  ranActions: row.ranActions ?? [],
+  ranActions: [...new Set(row.ranActions ?? [])],
   startedAt: (row.startedAt ?? row.createdAt).toISOString(),
   finishedAt: row.finishedAt?.toISOString() ?? null,
   acknowledgedAt: row.acknowledgedAt?.toISOString() ?? null,

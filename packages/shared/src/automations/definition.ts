@@ -237,7 +237,6 @@ export const runCountsQuerySchema = z.object({
   startDate: listDateBoundSchema,
   endDate: listDateBoundSchema,
 });
-export type RunCountsQuery = z.infer<typeof runCountsQuerySchema>;
 
 export const runListQuerySchema = paginationSchema
   .extend(runCountsQuerySchema.shape)

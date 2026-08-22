@@ -236,6 +236,12 @@ describe('ActivityList', () => {
     expect(screen.getByText('Runs are listed here once a trigger matches.')).toBeInTheDocument();
   });
 
+  it('says nothing has run when every run failed, rather than counting no matches', () => {
+    renderList([], counts({ completed: 0, stopped_by_condition: 0, error: 3, total: 3 }));
+
+    expect(screen.getByText('No runs yet')).toBeInTheDocument();
+  });
+
   it('counts the checks that ran when the Ran tab is the empty one', () => {
     renderList([], counts({ completed: 0, total: 340, lastRunAt: null }));
 

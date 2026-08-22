@@ -324,7 +324,6 @@ export type {
   AutomationListQuery,
   RunSortField,
   RunListQuery,
-  RunCountsQuery,
   RunCounts,
   NearMissReason,
   NearMissEntry,

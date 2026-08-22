@@ -64,8 +64,9 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
   const { data: counts } = useRunCounts(automationId);
   const rows = data?.data;
   const pageCount = data ? listPageCount(data.meta) : 1;
-  // A Ran tab with nothing in it means something different once other outcomes exist.
-  const onlyNonMatches = tab === 'completed' && counts !== undefined && counts.total > 0;
+  // The empty Ran tab reports the no-match count, so that is the number it gates on.
+  const onlyNonMatches =
+    tab === 'completed' && counts !== undefined && counts.stopped_by_condition > 0;
 
   // What the triggers watch decides whether there can be a person, an item, or neither.
   const context = contextOf(automation.triggers);

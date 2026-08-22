@@ -184,8 +184,20 @@ describe('Run routes', () => {
         .calls[0]?.[0] as Record<string, SQL>;
       const projection = renderSql(columns.ranActions as SQL).sql.replace(/\s+/g, ' ');
       // Only steps that name an action and succeeded, so a failed kill never reads as one.
-      expect(projection).toContain("jsonb_exists(elem, 'action')");
-      expect(projection).toContain("(elem->>'success')::boolean");
+      expect(projection).toContain("jsonb_exists(step.elem, 'action')");
+      expect(projection).toContain("(step.elem->>'success')::boolean");
+      // Run order, not alphabetical: a DISTINCT aggregate would sort the words.
+      expect(projection).toContain('ORDER BY step.ord');
+      expect(projection).not.toContain('DISTINCT');
+    });
+
+    it('keeps a repeated action once, in the order the run first took it', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks([runRow({ ranActions: ['send', 'kill_stream', 'send'] })], 1);
+
+      const body = (await app.inject({ method: 'GET', url: '/runs' })).json();
+
+      expect(body.data[0].ranActions).toEqual(['send', 'kill_stream']);
     });
 
     it('falls back to the row timestamp for a run written before started_at existed', async () => {

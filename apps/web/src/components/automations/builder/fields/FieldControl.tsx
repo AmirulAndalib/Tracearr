@@ -75,7 +75,7 @@ export function FieldControl({
             id={id}
             aria-label={ariaLabel}
             data-slot="input-group-control"
-            className="rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+            className={INPUT_GROUP_CONTROL}
             min={spec.min}
             max={spec.max}
             step={spec.step}
