@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ShieldCheck } from 'lucide-react';
+import { ChevronRight, ShieldCheck } from 'lucide-react';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useSettings } from '@/hooks/queries/useSettings';
 import {
@@ -69,6 +69,10 @@ export function TemplateSentence({
   );
 }
 
+/** Every state a row can be in, here rather than at a call site that can forget them. */
+const ROW_STATES =
+  'hover:border-primary/40 hover:bg-accent/40 active:bg-accent/60 group-data-[selected=true]:border-primary/40 group-data-[selected=true]:bg-accent/40';
+
 interface GalleryRowProps {
   icon: ReactElement;
   title: string;
@@ -92,7 +96,7 @@ export function GalleryRow({
 }: GalleryRowProps) {
   const body = (
     <>
-      <ItemMedia variant="icon" className={cn(dashed && 'border-dashed bg-transparent')}>
+      <ItemMedia variant="icon" className={cn(dashed && 'bg-muted/60 border-dashed')}>
         {icon}
       </ItemMedia>
       <ItemContent className="gap-0.5">
@@ -106,10 +110,17 @@ export function GalleryRow({
           </div>
         )}
       </ItemContent>
+      <ChevronRight className="text-muted-foreground size-4 shrink-0 self-center opacity-0 transition-opacity group-hover/item:opacity-100 group-data-[selected=true]:opacity-100 max-sm:opacity-60" />
     </>
   );
 
-  const classes = cn('w-full items-start gap-3 px-3 py-2.5 text-left', className);
+  // The gallery's rows are opened by the CommandItem above them, so the states
+  // belong to every row rather than to the ones that carry their own handler.
+  const classes = cn(
+    'bg-card-raised w-full items-start gap-3 px-3 py-2.5 text-left',
+    ROW_STATES,
+    className
+  );
 
   if (!onSelect) {
     return (
@@ -120,7 +131,7 @@ export function GalleryRow({
   }
 
   return (
-    <Item asChild variant="outline" size="sm" className={cn(classes, 'hover:bg-accent/40')}>
+    <Item asChild variant="outline" size="sm" className={classes}>
       <button type="button" onClick={onSelect}>
         {body}
       </button>

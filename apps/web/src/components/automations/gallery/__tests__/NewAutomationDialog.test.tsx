@@ -143,6 +143,18 @@ describe('NewAutomationDialog', () => {
     expect(search).toHaveFocus();
   });
 
+  it('gives the door rows the same states as a template row', () => {
+    renderDialog();
+
+    const door = screen.getByText('Paste a share code').closest('[data-slot="item"]');
+    const template = screen.getByText('Stream started').closest('[data-slot="item"]');
+
+    expect(door?.className).toContain('group-data-[selected=true]:bg-accent/40');
+    expect(door?.className).toBe(template?.className);
+    // cmdk marks the row above, so the class only reaches the row through `group`.
+    expect(door?.closest('[cmdk-item]')).toHaveClass('group');
+  });
+
   it('keeps the two other ways in when nothing matches', async () => {
     const { user } = renderDialog();
 

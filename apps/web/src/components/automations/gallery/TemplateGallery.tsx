@@ -85,7 +85,7 @@ export function TemplateGallery({
       <CommandItem
         forceMount
         value="paste share code import"
-        className={ROW_CLASSES}
+        className={`group ${ROW_CLASSES}`}
         onSelect={onPaste}
       >
         <GalleryRow
@@ -98,7 +98,7 @@ export function TemplateGallery({
       <CommandItem
         forceMount
         value="start from scratch build your own"
-        className={ROW_CLASSES}
+        className={`group ${ROW_CLASSES}`}
         onSelect={onScratch}
       >
         <GalleryRow
@@ -162,10 +162,7 @@ export function TemplateGallery({
                     className={`group ${ROW_CLASSES}`}
                     onSelect={() => onPick(template.id)}
                   >
-                    <TemplateCard
-                      template={template}
-                      className="group-data-[selected=true]:border-primary/40 group-data-[selected=true]:bg-accent/40"
-                    />
+                    <TemplateCard template={template} />
                   </CommandItem>
                 ))}
             </CommandGroup>
