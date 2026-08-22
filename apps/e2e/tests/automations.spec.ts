@@ -180,7 +180,7 @@ test.describe('Automations', () => {
   test('filters the list by kind', async ({ page }) => {
     await page.getByRole('button', { name: 'Filters' }).click();
     await page.getByLabel('Kind').click();
-    await page.getByRole('option', { name: 'Policy' }).click();
+    await page.getByRole('option', { name: 'Violation' }).click();
 
     await expect(page).toHaveURL(/kind=policy/);
   });

@@ -15,6 +15,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AutomationKindBadge } from '@/components/automations/AutomationKindBadge';
 import { UserCell } from '@/components/users/UserCell';
 import { useRun } from '@/hooks/queries/useRuns';
 import {
@@ -106,7 +107,7 @@ export function RunDetail({ runId, canReplay = false, onOpenChange }: RunDetailP
                 <Badge variant="secondary">
                   {t(`pages:automations.activity.outcomes.${run.outcome}`)}
                 </Badge>
-                <Badge variant="outline">{t(`pages:automations.kind.${run.kind}`)}</Badge>
+                <AutomationKindBadge kind={run.kind} />
               </div>
 
               <RunSubjectBlock run={run} />

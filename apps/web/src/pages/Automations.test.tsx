@@ -146,8 +146,8 @@ describe('Automations', () => {
 
     expect(bodyRows()).toHaveLength(2);
     expect(screen.getByText('Concurrent cap')).toBeInTheDocument();
-    expect(screen.getByText('Policy')).toBeInTheDocument();
-    expect(screen.getByText('Notification')).toBeInTheDocument();
+    expect(screen.getByText('Violation')).toBeInTheDocument();
+    expect(screen.getByText('Alert')).toBeInTheDocument();
   });
 
   it('reads the kind filter out of the URL and sends it to the query', () => {

@@ -3,8 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { ArrowLeft, Pencil, Share2 } from 'lucide-react';
-import { RETENTION_DEFAULTS, type AutomationKind } from '@tracearr/shared';
-import { Badge } from '@/components/ui/badge';
+import { RETENTION_DEFAULTS } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ItemMedia } from '@/components/ui/item';
@@ -13,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   ActivityList,
   AutomationDetailForm,
+  AutomationKindBadge,
   ProvenanceLine,
   RunDetail,
   ScopeChip,
@@ -24,11 +24,6 @@ import { useAutomation, useToggleAutomation } from '@/hooks/queries';
 import { useRunCounts } from '@/hooks/queries/useRuns';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useServer } from '@/hooks/useServer';
-
-const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
-  policy: 'default',
-  notification: 'outline',
-};
 
 export function AutomationDetail() {
   const { t } = useTranslation(['pages', 'common']);
@@ -84,9 +79,7 @@ export function AutomationDetail() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold">{automation.name}</h1>
-              <Badge variant={KIND_BADGE_VARIANT[automation.kind]}>
-                {t(`pages:automations.kind.${automation.kind}`)}
-              </Badge>
+              <AutomationKindBadge kind={automation.kind} />
               <ScopeChip automation={automation} servers={servers} />
               {template && <TemplateBadge template={template} />}
             </div>

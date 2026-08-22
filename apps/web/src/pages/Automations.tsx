@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Power, PowerOff, Share2, Trash2, Workflow } from 'lucide-react';
-import type { Automation, AutomationKind, AutomationSortField } from '@tracearr/shared';
+import type { Automation, AutomationSortField } from '@tracearr/shared';
 import { AUTOMATION_SORT_FIELDS, listPageCount } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { BulkActionsToolbar, type BulkAction } from '@/components/ui/bulk-actions-toolbar';
@@ -23,9 +23,10 @@ import {
 import { countActiveFilters, FilterBar, useFilterState } from '@/components/ui/filters';
 import type { FilterDescriptor } from '@/components/ui/filters';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ItemMedia } from '@/components/ui/item';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
-import { ScopeChip, TemplateBadge } from '@/components/automations';
+import { AutomationKindBadge, ScopeChip, TemplateBadge } from '@/components/automations';
 import { NewAutomationDialog } from '@/components/automations/gallery/NewAutomationDialog';
 import { TemplateCard } from '@/components/automations/gallery/TemplateCard';
 import { ExportDialog } from '@/components/automations/sharing/ExportDialog';
@@ -68,11 +69,6 @@ function isAutomationSortField(id: string): id is AutomationSortField {
 
 const columnHelper = createDataTableColumnHelper<Automation>();
 const getAutomationId = (automation: Automation) => automation.id;
-
-const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
-  policy: 'default',
-  notification: 'outline',
-};
 
 export function Automations() {
   const { t } = useTranslation(['pages', 'common']);
@@ -228,12 +224,28 @@ export function Automations() {
           header: t('common:labels.name'),
           cell: ({ row }) => {
             const automation = row.original;
+            // Where it came from and what it does not do, under the sentence rather
+            // than beside the name, which is the shape the gallery card already has.
+            const meta: { key: string; node: ReactNode }[] = [];
+            if (automation.template) {
+              meta.push({
+                key: 'template',
+                node: <TemplateBadge template={automation.template} plain />,
+              });
+            }
+            if (automation.enforceAcrossServers) {
+              meta.push({ key: 'crossServer', node: t('pages:automations.scope.crossServer') });
+            }
+            if (automation.actions.actions.length === 0) {
+              meta.push({ key: 'recordsOnly', node: t('pages:automations.recordsOnly') });
+            }
+
             return (
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+              <div className="flex items-start gap-3">
+                <ItemMedia variant="icon" className="[&_svg]:size-4">
                   {automationIcon(automation)}
-                </div>
-                <div className="min-w-0">
+                </ItemMedia>
+                <div className="min-w-0 space-y-0.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{automation.name}</span>
                     <ScopeChip automation={automation} servers={servers} />
@@ -256,11 +268,7 @@ export function Automations() {
         }),
         columnHelper.accessor('kind', {
           header: t('pages:automations.kindColumn'),
-          cell: ({ row }) => (
-            <Badge variant={KIND_BADGE_VARIANT[row.original.kind]}>
-              {t(`pages:automations.kind.${row.original.kind}`)}
-            </Badge>
-          ),
+          cell: ({ row }) => <AutomationKindBadge kind={row.original.kind} />,
         }),
         columnHelper.accessor('isActive', {
           header: t('common:labels.status'),

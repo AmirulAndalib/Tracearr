@@ -871,8 +871,8 @@
       "valid": "This is a Tracearr automation."
     },
     "kind": {
-      "notification": "Notification",
-      "policy": "Policy"
+      "notification": "Alert",
+      "policy": "Violation"
     },
     "kindColumn": "Kind",
     "name": "Automation Name",

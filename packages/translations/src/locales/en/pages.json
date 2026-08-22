@@ -1085,8 +1085,8 @@
       }
     },
     "kind": {
-      "policy": "Policy",
-      "notification": "Notification"
+      "policy": "Violation",
+      "notification": "Alert"
     },
     "kindColumn": "Kind",
     "name": "Name",

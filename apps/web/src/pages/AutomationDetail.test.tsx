@@ -222,7 +222,7 @@ describe('AutomationDetail', () => {
     renderDetail();
 
     expect(screen.getByRole('heading', { name: 'Concurrent cap' })).toBeInTheDocument();
-    expect(screen.getByText('pages:automations.kind.policy')).toBeInTheDocument();
+    expect(screen.getByText('automations.kind.policy')).toBeInTheDocument();
     expect(screen.getByLabelText('automations.name')).toHaveValue('Concurrent cap');
     expect(
       screen.getByRole('group', { name: 'pages:automations.thisAutomation' })
