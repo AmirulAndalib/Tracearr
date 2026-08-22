@@ -43,6 +43,8 @@ function runRow(overrides: Record<string, unknown> = {}) {
     itemTitle: null,
     itemMediaType: null,
     libraryName: null,
+    storedMediaTitle: null,
+    storedIpAddress: null,
     startedAt: new Date('2026-08-20T10:00:00.000Z'),
     createdAt: new Date('2026-08-20T10:00:00.000Z'),
     finishedAt: new Date('2026-08-20T10:00:02.000Z'),
@@ -457,14 +459,52 @@ describe('Run routes', () => {
       expect(db.select).toHaveBeenCalledOnce();
     });
 
-    it('reports no session context once the session has been purged', async () => {
+    it('falls back to what the run stamped on itself when the session row is gone', async () => {
+      app = await buildTestApp(ownerUser);
+      setupDetailMocks(
+        {
+          ...runRow(),
+          steps: [],
+          storedMediaTitle: 'The Bear',
+          storedIpAddress: '10.0.0.9',
+          definitionVersionId: null,
+        },
+        []
+      );
+
+      const body = (await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json();
+
+      expect(body.session).toEqual({
+        mediaTitle: 'The Bear',
+        mediaType: null,
+        grandparentTitle: null,
+        player: null,
+        device: null,
+        product: null,
+        platform: null,
+        ipAddress: '10.0.0.9',
+        city: null,
+        country: null,
+      });
+      expect(body.subject.name).toBe('ada@plex');
+    });
+
+    it('reports no session context when neither the row nor the run kept any', async () => {
       app = await buildTestApp(ownerUser);
       setupDetailMocks({ ...runRow(), steps: [], definitionVersionId: null }, []);
 
       const body = (await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json();
 
       expect(body.session).toBeNull();
-      expect(body.subject.name).toBe('ada@plex');
+    });
+
+    it('reports no evidence for a run whose data never held an array', async () => {
+      app = await buildTestApp(ownerUser);
+      setupDetailMocks({ ...runRow(), steps: [], evidence: {}, definitionVersionId: null });
+
+      expect((await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json().evidence).toEqual(
+        []
+      );
     });
 
     it('reports an empty step log rather than null', async () => {

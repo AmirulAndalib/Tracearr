@@ -51,7 +51,7 @@ function statusOf(
  */
 export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProps) {
   const { t } = useTranslation('pages');
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // A run opened in the editor names the session it ran against; without one the
   // check reads whatever is playing.
@@ -72,11 +72,31 @@ export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProp
   return (
     <div className="mt-4 space-y-2" aria-live="polite">
       <Separator className="mb-4" />
-      <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+      <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs font-medium">
         <Radio className="size-3.5" />
         {replaying
           ? t('automations.builder.liveCheck.sampleTitle')
           : t('automations.builder.liveCheck.title')}
+        {replaying && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-xs"
+            onClick={() =>
+              setSearchParams(
+                (previous) => {
+                  const next = new URLSearchParams(previous);
+                  next.delete('sample');
+                  return next;
+                },
+                { replace: true }
+              )
+            }
+          >
+            {t('automations.builder.liveCheck.backToLive')}
+          </Button>
+        )}
       </p>
 
       {status !== null && <p className="text-muted-foreground text-sm">{status}</p>}

@@ -113,4 +113,67 @@ describe('LiveCheckStrip', () => {
     expect(rows[0]).toHaveTextContent('Did not pass');
     expect(rows[1]).toHaveTextContent('Passed');
   });
+
+  describe('replaying one run', () => {
+    const replay = '/automations/a-1/edit?sample=sess-7';
+
+    it('checks the run its session came from, not what is playing now', () => {
+      dryRun.mockReturnValue({ data: { samples: [sample] }, isPending: false, isError: false });
+      renderStrip(definition(), replay);
+
+      expect(dryRun).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sampleSessionId: 'sess-7' })
+      );
+      expect(screen.getByText('What this would do to that run')).toBeInTheDocument();
+      expect(screen.queryByText('Right now on the servers')).not.toBeInTheDocument();
+    });
+
+    it('says the session is gone rather than blaming the check', () => {
+      dryRun.mockReturnValue({ data: undefined, isPending: false, isError: true });
+      renderStrip(definition(), replay);
+
+      expect(
+        screen.getByText(
+          'That session is no longer on record; nothing to check against.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('says the same when the run matched nothing to check', () => {
+      dryRun.mockReturnValue({ data: { samples: [] }, isPending: false, isError: false });
+      renderStrip(definition(), replay);
+
+      expect(
+        screen.getByText(
+          'That session is no longer on record; nothing to check against.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('drops the sample and goes back to live sessions', async () => {
+      const user = userEvent.setup();
+      dryRun.mockReturnValue({ data: { samples: [sample] }, isPending: false, isError: false });
+      renderStrip(definition(), replay);
+
+      await user.click(screen.getByRole('button', { name: "Back to what's playing now" }));
+
+      expect(screen.getByText('Right now on the servers')).toBeInTheDocument();
+      expect(dryRun).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sampleSessionId: undefined })
+      );
+    });
+
+    it('reads what is playing now when no run was named', () => {
+      dryRun.mockReturnValue({ data: { samples: [sample] }, isPending: false, isError: false });
+      renderStrip();
+
+      expect(dryRun).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ sampleSessionId: undefined })
+      );
+      expect(screen.getByText('Right now on the servers')).toBeInTheDocument();
+    });
+  });
 });

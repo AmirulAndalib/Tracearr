@@ -113,7 +113,9 @@ export function RunDetail({ runId, canReplay = false, onOpenChange }: RunDetailP
 
               <Verdicts run={run} />
 
-              {canReplay && run.sessionId && <ReplayButton run={run} />}
+              {canReplay && run.sessionId !== null && (
+                <ReplayButton automationId={run.automationId} sessionId={run.sessionId} />
+              )}
             </>
           )}
         </div>
@@ -156,17 +158,19 @@ function RunSubjectBlock({ run }: { run: AutomationRun }) {
 }
 
 /** The show and the episode, when the session names both. */
-function playingText(session: RunSessionContext): string {
+function playingText(session: RunSessionContext): string | null {
+  if (session.mediaTitle === null) return null;
   return session.grandparentTitle && session.grandparentTitle !== session.mediaTitle
     ? `${session.grandparentTitle} — ${session.mediaTitle}`
     : session.mediaTitle;
 }
 
 /** The client, then where it was streaming from. */
-function fromText(session: RunSessionContext): string {
+function fromText(session: RunSessionContext): string | null {
   const client = session.player ?? session.product ?? session.device ?? session.platform;
   const place = [session.city, session.country].filter((part) => part !== null).join(', ');
-  return [client, session.ipAddress, place || null].filter((part) => part !== null).join(' · ');
+  const parts = [client, session.ipAddress, place || null].filter((part) => part !== null);
+  return parts.length === 0 ? null : parts.join(' · ');
 }
 
 /** The trigger that fired, each condition, then what every action did. */
@@ -174,6 +178,7 @@ function Verdicts({ run }: { run: AutomationRun }) {
   const { t } = useTranslation('pages');
   const trigger = asTriggerStep(run.steps[0]);
   const actions = run.steps.slice(1);
+  const groups = Array.isArray(run.evidence) ? run.evidence : [];
 
   return (
     <ol className="space-y-2">
@@ -194,9 +199,9 @@ function Verdicts({ run }: { run: AutomationRun }) {
         </div>
       </li>
 
-      {run.evidence.map((group, index) => (
+      {groups.map((group, index) => (
         <li key={group.groupIndex} className="rounded-lg border p-3">
-          {run.evidence.length > 1 && (
+          {groups.length > 1 && (
             <p className="text-muted-foreground mb-1 text-xs">
               {t('automations.activity.group', { number: index + 1 })}
             </p>
@@ -292,16 +297,14 @@ function ActionVerdict({ step }: { step: unknown }) {
 }
 
 /** Opens the builder with this run's session as the live check's sample. */
-function ReplayButton({ run }: { run: AutomationRun }) {
+function ReplayButton({ automationId, sessionId }: { automationId: string; sessionId: string }) {
   const { t } = useTranslation('pages');
   const navigate = useNavigate();
 
   return (
     <Button
       variant="outline"
-      onClick={() =>
-        void navigate(`/automations/${run.automationId}/edit?sample=${run.sessionId ?? ''}`)
-      }
+      onClick={() => void navigate(`/automations/${automationId}/edit?sample=${sessionId}`)}
     >
       <PencilRuler />
       {t('automations.activity.openInEditor')}

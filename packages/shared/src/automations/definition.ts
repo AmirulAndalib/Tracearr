@@ -365,10 +365,13 @@ export interface RunSubject {
   mediaType: string | null;
 }
 
-/** What was playing when a session run fired, as far as the session row still says. */
+/**
+ * What was playing when a session run fired. The session row carries all of it; once
+ * that row is gone only what the run stamped on itself is left, so most of it is nullable.
+ */
 export interface RunSessionContext {
-  mediaTitle: string;
-  mediaType: MediaType;
+  mediaTitle: string | null;
+  mediaType: MediaType | null;
   /** The show an episode belongs to. */
   grandparentTitle: string | null;
   player: string | null;

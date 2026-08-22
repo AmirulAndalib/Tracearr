@@ -16,7 +16,7 @@ import {
   DataTableViewport,
   useDataTable,
 } from '@/components/ui/data-table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { useAutomationRuns } from '@/hooks/queries/useRuns';
 import { runWhere, runWho } from '@/lib/automations';
@@ -33,7 +33,10 @@ const OUTCOME_DOT: Record<RunOutcome, string> = {
   error: 'bg-destructive',
 };
 
-/** The tabs are the outcome filter the API already takes, plus everything. */
+/**
+ * The outcome filter the API already takes, plus everything. A toggle group rather than
+ * tabs: these switch one table's rows, they do not switch between panels.
+ */
 const OUTCOME_TABS = ['all', 'completed', 'stopped_by_condition', 'error'] as const;
 type OutcomeTab = (typeof OUTCOME_TABS)[number];
 
@@ -142,22 +145,24 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
 
   return (
     <div className="space-y-4">
-      <Tabs
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
         value={tab}
+        aria-label={t('pages:automations.activity.tabsLabel')}
         onValueChange={(next) => {
           if (!isOutcomeTab(next)) return;
           setTab(next);
           setPage(1);
         }}
       >
-        <TabsList>
-          {OUTCOME_TABS.map((value) => (
-            <TabsTrigger key={value} value={value}>
-              {t(`pages:automations.activity.tabs.${value}`)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        {OUTCOME_TABS.map((value) => (
+          <ToggleGroupItem key={value} value={value} className={SELECTED_TOGGLE}>
+            {t(`pages:automations.activity.tabs.${value}`)}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
 
       <DataTableRoot density="default">
         <DataTableViewport>

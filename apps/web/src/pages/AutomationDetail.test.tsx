@@ -417,7 +417,7 @@ describe('AutomationDetail activity', () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await user.click(screen.getByRole('tab', { name: 'pages:automations.activity.tabs.error' }));
+    await user.click(screen.getByRole('radio', { name: 'pages:automations.activity.tabs.error' }));
 
     expect(mockUseAutomationRuns).toHaveBeenLastCalledWith('a-1', {
       page: 1,

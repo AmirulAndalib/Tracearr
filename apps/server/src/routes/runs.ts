@@ -92,6 +92,9 @@ const runDetailColumns = {
   ...runSummaryColumns,
   steps: automationRuns.steps,
   evidence: sql<GroupEvidence[] | null>`${automationRuns.data}->'evidence'`,
+  // What the recorder stamped on the run itself, for when the session row is not there.
+  storedMediaTitle: sql<string | null>`${automationRuns.data}->>'mediaTitle'`,
+  storedIpAddress: sql<string | null>`${automationRuns.data}->>'ipAddress'`,
   definitionVersionId: automationRuns.definitionVersionId,
 };
 
@@ -191,7 +194,8 @@ export const mapRunSummary = (row: RunSummaryRow): AutomationRunSummary => ({
 /**
  * Its own read rather than a join: the sessions hypertable is keyed on (id, started_at),
  * so joining it by id alone would scan every chunk for every run a page lists.
- * Null once retention has purged the session, long before the run row goes.
+ * A session the run names may still be absent - the row was cleaned up by hand, or the
+ * run predates it - which is what the stored fallback below is for.
  */
 async function loadSessionContext(sessionId: string | null): Promise<RunSessionContext | null> {
   if (sessionId === null) return null;
@@ -212,6 +216,26 @@ async function loadSessionContext(sessionId: string | null): Promise<RunSessionC
     .where(eq(sessions.id, sessionId))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/** The two fields the recorder copies onto the run, so a missing session still says something. */
+function storedSessionContext(row: {
+  storedMediaTitle: string | null;
+  storedIpAddress: string | null;
+}): RunSessionContext | null {
+  if (row.storedMediaTitle === null && row.storedIpAddress === null) return null;
+  return {
+    mediaTitle: row.storedMediaTitle,
+    mediaType: null,
+    grandparentTitle: null,
+    player: null,
+    device: null,
+    product: null,
+    platform: null,
+    ipAddress: row.storedIpAddress,
+    city: null,
+    country: null,
+  };
 }
 
 /**
@@ -302,8 +326,8 @@ export const runRoutes: FastifyPluginAsync = async (app) => {
     return {
       ...mapRunSummary(row),
       steps: row.steps ?? [],
-      session: await loadSessionContext(row.sessionId),
-      evidence: row.evidence ?? [],
+      session: (await loadSessionContext(row.sessionId)) ?? storedSessionContext(row),
+      evidence: Array.isArray(row.evidence) ? row.evidence : [],
       definitionVersionId: row.definitionVersionId,
     } satisfies AutomationRun;
   });
