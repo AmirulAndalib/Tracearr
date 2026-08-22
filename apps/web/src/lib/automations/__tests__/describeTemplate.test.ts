@@ -36,6 +36,40 @@ const inputs: TemplateInput[] = [
   { key: 'to', kind: 'destinations', label: 'Send to', required: true },
 ];
 
+/** The one builtin shape with a required input that carries no default: a list of countries. */
+const geo = (): { inputs: TemplateInput[]; definition: TemplateDefinition } => ({
+  inputs: [
+    {
+      key: 'countries',
+      kind: 'field_value',
+      field: 'country',
+      label: 'Blocked countries',
+      required: true,
+    },
+  ],
+  definition: definition({
+    actions: { actions: [{ id: 'action-1', type: 'send', enabled: true, to: ['dest-1'] }] },
+    scope: {},
+    conditions: {
+      groups: [
+        {
+          id: 'group-1',
+          enabled: true,
+          conditions: [
+            {
+              id: 'cond-1',
+              enabled: true,
+              field: 'country',
+              operator: 'in',
+              value: { $input: 'countries' },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+
 const held = (): TemplateDefinition =>
   definition({
     triggers: [
@@ -59,9 +93,9 @@ function text(
 }
 
 describe('describeTemplate', () => {
-  it('names a required input that is still unbound', () => {
+  it('reads an unpicked destination as a notification rather than as a field name', () => {
     expect(text({ inputs, definition: definition() })).toBe(
-      'When a stream starts, send to [Send to].'
+      'When a stream starts, send a notification.'
     );
   });
 
@@ -81,7 +115,9 @@ describe('describeTemplate', () => {
       definition: held(),
     };
 
-    expect(text(version)).toBe('When a stream has been paused for 30 minutes, send to [Send to].');
+    expect(text(version)).toBe(
+      'When a stream has been paused for 30 minutes, send a notification.'
+    );
   });
 
   it('drops the scope tail while the optional server is unbound', () => {
@@ -98,8 +134,43 @@ describe('describeTemplate', () => {
     expect(sentence).toBe('When a stream starts, send to Discord. Applies to Beehive.');
   });
 
-  it('reads an empty destination pick as unbound rather than as nowhere', () => {
-    expect(text({ inputs, definition: definition() }, { to: [] })).toContain('[Send to]');
+  it('reads an unpicked country list as a plural, never as its field label', () => {
+    expect(text(geo())).toBe(
+      'When a stream starts, and only if the country is one of those chosen; send a notification.'
+    );
+  });
+
+  it('names the countries once they are picked', () => {
+    const sentence = text(
+      geo(),
+      { countries: ['US', 'CA'] },
+      { countries: { US: 'United States', CA: 'Canada' } }
+    );
+
+    expect(sentence).toContain('the country is one of United States, Canada');
+    expect(sentence).not.toContain('those chosen');
+  });
+
+  it('reads an unanswered slot as the kind of thing it holds', () => {
+    const version = {
+      inputs: [
+        ...inputs,
+        {
+          key: 'minutes',
+          kind: 'duration',
+          unit: 'minutes',
+          label: 'Minutes paused',
+          required: true,
+        } satisfies TemplateInput,
+      ],
+      definition: held(),
+    };
+
+    expect(text(version)).toContain('paused for a chosen length of time');
+  });
+
+  it('reads an emptied destination pick the same as one never made', () => {
+    expect(text({ inputs, definition: definition() }, { to: [] })).toContain('send a notification');
   });
 
   it('converts a duration input into the unit its slot stores', () => {
@@ -284,13 +355,15 @@ describe('describeTemplate input keys', () => {
     expect(keysFor(version, { note: 'hello' })).not.toContain('note');
   });
 
-  it('names the required input the sentence is still asking for', () => {
-    expect(keysFor({ inputs, definition: definition() }, {}, '[Send to]')).toEqual(['to']);
+  it('keeps the unpicked destination on the clause it will fill', () => {
+    expect(keysFor({ inputs, definition: definition() }, {}, 'send a notification')).toEqual([
+      'to',
+    ]);
   });
 });
 
 describe('templateDraft', () => {
-  it('drops a required slot nothing answered rather than leaving a placeholder', () => {
+  it('leaves an unanswered destination as the empty list the builder starts a send on', () => {
     const draft = templateDraft(
       { inputs, definition: definition() },
       {},
@@ -300,8 +373,46 @@ describe('templateDraft', () => {
       }
     );
 
-    expect(draft.actions.actions[0]).toEqual({ id: 'action-1', type: 'send', enabled: true });
+    expect(draft.actions.actions[0]).toEqual({
+      id: 'action-1',
+      type: 'send',
+      enabled: true,
+      to: [],
+    });
     expect(draft.serverId).toBeNull();
+  });
+
+  it('empties an unanswered list of condition values too', () => {
+    const draft = templateDraft(geo(), {}, { name: 'Blocked countries', isActive: true });
+
+    expect(draft.conditions.groups[0]?.conditions[0]).toMatchObject({
+      field: 'country',
+      value: [],
+    });
+  });
+
+  it('still drops an unanswered slot that holds one value', () => {
+    const version = {
+      inputs: [
+        { key: 'note', kind: 'text', label: 'What it says', required: true },
+      ] satisfies TemplateInput[],
+      definition: definition({
+        actions: {
+          actions: [
+            { id: 'action-1', type: 'message_client', enabled: true, message: { $input: 'note' } },
+          ],
+        },
+        scope: {},
+      }),
+    };
+
+    const draft = templateDraft(version, {}, { name: 'A word', isActive: true });
+
+    expect(draft.actions.actions[0]).toEqual({
+      id: 'action-1',
+      type: 'message_client',
+      enabled: true,
+    });
   });
 
   it('carries the answers the reader typed', () => {

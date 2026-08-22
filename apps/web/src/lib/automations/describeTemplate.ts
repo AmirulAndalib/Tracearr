@@ -3,7 +3,7 @@
  * gallery card, the binding form and the import review all read from here.
  */
 
-import { slotValueFor } from '@tracearr/shared';
+import { CONDITION_FIELDS, slotValueFor } from '@tracearr/shared';
 import type { PagesKey } from '@tracearr/translations';
 import type {
   AutomationActions,
@@ -114,6 +114,20 @@ function nodeIdOf(node: object, current: string): string {
   return typeof id === 'string' ? id : current;
 }
 
+/** Inputs answered with a list, whose slot keeps an empty one rather than losing the key. */
+function holdsList(input: TemplateInput): boolean {
+  switch (input.kind) {
+    case 'destinations':
+      return true;
+    case 'select':
+      return input.multiple === true;
+    case 'field_value':
+      return CONDITION_FIELDS[input.field].valueType === 'multiSelect';
+    default:
+      return false;
+  }
+}
+
 /**
  * The definition with bound values and defaults substituted. `placeholders` keeps an
  * unbound required input naming itself, which the sentence wants and a draft does not.
@@ -149,9 +163,9 @@ function bindDefinition(
         record(nodeId, key);
         return slotValueFor(binding.input, binding.value, slot);
       }
-      if (!placeholders || !version.inputs.find((input) => input.key === key)?.required) {
-        return DROP;
-      }
+      const input = version.inputs.find((entry) => entry.key === key);
+      if (!input?.required) return DROP;
+      if (!placeholders) return holdsList(input) ? [] : DROP;
       record(nodeId, key);
       return node;
     }
@@ -224,8 +238,8 @@ export interface AutomationDraft {
 }
 
 /**
- * The template as a row the builder can edit, with every slot nothing answered dropped.
- * An empty required slot lands as a field the builder's own validation flags.
+ * The template as a row the builder can edit. A slot nothing answered drops out, unless it
+ * holds a list, which lands empty for the builder's own validation to flag.
  */
 export function templateDraft(
   version: TemplateVersionBody,
@@ -321,18 +335,9 @@ export function describeTemplate(
   unitSystem: UnitSystem
 ): DescribeFragment[] {
   const { definition, inputsByNode } = bindDefinition(version, bound);
-  const fragments = describeAutomation(
-    {
-      ...definition,
-      inputs: version.inputs.map((input) => ({
-        key: input.key,
-        label: templateInputLabel(t, input),
-      })),
-    },
-    refs,
-    t,
-    unitSystem
-  );
+  const fragments = describeAutomation(definition, refs, t, unitSystem, {
+    inputKinds: Object.fromEntries(version.inputs.map((input) => [input.key, input.kind])),
+  });
 
   return fragments.map((fragment) => {
     const keys = fragment.nodeId === null ? undefined : inputsByNode.get(fragment.nodeId);

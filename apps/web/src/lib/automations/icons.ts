@@ -94,7 +94,7 @@ function iconForConditions(definition: DescribableDefinition): LucideIcon | unde
 
 /** Built with createElement so this stays a plain module and callers stay one expression. */
 export function automationIcon(automation: DescribableDefinition): ReactElement {
-  return createElement(iconForConditions(automation) ?? Settings2, { className: 'h-5 w-5' });
+  return createElement(iconForConditions(automation) ?? Settings2, { className: 'size-5' });
 }
 
 /** A template row: what its first check looks at, or failing that what starts it. */

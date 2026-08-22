@@ -111,7 +111,7 @@ describe('NewAutomationDialog', () => {
   it('finds a template by a word only its synonyms carry', async () => {
     const { user } = renderDialog();
 
-    await user.type(screen.getByRole('combobox'), 'reclaim');
+    await user.type(screen.getByRole('combobox'), 'kill');
 
     expect(screen.getByText('Stop paused streams')).toBeInTheDocument();
     expect(screen.queryByText('Server down')).not.toBeInTheDocument();

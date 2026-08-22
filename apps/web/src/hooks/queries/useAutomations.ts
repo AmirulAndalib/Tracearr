@@ -50,10 +50,12 @@ export function useUpdateAutomation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateAutomationInput }) =>
+    /** Silent is for a caller sending a second half after this one; that half says so. */
+    mutationFn: ({ id, data }: { id: string; data: UpdateAutomationInput; silent?: boolean }) =>
       api.automations.update(id, data),
-    onSuccess: () => {
+    onSuccess: (_saved, { silent }) => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      if (silent === true) return;
       toast.success(t('toast.success.automationUpdated.title'), {
         description: t('toast.success.automationUpdated.message'),
       });

@@ -67,6 +67,7 @@ interface Describe {
   t: Translate;
   refs: DescribeRefs;
   unitSystem: UnitSystem;
+  inputKinds: Readonly<Record<string, TemplateInput['kind']>>;
   /** Whether an empty part reads as an invitation to fill it, which only the builder wants. */
   placeholders: boolean;
 }
@@ -75,6 +76,8 @@ interface Describe {
 export interface DescribeOptions {
   /** Names the empty trigger and action slots after the steps that fill them. */
   placeholders?: boolean;
+  /** What kind of thing each template input holds, so an unanswered one reads as a noun. */
+  inputKinds?: Readonly<Record<string, TemplateInput['kind']>>;
 }
 
 const SENTENCE_LIMIT = 160;
@@ -512,7 +515,7 @@ export function describeConditions(
   t: Translate,
   unitSystem: UnitSystem
 ): DescribeFragment[] {
-  return describeGroups({ t, refs, unitSystem, inputs: [], placeholders: false }, groups, null);
+  return describeGroups({ t, refs, unitSystem, inputKinds: {}, placeholders: false }, groups, null);
 }
 
 /**
@@ -527,7 +530,7 @@ export function describeAutomation(
   options: DescribeOptions = {}
 ): DescribeFragment[] {
   const placeholders = options.placeholders ?? false;
-  const ctx: Describe = { t, refs, unitSystem, placeholders };
+  const ctx: Describe = { t, refs, unitSystem, inputKinds: options.inputKinds ?? {}, placeholders };
   const triggers = definition.triggers ?? [];
   const actionNodes = definition.actions?.actions ?? [];
   // A draft with nothing on it invites both slots; "flag it" would name a control that is not there yet.

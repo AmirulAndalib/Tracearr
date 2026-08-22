@@ -1,10 +1,18 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { initI18n } from '@tracearr/translations';
-import { AUTOMATION_DESCRIPTION_MAX, AUTOMATION_NAME_MAX, type Automation } from '@tracearr/shared';
+import {
+  AUTOMATION_DESCRIPTION_MAX,
+  AUTOMATION_NAME_MAX,
+  type Automation,
+  type Destination,
+  type TemplateDefinition,
+  type TemplateInput,
+} from '@tracearr/shared';
 import { ApiError } from '@/lib/api';
+import { templateDraft, type AutomationDraft } from '@/lib/automations';
 
 vi.mock('@/hooks/useServer', () => ({ useServer: () => ({ servers: [] }) }));
 vi.mock('@/hooks/queries/useSettings', () => ({
@@ -14,7 +22,24 @@ vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined 
 vi.mock('@/hooks/queries/useHistory', () => ({
   useAutomationFilterOptions: () => ({ data: undefined }),
 }));
-vi.mock('@/hooks/queries/useDestinations', () => ({ useDestinations: () => ({ data: [] }) }));
+const destination: Destination = {
+  id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  name: 'Discord',
+  type: 'discord',
+  enabled: true,
+  builtin: false,
+  events: ['violation_detected'],
+  configStatus: 'ok',
+  config: { webhookUrl: null },
+  secretsSet: ['webhookUrl'],
+  referencedByAutomationCount: 0,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+vi.mock('@/hooks/queries/useDestinations', () => ({
+  useDestinations: () => ({ data: [destination] }),
+}));
 vi.mock('@/hooks/queries/useDryRun', () => ({
   useDryRun: () => ({ data: undefined, isPending: false, isError: false }),
 }));
@@ -69,12 +94,46 @@ function storedAutomation(overrides: Partial<Automation>): Automation {
   };
 }
 
-function renderBuilder(automation?: Automation) {
+function renderBuilder(automation?: Automation, draft?: AutomationDraft) {
   const router = createMemoryRouter(
-    [{ path: '/automations/*', element: <AutomationBuilder automation={automation} /> }],
+    [
+      {
+        path: '/automations/*',
+        element: <AutomationBuilder automation={automation} draft={draft} />,
+      },
+    ],
     { initialEntries: ['/automations/new'] }
   );
   return render(<RouterProvider router={router} />);
+}
+
+/** What "Open in the builder" hands over: a send whose destination may still be unpicked. */
+function templateDraftFor(bound: Record<string, unknown>): AutomationDraft {
+  const inputs: TemplateInput[] = [
+    { key: 'to', kind: 'destinations', label: 'Send to', required: true },
+  ];
+  const definition: TemplateDefinition = {
+    kind: 'notification',
+    triggers: [
+      { id: '99999999-9999-4999-8999-999999999999', type: 'session.started', enabled: true },
+    ],
+    conditions: { groups: [] },
+    actions: {
+      actions: [
+        {
+          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          type: 'send',
+          enabled: true,
+          to: { $input: 'to' },
+        },
+      ],
+    },
+    scope: {},
+    enforceAcrossServers: false,
+    cooldownMinutes: null,
+  };
+
+  return templateDraft({ inputs, definition }, bound, { name: 'Stream started', isActive: true });
 }
 
 async function addTrigger(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
@@ -201,6 +260,17 @@ describe('AutomationBuilder', () => {
     ).toBeInTheDocument();
   });
 
+  it('puts the name and the description on the one raised card, with the sentence', () => {
+    renderBuilder();
+
+    const card = screen.getByLabelText('Name').closest('.bg-card-raised');
+    expect(card).not.toBeNull();
+    expect(
+      within(card as HTMLElement).getByPlaceholderText('What this is for')
+    ).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText('In plain words')).toBeInTheDocument();
+  });
+
   it('takes a description beside the name in the summary card', async () => {
     const user = userEvent.setup();
     renderBuilder();
@@ -298,6 +368,24 @@ describe('AutomationBuilder', () => {
 
     expect(await screen.findByText('Not available for: A server goes down')).toBeInTheDocument();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('opens a template draft whose destination is still unpicked, and asks for one', async () => {
+    const user = userEvent.setup();
+    renderBuilder(undefined, templateDraftFor({}));
+
+    expect(screen.getByRole('button', { name: /send a notification/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Create automation' }));
+
+    expect(screen.getByText('Pick at least one destination')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('carries a destination the reader did pick into the sentence', () => {
+    renderBuilder(undefined, templateDraftFor({ to: [destination.id] }));
+
+    expect(screen.getByRole('button', { name: /send to Discord/ })).toBeInTheDocument();
   });
 
   it('saves the triggers it was given', async () => {

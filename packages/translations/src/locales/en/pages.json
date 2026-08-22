@@ -445,7 +445,6 @@
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
     "bind": {
-      "nameLabel": "Name",
       "nameHelper": "The name in the automations list.",
       "namePlaceholder": "A name for this automation",
       "activeLabel": "Turn it on now",
@@ -828,7 +827,8 @@
     "description": "Automations watch your servers and act when their conditions match",
     "detail": {
       "notFound": "Automation not found",
-      "title": "Automation"
+      "title": "Automation",
+      "unsaved": "Unsaved changes"
     },
     "disable": "Disable",
     "editAutomation": "Edit automation",
@@ -1089,8 +1089,15 @@
     "name": "Name",
     "newAutomation": "New automation",
     "namePlaceholder": "A name for this automation",
+    "nameInvalid": "Give it a name.",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "What this is for",
+    "thisAutomation": "This automation",
+    "cooldownLabel": "At most once every",
+    "cooldownInvalid": "Enter a whole number of minutes, 0 or more, or leave it empty.",
+    "retentionLabel": "Keep runs for",
+    "retentionPlaceholder": "{{days}}",
+    "retentionInvalid": "Enter a whole number of days, at least 1, or leave it empty.",
     "noAutomationsFound": "No automations found",
     "operators": {
       "eq": "equals",
@@ -1215,30 +1222,12 @@
         "label": "Reset to default (100)"
       }
     },
-    "settings": {
-      "title": "Settings",
-      "description": "Name and run limits.",
-      "nameLabel": "Name",
-      "nameInvalid": "Give it a name.",
-      "descriptionLabel": "Description",
-      "descriptionPlaceholder": "What this one is for (optional)",
-      "severityLabel": "Severity",
-      "severityHint": "How a violation this one records is ranked.",
-      "retentionLabel": "Retention (days)",
-      "retentionHint": "Leave empty to keep runs for {{days}} days.",
-      "retentionInvalid": "Enter a whole number of days, at least 1, or leave it empty.",
-      "cooldownLabel": "Cooldown (minutes)",
-      "cooldownHint": "Leave empty to fire on every match.",
-      "cooldownInvalid": "Enter a whole number of minutes, 0 or more, or leave it empty."
-    },
     "severity": {
       "low": "Low",
       "warning": "Warning",
       "high": "High"
     },
     "template": {
-      "title": "Ready-made automation",
-      "description": "Built from a ready-made automation. The steps are fixed; the answers below can change.",
       "version": "v{{version}}",
       "updateAvailable": "An update is available",
       "updatedTitle": "The ready-made automation is now on v{{version}}",
@@ -1254,7 +1243,8 @@
       "customizeFirst": "This automation follows a ready-made one. Open it in the builder first.",
       "customizeFailed": "Could not open it in the builder.",
       "upgradeFailed": "Couldn't update that. Try again.",
-      "gone": "The ready-made automation this was built from is no longer on this server."
+      "gone": "The ready-made automation this was built from is no longer on this server.",
+      "doorsHelper": "The steps come from the ready-made automation and are fixed. Open in the builder makes every step editable and ends the link."
     },
     "templates": {
       "account-inactivity": {

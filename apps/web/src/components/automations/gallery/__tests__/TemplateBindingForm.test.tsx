@@ -142,7 +142,7 @@ describe('TemplateBindingForm', () => {
   it('names the destination in the sentence once one is picked', async () => {
     const { user } = renderForm();
 
-    expect(sentence()).toContain('[Send to]');
+    expect(sentence()).toContain('send a notification');
 
     await user.click(screen.getByRole('button', { name: 'Discord' }));
 
@@ -300,6 +300,21 @@ describe('TemplateBindingForm', () => {
 
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
+  it('keeps every blank label above its control, which is the dialog shape', () => {
+    renderForm();
+
+    const rows = [...document.querySelectorAll('[data-slot=field][data-orientation]')];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.getAttribute('data-orientation') === 'vertical')).toBe(true);
+  });
+
+  it('carries no limits of its own: a row being created has none to set', () => {
+    renderForm();
+
+    expect(screen.queryByRole('group', { name: 'This automation' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Keep runs for')).not.toBeInTheDocument();
   });
 
   it('says there is nothing to fill in when a template has no inputs', () => {

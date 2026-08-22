@@ -53,6 +53,8 @@ interface TemplateInputFieldProps {
   unitSystem: UnitSystem;
   /** A required input left empty, once the reader has tried to submit. */
   invalid: boolean;
+  /** Label above the control, or left of it once the field group is wide enough. */
+  orientation?: 'vertical' | 'responsive';
   /** Told which row has focus, so the sentence can light the clause it wrote. */
   onFocusInput?: (key: string | null) => void;
 }
@@ -68,6 +70,7 @@ export function TemplateInputField({
   filterOptions,
   unitSystem,
   invalid,
+  orientation = 'vertical',
   onFocusInput,
 }: TemplateInputFieldProps) {
   const { t } = useTranslation('pages');
@@ -289,6 +292,13 @@ export function TemplateInputField({
     }
   };
 
+  // A control the label cannot sit beside takes the whole line; the grid reads this.
+  const wide =
+    input.kind === 'destinations' ||
+    (input.kind === 'select' && input.multiple === true) ||
+    (input.kind === 'text' && (input.maxLength ?? 0) > TEXTAREA_OVER) ||
+    (input.kind === 'field_value' && descriptor?.valueType === 'multiSelect');
+
   const messageSlot = messageSlotForInput(definition, input.key);
   // The envelope's own words win; these two slots get the app's when it carries none.
   const ownHelper = messageSlot
@@ -311,7 +321,7 @@ export function TemplateInputField({
 
   if (input.kind === 'boolean') {
     return (
-      <Field orientation="horizontal" {...focus}>
+      <Field orientation="horizontal" data-wide {...focus}>
         {control()}
         <FieldContent>
           <FieldLabel id={labelId} htmlFor={controlId}>
@@ -323,15 +333,41 @@ export function TemplateInputField({
     );
   }
 
-  return (
-    <Field data-invalid={invalid || undefined} {...focus}>
-      {/* Destinations are a chip group with no single control to point a label at. */}
-      <FieldLabel id={labelId} htmlFor={input.kind === 'destinations' ? undefined : controlId}>
-        {label}
-      </FieldLabel>
-      {control()}
+  // Destinations are a chip group with no single control to point a label at.
+  const labelFor = input.kind === 'destinations' ? undefined : controlId;
+
+  const labelNode = (
+    <FieldLabel id={labelId} htmlFor={labelFor}>
+      {label}
+    </FieldLabel>
+  );
+  const notes = (
+    <>
       {description && <FieldDescription>{description}</FieldDescription>}
       {invalid && <FieldError>{t('automations.bind.required')}</FieldError>}
+    </>
+  );
+  const problem = invalid || undefined;
+
+  if (wide || orientation === 'vertical') {
+    return (
+      <Field data-wide={wide || undefined} data-invalid={problem} {...focus}>
+        {labelNode}
+        {control()}
+        {notes}
+      </Field>
+    );
+  }
+
+  // Label left of the control once the group is wide enough; the words it needs
+  // travel with the label rather than landing beside the control.
+  return (
+    <Field orientation="responsive" data-invalid={problem} {...focus}>
+      <FieldContent>
+        {labelNode}
+        {notes}
+      </FieldContent>
+      {control()}
     </Field>
   );
 }

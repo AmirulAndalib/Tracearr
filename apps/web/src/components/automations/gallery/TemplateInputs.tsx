@@ -168,6 +168,8 @@ interface TemplateInputRowsProps {
   boundServerId: string;
   /** Marks the required rows that are still blank, once the reader has tried to submit. */
   submitted: boolean;
+  /** Label above the control, or left of it once the field group is wide enough. */
+  orientation?: 'vertical' | 'responsive';
   /** The key of the row that has focus, or null when focus has left the fields. */
   onFocusInput?: (key: string | null) => void;
 }
@@ -179,6 +181,7 @@ export function TemplateInputRows({
   onChange,
   boundServerId,
   submitted,
+  orientation,
   onFocusInput,
 }: TemplateInputRowsProps) {
   const { servers } = useServer();
@@ -199,6 +202,7 @@ export function TemplateInputRows({
           filterOptions={filterOptions}
           unitSystem={unitSystem}
           invalid={submitted && input.required && isUnbound(values[input.key])}
+          orientation={orientation}
           onFocusInput={onFocusInput}
         />
       ))}

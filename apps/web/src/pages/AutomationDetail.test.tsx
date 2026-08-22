@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import type * as ReactRouter from 'react-router';
@@ -13,8 +13,12 @@ import type {
 import { CONCURRENT_STREAMS } from '@/components/automations/gallery/__tests__/fixtures';
 import { AutomationDetail } from './AutomationDetail';
 
+// Keys echo, but a count travels with its key: the run line's number is the point of it.
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: { count?: number }) =>
+      options?.count === undefined ? key : `${key}:${options.count}`,
+  }),
 }));
 
 vi.mock('react-router', async () => {
@@ -30,10 +34,10 @@ const upgradeMutate = vi.fn();
 vi.mock('@/hooks/queries', () => ({
   useAutomation: vi.fn(),
   useToggleAutomation: () => ({ mutate: vi.fn(), isPending: false }),
-  useUpdateAutomation: () => ({ mutate: updateMutate, mutateAsync: vi.fn(), isPending: false }),
+  useUpdateAutomation: () => ({ mutateAsync: updateMutate, isPending: false }),
   useDetachAutomation: () => ({ mutate: detachMutate, isPending: false }),
-  useRebindAutomation: () => ({ mutate: rebindMutate, isPending: false }),
-  useUpgradeAutomation: () => ({ mutate: upgradeMutate, isPending: false }),
+  useRebindAutomation: () => ({ mutateAsync: rebindMutate, isPending: false }),
+  useUpgradeAutomation: () => ({ mutateAsync: upgradeMutate, isPending: false }),
   useTemplate: vi.fn(),
   useTemplateVersion: vi.fn(),
   useSettings: () => ({ data: undefined }),
@@ -148,13 +152,6 @@ const templateRef = (overrides: Partial<AutomationTemplateRef> = {}): Automation
   ...overrides,
 });
 
-/** Two cards on the page carry a Save; this one is the template's. */
-function templateCard() {
-  const card = screen.getByText('pages:automations.template.title').closest('[data-slot="card"]');
-  if (!(card instanceof HTMLElement)) throw new Error('the template card is not on the page');
-  return within(card);
-}
-
 /** A bound row, with the catalog answering for the template it names. */
 function setBound(template: AutomationTemplateRef, inputs: Record<string, unknown> = { max: 4 }) {
   mockUseAutomation.mockReturnValue({
@@ -197,6 +194,9 @@ function setRuns(rows: AutomationRunSummary[], counts: Partial<RunCounts> = {}) 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  updateMutate.mockResolvedValue(automation());
+  rebindMutate.mockResolvedValue(automation());
+  upgradeMutate.mockResolvedValue(automation());
   mockUseAutomation.mockReturnValue({
     data: automation(),
     isLoading: false,
@@ -218,13 +218,16 @@ beforeEach(() => {
 });
 
 describe('AutomationDetail', () => {
-  it('renders the header, activity and settings sections', () => {
+  it('renders the header, the one form and activity', () => {
     renderDetail();
 
     expect(screen.getByRole('heading', { name: 'Concurrent cap' })).toBeInTheDocument();
     expect(screen.getByText('pages:automations.kind.policy')).toBeInTheDocument();
+    expect(screen.getByLabelText('automations.name')).toHaveValue('Concurrent cap');
+    expect(
+      screen.getByRole('group', { name: 'pages:automations.thisAutomation' })
+    ).toBeInTheDocument();
     expect(screen.getByText('pages:automations.activity.title')).toBeInTheDocument();
-    expect(screen.getByText('pages:automations.settings.title')).toBeInTheDocument();
   });
 
   it('shows a skeleton while the automation loads', () => {
@@ -285,7 +288,6 @@ describe('AutomationDetail template binding', () => {
 
     renderDetail();
 
-    expect(screen.getByText('pages:automations.template.title')).toBeInTheDocument();
     expect(screen.getByLabelText('Streams allowed')).toHaveValue('4');
     expect(screen.queryByRole('button', { name: 'common:actions.edit' })).not.toBeInTheDocument();
   });
@@ -297,9 +299,7 @@ describe('AutomationDetail template binding', () => {
     renderDetail();
     await user.clear(screen.getByLabelText('Streams allowed'));
     await user.type(screen.getByLabelText('Streams allowed'), '6');
-    await user.click(
-      templateCard().getByRole('button', { name: 'pages:automations.template.save' })
-    );
+    await user.click(screen.getByRole('button', { name: 'pages:automations.template.save' }));
 
     expect(rebindMutate).toHaveBeenCalledWith({ id: 'a-1', inputs: { max: 6 } });
     expect(upgradeMutate).not.toHaveBeenCalled();
@@ -643,124 +643,42 @@ describe('AutomationDetail run sheet', () => {
   });
 });
 
-describe('AutomationDetail settings', () => {
-  it('saves retention and cooldown as nulls when both boxes are empty', async () => {
+describe('AutomationDetail body', () => {
+  it('renames the row in the body and saves it from the doors row', async () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
-
-    expect(updateMutate).toHaveBeenCalledWith({
-      id: 'a-1',
-      data: {
-        name: 'Concurrent cap',
-        description: null,
-        severity: 'warning',
-        retentionDays: null,
-        cooldownMinutes: null,
-      },
-    });
-  });
-
-  it('saves the retention override that was typed in', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    await user.type(screen.getByLabelText('pages:automations.settings.retentionLabel'), '90');
-    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
-
-    expect(updateMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a-1', data: expect.objectContaining({ retentionDays: 90 }) })
-    );
-  });
-
-  it('renames a template-bound row, which the template never owned', async () => {
-    const user = userEvent.setup();
-    setBound(templateRef());
-
-    renderDetail();
-    await user.clear(screen.getByLabelText('pages:automations.settings.nameLabel'));
-    await user.type(screen.getByLabelText('pages:automations.settings.nameLabel'), 'Streams cap');
-    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
+    await user.clear(screen.getByLabelText('automations.name'));
+    await user.type(screen.getByLabelText('automations.name'), 'Streams cap');
+    await user.click(screen.getByRole('button', { name: 'pages:automations.template.save' }));
 
     expect(updateMutate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ name: 'Streams cap' }) })
     );
   });
 
-  it('saves a description and a severity alongside the rest', async () => {
-    const user = userEvent.setup();
+  it('gives a template-bound row the same body, blanks and all', () => {
+    setBound(templateRef());
+
     renderDetail();
 
-    await user.type(
-      screen.getByLabelText('pages:automations.settings.descriptionLabel'),
-      'Caps the household'
-    );
-    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
-
-    expect(updateMutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          description: 'Caps the household',
-          severity: 'warning',
-        }),
-      })
-    );
+    expect(screen.getByLabelText('automations.name')).toHaveValue('Concurrent cap');
+    expect(
+      screen.getByRole('region', { name: 'automations.bind.needs.title' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: 'pages:automations.thisAutomation' })
+    ).toBeInTheDocument();
   });
 
-  it('leaves severity off a notification automation, which triages nothing', () => {
-    mockUseAutomation.mockReturnValue({
-      data: automation({ kind: 'notification', severity: null }),
-      isLoading: false,
-    } as unknown as ReturnType<typeof useAutomation>);
-
+  it('leaves a row that owns its steps without a blanks section', () => {
     renderDetail();
 
     expect(
-      screen.queryByLabelText('pages:automations.settings.severityLabel')
+      screen.queryByRole('region', { name: 'automations.bind.needs.title' })
     ).not.toBeInTheDocument();
-  });
-
-  it('refuses a nameless automation rather than letting the API reject it', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    await user.clear(screen.getByLabelText('pages:automations.settings.nameLabel'));
-
-    expect(screen.getByText('pages:automations.settings.nameInvalid')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
-  });
-
-  it('refuses a retention of zero instead of letting the API reject it', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    await user.type(screen.getByLabelText('pages:automations.settings.retentionLabel'), '0');
-
-    expect(screen.getByText('pages:automations.settings.retentionInvalid')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
-    expect(updateMutate).not.toHaveBeenCalled();
-  });
-
-  it('refuses input that is not a whole number rather than clearing the override', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    await user.type(screen.getByLabelText('pages:automations.settings.cooldownLabel'), '10m');
-
-    expect(screen.getByText('pages:automations.settings.cooldownInvalid')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
-  });
-
-  it('takes a cooldown of zero, which its schema allows', async () => {
-    const user = userEvent.setup();
-    renderDetail();
-
-    await user.type(screen.getByLabelText('pages:automations.settings.cooldownLabel'), '0');
-    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
-
-    expect(updateMutate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'a-1', data: expect.objectContaining({ cooldownMinutes: 0 }) })
-    );
+    expect(
+      screen.queryByRole('button', { name: 'pages:automations.template.customize' })
+    ).not.toBeInTheDocument();
   });
 });

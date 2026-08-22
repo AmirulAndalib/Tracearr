@@ -16,7 +16,8 @@ import type { AutomationTemplate } from '@/lib/api';
 /** A card names no ids of its own: every value it shows is a default or a placeholder. */
 const NO_REFS: DescribeRefs = {};
 
-const PLACEHOLDER = /(\[[^\]]*\])/;
+/** The clause an input wrote, marked as the reader's own wherever the clauses are lifted. */
+const SLOT = 'text-foreground bg-primary/10 rounded-sm px-0.5';
 
 /** The clause the focused field wrote, lifted out of the rest of the sentence. */
 const HIGHLIGHT =
@@ -31,7 +32,7 @@ interface TemplateSentenceProps {
   className?: string;
 }
 
-/** The sentence as text, with the parts the reader still supplies standing out. */
+/** The sentence as text, with the clauses the reader's own answers wrote standing out. */
 export function TemplateSentence({
   fragments,
   clauses,
@@ -43,25 +44,18 @@ export function TemplateSentence({
       {fragments.map((fragment, index) => {
         const key = `${fragment.nodeId ?? 'text'}:${index}`;
         const lit = highlightKey != null && (fragment.inputKeys?.includes(highlightKey) ?? false);
+        const owned = clauses === true && (fragment.inputKeys?.length ?? 0) > 0;
         return (
           <span
             key={key}
             className={cn(
               clauses && fragment.nodeId !== null && 'text-foreground',
+              owned && SLOT,
               lit && HIGHLIGHT,
               className
             )}
           >
-            {fragment.text.split(PLACEHOLDER).map((part, partIndex) => {
-              const partKey = `${key}:${partIndex}`;
-              return PLACEHOLDER.test(part) ? (
-                <span key={partKey} className="text-foreground">
-                  {part}
-                </span>
-              ) : (
-                <span key={partKey}>{part}</span>
-              );
-            })}{' '}
+            {fragment.text}{' '}
           </span>
         );
       })}

@@ -20,8 +20,12 @@ beforeAll(async () => {
 });
 
 /** The whole sentence, uncapped, as the builder renders it fragment by fragment. */
-function sentence(definition: DescribableDefinition, refs: DescribeRefs = {}): string {
-  return describeAutomation(definition, refs, t, 'metric', { placeholders: true })
+function sentence(
+  definition: DescribableDefinition,
+  refs: DescribeRefs = {},
+  inputKinds: Record<string, TemplateInput['kind']> = {}
+): string {
+  return describeAutomation(definition, refs, t, 'metric', { placeholders: true, inputKinds })
     .map((fragment) => fragment.text)
     .join(' ');
 }
@@ -209,7 +213,7 @@ describe('describeAutomation', () => {
     );
 
     expect(text).toBe(
-      'When a stream has been paused for whatever you pick in total, do something. Applies to whatever you pick.'
+      'When a stream has been paused for a chosen length of time in total, do something. Applies to a chosen server.'
     );
   });
 
@@ -263,6 +267,8 @@ describe('describeAutomation', () => {
       'When a stream starts, and only if all of: the trust score is below 50, ' +
         'the account age is below 7 days, the user is not on the local network, do something.'
     );
+  });
+
   it('separates one group from the next even when its list was cut short', () => {
     const text = sentence(
       {
@@ -623,21 +629,20 @@ describe('the media triggers in the picker and the sentence', () => {
     expect(library[1]?.synonyms).toContain('upgrade');
   });
 
-  it('reads the media-upgraded template as a sentence with its destination slot', () => {
+  it('reads the media-upgraded template as a notification with nowhere picked yet', () => {
     const fragments = describeAutomation(
       {
         kind: 'notification',
         triggers: [{ id: 'trigger-upgraded', type: 'media.upgraded', enabled: true }],
         conditions: { groups: [] },
         actions: { actions: [{ id: 'action-send', type: 'send', to: { $input: 'to' } }] },
-        inputs: [{ key: 'to', label: 'Send to' }],
       },
       {},
       t,
       'metric'
     );
 
-    expect(describeText(fragments, t)).toBe('When media is upgraded, send to [Send to].');
+    expect(describeText(fragments, t)).toBe('When media is upgraded, send a notification.');
   });
 
   it('names the library and the resolution a media condition reads', () => {

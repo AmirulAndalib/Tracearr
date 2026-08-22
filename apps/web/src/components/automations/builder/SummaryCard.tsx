@@ -1,4 +1,3 @@
-import { FieldGroup } from '@/components/ui/field';
 import { AutomationIdentityFields } from '@/components/automations/AutomationIdentityFields';
 import { nodeDomId, type BuilderDispatch } from './builderReducer';
 import { RowIssues } from './RowActions';
@@ -29,24 +28,22 @@ export function SummaryCard({
   const noteIssues = issues.get(BUILDER_SECTIONS.description);
 
   return (
-    <FieldGroup className="bg-card-raised gap-5 rounded-xl border p-5">
-      <AutomationIdentityFields
-        name={name}
-        onNameChange={(value) => dispatch({ type: 'setName', value })}
-        description={description}
-        onDescriptionChange={(value) => dispatch({ type: 'setDescription', value })}
-        // The anchors are the inputs themselves, so jumping to a problem lands in one.
-        nameId={nodeDomId(BUILDER_SECTIONS.name)}
-        descriptionId={nodeDomId(BUILDER_SECTIONS.description)}
-        nameInvalid={nameIssues !== undefined}
-        descriptionInvalid={noteIssues !== undefined}
-        nameError={<RowIssues issues={nameIssues} />}
-        descriptionError={<RowIssues issues={noteIssues} />}
-      />
-
+    <AutomationIdentityFields
+      name={name}
+      onNameChange={(value) => dispatch({ type: 'setName', value })}
+      description={description}
+      onDescriptionChange={(value) => dispatch({ type: 'setDescription', value })}
+      // The anchors are the inputs themselves, so jumping to a problem lands in one.
+      nameId={nodeDomId(BUILDER_SECTIONS.name)}
+      descriptionId={nodeDomId(BUILDER_SECTIONS.description)}
+      nameInvalid={nameIssues !== undefined}
+      descriptionInvalid={noteIssues !== undefined}
+      nameError={<RowIssues issues={nameIssues} />}
+      descriptionError={<RowIssues issues={noteIssues} />}
+    >
       <SentencePanel>{sentence}</SentencePanel>
 
       {liveCheck}
-    </FieldGroup>
+    </AutomationIdentityFields>
   );
 }
