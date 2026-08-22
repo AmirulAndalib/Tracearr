@@ -52,6 +52,9 @@ export interface TemplateVersionPayload {
   definition: TemplateDefinition;
 }
 
+/** A catalog row with the version it currently points at: what the gallery reads. */
+export type TemplateWithVersion = TemplateSummary & { version: TemplateVersionPayload };
+
 /** An envelope whose body no longer hashes to the fingerprint it carries. */
 export class TemplateFingerprintError extends Error {
   constructor(
@@ -106,38 +109,43 @@ const toSummary = (row: SummaryRow): TemplateSummary => ({
   updatedAt: row.updatedAt.toISOString(),
 });
 
-export async function listTemplates(executor: Executor = db): Promise<TemplateSummary[]> {
+const versionColumns = {
+  version: automationTemplateVersions.version,
+  inputs: automationTemplateVersions.inputs,
+  definition: automationTemplateVersions.definition,
+};
+
+/** The version row a template currently points at, joined rather than fetched per row. */
+const atCurrentVersion = and(
+  eq(automationTemplateVersions.templateId, automationTemplates.id),
+  eq(automationTemplateVersions.version, automationTemplates.currentVersion)
+);
+
+const toVersioned = (row: SummaryRow & TemplateVersionPayload): TemplateWithVersion => {
+  const { version, inputs, definition, ...summary } = row;
+  return { ...toSummary(summary), version: { version, inputs, definition } };
+};
+
+export async function listTemplates(executor: Executor = db): Promise<TemplateWithVersion[]> {
   const rows = await executor
-    .select(summaryColumns)
+    .select({ ...summaryColumns, ...versionColumns })
     .from(automationTemplates)
+    .innerJoin(automationTemplateVersions, atCurrentVersion)
     .orderBy(automationTemplates.name);
-  return rows.map(toSummary);
+  return rows.map(toVersioned);
 }
 
 export async function getTemplate(
   id: string,
   executor: Executor = db
-): Promise<(TemplateSummary & { version: TemplateVersionPayload }) | null> {
+): Promise<TemplateWithVersion | null> {
   const rows = await executor
-    .select({
-      ...summaryColumns,
-      version: automationTemplateVersions.version,
-      inputs: automationTemplateVersions.inputs,
-      definition: automationTemplateVersions.definition,
-    })
+    .select({ ...summaryColumns, ...versionColumns })
     .from(automationTemplates)
-    .innerJoin(
-      automationTemplateVersions,
-      and(
-        eq(automationTemplateVersions.templateId, automationTemplates.id),
-        eq(automationTemplateVersions.version, automationTemplates.currentVersion)
-      )
-    )
+    .innerJoin(automationTemplateVersions, atCurrentVersion)
     .where(eq(automationTemplates.id, id));
   const row = rows[0];
-  if (!row) return null;
-  const { version, inputs, definition, ...summary } = row;
-  return { ...toSummary(summary), version: { version, inputs, definition } };
+  return row ? toVersioned(row) : null;
 }
 
 export async function getTemplateVersion(

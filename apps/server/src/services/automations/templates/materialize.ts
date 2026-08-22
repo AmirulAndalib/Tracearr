@@ -6,6 +6,7 @@
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  AUTOMATION_NAME_MAX,
   TemplateBindingError,
   materializeTemplate,
   type CreateAutomationInput,
@@ -50,9 +51,6 @@ export function materializeInstance(
   }
 }
 
-/** The automations column, and what a name has to fit into. */
-const NAME_MAX = 100;
-
 /**
  * The displayed default names the server the instance is pinned to; exports never
  * carry it. The template's own name survives the cap and the server part is trimmed.
@@ -65,7 +63,7 @@ export async function defaultInstanceName(
 ): Promise<string> {
   const key = version.inputs.find((input) => input.kind === 'server')?.key;
   const bound = key === undefined ? undefined : inputs[key];
-  const name = templateName.slice(0, NAME_MAX);
+  const name = templateName.slice(0, AUTOMATION_NAME_MAX);
   if (typeof bound !== 'string') return name;
 
   const rows = await executor
@@ -73,5 +71,5 @@ export async function defaultInstanceName(
     .from(servers)
     .where(eq(servers.id, bound));
   const server = rows[0];
-  return server ? `${name} — ${server.name}`.slice(0, NAME_MAX) : name;
+  return server ? `${name} — ${server.name}`.slice(0, AUTOMATION_NAME_MAX) : name;
 }

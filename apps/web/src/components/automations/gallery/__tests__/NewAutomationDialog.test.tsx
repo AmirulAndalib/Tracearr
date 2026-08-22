@@ -2,9 +2,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { initI18n } from '@tracearr/translations';
+import { i18n, initI18n } from '@tracearr/translations';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { TEMPLATES } from './fixtures';
+import { describeTemplate, describeText, type Translate } from '@/lib/automations';
+import { BLOCKED_COUNTRIES, TEMPLATES } from './fixtures';
 
 vi.mock('@/hooks/queries/useSettings', () => ({
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
@@ -32,29 +33,23 @@ vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
   ),
 }));
 
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
 const instantiate = vi.fn();
 
 vi.mock('@/hooks/queries/useTemplates', () => ({
-  useTemplates: () => ({ data: TEMPLATES, isLoading: false }),
-  useTemplateVersions: (ids: readonly string[]) => ({
-    byId: new Map(
-      TEMPLATES.filter((template) => ids.includes(template.id)).map((template) => [
-        template.id,
-        template,
-      ])
-    ),
-    isLoading: false,
-  }),
-  useTemplate: (id: string | undefined) => ({
-    data: TEMPLATES.find((template) => template.id === id),
-  }),
+  useTemplates: () => ({ data: TEMPLATES, isLoading: false, isError: false, refetch: vi.fn() }),
   useInstantiateTemplate: () => ({ mutate: instantiate, isPending: false }),
 }));
 
+import { toast } from 'sonner';
 import { NewAutomationDialog } from '../NewAutomationDialog';
+
+let t: Translate;
 
 beforeAll(async () => {
   await initI18n({ lng: 'en' });
+  t = i18n.getFixedT(null, 'pages');
 });
 
 beforeEach(() => {
@@ -105,6 +100,32 @@ describe('NewAutomationDialog', () => {
     expect(screen.queryByText('Server down')).not.toBeInTheDocument();
   });
 
+  it('finds a template by a word only the tail of its long sentence carries', async () => {
+    const { user } = renderDialog();
+    // The capped sentence stops before the last clause; the search index must not.
+    const capped = describeText(
+      describeTemplate(BLOCKED_COUNTRIES.version, {}, {}, t, 'metric'),
+      t
+    );
+    expect(capped).not.toContain('message the player');
+
+    await user.type(screen.getByRole('combobox'), 'message the player');
+
+    expect(screen.getByText('Blocked countries')).toBeInTheDocument();
+  });
+
+  it('puts the cursor back in the search box when / is pressed', async () => {
+    const { user } = renderDialog();
+    const search = screen.getByRole('combobox');
+
+    screen.getByRole('button', { name: 'Close' }).focus();
+    expect(search).not.toHaveFocus();
+
+    await user.keyboard('/');
+
+    expect(search).toHaveFocus();
+  });
+
   it('keeps the two other ways in when nothing matches', async () => {
     const { user } = renderDialog();
 
@@ -128,6 +149,13 @@ describe('NewAutomationDialog', () => {
     renderDialog({ templateId: 'template-concurrent-streams' });
 
     expect(screen.getByRole('heading', { name: 'Too many streams at once' })).toBeInTheDocument();
+  });
+
+  it('falls back to the gallery when the deep link names nothing this server has', async () => {
+    renderDialog({ templateId: 'template-nothing-here' });
+
+    expect(await screen.findByText('Stream started')).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith("That ready-made automation is not on this server.");
   });
 
   it('sends Esc back to the gallery before it closes anything', async () => {

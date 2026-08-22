@@ -5,7 +5,12 @@
 
 import { slotValueFor } from '@tracearr/shared';
 import type { PagesKey } from '@tracearr/translations';
-import type { TemplateDefinition, TemplateInput, UnitSystem } from '@tracearr/shared';
+import type {
+  ConditionField,
+  TemplateDefinition,
+  TemplateInput,
+  UnitSystem,
+} from '@tracearr/shared';
 import {
   describeAutomation,
   type DescribableDefinition,
@@ -143,6 +148,33 @@ function bindDefinition(
     actions: substitute(definition.actions, 'actions') as DescribableDefinition['actions'],
     scope,
   };
+}
+
+/**
+ * The condition field an input's value lands in, so a number is edited and shown the
+ * way the builder edits and shows that same condition.
+ */
+export function conditionFieldForInput(
+  definition: TemplateDefinition,
+  key: string
+): ConditionField | undefined {
+  const inGroups = (conditions: TemplateDefinition['conditions']): ConditionField | undefined => {
+    for (const group of conditions.groups) {
+      for (const condition of group.conditions) {
+        if (placeholderKey(condition.value) === key) return condition.field;
+      }
+    }
+    return undefined;
+  };
+
+  const top = inGroups(definition.conditions);
+  if (top) return top;
+  for (const action of definition.actions.actions) {
+    if (action.type !== 'if') continue;
+    const nested = inGroups(action.conditions);
+    if (nested) return nested;
+  }
+  return undefined;
 }
 
 /** The template in words, in the reader's units, with the parts they have filled in. */

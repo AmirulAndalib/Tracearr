@@ -1,11 +1,11 @@
 import type { TemplateDefinition, TemplateInput } from '@tracearr/shared';
-import type { TemplateDetail, TemplateSummary } from '@/lib/api';
+import type { AutomationTemplate } from '@/lib/api';
 
 /** The catalog rows the gallery tests read, one per group. */
-export function templateDetail(
-  overrides: Partial<TemplateSummary> & { id: string; slug: string },
+export function template(
+  overrides: Partial<AutomationTemplate> & { id: string; slug: string },
   version: { inputs: TemplateInput[]; definition: TemplateDefinition }
-): TemplateDetail {
+): AutomationTemplate {
   return {
     name: overrides.slug,
     description: '',
@@ -47,12 +47,12 @@ const sendInputs: TemplateInput[] = [
   { key: 'to', kind: 'destinations', label: 'Send to', required: true },
 ];
 
-export const STREAM_STARTED = templateDetail(
+export const STREAM_STARTED = template(
   { id: 'template-stream-started', slug: 'stream-started', name: 'Stream started' },
   { inputs: sendInputs, definition: notification('session.started') }
 );
 
-export const SERVER_DOWN = templateDetail(
+export const SERVER_DOWN = template(
   {
     id: 'template-server-down',
     slug: 'server-down',
@@ -62,7 +62,7 @@ export const SERVER_DOWN = templateDetail(
   { inputs: sendInputs, definition: notification('server.down') }
 );
 
-export const CONCURRENT_STREAMS = templateDetail(
+export const CONCURRENT_STREAMS = template(
   {
     id: 'template-concurrent-streams',
     slug: 'concurrent-streams',
@@ -113,7 +113,7 @@ export const CONCURRENT_STREAMS = templateDetail(
   }
 );
 
-export const KILL_PAUSED = templateDetail(
+export const KILL_PAUSED = template(
   {
     id: 'template-kill-paused-streams',
     slug: 'kill-paused-streams',
@@ -156,7 +156,7 @@ export const KILL_PAUSED = templateDetail(
   }
 );
 
-export const PAUSED_TOO_LONG = templateDetail(
+export const PAUSED_TOO_LONG = template(
   { id: 'template-paused-too-long', slug: 'paused-too-long', name: 'Paused too long' },
   {
     inputs: [
@@ -200,19 +200,100 @@ export const PAUSED_TOO_LONG = templateDetail(
   }
 );
 
-export const TEMPLATES: TemplateDetail[] = [
+/**
+ * Long enough that the capped sentence stops before its last clause, and gated on a
+ * boolean, so both the search index and the live sentence have something to prove.
+ */
+export const BLOCKED_COUNTRIES = template(
+  {
+    id: 'template-geo-restriction',
+    slug: 'geo-restriction',
+    name: 'Blocked countries',
+    group: 'policies',
+    kind: 'policy',
+  },
+  {
+    inputs: [
+      {
+        key: 'countries',
+        kind: 'field_value',
+        field: 'country',
+        label: 'Blocked countries',
+        required: true,
+      },
+      {
+        key: 'ignoreLan',
+        kind: 'boolean',
+        label: 'Ignore local network sessions',
+        required: false,
+        default: true,
+      },
+    ],
+    definition: {
+      kind: 'policy',
+      severity: 'warning',
+      triggers: [
+        { id: 'aaaaaaaa-0000-4000-8000-000000000041', type: 'session.started', enabled: true },
+      ],
+      conditions: {
+        groups: [
+          {
+            id: 'aaaaaaaa-0000-4000-8000-000000000042',
+            enabled: true,
+            conditions: [
+              {
+                id: 'aaaaaaaa-0000-4000-8000-000000000043',
+                enabled: true,
+                field: 'country',
+                operator: 'in',
+                value: { $input: 'countries' },
+              },
+              {
+                id: 'aaaaaaaa-0000-4000-8000-000000000044',
+                enabled: true,
+                field: 'is_transcoding',
+                operator: 'eq',
+                value: 'video',
+              },
+            ],
+          },
+          {
+            id: 'aaaaaaaa-0000-4000-8000-000000000045',
+            enabled: { $input: 'ignoreLan' },
+            conditions: [
+              {
+                id: 'aaaaaaaa-0000-4000-8000-000000000046',
+                enabled: true,
+                field: 'is_local_network',
+                operator: 'eq',
+                value: false,
+              },
+            ],
+          },
+        ],
+      },
+      actions: {
+        actions: [
+          {
+            id: 'aaaaaaaa-0000-4000-8000-000000000047',
+            type: 'message_client',
+            enabled: true,
+            message: 'Not here',
+          },
+        ],
+      },
+      scope: {},
+      enforceAcrossServers: false,
+      cooldownMinutes: null,
+    },
+  }
+);
+
+export const TEMPLATES: AutomationTemplate[] = [
   STREAM_STARTED,
   PAUSED_TOO_LONG,
   SERVER_DOWN,
   CONCURRENT_STREAMS,
+  BLOCKED_COUNTRIES,
   KILL_PAUSED,
 ];
-
-/** What `useTemplateVersions` hands back, for the tests that mock it. */
-export const versionsById = (ids: readonly string[]): Map<string, TemplateDetail> =>
-  new Map(
-    TEMPLATES.filter((template) => ids.includes(template.id)).map((template) => [
-      template.id,
-      template,
-    ])
-  );

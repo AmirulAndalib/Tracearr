@@ -45,8 +45,11 @@ export const RETENTION_DEFAULTS = {
   notification: 30,
 } as const satisfies Record<AutomationKind, number>;
 
+/** The automations column, and what a name has to fit into. */
+export const AUTOMATION_NAME_MAX = 100;
+
 const automationFieldsSchema = z.strictObject({
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(AUTOMATION_NAME_MAX),
   description: z.string().max(500).nullable().optional(),
   kind: z.enum(AUTOMATION_KINDS),
   severity: violationSeveritySchema.nullable(),

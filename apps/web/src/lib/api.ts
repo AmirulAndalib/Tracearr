@@ -162,8 +162,15 @@ export type AutomationListParams = Partial<
 
 export type TemplateGroup = (typeof TEMPLATE_GROUPS)[number];
 
-/** A catalog row: what the gallery lists, without the version body. */
-export interface TemplateSummary {
+/** One stored version: the inputs to bind and the definition they fill. */
+export interface TemplateVersionPayload {
+  version: number;
+  inputs: TemplateInput[];
+  definition: TemplateDefinition;
+}
+
+/** A catalog row, carrying the version it currently points at. */
+export interface AutomationTemplate {
   id: string;
   slug: string;
   name: string;
@@ -177,16 +184,8 @@ export interface TemplateSummary {
   usedBy: number;
   createdAt: string;
   updatedAt: string;
+  version: TemplateVersionPayload;
 }
-
-/** One stored version: the inputs to bind and the definition they fill. */
-export interface TemplateVersionPayload {
-  version: number;
-  inputs: TemplateInput[];
-  definition: TemplateDefinition;
-}
-
-export type TemplateDetail = TemplateSummary & { version: TemplateVersionPayload };
 
 /** A share code or a pasted envelope; the server accepts either. */
 export interface TemplateImportBody {
@@ -968,8 +967,8 @@ class ApiClient {
 
   // Automation templates
   templates = {
-    list: () => this.request<{ data: TemplateSummary[] }>('/templates'),
-    get: (id: string) => this.request<TemplateDetail>(`/templates/${id}`),
+    list: () => this.request<{ data: AutomationTemplate[] }>('/templates'),
+    get: (id: string) => this.request<AutomationTemplate>(`/templates/${id}`),
     /** What an import would land on; nothing is written. */
     preview: (body: TemplateImportBody) =>
       this.request<TemplatePreview>('/templates/preview', {
@@ -977,7 +976,10 @@ class ApiClient {
         body: JSON.stringify(body),
       }),
     create: (body: TemplateImportBody) =>
-      this.request<TemplateDetail>('/templates', { method: 'POST', body: JSON.stringify(body) }),
+      this.request<AutomationTemplate>('/templates', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     remove: (id: string) => this.request<void>(`/templates/${id}`, { method: 'DELETE' }),
     instantiate: (id: string, body: InstantiateTemplateInput) =>
       this.request<Automation>(`/templates/${id}/instantiate`, {

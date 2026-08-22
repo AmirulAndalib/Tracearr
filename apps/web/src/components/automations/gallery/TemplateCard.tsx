@@ -2,7 +2,6 @@ import type { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck } from 'lucide-react';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useSettings } from '@/hooks/queries/useSettings';
 import {
   describeTemplate,
@@ -12,7 +11,7 @@ import {
   type DescribeRefs,
 } from '@/lib/automations';
 import { cn } from '@/lib/utils';
-import type { TemplateSummary, TemplateVersionPayload } from '@/lib/api';
+import type { AutomationTemplate } from '@/lib/api';
 
 /** A card names no ids of its own: every value it shows is a default or a placeholder. */
 const NO_REFS: DescribeRefs = {};
@@ -114,9 +113,7 @@ export function GalleryRow({
 }
 
 interface TemplateCardProps {
-  template: TemplateSummary;
-  /** Undefined until the version body lands; the sentence needs the definition. */
-  version: TemplateVersionPayload | undefined;
+  template: AutomationTemplate;
   /** The gallery says where every card came from; the empty state's four are all built in. */
   showOrigin?: boolean;
   onSelect?: () => void;
@@ -126,24 +123,25 @@ interface TemplateCardProps {
 /** A ready-made automation, in the gallery and on the empty page alike. */
 export function TemplateCard({
   template,
-  version,
   showOrigin = true,
   onSelect,
   className,
 }: TemplateCardProps) {
   const { t } = useTranslation('pages');
   const { data: settings } = useSettings();
-  const fragments = version
-    ? describeTemplate(version, {}, NO_REFS, t, settings?.unitSystem ?? 'metric')
-    : undefined;
+  const fragments = describeTemplate(
+    template.version,
+    {},
+    NO_REFS,
+    t,
+    settings?.unitSystem ?? 'metric'
+  );
 
   return (
     <GalleryRow
-      icon={version ? templateIcon(version.definition) : <ShieldCheck />}
+      icon={templateIcon(template.version.definition)}
       title={templateName(t, template)}
-      description={
-        fragments ? <TemplateSentence fragments={fragments} /> : <Skeleton className="h-4 w-64" />
-      }
+      description={<TemplateSentence fragments={fragments} />}
       meta={
         <>
           <span className="text-foreground font-medium">

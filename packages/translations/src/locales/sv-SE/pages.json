@@ -676,6 +676,7 @@
     "gallery": {
       "builtin": "Built-in",
       "description": "Start from a ready-made one — you fill in the parts that are yours.",
+      "failed": "Couldn't load the ready-made automations.",
       "group": {
         "housekeeping": "Housekeeping",
         "notifications": "Notifications",
@@ -693,6 +694,7 @@
         "policy": "A violation"
       },
       "loading": "Loading…",
+      "missing": "That ready-made automation is not on this server.",
       "noMatches": "Nothing matches “{{query}}”.",
       "noMatchesHint": "Try a word from what you want to happen — “discord”, “offline”, “paused”.",
       "paste": {
@@ -700,12 +702,63 @@
         "pending": "Pasting a share code arrives with import.",
         "title": "Paste a share code"
       },
+      "retry": "Try again",
       "scratch": {
         "description": "Build it step by step.",
         "title": "Start from scratch"
       },
       "searchPlaceholder": "Search",
       "title": "New automation"
+    },
+    "import": {
+      "check": "Check it",
+      "checking": "Reading it…",
+      "codeShort": "code {{fingerprint}}",
+      "collision": {
+        "add": "Keep both",
+        "replace": "Replace mine",
+        "title": "A different automation named {{name}} already exists."
+      },
+      "description": "Paste the code someone sent you. The whole thing is in the code — Tracearr doesn't go and fetch anything.",
+      "effects": {
+        "allServers": "It runs on every server unless you pick one below.",
+        "kill": "Can stop a stream that is playing.",
+        "message": "Puts a message on a player.",
+        "oneServer": "Runs on {{server}} only.",
+        "title": "What this will do",
+        "trust": "Changes trust scores.",
+        "violation": "Records a violation against the matched person."
+      },
+      "errors": {
+        "notACode": "That doesn't look like a Tracearr share code.",
+        "notACodeHint": "A code starts with tracearr1. — or paste the JSON instead.",
+        "rejected": "Tracearr couldn't read this one.",
+        "rejectedHint": "It may come from a different tool or have been edited by hand.",
+        "tooBig": "That's too big to be a Tracearr automation.",
+        "tooBigHint": "Codes are a few thousand characters at most.",
+        "tooNew": "This needs Tracearr {{required}} or newer.",
+        "tooNewHint": "This server runs {{current}}. Update Tracearr, then paste again.",
+        "truncated": "This code looks cut off.",
+        "truncatedHint": "Copy the whole thing and paste it again — chat apps often break long codes across lines."
+      },
+      "existing": "Already saved as {{name}}.",
+      "existingUse": "Use it",
+      "formatHint": "A code starts with tracearr1. — or paste the JSON instead.",
+      "madeBy": "Made by {{author}}",
+      "madeOn": "{{date}}",
+      "needs": {
+        "title": "What it needs from you"
+      },
+      "paused": {
+        "helper": "Turn it on from the list after review.",
+        "label": "Start paused"
+      },
+      "placeholder": "tracearr1.…",
+      "raw": "Show the raw code",
+      "submit": "Add it",
+      "submitAndUse": "Add it and set it up",
+      "title": "Paste a share code",
+      "valid": "This is a Tracearr automation."
     },
     "kind": {
       "notification": "Notification",

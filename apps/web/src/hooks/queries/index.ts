@@ -79,9 +79,7 @@ export {
   useImportTemplate,
   useInstantiateTemplate,
   usePreviewTemplate,
-  useTemplate,
   useTemplates,
-  useTemplateVersions,
 } from './useTemplates';
 
 // Automation run hooks

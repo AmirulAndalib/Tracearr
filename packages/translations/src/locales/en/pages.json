@@ -925,12 +925,65 @@
         "title": "Start from scratch",
         "description": "Build it step by step."
       },
+      "failed": "Couldn't load the ready-made automations.",
+      "retry": "Try again",
+      "missing": "That ready-made automation is not on this server.",
       "hint": {
         "move": "move",
         "use": "use",
         "close": "close"
       },
       "loading": "Loading…"
+    },
+    "import": {
+      "title": "Paste a share code",
+      "description": "Paste the code someone sent you. The whole thing is in the code — Tracearr doesn't go and fetch anything.",
+      "placeholder": "tracearr1.…",
+      "formatHint": "A code starts with tracearr1. — or paste the JSON instead.",
+      "check": "Check it",
+      "checking": "Reading it…",
+      "valid": "This is a Tracearr automation.",
+      "madeBy": "Made by {{author}}",
+      "madeOn": "{{date}}",
+      "codeShort": "code {{fingerprint}}",
+      "effects": {
+        "title": "What this will do",
+        "kill": "Can stop a stream that is playing.",
+        "trust": "Changes trust scores.",
+        "message": "Puts a message on a player.",
+        "violation": "Records a violation against the matched person.",
+        "allServers": "It runs on every server unless you pick one below.",
+        "oneServer": "Runs on {{server}} only."
+      },
+      "needs": {
+        "title": "What it needs from you"
+      },
+      "paused": {
+        "label": "Start paused",
+        "helper": "Turn it on from the list after review."
+      },
+      "submit": "Add it",
+      "submitAndUse": "Add it and set it up",
+      "existing": "Already saved as {{name}}.",
+      "existingUse": "Use it",
+      "collision": {
+        "title": "A different automation named {{name}} already exists.",
+        "add": "Keep both",
+        "replace": "Replace mine"
+      },
+      "raw": "Show the raw code",
+      "errors": {
+        "notACode": "That doesn't look like a Tracearr share code.",
+        "notACodeHint": "A code starts with tracearr1. — or paste the JSON instead.",
+        "tooBig": "That's too big to be a Tracearr automation.",
+        "tooBigHint": "Codes are a few thousand characters at most.",
+        "truncated": "This code looks cut off.",
+        "truncatedHint": "Copy the whole thing and paste it again — chat apps often break long codes across lines.",
+        "tooNew": "This needs Tracearr {{required}} or newer.",
+        "tooNewHint": "This server runs {{current}}. Update Tracearr, then paste again.",
+        "rejected": "Tracearr couldn't read this one.",
+        "rejectedHint": "It may come from a different tool or have been edited by hand."
+      }
     },
     "kind": {
       "policy": "Policy",

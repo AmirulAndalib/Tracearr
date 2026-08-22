@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { initI18n } from '@tracearr/translations';
 import type { Destination } from '@tracearr/shared';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { CONCURRENT_STREAMS, STREAM_STARTED } from './fixtures';
+import { BLOCKED_COUNTRIES, CONCURRENT_STREAMS, STREAM_STARTED } from './fixtures';
 
 vi.mock('@/hooks/queries/useSettings', () => ({
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
@@ -157,6 +157,32 @@ describe('TemplateBindingForm', () => {
 
     expect(instantiate).toHaveBeenCalledWith(
       expect.objectContaining({ inputs: { max: 3 }, isActive: true }),
+      expect.anything()
+    );
+  });
+
+  it('drops a clause from the sentence when the switch that gates it goes off', async () => {
+    const { user } = renderForm(BLOCKED_COUNTRIES);
+
+    expect(sentence()).toContain('the user is not on the local network');
+
+    await user.click(screen.getByRole('switch', { name: 'Ignore local network sessions' }));
+
+    expect(sentence()).not.toContain('the user is not on the local network');
+  });
+
+  it('falls back to the template name when the name is emptied', async () => {
+    const { user } = renderForm(CONCURRENT_STREAMS);
+
+    await user.clear(screen.getByLabelText('Name'));
+    await user.tab();
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Too many streams at once');
+
+    await user.click(screen.getByRole('button', { name: 'Use this' }));
+
+    expect(instantiate).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Too many streams at once' }),
       expect.anything()
     );
   });

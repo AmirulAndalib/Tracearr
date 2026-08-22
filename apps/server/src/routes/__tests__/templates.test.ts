@@ -188,19 +188,27 @@ describe('Template routes', () => {
   });
 
   describe('GET /templates', () => {
-    it('lists the summaries with their instance counts', async () => {
+    it('lists the summaries with their instance counts and current version', async () => {
       app = await buildTestApp(viewerUser);
-      vi.mocked(listTemplates).mockResolvedValue([summary({ usedBy: 3 })] as never);
+      const envelope = envelopeOf('stream-started');
+      vi.mocked(listTemplates).mockResolvedValue([
+        { ...summary({ usedBy: 3 }), version: currentVersion(envelope) },
+      ] as never);
 
       const response = await app.inject({ method: 'GET', url: '/templates' });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json().data[0]).toMatchObject({
+      const [row] = response.json().data;
+      expect(row).toMatchObject({
         id: TEMPLATE_ID,
         slug: 'stream-started',
         usedBy: 3,
         builtin: false,
       });
+      // The gallery writes a sentence per card; one list read has to carry it.
+      expect(row.version.version).toBe(1);
+      expect(row.version.inputs).toHaveLength(2);
+      expect(row.version.definition.kind).toBe('notification');
     });
   });
 

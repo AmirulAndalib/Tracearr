@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { initI18n } from '@tracearr/translations';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Automation } from '@tracearr/shared';
-import { TEMPLATES, versionsById } from '@/components/automations/gallery/__tests__/fixtures';
+import { TEMPLATES } from '@/components/automations/gallery/__tests__/fixtures';
 import { Automations } from './Automations';
 
 const toggleMutate = vi.fn();
@@ -22,15 +22,10 @@ vi.mock('@/hooks/queries', () => ({
   useBulkToggleAutomations: () => ({ mutate: vi.fn(), isPending: false }),
   useBulkDeleteAutomations: () => ({ mutate: vi.fn(), isPending: false }),
   useTemplates: mockUseTemplates,
-  useTemplateVersions: (ids: readonly string[]) => ({ byId: versionsById(ids), isLoading: false }),
 }));
 
 vi.mock('@/hooks/queries/useTemplates', () => ({
-  useTemplates: () => ({ data: TEMPLATES, isLoading: false }),
-  useTemplateVersions: (ids: readonly string[]) => ({ byId: versionsById(ids), isLoading: false }),
-  useTemplate: (id: string | undefined) => ({
-    data: TEMPLATES.find((template) => template.id === id),
-  }),
+  useTemplates: () => ({ data: TEMPLATES, isLoading: false, isError: false, refetch: vi.fn() }),
   useInstantiateTemplate: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
@@ -187,7 +182,7 @@ describe('Automations', () => {
     ]) {
       expect(screen.getByRole('button', { name: new RegExp(name) })).toBeInTheDocument();
     }
-    expect(screen.getByRole('button', { name: 'See all 5' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `See all ${TEMPLATES.length}` })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Paste a share code' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Start from scratch' })).toBeInTheDocument();
   });

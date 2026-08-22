@@ -1,6 +1,7 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ClipboardPaste, PencilLine } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -18,7 +19,7 @@ import {
   templateName,
   type DescribeRefs,
 } from '@/lib/automations';
-import type { TemplateDetail, TemplateGroup, TemplateSummary } from '@/lib/api';
+import type { AutomationTemplate, TemplateGroup } from '@/lib/api';
 import { GalleryRow, TemplateCard } from './TemplateCard';
 
 /** Ascending consequence: the ones that only tell you things first, the ones that act last. */
@@ -34,9 +35,10 @@ const NO_REFS: DescribeRefs = {};
 const ROW_CLASSES = 'p-0 data-[selected=true]:bg-transparent';
 
 interface TemplateGalleryProps {
-  templates: readonly TemplateSummary[];
-  versions: Map<string, TemplateDetail>;
+  templates: readonly AutomationTemplate[];
   isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
   /** Held by the dialog so `/` can put the cursor back in the box from anywhere. */
   searchRef: RefObject<HTMLInputElement | null>;
   onPick: (id: string) => void;
@@ -47,8 +49,9 @@ interface TemplateGalleryProps {
 /** The catalog in one scroll: four groups, then the two other ways in. */
 export function TemplateGallery({
   templates,
-  versions,
   isLoading,
+  isError,
+  onRetry,
   searchRef,
   onPick,
   onPaste,
@@ -64,21 +67,17 @@ export function TemplateGallery({
   const entries = useMemo(
     () =>
       templates.map((template) => {
-        const version = versions.get(template.id)?.version;
         // Uncapped: the whole sentence is worth searching, however long it runs.
-        const sentence = version
-          ? describeTemplate(version, {}, NO_REFS, t, unitSystem)
-              .map((fragment) => fragment.text)
-              .join(' ')
-          : '';
+        const sentence = describeTemplate(template.version, {}, NO_REFS, t, unitSystem)
+          .map((fragment) => fragment.text)
+          .join(' ');
         const name = templateName(t, template);
         return {
           template,
-          version,
           haystack: `${name} ${sentence} ${templateKeywords(t, template.slug)}`,
         };
       }),
-    [templates, versions, t, unitSystem]
+    [templates, t, unitSystem]
   );
 
   const doors = (
@@ -122,7 +121,14 @@ export function TemplateGallery({
         placeholder={t('automations.gallery.searchPlaceholder')}
       />
 
-      {isLoading ? (
+      {isError ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="text-muted-foreground text-sm">{t('automations.gallery.failed')}</p>
+          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+            {t('automations.gallery.retry')}
+          </Button>
+        </div>
+      ) : isLoading ? (
         <div className="flex-1 space-y-4 overflow-hidden px-3 py-3" aria-busy>
           <span className="sr-only">{t('automations.gallery.loading')}</span>
           {GROUP_ORDER.map((group) => (
@@ -149,7 +155,7 @@ export function TemplateGallery({
             <CommandGroup key={group} heading={t(`automations.gallery.group.${group}`)}>
               {entries
                 .filter((entry) => entry.template.group === group)
-                .map(({ template, version, haystack }) => (
+                .map(({ template, haystack }) => (
                   <CommandItem
                     key={template.id}
                     value={haystack}
@@ -158,7 +164,6 @@ export function TemplateGallery({
                   >
                     <TemplateCard
                       template={template}
-                      version={version}
                       className="group-data-[selected=true]:border-primary/40 group-data-[selected=true]:bg-accent/40"
                     />
                   </CommandItem>

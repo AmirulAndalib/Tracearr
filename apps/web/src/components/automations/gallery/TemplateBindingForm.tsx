@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TemplateInput } from '@tracearr/shared';
+import { AUTOMATION_NAME_MAX, type TemplateInput } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,9 @@ import { useSettings } from '@/hooks/queries/useSettings';
 import { useInstantiateTemplate } from '@/hooks/queries/useTemplates';
 import { useServer } from '@/hooks/useServer';
 import { describeTemplate, isUnbound, templateName, type DescribeRefs } from '@/lib/automations';
-import type { TemplateDetail } from '@/lib/api';
+import type { AutomationTemplate } from '@/lib/api';
 import { TemplateSentence } from './TemplateCard';
 import { TemplateInputField } from './TemplateInputField';
-
-/** The automations column, and what a name has to fit into. */
-const NAME_MAX = 100;
 
 /** Every optional input opens on its default, so no row is ever blank. */
 function initialValues(inputs: TemplateInput[]): Record<string, unknown> {
@@ -32,7 +29,7 @@ const serverInputKey = (inputs: TemplateInput[]): string | undefined =>
   inputs.find((input) => input.kind === 'server')?.key;
 
 interface TemplateBindingFormProps {
-  template: TemplateDetail;
+  template: AutomationTemplate;
   onBack: () => void;
   onDone: () => void;
 }
@@ -49,6 +46,7 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
   const { version } = template;
   const [values, setValues] = useState(() => initialValues(version.inputs));
   const [name, setName] = useState(() => templateName(t, template));
+
   const [nameDirty, setNameDirty] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [submitted, setSubmitted] = useState(false);
@@ -72,14 +70,17 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
   const fragments = describeTemplate(version, values, refs, t, unitSystem);
   const missing = version.inputs.filter((input) => input.required && isUnbound(values[input.key]));
 
-  /** Until it is edited, the name follows the server the way a saved instance would. */
-  const setValue = (input: TemplateInput, value: unknown) => {
-    const next = { ...values, [input.key]: value };
-    setValues(next);
-    if (input.kind !== 'server' || nameDirty) return;
-    const server = servers.find((entry) => entry.id === value);
+  /** What the name reads as until it is edited, and what an emptied field falls back to. */
+  const defaultName = (serverId: string) => {
     const base = templateName(t, template);
-    setName((server ? `${base} — ${server.name}` : base).slice(0, NAME_MAX));
+    const server = servers.find((entry) => entry.id === serverId);
+    return (server ? `${base} — ${server.name}` : base).slice(0, AUTOMATION_NAME_MAX);
+  };
+
+  const setValue = (input: TemplateInput, value: unknown) => {
+    setValues({ ...values, [input.key]: value });
+    if (input.kind !== 'server' || nameDirty) return;
+    setName(defaultName(typeof value === 'string' ? value : ''));
   };
 
   const submit = () => {
@@ -88,7 +89,10 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
     const inputs = Object.fromEntries(
       Object.entries(values).filter(([, value]) => !isUnbound(value))
     );
-    instantiate.mutate({ id: template.id, inputs, name, isActive }, { onSuccess: onDone });
+    instantiate.mutate(
+      { id: template.id, inputs, name: name.trim() || defaultName(boundServerId), isActive },
+      { onSuccess: onDone }
+    );
   };
 
   return (
@@ -100,11 +104,16 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
             <Input
               id="template-name"
               value={name}
-              maxLength={NAME_MAX}
+              maxLength={AUTOMATION_NAME_MAX}
               placeholder={t('automations.bind.namePlaceholder')}
               onChange={(event) => {
                 setName(event.target.value);
                 setNameDirty(true);
+              }}
+              onBlur={() => {
+                if (name.trim() !== '') return;
+                setName(defaultName(boundServerId));
+                setNameDirty(false);
               }}
             />
           </Field>
@@ -122,6 +131,7 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
               <TemplateInputField
                 key={input.key}
                 input={input}
+                definition={version.definition}
                 value={values[input.key]}
                 onChange={(value) => setValue(input, value)}
                 servers={servers}

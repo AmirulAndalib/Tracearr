@@ -35,7 +35,6 @@ import {
   useDeleteAutomation,
   useSettings,
   useTemplates,
-  useTemplateVersions,
   useToggleAutomation,
 } from '@/hooks/queries';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
@@ -382,11 +381,11 @@ export function Automations() {
   // Only a confirmed empty list gets the gallery; a slow first page keeps the skeleton.
   const showEmptyState = !isLoading && !isError && !hasActiveFilters && rows?.length === 0;
 
-  const { data: templates } = useTemplates();
+  // Only the empty state reads the catalog; the dialog fetches it for itself when it opens.
+  const { data: templates } = useTemplates({ enabled: showEmptyState });
   const featured = FEATURED_SLUGS.map((slug) =>
     templates?.find((template) => template.slug === slug)
   ).filter((template) => template !== undefined);
-  const { byId } = useTemplateVersions(showEmptyState ? featured.map((row) => row.id) : []);
 
   // The deep link is the one piece of dialog state the URL owns.
   const templateParam = searchParams.get('template');
@@ -486,7 +485,6 @@ export function Automations() {
                     <TemplateCard
                       key={template.id}
                       template={template}
-                      version={byId.get(template.id)?.version}
                       showOrigin={false}
                       onSelect={() => openTemplate(template.id)}
                     />

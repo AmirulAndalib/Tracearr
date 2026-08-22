@@ -4,6 +4,7 @@ import type {
   AutomationFilterOptions,
   Condition,
   Server,
+  TemplateDefinition,
   TemplateInput,
   UnitSystem,
 } from '@tracearr/shared';
@@ -30,13 +31,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { DestinationsField } from '@/components/automations/builder/DestinationsField';
 import { conditionValueView, FieldControl } from '@/components/automations/builder/fields';
 import { useUsers } from '@/hooks/queries/useUsers';
-import { fieldDescriptor, templateInputLabel } from '@/lib/automations';
+import { conditionFieldForInput, fieldDescriptor, templateInputLabel } from '@/lib/automations';
 
 /** Longer than a line: the two viewer messages both are, and both want the box. */
 const TEXTAREA_OVER = 120;
 
 interface TemplateInputFieldProps {
   input: TemplateInput;
+  /** Where the input's value lands, which is what decides a number's control and its unit. */
+  definition: TemplateDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
   servers: readonly Server[];
@@ -51,6 +54,7 @@ interface TemplateInputFieldProps {
 /** One template input as the row that fills it in. */
 export function TemplateInputField({
   input,
+  definition,
   value,
   onChange,
   servers,
@@ -77,6 +81,21 @@ export function TemplateInputField({
   const pickerLabels = {
     searchPlaceholder: t('automations.builder.searchPlaceholder'),
     emptyText: t('automations.builder.noMatches'),
+  };
+
+  // A value that fills a condition is edited exactly as the builder edits that condition,
+  // which is where the unit system conversion and the option lists come from.
+  const valueField =
+    input.kind === 'field_value' ? input.field : conditionFieldForInput(definition, input.key);
+  const descriptor = valueField ? fieldDescriptor(valueField) : undefined;
+  const conditionView = (current: unknown) => {
+    if (!valueField || !descriptor) return undefined;
+    const condition = {
+      field: valueField,
+      operator: descriptor.valueType === 'multiSelect' ? 'in' : 'eq',
+      value: current as Condition['value'],
+    } satisfies Condition;
+    return conditionValueView(t, condition, descriptor, { filterOptions, unitSystem });
   };
 
   const control = () => {
@@ -139,15 +158,8 @@ export function TemplateInputField({
         );
 
       case 'field_value': {
-        const descriptor = fieldDescriptor(input.field);
-        if (!descriptor) return null;
-        // The row the value lands in decides the control, so the picker matches the builder's.
-        const condition = {
-          field: input.field,
-          operator: descriptor.valueType === 'multiSelect' ? 'in' : 'eq',
-          value: (value ?? []) as Condition['value'],
-        } satisfies Condition;
-        const view = conditionValueView(t, condition, descriptor, { filterOptions, unitSystem });
+        const view = conditionView(value ?? []);
+        if (!view) return null;
         return (
           <FieldControl
             id={controlId}
@@ -176,7 +188,19 @@ export function TemplateInputField({
           </div>
         );
 
-      case 'number':
+      case 'number': {
+        const view = conditionView(typeof value === 'number' ? value : (input.default ?? 0));
+        if (view) {
+          return (
+            <FieldControl
+              id={controlId}
+              aria-labelledby={labelId}
+              spec={view.spec}
+              value={view.value}
+              onChange={(next) => onChange(view.toStored(next))}
+            />
+          );
+        }
         return (
           <div className="flex items-center gap-2">
             <NumericInput
@@ -191,6 +215,7 @@ export function TemplateInputField({
             {input.unit && <span className="text-muted-foreground text-sm">{input.unit}</span>}
           </div>
         );
+      }
 
       case 'boolean':
         return (
@@ -275,7 +300,8 @@ export function TemplateInputField({
 
   return (
     <Field data-invalid={invalid || undefined}>
-      <FieldLabel id={labelId} htmlFor={controlId}>
+      {/* Destinations are a chip group with no single control to point a label at. */}
+      <FieldLabel id={labelId} htmlFor={input.kind === 'destinations' ? undefined : controlId}>
         {label}
       </FieldLabel>
       {control()}

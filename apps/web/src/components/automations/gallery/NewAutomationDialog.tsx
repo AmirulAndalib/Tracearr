@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,8 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useTemplate, useTemplates, useTemplateVersions } from '@/hooks/queries/useTemplates';
+import { useTemplates } from '@/hooks/queries/useTemplates';
 import { templateDescription, templateName } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 import { TemplateBindingForm } from './TemplateBindingForm';
@@ -44,20 +44,28 @@ export function NewAutomationDialog({
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const [view, setView] = useState<View>(templateId ? 'bind' : initialView);
+  const [intent, setIntent] = useState<View>(templateId ? 'bind' : initialView);
   const [picked, setPicked] = useState<string | null>(templateId ?? null);
 
-  const { data: templates, isLoading } = useTemplates();
-  const ids = useMemo(() => (templates ?? []).map((template) => template.id), [templates]);
-  const { byId } = useTemplateVersions(view === 'gallery' ? ids : []);
-  const { data: selected } = useTemplate(view === 'bind' && picked ? picked : undefined);
+  const { data: templates, isLoading, isError, refetch } = useTemplates();
+  const selected =
+    picked === null ? undefined : templates?.find((template) => template.id === picked);
+  // A deep link that names nothing this server has falls back rather than hanging on a blank form.
+  const missing = intent === 'bind' && picked !== null && templates !== undefined && !selected;
+  // The gallery covers the wait, so the binding form only ever renders a template it has.
+  const view: View = intent === 'bind' && !selected ? 'gallery' : intent;
 
   const backToGallery = () => {
-    setView('gallery');
+    setIntent('gallery');
     setPicked(null);
   };
 
-  const title = view === 'bind' ? (selected ? templateName(t, selected) : '') : undefined;
+  useEffect(() => {
+    if (!missing) return;
+    toast.error(t('automations.gallery.missing'));
+    setIntent('gallery');
+    setPicked(null);
+  }, [missing, t]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,7 +108,9 @@ export function NewAutomationDialog({
                   <ChevronLeft />
                 </Button>
                 <DialogTitle>
-                  {view === 'paste' ? t('automations.gallery.paste.title') : title}
+                  {view === 'paste'
+                    ? t('automations.gallery.paste.title')
+                    : selected && templateName(t, selected)}
                 </DialogTitle>
                 {selected?.builtin && (
                   <Badge variant="secondary">
@@ -110,9 +120,9 @@ export function NewAutomationDialog({
                 )}
               </div>
               <DialogDescription className="sr-only">
-                {selected
-                  ? templateDescription(t, selected)
-                  : t('automations.gallery.paste.description')}
+                {view === 'paste'
+                  ? t('automations.gallery.paste.description')
+                  : selected && templateDescription(t, selected)}
               </DialogDescription>
             </>
           )}
@@ -121,33 +131,29 @@ export function NewAutomationDialog({
         {view === 'gallery' && (
           <TemplateGallery
             templates={templates ?? []}
-            versions={byId}
             isLoading={isLoading}
+            isError={isError}
+            onRetry={() => void refetch()}
             searchRef={searchRef}
             onPick={(id) => {
               setPicked(id);
-              setView('bind');
+              setIntent('bind');
             }}
-            onPaste={() => setView('paste')}
+            onPaste={() => {
+              setPicked(null);
+              setIntent('paste');
+            }}
             onScratch={() => void navigate('/automations/new')}
           />
         )}
 
-        {view === 'bind' &&
-          (selected ? (
-            <TemplateBindingForm
-              template={selected}
-              onBack={backToGallery}
-              onDone={() => onOpenChange(false)}
-            />
-          ) : (
-            <div className="flex-1 space-y-4 px-6 py-4">
-              <span className="sr-only">{t('automations.gallery.loading')}</span>
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-9 w-2/3" />
-            </div>
-          ))}
+        {view === 'bind' && selected && (
+          <TemplateBindingForm
+            template={selected}
+            onBack={backToGallery}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
 
         {view === 'paste' && (
           <div className="flex flex-1 flex-col">
