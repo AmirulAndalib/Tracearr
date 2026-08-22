@@ -11,7 +11,6 @@ import { Switch } from '@/components/ui/switch';
 import {
   ActivityList,
   AutomationSettings,
-  EvaluationsList,
   ProvenanceLine,
   RunDetail,
   ScopeChip,
@@ -149,27 +148,15 @@ export function AutomationDetail() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('pages:automations.evaluations.title')}</CardTitle>
-            <CardDescription>{t('pages:automations.evaluations.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EvaluationsList automationId={automation.id} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('pages:automations.settings.title')}</CardTitle>
-            <CardDescription>{t('pages:automations.settings.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AutomationSettings automation={automation} />
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('pages:automations.settings.title')}</CardTitle>
+          <CardDescription>{t('pages:automations.settings.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AutomationSettings automation={automation} />
+        </CardContent>
+      </Card>
 
       {exportOpen && <ExportDialog automation={automation} open onOpenChange={setExportOpen} />}
 

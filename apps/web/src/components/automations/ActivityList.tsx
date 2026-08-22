@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Activity } from 'lucide-react';
 import type { Automation, AutomationRunSummary, RunOutcome } from '@tracearr/shared';
 import { contextOf, contextSupplies, listPageCount } from '@tracearr/shared';
+import { EvaluationsList } from '@/components/automations/EvaluationsList';
 import { SELECTED_TOGGLE } from '@/components/automations/builder/selection';
 import {
   createDataTableColumnHelper,
@@ -227,6 +228,8 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
           }}
         />
       </DataTableRoot>
+
+      <EvaluationsList automationId={automationId} />
     </div>
   );
 }

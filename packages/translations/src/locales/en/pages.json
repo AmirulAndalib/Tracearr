@@ -851,10 +851,7 @@
     "emptySeeAllLoading": "See all",
     "enable": "Enable",
     "evaluations": {
-      "title": "Recent evaluations",
-      "description": "Trigger matches that recorded no run.",
-      "empty": "No recent evaluations",
-      "emptyDescription": "Cooldowns, replayed edges and blocked gates are listed here.",
+      "disclosure": "Matches that did not start a run ({{total}})",
       "reasons": {
         "cooldown_active": "Cooldown was active",
         "edge_replayed": "Same edge already handled",

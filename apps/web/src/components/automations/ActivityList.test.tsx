@@ -1,15 +1,18 @@
 /** Real i18n: the tab counts and the outcome words are what these cases are about. */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { initI18n } from '@tracearr/translations';
-import type { Automation, AutomationRunSummary, RunCounts } from '@tracearr/shared';
+import type { Automation, AutomationRunSummary, NearMissReason, RunCounts } from '@tracearr/shared';
 
 const useAutomationRuns = vi.fn();
 const useRunCounts = vi.fn();
+const useAutomationEvaluations = vi.fn();
 vi.mock('@/hooks/queries/useRuns', () => ({
   useAutomationRuns: () => useAutomationRuns(),
   useRunCounts: () => useRunCounts(),
+  useAutomationEvaluations: () => useAutomationEvaluations(),
 }));
 
 import { ActivityList } from './ActivityList';
@@ -58,8 +61,16 @@ beforeAll(async () => {
   await initI18n({ lng: 'en' });
 });
 
+const nearMiss = (reason: NearMissReason, at: string) => ({
+  reason,
+  at,
+  subjectKey: `sess-${at}`,
+  trigger: 'session.started',
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
+  useAutomationEvaluations.mockReturnValue({ data: { data: [] } });
 });
 
 function automation(overrides: Partial<Automation> = {}): Automation {
@@ -191,6 +202,31 @@ describe('ActivityList', () => {
       'Severity',
       'Started',
     ]);
+  });
+
+  it('folds the matches that started nothing under the table', async () => {
+    useAutomationEvaluations.mockReturnValue({
+      data: {
+        data: [
+          nearMiss('cooldown_active', '2026-08-19T12:00:00.000Z'),
+          nearMiss('gate_blocked', '2026-08-19T11:00:00.000Z'),
+        ],
+      },
+    });
+    renderList([run()]);
+
+    expect(screen.queryByText('Cooldown was active')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /did not start a run \(2\)/ }));
+
+    expect(screen.getByText('Cooldown was active')).toBeInTheDocument();
+    expect(screen.getByText('An open run already covers this')).toBeInTheDocument();
+  });
+
+  it('says nothing about near misses when there were none', () => {
+    renderList([run()]);
+
+    expect(screen.queryByText(/did not start a run/)).not.toBeInTheDocument();
   });
 
   it('says nothing has run when nothing has', () => {

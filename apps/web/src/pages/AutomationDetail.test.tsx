@@ -218,13 +218,12 @@ beforeEach(() => {
 });
 
 describe('AutomationDetail', () => {
-  it('renders the header, activity, evaluations and settings sections', () => {
+  it('renders the header, activity and settings sections', () => {
     renderDetail();
 
     expect(screen.getByRole('heading', { name: 'Concurrent cap' })).toBeInTheDocument();
     expect(screen.getByText('pages:automations.kind.policy')).toBeInTheDocument();
     expect(screen.getByText('pages:automations.activity.title')).toBeInTheDocument();
-    expect(screen.getByText('pages:automations.evaluations.title')).toBeInTheDocument();
     expect(screen.getByText('pages:automations.settings.title')).toBeInTheDocument();
   });
 
@@ -641,35 +640,6 @@ describe('AutomationDetail run sheet', () => {
     expect(
       screen.queryByRole('button', { name: 'automations.activity.openInEditor' })
     ).not.toBeInTheDocument();
-  });
-});
-
-describe('AutomationDetail evaluations', () => {
-  it('lists each near miss with its translated reason', () => {
-    mockUseAutomationEvaluations.mockReturnValue({
-      data: {
-        data: [
-          {
-            reason: 'cooldown_active',
-            at: '2026-08-19T00:00:00.000Z',
-            subjectKey: 'sess-1',
-            trigger: 'session.paused',
-          },
-        ],
-      },
-      isLoading: false,
-    } as unknown as ReturnType<typeof useAutomationEvaluations>);
-
-    renderDetail();
-
-    expect(screen.getByText('automations.evaluations.reasons.cooldown_active')).toBeInTheDocument();
-    expect(screen.getByText('session.paused')).toBeInTheDocument();
-  });
-
-  it('shows the shared empty state when the ring is empty', () => {
-    renderDetail();
-
-    expect(screen.getByText('automations.evaluations.empty')).toBeInTheDocument();
   });
 });
 

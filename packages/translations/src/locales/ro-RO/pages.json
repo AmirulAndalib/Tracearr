@@ -637,16 +637,13 @@
     "emptyTitle": "No automations yet",
     "enable": "Enable",
     "evaluations": {
-      "description": "Trigger matches that recorded no run.",
-      "empty": "No recent evaluations",
-      "emptyDescription": "Cooldowns, replayed edges and blocked gates are listed here.",
       "reasons": {
         "cooldown_active": "Cooldown was active",
         "edge_replayed": "Same edge already handled",
         "gate_blocked": "An open run already covers this",
         "trigger_filter_failed": "Trigger threshold not reached"
       },
-      "title": "Recent evaluations"
+      "disclosure": "Matches that did not start a run ({{total}})"
     },
     "export": {
       "authorHelper": "Included in the code as the author. Optional.",
