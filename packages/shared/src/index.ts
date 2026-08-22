@@ -402,6 +402,7 @@ export {
   liftAutomation,
   TemplateBindingError,
   ShareCodeError,
+  assertShareDepth,
   canonicalJson,
   fingerprintOf,
   encodeShareCode,

@@ -1496,6 +1496,31 @@ describe('Automation routes', () => {
       expect(harness.inserts).toHaveLength(1);
     });
 
+    it('follows the kind the new version declares', async () => {
+      app = await buildTestApp(ownerUser);
+      const stored = boundRow();
+      setupSelect([stored], [{ id: SERVER_ID }]);
+      const definition = { ...editedDefinition(), kind: 'policy' as const };
+      vi.mocked(getTemplate).mockResolvedValue({
+        id: TEMPLATE_ID,
+        name: 'Stream started',
+        version: templateVersion(4, definition),
+      } as never);
+      const harness = setupTransaction([
+        [{ ...stored, kind: 'policy', templateVersion: 4 }],
+        [{ id: 'ver-2' }],
+      ]);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/automations/${AUTOMATION_ID}/upgrade`,
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(harness.updateSets[0]).toMatchObject({ kind: 'policy' });
+    });
+
     it('reuses the bindings the instance already had when the body names none', async () => {
       app = await buildTestApp(ownerUser);
       const stored = boundRow();
@@ -1571,6 +1596,23 @@ describe('Automation routes', () => {
           (bytes, maxOut) => new Uint8Array(inflateRawSync(bytes, { maxOutputLength: maxOut }))
         )
       ).toEqual(envelope);
+    });
+
+    it('strips a server suffix the name was truncated in the middle of', async () => {
+      app = await buildTestApp(ownerUser);
+      const serverName = 'Basement rack '.repeat(7).trim();
+      // The default instance name is cut at the column cap, taking the tail of the suffix with it.
+      const name = `Stream started — ${serverName}`.slice(0, 100);
+      expect(name.endsWith(` — ${serverName}`)).toBe(false);
+      setupSelect([boundRow({ name, serverName })]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json().envelope.name).toBe('Stream started');
     });
 
     it('carries nothing but the envelope and the code it packs into', async () => {

@@ -9,6 +9,7 @@ import {
   AUTOMATION_NAME_MAX,
   TemplateBindingError,
   materializeTemplate,
+  uuidSchema,
   type CreateAutomationInput,
   type TemplateDefinition,
   type TemplateInput,
@@ -64,12 +65,14 @@ export async function defaultInstanceName(
   const key = version.inputs.find((input) => input.kind === 'server')?.key;
   const bound = key === undefined ? undefined : inputs[key];
   const name = templateName.slice(0, AUTOMATION_NAME_MAX);
-  if (typeof bound !== 'string') return name;
+  // The binding is whatever the caller sent; the column would reject a non-uuid at the driver.
+  const serverId = uuidSchema.safeParse(bound);
+  if (!serverId.success) return name;
 
   const rows = await executor
     .select({ name: servers.name })
     .from(servers)
-    .where(eq(servers.id, bound));
+    .where(eq(servers.id, serverId.data));
   const server = rows[0];
   return server ? `${name} — ${server.name}`.slice(0, AUTOMATION_NAME_MAX) : name;
 }

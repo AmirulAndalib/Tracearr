@@ -1,8 +1,12 @@
 import { isNotNull } from 'drizzle-orm';
-import type { AutomationActions } from '@tracearr/shared';
+import type { Action, AutomationActions, LeafAction } from '@tracearr/shared';
 import { db } from '../../db/client.js';
 import { automations } from '../../db/schema.js';
 import { listDestinations } from './destinationStore.js';
+
+/** A branch holds effects of its own, so a destination can live one level down. */
+const leaves = (action: Action): LeafAction[] =>
+  action.type === 'if' ? [...action.then, ...action.else] : [action];
 
 /**
  * The destination ids a save names that no row backs. A send action storing one
@@ -12,7 +16,9 @@ export async function unknownDestinationIds(
   actions: AutomationActions | undefined
 ): Promise<string[]> {
   const sendIds = [
-    ...new Set(actions?.actions.flatMap((a) => (a.type === 'send' ? a.to : [])) ?? []),
+    ...new Set(
+      actions?.actions.flatMap(leaves).flatMap((a) => (a.type === 'send' ? a.to : [])) ?? []
+    ),
   ];
   if (sendIds.length === 0) return [];
   const known = new Set((await listDestinations()).map((d) => d.id));
@@ -39,7 +45,7 @@ export async function automationsReferencingDestinations(): Promise<Map<string, 
 
   const refs = new Map<string, DestinationRef[]>();
   for (const row of rows) {
-    for (const action of row.actions?.actions ?? []) {
+    for (const action of (row.actions?.actions ?? []).flatMap(leaves)) {
       if (action.type !== 'send') continue;
       for (const id of action.to) {
         const list = refs.get(id) ?? [];

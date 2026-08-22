@@ -7,7 +7,6 @@ import { and, eq, lt, sql } from 'drizzle-orm';
 import {
   canonicalJson,
   materializeTemplate,
-  type AutomationKind,
   type CreateAutomationInput,
   type TemplateEnvelope,
   type TemplateInput,
@@ -44,7 +43,7 @@ const inputSignature = (inputs: TemplateInput[]): string =>
  */
 async function upgradeInstances(
   tx: Executor,
-  template: { id: string; slug: string; kind: AutomationKind },
+  template: { id: string; slug: string },
   version: { version: number; inputs: TemplateInput[]; definition: TemplateEnvelope['definition'] }
 ): Promise<number> {
   const bound = await tx
@@ -83,14 +82,15 @@ async function upgradeInstances(
     const [updated] = await tx
       .update(automations)
       .set({
-        kind: template.kind,
+        // Both follow the new version: a kind it moved, and a reach it dropped.
+        kind: created.kind,
         triggers: created.triggers,
         conditions: created.conditions,
         actions: created.actions,
         serverId: created.serverId ?? null,
         serverUserId: created.serverUserId ?? null,
         userId: created.userId ?? null,
-        enforceAcrossServers: created.enforceAcrossServers,
+        enforceAcrossServers: created.enforceAcrossServers ?? false,
         templateVersion: version.version,
         updatedAt: new Date(),
       })

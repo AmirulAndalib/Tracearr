@@ -74,6 +74,14 @@ function withMinutesAsNumber(): TemplateEnvelope {
   return reseal(envelope);
 }
 
+/** A rewrite that moves the kind; the instances on it have to move too. */
+function asPolicy(): TemplateEnvelope {
+  const envelope = streamStarted();
+  envelope.kind = 'policy';
+  envelope.definition.kind = 'policy';
+  return reseal(envelope);
+}
+
 /** A rewrite that asks the user for something new; the review path owns these. */
 function withRequiredNote(): TemplateEnvelope {
   const envelope = streamStarted();
@@ -212,6 +220,22 @@ describe('builtin template seeding', () => {
     expect(counts).toEqual({ inserted: 0, versioned: 1, upgraded: 0 });
     const rows = await db.select().from(automations).where(eq(automations.id, instance.id));
     expect(rows[0]?.templateVersion).toBe(1);
+  });
+
+  it('carries an instance onto the kind and the reach the new version declares', async () => {
+    await seedBuiltinTemplates([streamStarted()]);
+    const template = await templateBySlug('stream-started');
+    const instance = await instantiate(template.id, 'Told about starts');
+    await db
+      .update(automations)
+      .set({ enforceAcrossServers: true })
+      .where(eq(automations.id, instance.id));
+
+    const counts = await seedBuiltinTemplates([asPolicy()]);
+
+    expect(counts).toEqual({ inserted: 0, versioned: 1, upgraded: 1 });
+    const rows = await db.select().from(automations).where(eq(automations.id, instance.id));
+    expect(rows[0]).toMatchObject({ kind: 'policy', enforceAcrossServers: false });
   });
 
   it('keeps the instance-owned fields through an upgrade', async () => {

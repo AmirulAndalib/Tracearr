@@ -4,6 +4,7 @@
  */
 
 import {
+  AUTOMATION_NAME_MAX,
   TEMPLATE_MIN_SERVER_VERSION,
   TEMPLATE_SCHEMA_VERSION,
   fingerprintOf,
@@ -31,10 +32,20 @@ function slugFor(name: string): string {
   return slug || 'automation';
 }
 
+/** A default instance name that hit the column cap kept only the front of its " — server" tail. */
+function stripServerSuffix(name: string, suffix: string): string {
+  if (name.endsWith(suffix)) return name.slice(0, -suffix.length);
+  if (name.length !== AUTOMATION_NAME_MAX) return name;
+  const cut = name.lastIndexOf(' — ');
+  return cut !== -1 && suffix.startsWith(name.slice(cut)) ? name.slice(0, cut) : name;
+}
+
 /** An instance bound to a server carries its name in the title; the export never does. */
 function exportedName(name: string, serverName: string | null | undefined): string {
-  const suffix = serverName === null || serverName === undefined ? null : ` — ${serverName}`;
-  const stripped = suffix !== null && name.endsWith(suffix) ? name.slice(0, -suffix.length) : name;
+  const stripped =
+    serverName === null || serverName === undefined
+      ? name
+      : stripServerSuffix(name, ` — ${serverName}`);
   // Automation names and descriptions are allowed more room than an envelope has.
   return stripped.slice(0, 80);
 }

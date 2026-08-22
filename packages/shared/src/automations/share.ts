@@ -2,7 +2,10 @@ import type { TemplateEnvelope } from './templates.js';
 
 export const SHARE_CODE_PREFIX = 'tracearr1.';
 
-const DEFAULT_LIMITS = { maxCode: 65536, maxOut: 1048576, maxDepth: 32 };
+/** How deep a shared payload may nest, whether it arrived as a code or as JSON. */
+const SHARE_MAX_DEPTH = 32;
+
+const DEFAULT_LIMITS = { maxCode: 65536, maxOut: 1048576, maxDepth: SHARE_MAX_DEPTH };
 
 export type ShareCodeReason = 'prefix' | 'too_long' | 'incomplete' | 'too_deep' | 'invalid_json';
 
@@ -86,15 +89,16 @@ export function encodeShareCode(
   return SHARE_CODE_PREFIX + toBase64Url(deflateRaw(payload));
 }
 
-function assertDepth(value: unknown, remaining: number): void {
+/** Throws `too_deep` past the cap; a pasted envelope needs this without a code to decode. */
+export function assertShareDepth(value: unknown, remaining: number = SHARE_MAX_DEPTH): void {
   if (remaining < 0) throw new ShareCodeError('too_deep');
   if (Array.isArray(value)) {
-    for (const item of value) assertDepth(item, remaining - 1);
+    for (const item of value) assertShareDepth(item, remaining - 1);
     return;
   }
   if (value !== null && typeof value === 'object') {
     for (const item of Object.values(value as Record<string, unknown>)) {
-      assertDepth(item, remaining - 1);
+      assertShareDepth(item, remaining - 1);
     }
   }
 }
@@ -120,6 +124,6 @@ export function decodeShareCode(
   } catch {
     throw new ShareCodeError('invalid_json');
   }
-  assertDepth(value, limits.maxDepth);
+  assertShareDepth(value, limits.maxDepth);
   return value;
 }

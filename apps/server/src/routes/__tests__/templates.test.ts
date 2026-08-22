@@ -421,6 +421,21 @@ describe('Template routes', () => {
       expect(response.statusCode).toBe(400);
     });
 
+    it('400s a pasted envelope nested past the depth a code is capped at', async () => {
+      app = await buildTestApp(ownerUser);
+      let nested: unknown = 1;
+      for (let level = 0; level < 40; level += 1) nested = [nested];
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/templates/preview',
+        payload: { envelope: { schemaVersion: 1, definition: nested } },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ reason: 'too_deep' });
+    });
+
     it('400s when the body carries neither a code nor an envelope', async () => {
       app = await buildTestApp(ownerUser);
 
@@ -623,11 +638,50 @@ describe('Template routes', () => {
           definition: expect.objectContaining({ name: 'Now playing' }),
           inputs: { to: [DESTINATION_ID] },
         },
-        {}
+        // Nothing said, and the template was pasted in: it lands paused.
+        { isActive: false }
       );
       expect(response.json()).toMatchObject({ id: AUTOMATION_ID, kind: 'notification' });
       expect(invalidateAutomationsCache).toHaveBeenCalledTimes(1);
       expect(scheduleInactivityChecks).not.toHaveBeenCalled();
+    });
+
+    it('honours an explicit choice over the paused-on-import default', async () => {
+      app = await buildTestApp(ownerUser);
+      bindStreamStarted();
+      const created = automationRow({ isActive: false });
+      vi.mocked(instantiateTemplate).mockResolvedValue(created as never);
+      setupTransaction();
+      setupSelect([created]);
+
+      await app.inject({
+        method: 'POST',
+        url: `/templates/${TEMPLATE_ID}/instantiate`,
+        payload: { inputs: { to: [DESTINATION_ID] }, isActive: true },
+      });
+
+      expect(vi.mocked(instantiateTemplate).mock.calls[0]?.[3]).toEqual({ isActive: true });
+    });
+
+    it('leaves a bundled template on by default', async () => {
+      app = await buildTestApp(ownerUser);
+      const envelope = envelopeOf('stream-started');
+      vi.mocked(getTemplate).mockResolvedValue({
+        ...summary({ builtin: true, source: 'builtin' }),
+        version: currentVersion(envelope),
+      } as never);
+      const created = automationRow();
+      vi.mocked(instantiateTemplate).mockResolvedValue(created as never);
+      setupTransaction();
+      setupSelect([created]);
+
+      await app.inject({
+        method: 'POST',
+        url: `/templates/${TEMPLATE_ID}/instantiate`,
+        payload: { inputs: { to: [DESTINATION_ID] } },
+      });
+
+      expect(vi.mocked(instantiateTemplate).mock.calls[0]?.[3]).toEqual({});
     });
 
     it('sweeps for inactivity when the instance carries that trigger', async () => {

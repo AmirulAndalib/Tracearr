@@ -19,7 +19,26 @@ vi.mock('../../db/client.js', () => ({
   },
 }));
 
-import { automationsReferencingDestinations } from '../notifications/destinationRefs.js';
+const listed: { id: string }[] = [];
+vi.mock('../notifications/destinationStore.js', () => ({
+  listDestinations: async () => [...listed],
+}));
+
+import {
+  automationsReferencingDestinations,
+  unknownDestinationIds,
+} from '../notifications/destinationRefs.js';
+
+const branchSend = (id: string): AutomationActions => ({
+  actions: [
+    {
+      type: 'if',
+      conditions: { groups: [] },
+      then: [{ type: 'send', to: [id] }],
+      else: [],
+    },
+  ],
+});
 
 describe('automationsReferencingDestinations', () => {
   it('counts inactive rules and ignores non-send actions', async () => {
@@ -55,5 +74,31 @@ describe('automationsReferencingDestinations', () => {
       { ruleId: 'rule-1', ruleName: 'Active both', isActive: true },
     ]);
     expect(refs.size).toBe(2);
+  });
+
+  it('finds a send that only exists inside a branch', async () => {
+    ruleRows.length = 0;
+    ruleRows.push({
+      id: 'rule-4',
+      name: 'Branch only',
+      isActive: true,
+      actions: branchSend('dest-c'),
+    });
+
+    const refs = await automationsReferencingDestinations();
+
+    expect(refs.get('dest-c')).toEqual([
+      { ruleId: 'rule-4', ruleName: 'Branch only', isActive: true },
+    ]);
+  });
+});
+
+describe('unknownDestinationIds', () => {
+  it('names a branch destination no row backs', async () => {
+    listed.length = 0;
+    listed.push({ id: 'dest-a' });
+
+    expect(await unknownDestinationIds(branchSend('dest-c'))).toEqual(['dest-c']);
+    expect(await unknownDestinationIds(branchSend('dest-a'))).toEqual([]);
   });
 });

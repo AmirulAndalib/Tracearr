@@ -7,6 +7,7 @@ import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import {
   ShareCodeError,
+  assertShareDepth,
   createAutomationSchema,
   fingerprintOf,
   templateEnvelopeSchema,
@@ -47,7 +48,7 @@ const idParamSchema = z.object({ id: uuidSchema });
 
 const versionParamsSchema = z.object({
   id: uuidSchema,
-  version: z.coerce.number().int().min(1),
+  version: z.coerce.number().int().min(1).max(2_147_483_647),
 });
 
 // Room above the decoder's own 64 KiB cap, so an over-long code comes back as `too_long`
@@ -115,19 +116,21 @@ const rejectEnvelope = (reply: FastifyReply, read: { message: string; reason?: S
 /** A share code and a pasted envelope are the same payload once the code is unwrapped. */
 function readEnvelope(body: { code?: string; envelope?: unknown }): EnvelopeResult {
   let payload: unknown;
-  if (body.code !== undefined) {
-    try {
+  try {
+    if (body.code !== undefined) {
       payload = decodeTemplateCode(body.code);
-    } catch (error) {
-      if (error instanceof ShareCodeError) {
-        return { ok: false, message: SHARE_CODE_MESSAGES[error.reason], reason: error.reason };
-      }
-      throw error;
+    } else if (body.envelope !== undefined) {
+      // Pasted JSON never went through the decoder, so the nesting cap is applied here.
+      assertShareDepth(body.envelope);
+      payload = body.envelope;
+    } else {
+      return { ok: false, message: 'A share code or an envelope is required' };
     }
-  } else if (body.envelope !== undefined) {
-    payload = body.envelope;
-  } else {
-    return { ok: false, message: 'A share code or an envelope is required' };
+  } catch (error) {
+    if (error instanceof ShareCodeError) {
+      return { ok: false, message: SHARE_CODE_MESSAGES[error.reason], reason: error.reason };
+    }
+    throw error;
   }
 
   const parsed = templateEnvelopeSchema.safeParse(payload);
@@ -211,6 +214,8 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
     const support = minServerVersionState(read.envelope.minServerVersion);
     if (!support.satisfied) {
       return reply.code(422).send({
+        statusCode: 422,
+        error: 'Unprocessable Entity',
         message: `This template needs Tracearr ${support.required}; this server runs ${support.current}`,
         minServerVersion: support,
       });
@@ -276,8 +281,15 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest(`Unknown destination id(s): ${missingDestinations.join(', ')}`);
     }
 
+    // A pasted template arrives unreviewed, so a caller that says nothing gets it paused.
+    const paused = overrides.isActive === undefined && template.source === 'import';
     const created = await db.transaction((tx) =>
-      instantiateTemplate(tx, template, { definition: materialized.definition, inputs }, overrides)
+      instantiateTemplate(
+        tx,
+        template,
+        { definition: materialized.definition, inputs },
+        paused ? { ...overrides, isActive: false } : overrides
+      )
     );
 
     invalidateAutomationsCache();

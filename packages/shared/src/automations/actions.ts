@@ -7,8 +7,8 @@ export const sendActionSchema = z.object({
   type: z.literal('send'),
   to: z.array(z.uuid()).min(1),
   cooldown_minutes: z.number().int().nonnegative().optional(),
-  title: z.string().max(200).optional(),
-  body: z.string().max(2000).optional(),
+  title: z.string().min(1).max(200).optional(),
+  body: z.string().min(1).max(2000).optional(),
 });
 
 export const trustActionSchema = z

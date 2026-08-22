@@ -507,6 +507,7 @@ export const automations = pgTable(
     index('automations_server_id_idx').on(table.serverId),
     index('automations_server_user_id_idx').on(table.serverUserId),
     index('automations_user_id_idx').on(table.userId),
+    index('automations_template_id_idx').on(table.templateId),
   ]
 );
 

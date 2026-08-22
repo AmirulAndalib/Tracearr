@@ -13,6 +13,16 @@ import {
 
 const id = '3f2c8f0e-1c4d-4c1a-9c2e-6f0b6f5c9a11';
 
+describe('send action', () => {
+  it('takes no empty title or body, which would send a blank one', () => {
+    const send = (over: Record<string, unknown>) => ({ type: 'send', to: [id], ...over });
+    expect(sendActionSchema.safeParse(send({})).success).toBe(true);
+    expect(sendActionSchema.safeParse(send({ title: 'Now playing' })).success).toBe(true);
+    expect(sendActionSchema.safeParse(send({ title: '' })).success).toBe(false);
+    expect(sendActionSchema.safeParse(send({ body: '' })).success).toBe(false);
+  });
+});
+
 describe('trust action', () => {
   it('pairs mode with its parameter', () => {
     expect(

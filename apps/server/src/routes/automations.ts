@@ -577,6 +577,8 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
     }
 
     const updateData: AutomationUpdate = {
+      // A version that changed its kind takes its instances with it.
+      kind: definition.kind,
       conditions: definition.conditions,
       actions: definition.actions,
       // A trigger type that survives the new version keeps the node id the gate reads.
