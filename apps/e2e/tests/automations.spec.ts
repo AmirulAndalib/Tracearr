@@ -106,6 +106,33 @@ test.describe('Automations', () => {
     await deleteAutomation(page, renamed);
   });
 
+  test('starts a ready-made automation from the gallery', async ({ page }) => {
+    const name = uniqueName('Gallery');
+
+    await page.getByRole('button', { name: 'New automation' }).click();
+
+    // Each view names the dialog, and the server picker's popover is a dialog too,
+    // so every locator here says which one it means.
+    const gallery = page.getByRole('dialog', { name: 'New automation' });
+    await expect(gallery).toBeVisible();
+    await gallery.getByRole('option', { name: /Stream started/ }).click();
+
+    const form = page.getByRole('dialog', { name: 'Stream started' });
+    // Naming it first stops the server pick from rewriting the name underneath.
+    await form.getByLabel('Name', { exact: true }).fill(name);
+    await form.getByRole('button', { name: 'Browser toasts' }).click();
+
+    await form.getByRole('combobox', { name: 'Which server' }).click();
+    await page.getByRole('option').nth(1).click();
+
+    await form.getByRole('button', { name: 'Use this' }).click();
+
+    await expect(form).toBeHidden();
+    await expect(rowFor(page, name)).toBeVisible();
+
+    await deleteAutomation(page, name);
+  });
+
   test('filters the list by kind', async ({ page }) => {
     await page.getByRole('button', { name: 'Filters' }).click();
     await page.getByLabel('Kind').click();

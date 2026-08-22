@@ -9,6 +9,7 @@ import type {
   SessionWithDetails,
   ActiveSession,
   Automation,
+  AutomationKind,
   AutomationListQuery,
   AutomationRun,
   AutomationRunSummary,
@@ -113,6 +114,10 @@ import type {
   BandwidthSample,
   BandwidthAccount,
   BandwidthDevice,
+  TEMPLATE_GROUPS,
+  TemplateDefinition,
+  TemplateEnvelope,
+  TemplateInput,
 } from '@tracearr/shared';
 
 // Re-export shared types needed by frontend components
@@ -154,6 +159,61 @@ export type AutomationListParams = Partial<
   orderBy?: AutomationSortField;
   orderDir?: 'asc' | 'desc';
 };
+
+export type TemplateGroup = (typeof TEMPLATE_GROUPS)[number];
+
+/** A catalog row: what the gallery lists, without the version body. */
+export interface TemplateSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  group: TemplateGroup;
+  kind: AutomationKind;
+  builtin: boolean;
+  source: 'builtin' | 'import' | 'local';
+  author: string | null;
+  currentVersion: number;
+  usedBy: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One stored version: the inputs to bind and the definition they fill. */
+export interface TemplateVersionPayload {
+  version: number;
+  inputs: TemplateInput[];
+  definition: TemplateDefinition;
+}
+
+export type TemplateDetail = TemplateSummary & { version: TemplateVersionPayload };
+
+/** A share code or a pasted envelope; the server accepts either. */
+export interface TemplateImportBody {
+  code?: string;
+  envelope?: unknown;
+  source?: 'local';
+  replace?: string;
+}
+
+export interface TemplatePreview {
+  envelope: TemplateEnvelope;
+  fingerprint: string;
+  existing?: {
+    templateId: string;
+    version: number;
+    name: string;
+    builtin: boolean;
+    fingerprintMatch: boolean;
+  };
+  minServerVersion: { required: string; current: string; satisfied: boolean };
+}
+
+export interface InstantiateTemplateInput {
+  inputs: Record<string, unknown>;
+  name?: string;
+  isActive?: boolean;
+}
 
 /** Run query params: the server's own filter schema plus paging and sort. */
 export type RunListParams = Partial<
@@ -893,6 +953,36 @@ class ApiClient {
       this.request<{ success: boolean; deleted: number }>('/automations/bulk', {
         method: 'DELETE',
         body: JSON.stringify({ ids }),
+      }),
+    /** The automation as an envelope plus the code that carries it. */
+    export: (id: string) =>
+      this.request<{ envelope: TemplateEnvelope; code: string }>(`/automations/${id}/export`),
+    detach: (id: string) =>
+      this.request<Automation>(`/automations/${id}/detach`, { method: 'POST' }),
+    upgrade: (id: string, inputs: Record<string, unknown>) =>
+      this.request<Automation>(`/automations/${id}/upgrade`, {
+        method: 'POST',
+        body: JSON.stringify({ inputs }),
+      }),
+  };
+
+  // Automation templates
+  templates = {
+    list: () => this.request<{ data: TemplateSummary[] }>('/templates'),
+    get: (id: string) => this.request<TemplateDetail>(`/templates/${id}`),
+    /** What an import would land on; nothing is written. */
+    preview: (body: TemplateImportBody) =>
+      this.request<TemplatePreview>('/templates/preview', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    create: (body: TemplateImportBody) =>
+      this.request<TemplateDetail>('/templates', { method: 'POST', body: JSON.stringify(body) }),
+    remove: (id: string) => this.request<void>(`/templates/${id}`, { method: 'DELETE' }),
+    instantiate: (id: string, body: InstantiateTemplateInput) =>
+      this.request<Automation>(`/templates/${id}/instantiate`, {
+        method: 'POST',
+        body: JSON.stringify(body),
       }),
   };
 

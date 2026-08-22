@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Power, PowerOff, Trash2, Workflow } from 'lucide-react';
 import type { Automation, AutomationKind, AutomationSortField } from '@tracearr/shared';
@@ -22,15 +22,20 @@ import {
 } from '@/components/ui/data-table';
 import { countActiveFilters, FilterBar, useFilterState } from '@/components/ui/filters';
 import type { FilterDescriptor } from '@/components/ui/filters';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
 import { ScopeChip } from '@/components/automations';
+import { NewAutomationDialog } from '@/components/automations/gallery/NewAutomationDialog';
+import { TemplateCard } from '@/components/automations/gallery/TemplateCard';
 import {
   useAutomations,
   useBulkDeleteAutomations,
   useBulkToggleAutomations,
   useDeleteAutomation,
   useSettings,
+  useTemplates,
+  useTemplateVersions,
   useToggleAutomation,
 } from '@/hooks/queries';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
@@ -49,6 +54,9 @@ import {
 } from './automationsFilters';
 
 const PAGE_SIZE = 20;
+
+/** The four a fresh install starts from; three of them are reversible on purpose. */
+const FEATURED_SLUGS = ['stream-started', 'server-down', 'concurrent-streams', 'paused-too-long'];
 
 const SORT_FIELDS = new Set<string>(AUTOMATION_SORT_FIELDS);
 
@@ -71,6 +79,8 @@ export function Automations() {
   const { servers } = useServer();
   const { data: settings } = useSettings();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [dialogView, setDialogView] = useState<'gallery' | 'paste' | null>(null);
   const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -369,12 +379,67 @@ export function Automations() {
   ];
 
   const hasActiveFilters = countActiveFilters(descriptors, filters) > 0;
+  // Only a confirmed empty list gets the gallery; a slow first page keeps the skeleton.
+  const showEmptyState = !isLoading && !isError && !hasActiveFilters && rows?.length === 0;
+
+  const { data: templates } = useTemplates();
+  const featured = FEATURED_SLUGS.map((slug) =>
+    templates?.find((template) => template.slug === slug)
+  ).filter((template) => template !== undefined);
+  const { byId } = useTemplateVersions(showEmptyState ? featured.map((row) => row.id) : []);
+
+  // The deep link is the one piece of dialog state the URL owns.
+  const templateParam = searchParams.get('template');
+  const openTemplate = (id: string) => {
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('template', id);
+        return next;
+      },
+      { replace: true }
+    );
+  };
+  const closeDialog = () => {
+    setDialogView(null);
+    if (templateParam === null) return;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete('template');
+        return next;
+      },
+      { replace: true }
+    );
+  };
 
   const addButton = (
-    <Button onClick={() => void navigate('/automations/new')}>
+    <Button onClick={() => setDialogView('gallery')}>
       <Plus />
-      {t('pages:automations.addAutomation')}
+      {t('pages:automations.newAutomation')}
     </Button>
+  );
+
+  const startLinks = (
+    <div className="flex flex-wrap items-center justify-center gap-1 max-sm:flex-col">
+      <Button variant="link" onClick={() => setDialogView('gallery')}>
+        {templates
+          ? t('pages:automations.emptySeeAll', { count: templates.length })
+          : t('pages:automations.emptySeeAllLoading')}
+      </Button>
+      <span aria-hidden className="text-muted-foreground max-sm:hidden">
+        ·
+      </span>
+      <Button variant="link" onClick={() => setDialogView('paste')}>
+        {t('pages:automations.gallery.paste.title')}
+      </Button>
+      <span aria-hidden className="text-muted-foreground max-sm:hidden">
+        ·
+      </span>
+      <Button variant="link" onClick={() => void navigate('/automations/new')}>
+        {t('pages:automations.gallery.scratch.title')}
+      </Button>
+    </div>
   );
 
   return (
@@ -409,6 +474,27 @@ export function Automations() {
               message={error?.message ?? t('common:errors.unexpectedError')}
               onRetry={() => void refetch()}
             />
+          ) : showEmptyState ? (
+            <EmptyState
+              icon={Workflow}
+              title={t('pages:automations.emptyTitle')}
+              description={t('pages:automations.emptyDescription')}
+            >
+              <div className="w-full space-y-5">
+                <div className="grid gap-2 text-left sm:grid-cols-2">
+                  {featured.map((template) => (
+                    <TemplateCard
+                      key={template.id}
+                      template={template}
+                      version={byId.get(template.id)?.version}
+                      showOrigin={false}
+                      onSelect={() => openTemplate(template.id)}
+                    />
+                  ))}
+                </div>
+                {startLinks}
+              </div>
+            </EmptyState>
           ) : (
             <DataTableRoot density="default">
               <DataTableViewport>
@@ -424,17 +510,8 @@ export function Automations() {
                     <DataTableEmpty
                       table={table}
                       icon={Workflow}
-                      title={
-                        hasActiveFilters
-                          ? t('pages:automations.noAutomationsFound')
-                          : t('pages:automations.noAutomationsConfigured')
-                      }
-                      description={
-                        hasActiveFilters
-                          ? t('pages:automations.tryAdjustingFilters')
-                          : t('pages:automations.createFirstAutomation')
-                      }
-                      action={hasActiveFilters ? undefined : addButton}
+                      title={t('pages:automations.noAutomationsFound')}
+                      description={t('pages:automations.tryAdjustingFilters')}
                     />
                   }
                 />
@@ -452,6 +529,18 @@ export function Automations() {
           )}
         </CardContent>
       </Card>
+
+      {(dialogView !== null || templateParam !== null) && (
+        <NewAutomationDialog
+          key={templateParam ?? dialogView}
+          open
+          onOpenChange={(next) => {
+            if (!next) closeDialog();
+          }}
+          templateId={templateParam}
+          initialView={dialogView ?? 'gallery'}
+        />
+      )}
 
       <BulkActionsToolbar
         selectedCount={selectedCount}

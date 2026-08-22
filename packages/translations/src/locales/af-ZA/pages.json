@@ -62,9 +62,25 @@
       "triggeredBy": "Triggered by {{trigger}}",
       "unknownStep": "Unrecognized step"
     },
-    "addAutomation": "Add Automation",
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
+    "bind": {
+      "accountLabel": "Which account",
+      "activeLabel": "Active",
+      "anyServer": "Any server",
+      "back": "Back",
+      "destinationsLabel": "Send to",
+      "failed": "Couldn't set that up. Try again.",
+      "nameLabel": "Name",
+      "namePlaceholder": "A name for this automation",
+      "noInputs": "Nothing to fill in — this one works as it is.",
+      "personLabel": "Which person",
+      "required": "Pick at least one.",
+      "serverHelper": "Leave it on Any server and it watches all of them.",
+      "serverLabel": "Which server",
+      "submit": "Use this",
+      "submitting": "Setting it up…"
+    },
     "builder": {
       "actions": {
         "add": "Add action",
@@ -347,7 +363,6 @@
       "user_attributes": "User Attributes"
     },
     "createAutomation": "Create Automation",
-    "createFirstAutomation": "Create your first automation to start watching your servers.",
     "customAutomation": "Custom automation",
     "deleteAutomationConfirm": "Are you sure you want to delete this automation? This action cannot be undone.",
     "deleteAutomation_one": "Delete {{count}} Automation",
@@ -482,7 +497,7 @@
         "sessionPaused": "a stream is paused",
         "sessionStarted": "a stream starts",
         "sessionStopped": "a stream stops",
-        "sessionTranscodeChanged": "a stream starts or stops transcoding",
+        "sessionTranscodeChanged": "transcoding starts or stops",
         "tracearrUpdateAvailable": "a Tracearr update is available"
       },
       "uniqueIps": "unique IPs",
@@ -509,6 +524,10 @@
     },
     "disable": "Disable",
     "editAutomation": "Edit Automation",
+    "emptyDescription": "Start from a ready-made one — you fill in the parts that are yours.",
+    "emptySeeAll": "See all {{count}}",
+    "emptySeeAllLoading": "See all",
+    "emptyTitle": "No automations yet",
     "enable": "Enable",
     "evaluations": {
       "description": "Trigger matches that recorded no run.",
@@ -654,6 +673,40 @@
         "label": "Video Codec"
       }
     },
+    "gallery": {
+      "builtin": "Built-in",
+      "description": "Start from a ready-made one — you fill in the parts that are yours.",
+      "group": {
+        "housekeeping": "Housekeeping",
+        "notifications": "Notifications",
+        "other": "Other ways to start",
+        "policies": "Limits and rules",
+        "server_health": "Server health"
+      },
+      "hint": {
+        "close": "close",
+        "move": "move",
+        "use": "use"
+      },
+      "kind": {
+        "notification": "An alert",
+        "policy": "A violation"
+      },
+      "loading": "Loading…",
+      "noMatches": "Nothing matches “{{query}}”.",
+      "noMatchesHint": "Try a word from what you want to happen — “discord”, “offline”, “paused”.",
+      "paste": {
+        "description": "Someone sent you one? Paste it and see what it does.",
+        "pending": "Pasting a share code arrives with import.",
+        "title": "Paste a share code"
+      },
+      "scratch": {
+        "description": "Build it step by step.",
+        "title": "Start from scratch"
+      },
+      "searchPlaceholder": "Search",
+      "title": "New automation"
+    },
     "kind": {
       "notification": "Notification",
       "policy": "Policy"
@@ -662,7 +715,6 @@
     "name": "Automation Name",
     "namePlaceholder": "A name for this automation",
     "newAutomation": "New automation",
-    "noAutomationsConfigured": "No automations configured",
     "noAutomationsFound": "No automations found",
     "operators": {
       "contains": "contains",
@@ -771,6 +823,103 @@
       "high": "High",
       "low": "Low",
       "warning": "Warning"
+    },
+    "templates": {
+      "account-inactivity": {
+        "description": "Raise a violation when an account goes unused for the days you allow.",
+        "keywords": "idle dormant unused stale cleanup inactive account",
+        "name": "Inactive account"
+      },
+      "concurrent-streams": {
+        "description": "Raise a violation when an account plays more streams at once than you allow.",
+        "keywords": "limit cap concurrent simultaneous sharing too many streams",
+        "name": "Too many streams at once"
+      },
+      "device-velocity": {
+        "description": "Raise a violation when an account streams from more IP addresses in a window than you allow.",
+        "keywords": "ip addresses vpn sharing devices window",
+        "name": "Many IPs in a window"
+      },
+      "geo-restriction": {
+        "description": "Raise a violation when a stream comes from a country you block.",
+        "keywords": "country geo vpn abroad region block travel",
+        "name": "Blocked countries"
+      },
+      "impossible-travel": {
+        "description": "Raise a violation when two sessions sit further apart than anyone could travel between them.",
+        "keywords": "vpn travel speed distance location sharing",
+        "name": "Impossible travel"
+      },
+      "kill-paused-streams": {
+        "description": "Stop a stream that has sat paused past the minutes you allow.",
+        "keywords": "pause idle afk stop kill terminate reclaim",
+        "name": "Stop paused streams"
+      },
+      "media-added": {
+        "description": "Tell a destination when a library item shows up for the first time.",
+        "keywords": "new library movie episode added import notify discord email webhook",
+        "name": "New media added"
+      },
+      "media-upgraded": {
+        "description": "Tell a destination when a library item changes quality.",
+        "keywords": "upgrade quality remux 4k resolution replaced notify discord email webhook",
+        "name": "Media upgraded"
+      },
+      "no-4k-transcodes": {
+        "description": "Stop a stream that transcodes 4K source video.",
+        "keywords": "4k transcode quality cpu bandwidth stop",
+        "name": "No 4K transcodes"
+      },
+      "paused-too-long": {
+        "description": "Tell a destination when a stream sits paused past the minutes you allow.",
+        "keywords": "pause idle afk stuck abandoned notify discord email webhook",
+        "name": "Paused too long"
+      },
+      "plugin-update": {
+        "description": "Tell a destination when a server has a newer Tracearr plugin to install.",
+        "keywords": "plugin update upgrade version release notify discord email webhook",
+        "name": "Tracearr plugin update"
+      },
+      "server-down": {
+        "description": "Tell a destination when a media server stops answering.",
+        "keywords": "offline outage unreachable down notify discord email webhook",
+        "name": "Server down"
+      },
+      "server-up": {
+        "description": "Tell a destination when a media server answers again.",
+        "keywords": "online recovered restored back up notify discord email webhook",
+        "name": "Server back up"
+      },
+      "server-update": {
+        "description": "Tell a destination when a media server has an update available.",
+        "keywords": "update upgrade version release plex jellyfin emby notify discord",
+        "name": "Media server update"
+      },
+      "simultaneous-locations": {
+        "description": "Raise a violation when one account streams from two distant places at the same time.",
+        "keywords": "distance location sharing vpn two places at once",
+        "name": "Two places at once"
+      },
+      "stream-ended": {
+        "description": "Tell a destination every time a stream stops.",
+        "keywords": "stop end finish playback notify discord email webhook",
+        "name": "Stream ended"
+      },
+      "stream-started": {
+        "description": "Tell a destination every time a stream starts.",
+        "keywords": "play watch begin start viewing notify discord email webhook",
+        "name": "Stream started"
+      },
+      "tracearr-update": {
+        "description": "Tell a destination when a new Tracearr release is out.",
+        "keywords": "update upgrade version release tracearr notify discord email webhook",
+        "name": "Tracearr update"
+      },
+      "transcode-started": {
+        "description": "Tell a destination when a stream transcodes video or audio.",
+        "keywords": "transcode convert cpu direct play quality notify discord email webhook",
+        "name": "Stream is transcoding"
+      }
     },
     "title": "Automations",
     "toggleAutomation": "Turn {{name}} on or off",

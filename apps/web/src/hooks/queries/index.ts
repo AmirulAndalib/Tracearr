@@ -72,6 +72,18 @@ export {
   useUpdateAutomation,
 } from './useAutomations';
 
+// Automation template hooks
+export {
+  TEMPLATES_KEY,
+  useDeleteTemplate,
+  useImportTemplate,
+  useInstantiateTemplate,
+  usePreviewTemplate,
+  useTemplate,
+  useTemplates,
+  useTemplateVersions,
+} from './useTemplates';
+
 // Automation run hooks
 export { RUNS_KEY, useAutomationEvaluations, useAutomationRuns, useRun } from './useRuns';
 

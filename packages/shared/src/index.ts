@@ -327,7 +327,6 @@ export type {
   // Condition family
   Operator,
   ScopeField,
-  MediaField,
   LibraryItemType,
   ConditionField,
   ConditionValue,

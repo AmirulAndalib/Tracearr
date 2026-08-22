@@ -38,7 +38,9 @@ import {
   mapAutomationRow,
   maxWindowHoursFromAutomations,
 } from '../database.js';
+import { evaluateRuleAsync } from '../../../services/automations/engine.js';
 import type { EngineAutomation } from '@tracearr/shared';
+import type { EvaluationContext } from '../../../services/automations/types.js';
 
 function ruleRow(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -185,6 +187,32 @@ describe('mapAutomationRow triggers', () => {
     );
     expect(mapped.triggers).toEqual(triggers);
     expect(mockWarn).not.toHaveBeenCalled();
+  });
+
+  it('reads a row that never held conditions or actions as empty ones', async () => {
+    const row = ruleRow('r1', { conditions: null, actions: null }) as unknown as Parameters<
+      typeof mapAutomationRow
+    >[0];
+
+    const mapped = mapAutomationRow(row, null);
+
+    expect(mapped.conditions).toEqual({ groups: [] });
+    expect(mapped.actions).toEqual({ actions: [] });
+
+    // No checks means it matches, the same as an automation saved with none. Null is
+    // malformed legacy data, and the boot migration backfills both columns.
+    const result = await evaluateRuleAsync({
+      session: null,
+      serverUser: null,
+      server: null,
+      media: null,
+      subjectKey: 'install',
+      activeSessions: [],
+      recentSessions: [],
+      rule: mapped,
+    } satisfies EvaluationContext);
+
+    expect(result).toMatchObject({ matched: true, matchedGroups: [], actions: [] });
   });
 
   it('carries the automation version a run will be stamped with', async () => {

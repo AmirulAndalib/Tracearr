@@ -1,0 +1,286 @@
+import { useId } from 'react';
+import { useTranslation } from 'react-i18next';
+import type {
+  AutomationFilterOptions,
+  Condition,
+  Server,
+  TemplateInput,
+  UnitSystem,
+} from '@tracearr/shared';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { NumericInput } from '@/components/ui/numeric-input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { DestinationsField } from '@/components/automations/builder/DestinationsField';
+import { conditionValueView, FieldControl } from '@/components/automations/builder/fields';
+import { useUsers } from '@/hooks/queries/useUsers';
+import { fieldDescriptor, templateInputLabel } from '@/lib/automations';
+
+/** Longer than a line: the two viewer messages both are, and both want the box. */
+const TEXTAREA_OVER = 120;
+
+interface TemplateInputFieldProps {
+  input: TemplateInput;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  servers: readonly Server[];
+  /** The server the form has bound, so an account picker knows whose accounts to offer. */
+  boundServerId: string;
+  filterOptions: AutomationFilterOptions | undefined;
+  unitSystem: UnitSystem;
+  /** A required input left empty, once the reader has tried to submit. */
+  invalid: boolean;
+}
+
+/** One template input as the row that fills it in. */
+export function TemplateInputField({
+  input,
+  value,
+  onChange,
+  servers,
+  boundServerId,
+  filterOptions,
+  unitSystem,
+  invalid,
+}: TemplateInputFieldProps) {
+  const { t } = useTranslation('pages');
+  const controlId = useId();
+  const labelId = `${controlId}-label`;
+  const label = templateInputLabel(t, input);
+
+  const needsAccounts = input.kind === 'account' && boundServerId !== '';
+  const { data: accountsPage } = useUsers(
+    { serverId: boundServerId, pageSize: 100 },
+    { enabled: needsAccounts }
+  );
+  const { data: identitiesPage } = useUsers(
+    { pageSize: 100 },
+    { enabled: input.kind === 'person' }
+  );
+
+  const pickerLabels = {
+    searchPlaceholder: t('automations.builder.searchPlaceholder'),
+    emptyText: t('automations.builder.noMatches'),
+  };
+
+  const control = () => {
+    switch (input.kind) {
+      case 'destinations':
+        return (
+          <DestinationsField
+            label={label}
+            labelledBy={labelId}
+            value={Array.isArray(value) ? value.map(String) : []}
+            onChange={onChange}
+          />
+        );
+
+      case 'server': {
+        const options: ComboboxOption[] = [
+          { value: '', label: t('automations.bind.anyServer') },
+          ...servers.map((server) => ({ value: server.id, label: server.name })),
+        ];
+        return (
+          <Combobox
+            id={controlId}
+            value={typeof value === 'string' ? value : ''}
+            options={options}
+            onChange={onChange}
+            placeholder={t('automations.bind.anyServer')}
+            {...pickerLabels}
+          />
+        );
+      }
+
+      case 'account':
+        return (
+          <Combobox
+            id={controlId}
+            value={typeof value === 'string' ? value : null}
+            options={(accountsPage?.data ?? []).map((account) => ({
+              value: account.id,
+              label: account.identityName ?? account.username,
+            }))}
+            onChange={onChange}
+            placeholder={label}
+            {...pickerLabels}
+          />
+        );
+
+      case 'person':
+        return (
+          <Combobox
+            id={controlId}
+            value={typeof value === 'string' ? value : null}
+            options={(identitiesPage?.data ?? []).map((identity) => ({
+              value: identity.userId,
+              label: identity.identityName ?? identity.username,
+            }))}
+            onChange={onChange}
+            placeholder={label}
+            {...pickerLabels}
+          />
+        );
+
+      case 'field_value': {
+        const descriptor = fieldDescriptor(input.field);
+        if (!descriptor) return null;
+        // The row the value lands in decides the control, so the picker matches the builder's.
+        const condition = {
+          field: input.field,
+          operator: descriptor.valueType === 'multiSelect' ? 'in' : 'eq',
+          value: (value ?? []) as Condition['value'],
+        } satisfies Condition;
+        const view = conditionValueView(t, condition, descriptor, { filterOptions, unitSystem });
+        return (
+          <FieldControl
+            id={controlId}
+            aria-labelledby={labelId}
+            spec={view.spec}
+            value={view.value}
+            onChange={(next) => onChange(view.toStored(next))}
+          />
+        );
+      }
+
+      case 'duration':
+        return (
+          <div className="flex items-center gap-2">
+            <NumericInput
+              id={controlId}
+              className="max-w-24"
+              min={input.min}
+              max={input.max}
+              value={typeof value === 'number' ? value : (input.default ?? input.min ?? 1)}
+              onChange={onChange}
+            />
+            <span className="text-muted-foreground text-sm">
+              {t(`automations.units.${input.unit}`)}
+            </span>
+          </div>
+        );
+
+      case 'number':
+        return (
+          <div className="flex items-center gap-2">
+            <NumericInput
+              id={controlId}
+              className="max-w-24"
+              min={input.min}
+              max={input.max}
+              step={input.step}
+              value={typeof value === 'number' ? value : (input.default ?? input.min ?? 0)}
+              onChange={onChange}
+            />
+            {input.unit && <span className="text-muted-foreground text-sm">{input.unit}</span>}
+          </div>
+        );
+
+      case 'boolean':
+        return (
+          <Switch
+            id={controlId}
+            checked={value === true}
+            onCheckedChange={onChange}
+            aria-labelledby={labelId}
+          />
+        );
+
+      case 'select': {
+        const options = input.options.map((option) => ({
+          value: option.value,
+          label: option.label,
+        }));
+        if (input.multiple) {
+          return (
+            <MultiSelect
+              id={controlId}
+              aria-labelledby={labelId}
+              options={options}
+              value={Array.isArray(value) ? value.map(String) : []}
+              onChange={onChange}
+              placeholder={label}
+              searchPlaceholder={pickerLabels.searchPlaceholder}
+              emptyMessage={pickerLabels.emptyText}
+              clearLabel={t('automations.builder.clearSelection')}
+              countLabel={(count) => t('automations.builder.selectedCount', { count })}
+            />
+          );
+        }
+        return (
+          <Select value={typeof value === 'string' ? value : ''} onValueChange={onChange}>
+            <SelectTrigger id={controlId} aria-labelledby={labelId}>
+              <SelectValue placeholder={label} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      }
+
+      case 'text': {
+        const text = typeof value === 'string' ? value : '';
+        const props = {
+          id: controlId,
+          maxLength: input.maxLength,
+          value: text,
+          onChange: (event: { target: { value: string } }) => onChange(event.target.value),
+        };
+        return (input.maxLength ?? 0) > TEXTAREA_OVER ? (
+          <Textarea {...props} />
+        ) : (
+          <Input {...props} />
+        );
+      }
+    }
+  };
+
+  const description =
+    input.description ?? (input.kind === 'server' ? t('automations.bind.serverHelper') : undefined);
+
+  if (input.kind === 'boolean') {
+    return (
+      <Field orientation="horizontal">
+        {control()}
+        <FieldContent>
+          <FieldLabel id={labelId} htmlFor={controlId}>
+            {label}
+          </FieldLabel>
+          {description && <FieldDescription>{description}</FieldDescription>}
+        </FieldContent>
+      </Field>
+    );
+  }
+
+  return (
+    <Field data-invalid={invalid || undefined}>
+      <FieldLabel id={labelId} htmlFor={controlId}>
+        {label}
+      </FieldLabel>
+      {control()}
+      {description && <FieldDescription>{description}</FieldDescription>}
+      {invalid && <FieldError>{t('automations.bind.required')}</FieldError>}
+    </Field>
+  );
+}

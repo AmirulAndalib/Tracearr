@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MessageSquareQuote } from 'lucide-react';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { nodeDomId, type BuilderDispatch } from './builderReducer';
 import { RowIssues } from './RowActions';
+import { SentencePanel } from './SentencePanel';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
 
 interface SummaryCardProps {
@@ -37,13 +37,7 @@ export function SummaryCard({ name, issues, sentence, liveCheck, dispatch }: Sum
         <RowIssues issues={nameIssues} />
       </Field>
 
-      <div className="border-l-primary/55 bg-muted/35 mt-4 rounded-lg border border-l-2 p-4">
-        <h2 className="text-muted-foreground mb-2 flex items-center gap-1.5 text-xs font-medium">
-          <MessageSquareQuote className="size-3.5" />
-          {t('automations.builder.sentence.label')}
-        </h2>
-        {sentence}
-      </div>
+      <SentencePanel className="mt-4">{sentence}</SentencePanel>
 
       {liveCheck}
     </div>

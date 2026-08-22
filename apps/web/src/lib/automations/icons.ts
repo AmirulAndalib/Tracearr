@@ -68,18 +68,41 @@ const ACTION_ICONS = {
   if: Split,
 } as const satisfies Record<ActionType, LucideIcon>;
 
+/** Two triggers a reader scans for by what they are rather than by their group. */
+const TRIGGER_ICONS: Partial<Record<TriggerType, LucideIcon>> = {
+  'session.held_for': Pause,
+  'account.inactive_for': UserRound,
+};
+
+function iconForTrigger(type: TriggerType): LucideIcon {
+  return TRIGGER_ICONS[type] ?? TRIGGER_GROUP_ICONS[TRIGGERS[type].group];
+}
+
 /** Triggers share an icon per group: the group is what a reader scans for. */
 export function triggerIcon(type: TriggerType): ReactElement {
-  return createElement(TRIGGER_GROUP_ICONS[TRIGGERS[type].group], { className: 'size-4' });
+  return createElement(iconForTrigger(type), { className: 'size-4' });
 }
 
 export function actionIcon(type: ActionType, className = 'size-4'): ReactElement {
   return createElement(ACTION_ICONS[type], { className });
 }
 
+function iconForConditions(definition: DescribableDefinition): LucideIcon | undefined {
+  const field = definition.conditions?.groups[0]?.conditions[0]?.field;
+  return field ? CONDITION_FIELD_ICONS[field] : undefined;
+}
+
 /** Built with createElement so this stays a plain module and callers stay one expression. */
 export function automationIcon(automation: DescribableDefinition): ReactElement {
-  const field = automation.conditions?.groups[0]?.conditions[0]?.field;
-  const icon = (field && CONDITION_FIELD_ICONS[field]) || Settings2;
-  return createElement(icon, { className: 'h-5 w-5' });
+  return createElement(iconForConditions(automation) ?? Settings2, { className: 'h-5 w-5' });
+}
+
+/** A template row: what its first check looks at, or failing that what starts it. */
+export function templateIcon(
+  definition: DescribableDefinition,
+  className = 'size-4'
+): ReactElement {
+  const trigger = definition.triggers?.find((node) => node.enabled !== false)?.type;
+  const icon = iconForConditions(definition) ?? (trigger ? iconForTrigger(trigger) : Settings2);
+  return createElement(icon, { className });
 }

@@ -9,3 +9,4 @@ export * from './describe';
 export * from './icons';
 export * from './catalog';
 export * from './conditionReach';
+export * from './describeTemplate';

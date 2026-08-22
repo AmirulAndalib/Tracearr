@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TRIGGERS } from '@tracearr/shared';
 import type { AutomationConditions, TriggerNode } from '@tracearr/shared';
 
 const mockWarn = vi.fn();
@@ -12,6 +13,7 @@ vi.mock('../../../utils/logger.js', () => ({
 }));
 
 import { carryTriggerIds, synthesizeTriggers } from '../triggers.js';
+import { MEDIA_QUALITY_FIELDS } from '../types.js';
 
 beforeEach(() => {
   mockWarn.mockClear();
@@ -213,5 +215,18 @@ describe('carryTriggerIds', () => {
     const ids = next.map((node) => node.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(heldFor(next)[0]?.id).toBe(heldFor(existing)[0]?.id);
+  });
+});
+
+/** Two catalogs name the same six columns; a field added to one has to reach the other. */
+describe('media quality catalogs', () => {
+  it('offers a from and a to variable for every quality field the payload carries', () => {
+    const named = (side: 'from' | 'to'): string[] =>
+      TRIGGERS['media.upgraded'].variables
+        .filter((variable) => variable.startsWith(`media.${side}.`))
+        .map((variable) => variable.slice(`media.${side}.`.length));
+
+    expect(named('from')).toEqual([...MEDIA_QUALITY_FIELDS]);
+    expect(named('to')).toEqual([...MEDIA_QUALITY_FIELDS]);
   });
 });
