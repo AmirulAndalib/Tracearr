@@ -10,7 +10,7 @@
     {
       "key": "km",
       "kind": "number",
-      "label": "Distance in km",
+      "label": "Distance apart",
       "required": false,
       "default": 100,
       "min": 0
@@ -53,5 +53,5 @@
     },
     "scope": {}
   },
-  "fingerprint": "08755918704a556b47f7badf7b246092195b96b0f7f8db881e275c8d650e11da"
+  "fingerprint": "c16f66227085a9bc13a1905a95d78eb80da804c3291eab354c9adf9e0e7de75b"
 }

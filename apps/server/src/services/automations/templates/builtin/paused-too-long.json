@@ -11,7 +11,7 @@
       "key": "minutes",
       "kind": "duration",
       "unit": "minutes",
-      "label": "Minutes paused",
+      "label": "Paused for",
       "required": false,
       "default": 30,
       "min": 1,
@@ -66,5 +66,5 @@
       }
     }
   },
-  "fingerprint": "baa536d7d33ce45365879585fbee19b3171fd99e6180481996925eb7f2bc441b"
+  "fingerprint": "a461c9d4cc823276c245aa4e0c14d170731a8ea5c30b845919d9e1734e4cb21d"
 }

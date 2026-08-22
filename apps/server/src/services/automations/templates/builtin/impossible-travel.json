@@ -10,7 +10,7 @@
     {
       "key": "kmh",
       "kind": "number",
-      "label": "Top speed in km/h",
+      "label": "Top speed",
       "required": false,
       "default": 500,
       "min": 0
@@ -53,5 +53,5 @@
     },
     "scope": {}
   },
-  "fingerprint": "25bf74da14575af5c6ccc34a4f8c6f1cac73922c6cd7d983796f66ab327c1e80"
+  "fingerprint": "8f5e6e23d061a3a3ec73d4ec9c46281b71b640a8197dd806fd675f76b6a5ca0c"
 }

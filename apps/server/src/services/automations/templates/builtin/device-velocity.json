@@ -20,7 +20,7 @@
       "key": "hours",
       "kind": "duration",
       "unit": "hours",
-      "label": "Window",
+      "label": "Within",
       "required": false,
       "default": 24,
       "min": 1,
@@ -66,5 +66,5 @@
     },
     "scope": {}
   },
-  "fingerprint": "a9ddd99499a64822b1d6a8a8a4c7a82c119ec414d79471e47720b32ead3569d7"
+  "fingerprint": "54b4dbc7eef5b64dedede6912f83ced335bc678d93731cceae873adaaa3876de"
 }

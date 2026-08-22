@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { NumericInput } from '@/components/ui/numeric-input';
 import {
   Select,
   SelectContent,
@@ -182,19 +181,18 @@ export function TemplateInputField({
 
       case 'duration':
         return (
-          <div className="flex items-center gap-2">
-            <NumericInput
-              id={controlId}
-              className="max-w-24"
-              min={input.min}
-              max={input.max}
-              value={typeof value === 'number' ? value : (input.default ?? input.min ?? 1)}
-              onChange={onChange}
-            />
-            <span className="text-muted-foreground text-sm">
-              {t(`automations.units.${input.unit}`)}
-            </span>
-          </div>
+          <FieldControl
+            id={controlId}
+            aria-labelledby={labelId}
+            spec={{
+              kind: 'number',
+              min: input.min,
+              max: input.max,
+              unit: t(`automations.units.${input.unit}`),
+            }}
+            value={typeof value === 'number' ? value : (input.default ?? input.min ?? 1)}
+            onChange={onChange}
+          />
         );
 
       case 'number': {
@@ -211,18 +209,19 @@ export function TemplateInputField({
           );
         }
         return (
-          <div className="flex items-center gap-2">
-            <NumericInput
-              id={controlId}
-              className="max-w-24"
-              min={input.min}
-              max={input.max}
-              step={input.step}
-              value={typeof value === 'number' ? value : (input.default ?? input.min ?? 0)}
-              onChange={onChange}
-            />
-            {input.unit && <span className="text-muted-foreground text-sm">{input.unit}</span>}
-          </div>
+          <FieldControl
+            id={controlId}
+            aria-labelledby={labelId}
+            spec={{
+              kind: 'number',
+              min: input.min,
+              max: input.max,
+              step: input.step,
+              unit: input.unit,
+            }}
+            value={typeof value === 'number' ? value : (input.default ?? input.min ?? 0)}
+            onChange={onChange}
+          />
         );
       }
 

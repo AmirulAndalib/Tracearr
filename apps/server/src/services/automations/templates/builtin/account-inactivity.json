@@ -11,7 +11,7 @@
       "key": "days",
       "kind": "duration",
       "unit": "days",
-      "label": "Days idle",
+      "label": "Idle for",
       "required": false,
       "default": 30,
       "min": 1,
@@ -41,5 +41,5 @@
     },
     "scope": {}
   },
-  "fingerprint": "662b90de4b8dd363c9e1aa440a08a5d599227747880e2e83a332e72c4fe65766"
+  "fingerprint": "cba06098a0f5b10fe21f60bb30e06d6dd0411a28d1d37ac94fc639975b7de6a9"
 }

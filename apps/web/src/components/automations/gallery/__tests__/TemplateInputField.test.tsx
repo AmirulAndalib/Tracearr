@@ -21,10 +21,20 @@ const serverInput: TemplateInput = {
   required: false,
 };
 
-function renderField(onFocusInput: (key: string | null) => void) {
+const pausedInput: TemplateInput = {
+  key: 'minutes',
+  kind: 'duration',
+  unit: 'minutes',
+  label: 'Paused for',
+  required: false,
+  default: 30,
+  min: 1,
+};
+
+function renderField(onFocusInput: (key: string | null) => void, input = serverInput) {
   render(
     <TemplateInputField
-      input={serverInput}
+      input={input}
       definition={STREAM_STARTED.version.definition}
       value=""
       onChange={() => undefined}
@@ -60,5 +70,16 @@ describe('TemplateInputField focus', () => {
     await user.tab();
 
     expect(onFocusInput).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe('TemplateInputField units', () => {
+  it('puts the unit in the control, so the label does not have to carry it', () => {
+    renderField(vi.fn(), pausedInput);
+
+    const control = screen.getByRole('textbox');
+    expect(control).toHaveValue('30');
+    expect(control.closest('[data-slot="input-group"]')).toHaveTextContent('minutes');
+    expect(screen.getByText('Paused for')).toBeInTheDocument();
   });
 });

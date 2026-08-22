@@ -1,6 +1,12 @@
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import {
+  INPUT_GROUP_CONTROL,
+  INPUT_GROUP_UNIT,
+  InputGroup,
+  InputGroupAddon,
+} from '@/components/ui/input-group';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -60,13 +66,16 @@ export function FieldControl({
     }
 
     case 'number':
-      // Field forces direct children to w-full, so the cap belongs on the input.
+      // The unit sits in the control, so it converts with the reader's unit system
+      // instead of sitting beside a label that cannot. Field forces direct children
+      // to w-full, so the cap belongs on the group.
       return (
-        <div className={cn('flex items-center gap-2', className)}>
+        <InputGroup className={cn(spec.unit ? 'max-w-44' : 'max-w-24', className)}>
           <NumericInput
             id={id}
             aria-label={ariaLabel}
-            className="max-w-24"
+            data-slot="input-group-control"
+            className="rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
             min={spec.min}
             max={spec.max}
             step={spec.step}
@@ -74,11 +83,11 @@ export function FieldControl({
             onChange={onChange}
           />
           {spec.unit && (
-            <span className="text-muted-foreground shrink-0 text-sm whitespace-nowrap">
+            <InputGroupAddon align="inline-end" className={INPUT_GROUP_UNIT}>
               {spec.unit}
-            </span>
+            </InputGroupAddon>
           )}
-        </div>
+        </InputGroup>
       );
 
     case 'slider': {
