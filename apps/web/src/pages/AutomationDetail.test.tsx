@@ -8,6 +8,7 @@ import type {
   AutomationRun,
   AutomationRunSummary,
   AutomationTemplateRef,
+  RunCounts,
 } from '@tracearr/shared';
 import { CONCURRENT_STREAMS } from '@/components/automations/gallery/__tests__/fixtures';
 import { AutomationDetail } from './AutomationDetail';
@@ -47,6 +48,7 @@ vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined 
 vi.mock('@/hooks/queries/useRuns', () => ({
   useAutomationRuns: vi.fn(),
   useAutomationEvaluations: vi.fn(),
+  useRunCounts: vi.fn(),
   useRun: vi.fn(),
 }));
 
@@ -59,7 +61,12 @@ vi.mock('@/hooks/useServer', () => ({
 }));
 
 import { useAutomation, useTemplate, useTemplateVersion } from '@/hooks/queries';
-import { useAutomationEvaluations, useAutomationRuns, useRun } from '@/hooks/queries/useRuns';
+import {
+  useAutomationEvaluations,
+  useAutomationRuns,
+  useRun,
+  useRunCounts,
+} from '@/hooks/queries/useRuns';
 
 const mockUseAutomation = vi.mocked(useAutomation);
 const mockUseTemplate = vi.mocked(useTemplate);
@@ -67,6 +74,7 @@ const mockUseTemplateVersion = vi.mocked(useTemplateVersion);
 const mockUseAutomationRuns = vi.mocked(useAutomationRuns);
 const mockUseAutomationEvaluations = vi.mocked(useAutomationEvaluations);
 const mockUseRun = vi.mocked(useRun);
+const mockUseRunCounts = vi.mocked(useRunCounts);
 
 function automation(overrides: Partial<Automation> = {}): Automation {
   return {
@@ -168,11 +176,21 @@ function renderDetail() {
   );
 }
 
-function setRuns(rows: AutomationRunSummary[]) {
+function setRuns(rows: AutomationRunSummary[], counts: Partial<RunCounts> = {}) {
   mockUseAutomationRuns.mockReturnValue({
     data: { data: rows, meta: { page: 1, pageSize: 20, total: rows.length } },
     isLoading: false,
   } as unknown as ReturnType<typeof useAutomationRuns>);
+  mockUseRunCounts.mockReturnValue({
+    data: {
+      completed: rows.length,
+      stopped_by_condition: 0,
+      error: 0,
+      total: rows.length,
+      lastRunAt: null,
+      ...counts,
+    },
+  } as unknown as ReturnType<typeof useRunCounts>);
 }
 
 beforeEach(() => {
@@ -441,11 +459,12 @@ describe('AutomationDetail activity', () => {
       pageSize: 20,
       outcome: 'completed',
     });
+    // Each tab carries its own count, so the label is the key plus a number.
     expect(screen.getAllByRole('radio').map((tab) => tab.textContent)).toEqual([
-      'pages:automations.activity.tabs.completed',
-      'pages:automations.activity.tabs.stopped_by_condition',
-      'pages:automations.activity.tabs.error',
-      'pages:automations.activity.tabs.all',
+      'pages:automations.activity.tabs.completed1',
+      'pages:automations.activity.tabs.stopped_by_condition0',
+      'pages:automations.activity.tabs.error0',
+      'pages:automations.activity.tabs.all1',
     ]);
   });
 
@@ -453,7 +472,7 @@ describe('AutomationDetail activity', () => {
     const user = userEvent.setup();
     renderDetail();
 
-    await user.click(screen.getByRole('radio', { name: 'pages:automations.activity.tabs.error' }));
+    await user.click(screen.getByRole('radio', { name: /activity\.tabs\.error/ }));
 
     expect(mockUseAutomationRuns).toHaveBeenLastCalledWith('a-1', {
       page: 1,

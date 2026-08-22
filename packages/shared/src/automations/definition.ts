@@ -228,17 +228,27 @@ export type AutomationListQuery = z.infer<typeof automationListQuerySchema>;
 export const RUN_SORT_FIELDS = ['startedAt', 'finishedAt', 'outcome'] as const;
 export type RunSortField = (typeof RUN_SORT_FIELDS)[number];
 
+/** What a page of runs and a count of them filter on, so neither can drift. */
+export const runCountsQuerySchema = z.object({
+  kind: z.enum(AUTOMATION_KINDS).optional(),
+  outcome: z.enum(RUN_OUTCOMES).optional(),
+  automationId: uuidSchema.optional(),
+  // Calendar days against the run's start, resolved to half-open UTC bounds.
+  startDate: listDateBoundSchema,
+  endDate: listDateBoundSchema,
+});
+export type RunCountsQuery = z.infer<typeof runCountsQuerySchema>;
+
 export const runListQuerySchema = paginationSchema
-  .extend({
-    kind: z.enum(AUTOMATION_KINDS).optional(),
-    outcome: z.enum(RUN_OUTCOMES).optional(),
-    automationId: uuidSchema.optional(),
-    // Calendar days against the run's start, resolved to half-open UTC bounds.
-    startDate: listDateBoundSchema,
-    endDate: listDateBoundSchema,
-  })
+  .extend(runCountsQuerySchema.shape)
   .extend(listSortSchema(RUN_SORT_FIELDS).shape);
 export type RunListQuery = z.infer<typeof runListQuerySchema>;
+
+/** How many runs each outcome holds, plus the newest run that did something. */
+export type RunCounts = Record<RunOutcome, number> & {
+  total: number;
+  lastRunAt: string | null;
+};
 
 export const NEAR_MISS_REASONS = [
   'cooldown_active',

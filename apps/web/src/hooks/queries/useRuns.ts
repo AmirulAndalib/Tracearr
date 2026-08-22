@@ -21,6 +21,15 @@ export function useAutomationRuns(automationId: string | undefined, params: RunL
   });
 }
 
+/** The outcome tallies behind the Activity tabs, under the same automation filter. */
+export function useRunCounts(automationId: string | undefined) {
+  return useQuery({
+    queryKey: [...automationRunsKey(automationId ?? ''), 'counts'],
+    queryFn: () => api.runs.counts({ automationId }),
+    enabled: automationId !== undefined,
+  });
+}
+
 export function useAutomationEvaluations(automationId: string | undefined) {
   return useQuery({
     queryKey: [...RUNS_KEY, 'evaluations', automationId],

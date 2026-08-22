@@ -4,9 +4,10 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { and, count, eq, gte, lt, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, gte, lt, max, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  runCountsQuerySchema,
   runListQuerySchema,
   uuidSchema,
   type AuthUser,
@@ -14,6 +15,7 @@ import {
   type AutomationRunSummary,
   type GroupEvidence,
   type ListResponse,
+  type RunCounts,
   type RunListQuery,
   type RunSessionContext,
   type RunSortField,
@@ -270,7 +272,50 @@ export function runFilterConditions(filters: RunFilters): SQL[] {
   return conditions;
 }
 
+/** Every outcome at zero, so a tab that has never happened still says so. */
+function emptyCounts(): RunCounts {
+  return { completed: 0, stopped_by_condition: 0, error: 0, total: 0, lastRunAt: null };
+}
+
 export const runRoutes: FastifyPluginAsync = async (app) => {
+  /**
+   * GET /runs/counts - How many runs each outcome holds, under the same filters
+   */
+  app.get('/counts', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const query = runCountsQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.badRequest('Invalid query parameters');
+    }
+
+    const access = runAccessCondition(request.user);
+    if (access.empty) return emptyCounts();
+
+    const conditions = runFilterConditions(query.data);
+    if (access.condition) conditions.push(access.condition);
+
+    const rows = await withRunJoins(
+      db
+        .select({
+          outcome: automationRuns.outcome,
+          total: count(),
+          newest: max(automationRuns.startedAt),
+        })
+        .from(automationRuns)
+        .$dynamic()
+    )
+      .where(and(...conditions))
+      .groupBy(automationRuns.outcome);
+
+    const counts = emptyCounts();
+    for (const row of rows) {
+      counts[row.outcome] = row.total;
+      counts.total += row.total;
+      // The header's run line means the last run that did something, not the last check.
+      if (row.outcome === 'completed') counts.lastRunAt = row.newest?.toISOString() ?? null;
+    }
+    return counts;
+  });
+
   /**
    * GET /runs - Every automation's runs, newest first
    */

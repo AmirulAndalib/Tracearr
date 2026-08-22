@@ -408,6 +408,75 @@ describe('Run routes', () => {
     });
   });
 
+  describe('GET /runs/counts', () => {
+    it('groups the outcomes and names the newest run that did something', async () => {
+      app = await buildTestApp(ownerUser);
+      vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+        queryChain(vi.fn, [
+          { outcome: 'completed', total: 12, newest: new Date('2026-08-20T10:00:00.000Z') },
+          {
+            outcome: 'stopped_by_condition',
+            total: 340,
+            newest: new Date('2026-08-21T09:00:00.000Z'),
+          },
+        ])
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/runs/counts' });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        completed: 12,
+        stopped_by_condition: 340,
+        error: 0,
+        total: 352,
+        lastRunAt: '2026-08-20T10:00:00.000Z',
+      });
+    });
+
+    it("takes the same filters as the page, and the caller's own servers", async () => {
+      app = await buildTestApp(viewerUser);
+      const chain = queryChain(vi.fn, []);
+      vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(chain);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/runs/counts?automationId=${AUTOMATION_ID}&startDate=2026-08-01`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const where = renderCall(chain);
+      expect(where.text).toContain('automation_runs.rule_id = ');
+      expect(where.text).toContain('automation_runs.started_at >= ');
+      expect(where.text).toContain('automation_runs.server_id = ');
+      expect(where.params).toContain('srv-1');
+      expect(renderedJoins(chain)).toEqual(['automation_runs.rule_id = automations.id']);
+    });
+
+    it('answers zeros for a caller with no servers, without querying', async () => {
+      app = await buildTestApp(strandedViewer);
+
+      const response = await app.inject({ method: 'GET', url: '/runs/counts' });
+
+      expect(response.json()).toEqual({
+        completed: 0,
+        stopped_by_condition: 0,
+        error: 0,
+        total: 0,
+        lastRunAt: null,
+      });
+      expect(db.select).not.toHaveBeenCalled();
+    });
+
+    it('400s on a filter it does not take', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const response = await app.inject({ method: 'GET', url: '/runs/counts?outcome=nope' });
+
+      expect(response.statusCode).toBe(400);
+    });
+  });
+
   describe('GET /runs/:id', () => {
     it('carries the step log and the version the run evaluated', async () => {
       app = await buildTestApp(ownerUser);

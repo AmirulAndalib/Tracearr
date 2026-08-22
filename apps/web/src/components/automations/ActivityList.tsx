@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/data-table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
-import { useAutomationRuns } from '@/hooks/queries/useRuns';
+import { useAutomationRuns, useRunCounts } from '@/hooks/queries/useRuns';
 import { runWhere, runWho } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
@@ -60,8 +60,11 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
     pageSize: PAGE_SIZE,
     outcome: tab === 'all' ? undefined : tab,
   });
+  const { data: counts } = useRunCounts(automationId);
   const rows = data?.data;
   const pageCount = data ? listPageCount(data.meta) : 1;
+  // A Ran tab with nothing in it means something different once other outcomes exist.
+  const onlyNonMatches = tab === 'completed' && counts !== undefined && counts.total > 0;
 
   const columns = useMemo(
     () =>
@@ -161,6 +164,11 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
         {OUTCOME_TABS.map((value) => (
           <ToggleGroupItem key={value} value={value} className={SELECTED_TOGGLE}>
             {t(`pages:automations.activity.tabs.${value}`)}
+            {counts && (
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {value === 'all' ? counts.total : counts[value]}
+              </span>
+            )}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -177,8 +185,18 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
               <DataTableEmpty
                 table={table}
                 icon={Activity}
-                title={t('pages:automations.activity.empty')}
-                description={t('pages:automations.activity.emptyDescription')}
+                title={t(
+                  onlyNonMatches
+                    ? 'pages:automations.activity.emptyRan'
+                    : 'pages:automations.activity.empty'
+                )}
+                description={
+                  onlyNonMatches
+                    ? t('pages:automations.activity.emptyRanDescription', {
+                        count: counts.stopped_by_condition,
+                      })
+                    : t('pages:automations.activity.emptyDescription')
+                }
               />
             }
           />

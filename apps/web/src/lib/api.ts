@@ -18,6 +18,7 @@ import type {
   DryRunRequest,
   DryRunResponse,
   NearMissEntry,
+  RunCounts,
   RunListQuery,
   RunSortField,
   UpdateAutomationInput,
@@ -214,10 +215,13 @@ export interface InstantiateTemplateInput {
   isActive?: boolean;
 }
 
-/** Run query params: the server's own filter schema plus paging and sort. */
-export type RunListParams = Partial<
+/** What both run reads filter on. */
+export type RunFilterParams = Partial<
   Pick<RunListQuery, 'kind' | 'outcome' | 'automationId' | 'startDate' | 'endDate'>
-> & {
+>;
+
+/** Run query params: the server's own filter schema plus paging and sort. */
+export type RunListParams = RunFilterParams & {
   page?: number;
   pageSize?: number;
   orderBy?: RunSortField;
@@ -1005,6 +1009,9 @@ class ApiClient {
       this.request<ListResponse<AutomationRunSummary>>(
         `/automations/${automationId}/runs?${listSearchParams(params)}`
       ),
+    /** How many runs each outcome holds, for the Activity tabs. */
+    counts: (params: RunFilterParams = {}) =>
+      this.request<RunCounts>(`/runs/counts?${listSearchParams(params)}`),
     /** The capped near-miss ring, newest first. */
     evaluations: (automationId: string) =>
       this.request<{ data: NearMissEntry[] }>(`/automations/${automationId}/evaluations`),

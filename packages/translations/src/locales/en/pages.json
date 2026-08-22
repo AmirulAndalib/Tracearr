@@ -397,7 +397,7 @@
     },
     "activity": {
       "title": "Activity",
-      "description": "Every evaluation that reached a run, newest first.",
+      "description": "What this automation did, newest first. Runs are kept for {{days}} days.",
       "outcome": "Outcome",
       "who": "Who",
       "where": "Where",
@@ -408,12 +408,12 @@
       "finished": "Finished",
       "noSummary": "No notes",
       "outcomes": {
-        "completed": "Completed",
-        "stopped_by_condition": "Stopped by a condition",
-        "error": "Error"
+        "completed": "Ran",
+        "stopped_by_condition": "No match",
+        "error": "Failed"
       },
       "empty": "No runs yet",
-      "emptyDescription": "Runs show up here once a trigger matches this automation.",
+      "emptyDescription": "Runs are listed here once a trigger matches.",
       "runTitle": "Run",
       "runLoading": "Loading the run",
       "triggeredBy": "Triggered by {{trigger}}",
@@ -421,7 +421,7 @@
       "tabs": {
         "all": "All",
         "completed": "Ran",
-        "stopped_by_condition": "Stopped",
+        "stopped_by_condition": "No match",
         "error": "Failed"
       },
       "group": "Group {{number}}",
@@ -431,7 +431,10 @@
       },
       "whyBranch": "What it read",
       "openInEditor": "Open in the builder with this run",
-      "tabsLabel": "Filter by outcome"
+      "tabsLabel": "Filter by outcome",
+      "emptyRan": "Nothing has matched yet",
+      "emptyRanDescription_one": "{{count}} check ran and did not match.",
+      "emptyRanDescription_other": "{{count}} checks ran and did not match."
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",

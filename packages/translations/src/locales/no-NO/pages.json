@@ -87,9 +87,9 @@
         "else": "Took the second branch",
         "then": "Took the first branch"
       },
-      "description": "Every evaluation that reached a run, newest first.",
+      "description": "What this automation did, newest first. Runs are kept for {{days}} days.",
       "empty": "No runs yet",
-      "emptyDescription": "Runs show up here once a trigger matches this automation.",
+      "emptyDescription": "Runs are listed here once a trigger matches.",
       "finished": "Finished",
       "from": "From",
       "group": "Group {{number}}",
@@ -97,9 +97,9 @@
       "openInEditor": "Open in the builder with this run",
       "outcome": "Outcome",
       "outcomes": {
-        "completed": "Completed",
-        "error": "Error",
-        "stopped_by_condition": "Stopped by a condition"
+        "completed": "Ran",
+        "error": "Failed",
+        "stopped_by_condition": "No match"
       },
       "playing": "Playing",
       "runLoading": "Loading the run",
@@ -110,7 +110,7 @@
         "all": "All",
         "completed": "Ran",
         "error": "Failed",
-        "stopped_by_condition": "Stopped"
+        "stopped_by_condition": "No match"
       },
       "tabsLabel": "Filter by outcome",
       "title": "Activity",
@@ -118,7 +118,10 @@
       "unknownStep": "Unrecognized step",
       "where": "Where",
       "who": "Who",
-      "whyBranch": "What it read"
+      "whyBranch": "What it read",
+      "emptyRan": "Nothing has matched yet",
+      "emptyRanDescription_one": "{{count}} check ran and did not match.",
+      "emptyRanDescription_other": "{{count}} checks ran and did not match."
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",

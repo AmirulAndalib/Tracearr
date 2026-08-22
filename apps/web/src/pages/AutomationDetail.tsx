@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Pencil, Share2 } from 'lucide-react';
-import type { AutomationKind } from '@tracearr/shared';
+import { RETENTION_DEFAULTS, type AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -138,7 +138,11 @@ export function AutomationDetail() {
       <Card>
         <CardHeader>
           <CardTitle>{t('pages:automations.activity.title')}</CardTitle>
-          <CardDescription>{t('pages:automations.activity.description')}</CardDescription>
+          <CardDescription>
+            {t('pages:automations.activity.description', {
+              days: automation.retentionDays ?? RETENTION_DEFAULTS[automation.kind],
+            })}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ActivityList
