@@ -38,6 +38,9 @@ function splitSynonyms(value: string): string[] {
     .filter((word) => word.length > 0);
 }
 
+/** A trigger a stored run names that this build still knows about. */
+export const isKnownTrigger = (type: string): type is TriggerType => type in TRIGGERS;
+
 /**
  * Most triggers read in a picker exactly as they read in the sentence, so the label
  * is that clause capitalised. The two that carry a threshold name themselves.

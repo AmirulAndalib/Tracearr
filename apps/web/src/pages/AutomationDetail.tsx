@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Pencil, Scissors } from 'lucide-react';
+import { ArrowLeft, Pencil, PencilRuler } from 'lucide-react';
 import type { AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -116,7 +116,7 @@ export function AutomationDetail() {
           />
           {template ? (
             <Button variant="outline" onClick={() => setCustomizeOpen(true)}>
-              <Scissors />
+              <PencilRuler />
               {t('pages:automations.template.customize')}
             </Button>
           ) : (
@@ -181,6 +181,7 @@ export function AutomationDetail() {
 
       <RunDetail
         runId={selectedRunId}
+        canReplay={template === null}
         onOpenChange={(open) => {
           if (!open) setSelectedRunId(null);
         }}
@@ -189,7 +190,7 @@ export function AutomationDetail() {
       <ConfirmDialog
         open={customizeOpen}
         onOpenChange={setCustomizeOpen}
-        title={t('pages:automations.template.customize')}
+        title={t('pages:automations.template.customizeTitle')}
         description={t('pages:automations.template.customizeConfirm')}
         confirmLabel={t('pages:automations.template.customizeConfirmAction')}
         onConfirm={customize}

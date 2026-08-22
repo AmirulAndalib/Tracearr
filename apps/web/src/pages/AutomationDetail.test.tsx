@@ -110,8 +110,8 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
     subjectKey: 'sess-1',
     subject: {
       kind: 'session',
-      name: 'ada@plex',
-      personName: 'Ada',
+      name: 'grace@plex',
+      personName: 'Grace',
       serverName: 'Basement',
       libraryName: null,
       mediaType: null,
@@ -267,7 +267,9 @@ describe('AutomationDetail template binding', () => {
     renderDetail();
     await user.clear(screen.getByLabelText('Streams allowed'));
     await user.type(screen.getByLabelText('Streams allowed'), '6');
-    await user.click(templateCard().getByRole('button', { name: 'common:actions.save' }));
+    await user.click(
+      templateCard().getByRole('button', { name: 'pages:automations.template.save' })
+    );
 
     expect(rebindMutate).toHaveBeenCalledWith({ id: 'a-1', inputs: { max: 6 } });
     expect(upgradeMutate).not.toHaveBeenCalled();
@@ -348,6 +350,55 @@ describe('AutomationDetail activity', () => {
     expect(screen.getByText('pages:automations.activity.empty')).toBeInTheDocument();
   });
 
+  it('names who each run was about and where it happened', () => {
+    setRuns([
+      run({ id: 'run-1' }),
+      run({
+        id: 'run-2',
+        subject: {
+          kind: 'media',
+          name: 'Dune',
+          personName: null,
+          serverName: 'Basement',
+          libraryName: 'Movies',
+          mediaType: 'movie',
+        },
+      }),
+      run({
+        id: 'run-3',
+        subject: {
+          kind: 'server',
+          name: null,
+          personName: null,
+          serverName: 'Basement',
+          libraryName: null,
+          mediaType: null,
+        },
+      }),
+    ]);
+
+    renderDetail();
+
+    expect(screen.getByText('Grace')).toBeInTheDocument();
+    expect(screen.getByText('Dune')).toBeInTheDocument();
+    expect(screen.getByText('Movies')).toBeInTheDocument();
+    // The server run is about no account, so its Who cell says nothing.
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  it('asks the API for one outcome when a tab is chosen', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'pages:automations.activity.tabs.error' }));
+
+    expect(mockUseAutomationRuns).toHaveBeenLastCalledWith('a-1', {
+      page: 1,
+      pageSize: 20,
+      outcome: 'error',
+    });
+  });
+
   it('opens the run sheet with its steps in order', async () => {
     const user = userEvent.setup();
     const detail: AutomationRun = {
@@ -374,6 +425,137 @@ describe('AutomationDetail activity', () => {
     expect(steps[0]).toHaveTextContent('edge-7');
     expect(steps[1]).toHaveTextContent('automations.actions.kill_stream.label');
     expect(steps[2]).toHaveTextContent('webhook refused');
+  });
+});
+
+describe('AutomationDetail run sheet', () => {
+  const detail = (overrides: Partial<AutomationRun> = {}): AutomationRun => ({
+    ...run(),
+    definitionVersionId: 'ver-1',
+    sessionId: 'sess-1',
+    steps: [{ trigger: { id: 'n1', type: 'session.started', edgeKey: null } }],
+    session: {
+      mediaTitle: 'System of a Down',
+      mediaType: 'episode',
+      grandparentTitle: 'The Bear',
+      player: 'Living Room TV',
+      device: 'Apple TV',
+      product: 'Plex for Apple TV',
+      platform: 'tvOS',
+      ipAddress: '10.0.0.9',
+      city: 'Boston',
+      country: 'United States',
+    },
+    evidence: [],
+    ...overrides,
+  });
+
+  async function openRun() {
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(screen.getByText('pages:automations.activity.outcomes.completed'));
+    return user;
+  }
+
+  it('opens on who it was about, what was playing and where from', async () => {
+    mockUseRun.mockReturnValue({ data: detail(), isLoading: false } as unknown as ReturnType<
+      typeof useRun
+    >);
+
+    await openRun();
+
+    expect(screen.getByText('The Bear — System of a Down')).toBeInTheDocument();
+    expect(
+      screen.getByText('Living Room TV · 10.0.0.9 · Boston, United States')
+    ).toBeInTheDocument();
+  });
+
+  it('says which conditions passed and what they read', async () => {
+    mockUseRun.mockReturnValue({
+      data: detail({
+        evidence: [
+          {
+            groupIndex: 0,
+            matched: false,
+            conditions: [
+              {
+                field: 'concurrent_streams',
+                operator: 'gt',
+                threshold: 2,
+                actual: 1,
+                matched: false,
+              },
+            ],
+          },
+        ],
+      }),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useRun>);
+
+    await openRun();
+
+    expect(
+      screen.getByText('automations.fields.concurrent_streams.label automations.operators.gt 2')
+    ).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.liveCheck.actual')).toBeInTheDocument();
+    expect(screen.getByText('automations.builder.liveCheck.notPassed')).toBeInTheDocument();
+  });
+
+  it('names the branch an if took', async () => {
+    mockUseRun.mockReturnValue({
+      data: detail({
+        steps: [
+          { trigger: { id: 'n1', type: 'session.started', edgeKey: null } },
+          { action: 'if', success: true, branch: 'else', matched: false, evidence: [] },
+          { action: 'send', success: false, message: 'webhook refused', path: 'n2.else.0' },
+        ],
+      }),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useRun>);
+
+    await openRun();
+
+    expect(screen.getByText('automations.activity.branch.else')).toBeInTheDocument();
+    expect(screen.getByText('webhook refused')).toBeInTheDocument();
+  });
+
+  it('replays a session run of a row that owns its steps', async () => {
+    mockUseRun.mockReturnValue({ data: detail(), isLoading: false } as unknown as ReturnType<
+      typeof useRun
+    >);
+
+    const user = await openRun();
+    await user.click(screen.getByRole('button', { name: 'automations.activity.openInEditor' }));
+
+    expect(screen.getByText('the builder page')).toBeInTheDocument();
+  });
+
+  it('offers no replay for a run that was never about a session', async () => {
+    mockUseRun.mockReturnValue({
+      data: detail({ sessionId: null, session: null }),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useRun>);
+
+    await openRun();
+
+    expect(
+      screen.queryByRole('button', { name: 'automations.activity.openInEditor' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers no replay while the row still follows a template', async () => {
+    setBound(templateRef());
+    mockUseRun.mockReturnValue({ data: detail(), isLoading: false } as unknown as ReturnType<
+      typeof useRun
+    >);
+
+    const user = userEvent.setup();
+    renderDetail();
+    await user.click(screen.getByText('pages:automations.activity.outcomes.completed'));
+
+    expect(
+      screen.queryByRole('button', { name: 'automations.activity.openInEditor' })
+    ).not.toBeInTheDocument();
   });
 });
 

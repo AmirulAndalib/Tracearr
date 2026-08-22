@@ -318,7 +318,7 @@ export function Automations() {
           },
         }),
       ]),
-    [t, servers, filterOptions, describeRefs, unitSystem, toggleAutomation]
+    [t, servers, describeRefs, unitSystem, toggleAutomation]
   );
 
   const selection = useMemo(

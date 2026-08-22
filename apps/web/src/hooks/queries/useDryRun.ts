@@ -9,6 +9,8 @@ const DEBOUNCE_MS = 400;
 interface DryRunOptions {
   /** False while the draft is unfinished or a save is in flight. */
   enabled: boolean;
+  /** One session to check against, replacing the ones playing now. */
+  sampleSessionId?: string;
 }
 
 /**
@@ -16,9 +18,16 @@ interface DryRunOptions {
  * A mutation rather than a query: the definition is the request body, and nothing
  * about the answer is worth keeping once the draft moves on.
  */
-export function useDryRun(definition: CreateAutomationInput, { enabled }: DryRunOptions) {
+export function useDryRun(
+  definition: CreateAutomationInput,
+  { enabled, sampleSessionId }: DryRunOptions
+) {
   const check = useMutation({
-    mutationFn: (input: CreateAutomationInput) => api.automations.dryRun({ definition: input }),
+    mutationFn: (input: CreateAutomationInput) =>
+      api.automations.dryRun({
+        definition: input,
+        ...(sampleSessionId ? { sample: { sessionId: sampleSessionId } } : {}),
+      }),
   });
 
   const { mutate, reset } = check;
@@ -40,7 +49,7 @@ export function useDryRun(definition: CreateAutomationInput, { enabled }: DryRun
     if (!enabled) return;
     const timer = window.setTimeout(() => mutate(latest.current), DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [key, enabled, mutate]);
+  }, [key, enabled, sampleSessionId, mutate]);
 
   return check;
 }

@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { initI18n } from '@tracearr/translations';
 import type { CreateAutomationInput, DryRunSample } from '@tracearr/shared';
 
@@ -67,8 +68,12 @@ function definition(overrides: Partial<CreateAutomationInput> = {}): CreateAutom
   };
 }
 
-function renderStrip(input = definition()) {
-  render(<LiveCheckStrip definition={input} ready paused={false} />);
+function renderStrip(input = definition(), route = '/automations/a-1/edit') {
+  render(
+    <MemoryRouter initialEntries={[route]}>
+      <LiveCheckStrip definition={input} ready paused={false} />
+    </MemoryRouter>
+  );
 }
 
 describe('LiveCheckStrip', () => {

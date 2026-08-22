@@ -43,24 +43,41 @@
       }
     },
     "activity": {
+      "branch": {
+        "else": "Took the second branch",
+        "then": "Took the first branch"
+      },
       "description": "Every evaluation that reached a run, newest first.",
       "empty": "No runs yet",
       "emptyDescription": "Runs show up here once a trigger matches this automation.",
       "finished": "Finished",
+      "from": "From",
+      "group": "Group {{number}}",
       "noSummary": "No notes",
+      "openInEditor": "Open in the editor with this run",
       "outcome": "Outcome",
       "outcomes": {
         "completed": "Completed",
         "error": "Error",
         "stopped_by_condition": "Stopped by a condition"
       },
+      "playing": "Playing",
       "runLoading": "Loading the run",
       "runTitle": "Run",
       "started": "Started",
       "summary": "Summary",
+      "tabs": {
+        "all": "All",
+        "completed": "Ran",
+        "error": "Failed",
+        "stopped_by_condition": "Stopped"
+      },
       "title": "Activity",
       "triggeredBy": "Triggered by {{trigger}}",
-      "unknownStep": "Unrecognized step"
+      "unknownStep": "Unrecognized step",
+      "where": "Where",
+      "who": "Who",
+      "whyBranch": "What it read"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
@@ -200,6 +217,8 @@
         "notPassed": "Did not pass",
         "passed": "Passed",
         "paused": "Paused while this saves",
+        "sampleGone": "That session is no longer on record; nothing to check against.",
+        "sampleTitle": "What this would do to that run",
         "title": "Right now on the servers",
         "unfinished": "Shows what this would do once the automation is complete."
       },
@@ -889,11 +908,13 @@
       "customize": "Customize",
       "customizeConfirm": "Customizing lets you edit every step yourself, and there is no way back: this automation stops following the ready-made one and will not pick up its updates.",
       "customizeConfirmAction": "Customize it",
-      "customizeFailed": "Couldn't customize that. Try again.",
+      "customizeFailed": "Could not open it in the builder.",
       "customizeFirst": "Customize this automation before editing its steps.",
+      "customizeTitle": "Make it yours?",
       "description": "The parts of this one that are yours. The rest comes from the ready-made automation it was built from.",
       "gone": "The ready-made automation this was built from is no longer on this server.",
       "review": "Review and update",
+      "save": "Save changes",
       "title": "What it applies to",
       "updateAvailable": "An update is available",
       "updatedBody": "Check the answers below, then update to pick up the new version.",

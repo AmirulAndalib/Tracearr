@@ -359,6 +359,10 @@
       "title": "Activity",
       "description": "Every evaluation that reached a run, newest first.",
       "outcome": "Outcome",
+      "who": "Who",
+      "where": "Where",
+      "playing": "Playing",
+      "from": "From",
       "summary": "Summary",
       "started": "Started",
       "finished": "Finished",
@@ -373,7 +377,20 @@
       "runTitle": "Run",
       "runLoading": "Loading the run",
       "triggeredBy": "Triggered by {{trigger}}",
-      "unknownStep": "Unrecognized step"
+      "unknownStep": "Unrecognized step",
+      "tabs": {
+        "all": "All",
+        "completed": "Ran",
+        "stopped_by_condition": "Stopped",
+        "error": "Failed"
+      },
+      "group": "Group {{number}}",
+      "branch": {
+        "then": "Took the first branch",
+        "else": "Took the second branch"
+      },
+      "whyBranch": "What it read",
+      "openInEditor": "Open in the editor with this run"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
@@ -575,7 +592,9 @@
         "notPassed": "Did not pass",
         "actual": "now {{value}}",
         "unfinished": "Shows what this would do once the automation is complete.",
-        "paused": "Paused while this saves"
+        "paused": "Paused while this saves",
+        "sampleTitle": "What this would do to that run",
+        "sampleGone": "That session is no longer on record; nothing to check against."
       }
     },
     "categories": {
@@ -1118,11 +1137,13 @@
       "updatedTitle": "The ready-made automation has moved on to v{{version}}",
       "updatedBody": "Check the answers below, then update to pick up the new version.",
       "review": "Review and update",
-      "customize": "Customize",
-      "customizeConfirm": "Customizing lets you edit every step yourself, and there is no way back: this automation stops following the ready-made one and will not pick up its updates.",
-      "customizeConfirmAction": "Customize it",
-      "customizeFirst": "Customize this automation before editing its steps.",
-      "customizeFailed": "Couldn't customize that. Try again.",
+      "save": "Save changes",
+      "customize": "Open in the builder",
+      "customizeTitle": "Make it yours?",
+      "customizeConfirm": "Opening it in the builder makes this automation yours to edit step by step. It stops following the ready-made one and will not pick up its updates, and there is no way back.",
+      "customizeConfirmAction": "Open in the builder",
+      "customizeFirst": "This one still follows a ready-made automation. Make it yours first.",
+      "customizeFailed": "Could not open it in the builder.",
       "upgradeFailed": "Couldn't update that. Try again.",
       "gone": "The ready-made automation this was built from is no longer on this server."
     },

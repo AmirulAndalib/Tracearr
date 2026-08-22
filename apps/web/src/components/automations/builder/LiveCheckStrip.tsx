@@ -1,16 +1,12 @@
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Radio, X } from 'lucide-react';
-import {
-  TRIGGERS,
-  type ConditionEvidence,
-  type CreateAutomationInput,
-  type DryRunSample,
-} from '@tracearr/shared';
+import { TRIGGERS, type CreateAutomationInput, type DryRunSample } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { useDryRun } from '@/hooks/queries/useDryRun';
-import { fieldLabel, operatorLabel, type Translate } from '@/lib/automations';
+import { conditionText, valueText, type Translate } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
 interface LiveCheckStripProps {
@@ -27,6 +23,7 @@ function statusOf(
   state: {
     active: boolean;
     ready: boolean;
+    replaying: boolean;
     check: { isPending: boolean; isError: boolean };
     samples: readonly unknown[];
   }
@@ -37,22 +34,15 @@ function statusOf(
       : t('automations.builder.liveCheck.unfinished');
   }
   if (state.check.isPending) return t('automations.builder.liveCheck.checking');
-  if (state.check.isError) return t('automations.builder.liveCheck.failed');
-  return state.samples.length === 0 ? t('automations.builder.liveCheck.empty') : null;
-}
-
-/** A threshold or a reading, as the reader would say it. */
-function valueText(t: Translate, value: unknown): string {
-  if (typeof value === 'boolean') {
-    return value ? t('automations.builder.conditions.yes') : t('automations.builder.conditions.no');
+  if (state.check.isError) {
+    return state.replaying
+      ? t('automations.builder.liveCheck.sampleGone')
+      : t('automations.builder.liveCheck.failed');
   }
-  if (Array.isArray(value)) return value.map((entry) => String(entry)).join(', ');
-  if (value === null || value === undefined) return '—';
-  return String(value);
-}
-
-function conditionText(t: Translate, evidence: ConditionEvidence): string {
-  return `${fieldLabel(t, evidence.field)} ${operatorLabel(t, evidence.operator)} ${valueText(t, evidence.threshold)}`;
+  if (state.samples.length > 0) return null;
+  return state.replaying
+    ? t('automations.builder.liveCheck.sampleGone')
+    : t('automations.builder.liveCheck.empty');
 }
 
 /**
@@ -61,24 +51,32 @@ function conditionText(t: Translate, evidence: ConditionEvidence): string {
  */
 export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProps) {
   const { t } = useTranslation('pages');
+  const [searchParams] = useSearchParams();
+
+  // A run opened in the editor names the session it ran against; without one the
+  // check reads whatever is playing.
+  const sampleSessionId = searchParams.get('sample') ?? undefined;
 
   const reachesSessions = definition.triggers.some(
     (trigger) => trigger.enabled && TRIGGERS[trigger.type].context === 'session'
   );
   const active = ready && !paused;
-  const check = useDryRun(definition, { enabled: active && reachesSessions });
+  const check = useDryRun(definition, { enabled: active && reachesSessions, sampleSessionId });
 
   if (!reachesSessions) return null;
 
   const samples = active ? (check.data?.samples ?? []) : [];
-  const status = statusOf(t, { active, ready, check, samples });
+  const replaying = sampleSessionId !== undefined;
+  const status = statusOf(t, { active, ready, replaying, check, samples });
 
   return (
     <div className="mt-4 space-y-2" aria-live="polite">
       <Separator className="mb-4" />
       <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
         <Radio className="size-3.5" />
-        {t('automations.builder.liveCheck.title')}
+        {replaying
+          ? t('automations.builder.liveCheck.sampleTitle')
+          : t('automations.builder.liveCheck.title')}
       </p>
 
       {status !== null && <p className="text-muted-foreground text-sm">{status}</p>}

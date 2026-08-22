@@ -16,8 +16,10 @@ import {
   DataTableViewport,
   useDataTable,
 } from '@/components/ui/data-table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { useAutomationRuns } from '@/hooks/queries/useRuns';
+import { runWhere, runWho } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 20;
@@ -31,6 +33,13 @@ const OUTCOME_DOT: Record<RunOutcome, string> = {
   error: 'bg-destructive',
 };
 
+/** The tabs are the outcome filter the API already takes, plus everything. */
+const OUTCOME_TABS = ['all', 'completed', 'stopped_by_condition', 'error'] as const;
+type OutcomeTab = (typeof OUTCOME_TABS)[number];
+
+const isOutcomeTab = (value: string): value is OutcomeTab =>
+  (OUTCOME_TABS as readonly string[]).includes(value);
+
 interface ActivityListProps {
   automationId: string;
   kind: AutomationKind;
@@ -40,8 +49,13 @@ interface ActivityListProps {
 export function ActivityList({ automationId, kind, onSelectRun }: ActivityListProps) {
   const { t } = useTranslation(['pages', 'common']);
   const [page, setPage] = useState(1);
+  const [tab, setTab] = useState<OutcomeTab>('all');
 
-  const { data, isLoading } = useAutomationRuns(automationId, { page, pageSize: PAGE_SIZE });
+  const { data, isLoading } = useAutomationRuns(automationId, {
+    page,
+    pageSize: PAGE_SIZE,
+    outcome: tab === 'all' ? undefined : tab,
+  });
   const rows = data?.data;
   const pageCount = data ? listPageCount(data.meta) : 1;
 
@@ -61,6 +75,16 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
               </Badge>
             </span>
           ),
+        }),
+        columnHelper.accessor('subject', {
+          id: 'who',
+          header: t('pages:automations.activity.who'),
+          cell: ({ row }) => <Named name={runWho(row.original.subject)} />,
+        }),
+        columnHelper.accessor('subject', {
+          id: 'where',
+          header: t('pages:automations.activity.where'),
+          cell: ({ row }) => <Named name={runWhere(row.original.subject)} />,
         }),
         columnHelper.accessor('humanSummary', {
           header: t('pages:automations.activity.summary'),
@@ -117,33 +141,58 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
   });
 
   return (
-    <DataTableRoot density="default">
-      <DataTableViewport>
-        <DataTableHeader table={table} />
-        <DataTableBody
-          table={table}
-          isLoading={isLoading}
-          loadingLabel={t('common:states.loading')}
-          onRowClick={(run) => onSelectRun(run.id)}
-          empty={
-            <DataTableEmpty
-              table={table}
-              icon={Activity}
-              title={t('pages:automations.activity.empty')}
-              description={t('pages:automations.activity.emptyDescription')}
-            />
-          }
-        />
-      </DataTableViewport>
-      <DataTablePager
-        {...pager}
-        labels={{
-          navigation: t('common:table.pagination'),
-          status: t('common:table.pageOf', { page: pager.page, total: pager.pageCount }),
-          previous: t('common:actions.previous'),
-          next: t('common:actions.next'),
+    <div className="space-y-4">
+      <Tabs
+        value={tab}
+        onValueChange={(next) => {
+          if (!isOutcomeTab(next)) return;
+          setTab(next);
+          setPage(1);
         }}
-      />
-    </DataTableRoot>
+      >
+        <TabsList>
+          {OUTCOME_TABS.map((value) => (
+            <TabsTrigger key={value} value={value}>
+              {t(`pages:automations.activity.tabs.${value}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      <DataTableRoot density="default">
+        <DataTableViewport>
+          <DataTableHeader table={table} />
+          <DataTableBody
+            table={table}
+            isLoading={isLoading}
+            loadingLabel={t('common:states.loading')}
+            onRowClick={(run) => onSelectRun(run.id)}
+            empty={
+              <DataTableEmpty
+                table={table}
+                icon={Activity}
+                title={t('pages:automations.activity.empty')}
+                description={t('pages:automations.activity.emptyDescription')}
+              />
+            }
+          />
+        </DataTableViewport>
+        <DataTablePager
+          {...pager}
+          labels={{
+            navigation: t('common:table.pagination'),
+            status: t('common:table.pageOf', { page: pager.page, total: pager.pageCount }),
+            previous: t('common:actions.previous'),
+            next: t('common:actions.next'),
+          }}
+        />
+      </DataTableRoot>
+    </div>
   );
+}
+
+/** A joined name, or a dash where the row it named is gone or was never there. */
+function Named({ name }: { name: string | null }) {
+  if (!name) return <span className="text-muted-foreground">—</span>;
+  return <span className="truncate">{name}</span>;
 }

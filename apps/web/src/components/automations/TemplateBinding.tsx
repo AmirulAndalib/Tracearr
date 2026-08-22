@@ -93,7 +93,7 @@ function BindingFields({
 
       <Button onClick={submit} disabled={pending}>
         {behind ? <ArrowUpCircle /> : <Save />}
-        {behind ? t('pages:automations.template.review') : t('common:actions.save')}
+        {behind ? t('pages:automations.template.review') : t('pages:automations.template.save')}
       </Button>
     </div>
   );

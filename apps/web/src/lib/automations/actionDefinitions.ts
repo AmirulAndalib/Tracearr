@@ -213,6 +213,7 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
 
 /** Run steps name their action as a plain string, including types this build never knew. */
 export function storedActionLabel(t: Translate, action: string): string {
+  if (action === 'if') return t('automations.catalog.actions.if.label');
   const known = (LEAF_ACTION_TYPES as readonly string[]).includes(action);
   return known ? actionLabel(t, action as LeafActionType) : action;
 }
