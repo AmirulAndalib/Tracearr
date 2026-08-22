@@ -7,7 +7,7 @@ import type {
   UpdateAutomationInput,
 } from '@tracearr/shared';
 import { toast } from 'sonner';
-import { api, type AutomationListParams } from '@/lib/api';
+import { api, type AutomationListParams, type TemplateGroup } from '@/lib/api';
 
 export const AUTOMATIONS_KEY = ['automations'];
 
@@ -126,10 +126,10 @@ export function useRebindAutomation() {
  * The share code for one automation; the author it carries is part of what is asked for,
  * and the code already on screen stays there while a new name settles.
  */
-export function useExportAutomation(id: string | undefined, author: string) {
+export function useExportAutomation(id: string | undefined, author: string, group?: TemplateGroup) {
   return useQuery({
-    queryKey: [...AUTOMATIONS_KEY, 'export', id, author],
-    queryFn: () => api.automations.export(id ?? '', author),
+    queryKey: [...AUTOMATIONS_KEY, 'export', id, author, group],
+    queryFn: () => api.automations.export(id ?? '', author, group),
     enabled: id !== undefined,
     placeholderData: (prev) => prev,
   });

@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, ChevronDown } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -15,6 +14,7 @@ import {
 } from '@/components/automations/gallery/TemplateInputs';
 import { useImportTemplate, useInstantiateTemplate } from '@/hooks/queries/useTemplates';
 import { cn } from '@/lib/utils';
+import { Disclosure } from './Disclosure';
 import type { AutomationTemplate, TemplateImportBody, TemplatePreview } from '@/lib/api';
 
 /** Enough of the fingerprint to compare two codes by eye, and no more. */
@@ -152,19 +152,11 @@ export function ImportReview({
           </section>
         )}
 
-        <Collapsible>
-          <CollapsibleTrigger asChild>
-            <Button type="button" variant="ghost" size="sm" className="-ml-2">
-              <ChevronDown />
-              {t('automations.import.raw')}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <pre className="bg-muted/40 mt-2 max-h-64 overflow-auto rounded-md p-3 text-xs">
-              {JSON.stringify(envelope, null, 2)}
-            </pre>
-          </CollapsibleContent>
-        </Collapsible>
+        <Disclosure label={t('automations.import.raw')}>
+          <pre className="bg-muted/40 max-h-64 overflow-auto rounded-md p-3 text-xs">
+            {JSON.stringify(envelope, null, 2)}
+          </pre>
+        </Disclosure>
       </div>
 
       <div className={cn('flex flex-col gap-2.5', footerClassName)}>

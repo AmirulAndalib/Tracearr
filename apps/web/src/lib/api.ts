@@ -967,10 +967,12 @@ class ApiClient {
         body: JSON.stringify({ ids }),
       }),
     /** The automation as an envelope plus the code that carries it. */
-    export: (id: string, author?: string) =>
-      this.request<{ envelope: TemplateEnvelope; code: string }>(
-        `/automations/${id}/export${author ? `?author=${encodeURIComponent(author)}` : ''}`
-      ),
+    export: (id: string, author?: string, group?: TemplateGroup) => {
+      const query = listSearchParams({ author, group });
+      return this.request<{ envelope: TemplateEnvelope; code: string }>(
+        `/automations/${id}/export${query ? `?${query}` : ''}`
+      );
+    },
     detach: (id: string) =>
       this.request<Automation>(`/automations/${id}/detach`, { method: 'POST' }),
     upgrade: (id: string, inputs: Record<string, unknown>) =>

@@ -648,8 +648,8 @@
       "disclosure": "Matches that did not start a run ({{total}})"
     },
     "export": {
-      "authorHelper": "Included in the code as the author. Optional.",
-      "authorLabel": "Made by",
+      "authorHelper": "Shown on the gallery page and carried in the code. Optional.",
+      "authorLabel": "Author",
       "authorPlaceholder": "Name",
       "carries": "The code carries the steps only. Destinations, servers and accounts are not included; the receiving side fills in its own.",
       "copyCode": "Copy the share code",
@@ -660,8 +660,15 @@
       "saveFailed": "Could not save it.",
       "saved": "{{name}} saved as a ready-made automation.",
       "title": "Share this automation",
-      "showJson": "Show the JSON",
-      "saveHelper": "Adds it to this server's list of ready-made automations."
+      "saveHelper": "Adds it to this server's list of ready-made automations.",
+      "authorInCode": "The code includes the author name.",
+      "groupLabel": "Section",
+      "groupHelper": "Which part of the gallery it is listed under.",
+      "gallery": {
+        "trigger": "Put this in the community gallery",
+        "body": "The gallery at docs.tracearr.com/templates lists shared automations. Adding one is a pull request to Tracearr/automation-templates with the JSON below. Tracearr never reads the gallery."
+      },
+      "openRepository": "Open the repository"
     },
     "fields": {
       "account_age_days": {
@@ -1147,7 +1154,8 @@
       },
       "trigger": "What starts it",
       "allTriggers": "All triggers"
-    }
+    },
+    "openGallery": "Open the gallery"
   },
   "dashboard": {
     "activeUsers": "Usuários ativos",

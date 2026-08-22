@@ -1,10 +1,8 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Automation } from '@tracearr/shared';
+import { TEMPLATE_GROUPS, type Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CopyButton } from '@/components/ui/copy-button';
 import {
   Dialog,
@@ -16,6 +14,13 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   TemplateSentencePanel,
@@ -25,9 +30,16 @@ import { useExportAutomation } from '@/hooks/queries/useAutomations';
 import { useImportTemplate } from '@/hooks/queries/useTemplates';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { cn } from '@/lib/utils';
+import { Disclosure } from './Disclosure';
+import { GALLERY_URL, LinkOut, REPOSITORY_URL } from './links';
+import type { TemplateGroup } from '@/lib/api';
 
 /** Long enough that a name is finished before the code is rebuilt around it. */
 const AUTHOR_SETTLE_MS = 400;
+
+/** The gallery is a docs page and a repository; Tracearr reads neither. */
+const GALLERY_URL = 'https://docs.tracearr.com/templates';
+const REPOSITORY_URL = 'https://github.com/Tracearr/automation-templates';
 
 interface ExportDialogProps {
   automation: Pick<Automation, 'id' | 'name'>;
@@ -39,9 +51,11 @@ interface ExportDialogProps {
 export function ExportDialog({ automation, open, onOpenChange }: ExportDialogProps) {
   const { t } = useTranslation(['pages', 'common']);
   const [author, setAuthor] = useState('');
+  // Unset until the reader picks one, which is when the server stops choosing by kind.
+  const [group, setGroup] = useState<TemplateGroup | undefined>(undefined);
 
   const settled = useDebouncedValue(author.trim(), AUTHOR_SETTLE_MS);
-  const { data, isError, isPlaceholderData } = useExportAutomation(automation.id, settled);
+  const { data, isError, isPlaceholderData } = useExportAutomation(automation.id, settled, group);
   const save = useImportTemplate();
 
   const envelope = data?.envelope;
@@ -90,15 +104,72 @@ export function ExportDialog({ automation, open, onOpenChange }: ExportDialogPro
               <p className="text-muted-foreground text-xs leading-relaxed">
                 {t('pages:automations.export.carries')}
               </p>
+              {settled !== '' && (
+                <p className="text-muted-foreground text-xs">
+                  {t('pages:automations.export.authorInCode')}
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1">
-              <Disclosure label={t('pages:automations.export.showJson')}>
-                <CodeBlock
-                  value={JSON.stringify(data.envelope, null, 2)}
-                  copyLabel={t('pages:automations.export.copyJson')}
-                  disabled={isPlaceholderData}
-                />
+              <Disclosure label={t('pages:automations.export.gallery.trigger')}>
+                <div className="flex flex-col gap-4">
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {t('pages:automations.export.gallery.body')}
+                  </p>
+
+                  <Field>
+                    <FieldLabel htmlFor="export-author">
+                      {t('pages:automations.export.authorLabel')}
+                    </FieldLabel>
+                    <Input
+                      id="export-author"
+                      value={author}
+                      maxLength={80}
+                      placeholder={t('pages:automations.export.authorPlaceholder')}
+                      onChange={(event) => setAuthor(event.target.value)}
+                    />
+                    <FieldDescription>
+                      {t('pages:automations.export.authorHelper')}
+                    </FieldDescription>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="export-group">
+                      {t('pages:automations.export.groupLabel')}
+                    </FieldLabel>
+                    <Select
+                      value={group ?? data.envelope.group}
+                      onValueChange={(value) => setGroup(value as TemplateGroup)}
+                    >
+                      <SelectTrigger id="export-group">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TEMPLATE_GROUPS.map((entry) => (
+                          <SelectItem key={entry} value={entry}>
+                            {t(`pages:automations.gallery.group.${entry}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>{t('pages:automations.export.groupHelper')}</FieldDescription>
+                  </Field>
+
+                  <CodeBlock
+                    value={JSON.stringify(data.envelope, null, 2)}
+                    copyLabel={t('pages:automations.export.copyJson')}
+                    disabled={isPlaceholderData}
+                  />
+
+                  <div className="flex flex-wrap items-center gap-1">
+                    <LinkOut href={GALLERY_URL} label={t('pages:automations.openGallery')} />
+                    <LinkOut
+                      href={REPOSITORY_URL}
+                      label={t('pages:automations.export.openRepository')}
+                    />
+                  </div>
+                </div>
               </Disclosure>
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -117,20 +188,6 @@ export function ExportDialog({ automation, open, onOpenChange }: ExportDialogPro
                 </span>
               </div>
             </div>
-
-            <Field>
-              <FieldLabel htmlFor="export-author">
-                {t('pages:automations.export.authorLabel')}
-              </FieldLabel>
-              <Input
-                id="export-author"
-                value={author}
-                maxLength={80}
-                placeholder={t('pages:automations.export.authorPlaceholder')}
-                onChange={(event) => setAuthor(event.target.value)}
-              />
-              <FieldDescription>{t('pages:automations.export.authorHelper')}</FieldDescription>
-            </Field>
           </div>
         )}
 
@@ -168,25 +225,5 @@ function CodeBlock({
       </pre>
       <CopyButton value={value} label={copyLabel} showLabel disabled={disabled} />
     </div>
-  );
-}
-
-/** A row that opens what it names, with the chevron turning as it goes. */
-function Disclosure({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Collapsible>
-      <CollapsibleTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="-ml-2 [&[data-state=open]>svg]:rotate-90"
-        >
-          <ChevronRight className="transition-transform" />
-          {label}
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2">{children}</CollapsibleContent>
-    </Collapsible>
   );
 }

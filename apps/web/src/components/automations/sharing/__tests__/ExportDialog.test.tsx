@@ -59,23 +59,14 @@ describe('ExportDialog', () => {
     await expect(navigator.clipboard.readText()).resolves.toBe(SHARE_CODE);
   });
 
-  it('leads with the code, with no tab strip to pick it out of', async () => {
+  it('leads with the code, with no tab strip and no second way to the json', async () => {
     renderDialog();
 
     await screen.findByText(SHARE_CODE);
 
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show the JSON' })).not.toBeInTheDocument();
     expect(screen.queryByText(/"slug": "two-places-at-once"/)).not.toBeInTheDocument();
-  });
-
-  it('keeps the envelope itself behind a disclosure', async () => {
-    const { user } = renderDialog();
-
-    await user.click(await screen.findByRole('button', { name: 'Show the JSON' }));
-
-    expect(screen.getByText(/"slug": "two-places-at-once"/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Copy the JSON' }));
-    await expect(navigator.clipboard.readText()).resolves.toContain('"two-places-at-once"');
   });
 
   it('offers one way out, so nothing is named Close twice', async () => {
@@ -104,13 +95,45 @@ describe('ExportDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks the server again once a name is typed', async () => {
+  it('keeps the author name and the json inside the gallery section', async () => {
     const { user } = renderDialog();
 
     await screen.findByText(SHARE_CODE);
-    await user.type(screen.getByLabelText('Made by'), 'Ada');
 
-    await waitFor(() => expect(exported).toHaveBeenCalledWith('automation-1', 'Ada'));
+    expect(screen.queryByLabelText('Author')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Put this in the community gallery' }));
+
+    expect(screen.getByLabelText('Author')).toBeInTheDocument();
+    expect(screen.getByLabelText('Section')).toBeInTheDocument();
+    // The envelope is offered from one place, next to the words about the pull request.
+    expect(screen.getByText(/"slug": "two-places-at-once"/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy the JSON' }));
+    await expect(navigator.clipboard.readText()).resolves.toContain('"two-places-at-once"');
+    expect(screen.getByRole('link', { name: /Open the gallery/ })).toHaveAttribute(
+      'href',
+      'https://docs.tracearr.com/templates'
+    );
+    expect(screen.getByRole('link', { name: /Open the repository/ })).toHaveAttribute(
+      'href',
+      'https://github.com/Tracearr/automation-templates'
+    );
+  });
+
+  it('asks the server again once a name is typed, and says so under the code', async () => {
+    const { user } = renderDialog();
+
+    await screen.findByText(SHARE_CODE);
+    await user.click(screen.getByRole('button', { name: 'Put this in the community gallery' }));
+
+    expect(screen.queryByText('The code includes the author name.')).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Author'), 'Ada');
+
+    await waitFor(() => expect(exported).toHaveBeenCalledWith('automation-1', 'Ada', undefined));
+    // Under the code it is about, so collapsing the gallery section does not hide it.
+    await user.click(screen.getByRole('button', { name: 'Put this in the community gallery' }));
+    expect(await screen.findByText('The code includes the author name.')).toBeInTheDocument();
   });
 
   it('saves the same envelope into the library as one of your own', async () => {
