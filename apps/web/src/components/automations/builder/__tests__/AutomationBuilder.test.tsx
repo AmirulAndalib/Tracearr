@@ -201,7 +201,7 @@ describe('AutomationBuilder', () => {
     ).toBeInTheDocument();
   });
 
-  it('takes a note below the flow, out of the way of the steps', async () => {
+  it('takes a description beside the name in the summary card', async () => {
     const user = userEvent.setup();
     renderBuilder();
 
@@ -210,13 +210,14 @@ describe('AutomationBuilder', () => {
     expect(screen.getByPlaceholderText('What this is for')).toHaveValue('Nightly sweep');
   });
 
-  it('stops the name and the note at the length the schema allows', () => {
+  it('stops the name and the description at the length the schema allows', () => {
     renderBuilder();
 
     expect(screen.getByLabelText('Name')).toHaveAttribute('maxLength', String(AUTOMATION_NAME_MAX));
-    expect(
-      screen.getByPlaceholderText('What this is for')
-    ).toHaveAttribute('maxLength', String(AUTOMATION_DESCRIPTION_MAX));
+    expect(screen.getByPlaceholderText('What this is for')).toHaveAttribute(
+      'maxLength',
+      String(AUTOMATION_DESCRIPTION_MAX)
+    );
   });
 
   it('takes the caret to an open picker rather than shutting it', async () => {

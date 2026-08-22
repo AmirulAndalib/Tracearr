@@ -2,12 +2,10 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Check, Info, Loader2, Save, TriangleAlert } from 'lucide-react';
-import { AUTOMATION_DESCRIPTION_MAX, type Automation } from '@tracearr/shared';
+import type { Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { Kbd } from '@/components/ui/kbd';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useCreateAutomation, useUpdateAutomation } from '@/hooks/queries/useAutomations';
@@ -35,7 +33,6 @@ import { ActionsSection } from './ActionsSection';
 import { BuilderTitleBar } from './BuilderTitleBar';
 import { ConditionsSection } from './ConditionsSection';
 import { LiveCheckStrip } from './LiveCheckStrip';
-import { RowIssues } from './RowActions';
 import { Sentence } from './Sentence';
 import { SummaryCard } from './SummaryCard';
 import { TriggersSection } from './TriggersSection';
@@ -128,7 +125,6 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
-  const noteId = nodeDomId(BUILDER_SECTIONS.description);
 
   const blocker = useUnsavedChanges(state.dirty);
 
@@ -246,8 +242,6 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
       ),
     [issues, submitted, touched]
   );
-
-  const noteIssues = byNode.get(BUILDER_SECTIONS.description);
 
   const expansion = useMemo<BranchExpansion>(
     () => ({
@@ -378,6 +372,7 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
 
         <SummaryCard
           name={state.name}
+          description={state.description}
           issues={byNode}
           sentence={<Sentence fragments={fragments} onFocusNode={focusNode} />}
           liveCheck={
@@ -420,24 +415,6 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
             dispatch={track.actions}
           />
         </ol>
-
-        <Field className="mt-7">
-          <FieldLabel htmlFor={noteId}>
-            {t('pages:automations.builder.descriptionLabel')}
-          </FieldLabel>
-          <Textarea
-            id={noteId}
-            rows={2}
-            maxLength={AUTOMATION_DESCRIPTION_MAX}
-            value={state.description}
-            placeholder={t('pages:automations.builder.descriptionPlaceholder')}
-            aria-invalid={noteIssues !== undefined}
-            onChange={(event) =>
-              track.header({ type: 'setDescription', value: event.target.value })
-            }
-          />
-          <RowIssues issues={noteIssues} />
-        </Field>
 
         <div className="bg-background/95 sticky bottom-0 z-10 mt-7 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
           <span className="text-muted-foreground hidden items-center gap-1 text-xs sm:flex">

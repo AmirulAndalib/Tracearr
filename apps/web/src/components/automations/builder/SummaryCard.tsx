@@ -1,15 +1,14 @@
-import type { ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import { AUTOMATION_NAME_MAX } from '@tracearr/shared';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { FieldGroup } from '@/components/ui/field';
+import { AutomationIdentityFields } from '@/components/automations/AutomationIdentityFields';
 import { nodeDomId, type BuilderDispatch } from './builderReducer';
 import { RowIssues } from './RowActions';
 import { SentencePanel } from './SentencePanel';
 import { BUILDER_SECTIONS, type NodeIssues } from './validation';
+import type { ReactNode } from 'react';
 
 interface SummaryCardProps {
   name: string;
+  description: string;
   issues: NodeIssues;
   /** The automation in words, built by the page so every clause can reach its row. */
   sentence: ReactNode;
@@ -18,30 +17,36 @@ interface SummaryCardProps {
 }
 
 /** What the automation is called, what it says, and what it would do right now. */
-export function SummaryCard({ name, issues, sentence, liveCheck, dispatch }: SummaryCardProps) {
-  const { t } = useTranslation('pages');
+export function SummaryCard({
+  name,
+  description,
+  issues,
+  sentence,
+  liveCheck,
+  dispatch,
+}: SummaryCardProps) {
   const nameIssues = issues.get(BUILDER_SECTIONS.name);
-  // The name's anchor is the input itself, so jumping to the problem lands in it.
-  const nameId = nodeDomId(BUILDER_SECTIONS.name);
+  const noteIssues = issues.get(BUILDER_SECTIONS.description);
 
   return (
-    <div className="bg-card-raised rounded-xl border p-5">
-      <Field>
-        <FieldLabel htmlFor={nameId}>{t('automations.name')}</FieldLabel>
-        <Input
-          id={nameId}
-          value={name}
-          maxLength={AUTOMATION_NAME_MAX}
-          placeholder={t('automations.namePlaceholder')}
-          aria-invalid={nameIssues !== undefined}
-          onChange={(event) => dispatch({ type: 'setName', value: event.target.value })}
-        />
-        <RowIssues issues={nameIssues} />
-      </Field>
+    <FieldGroup className="bg-card-raised gap-5 rounded-xl border p-5">
+      <AutomationIdentityFields
+        name={name}
+        onNameChange={(value) => dispatch({ type: 'setName', value })}
+        description={description}
+        onDescriptionChange={(value) => dispatch({ type: 'setDescription', value })}
+        // The anchors are the inputs themselves, so jumping to a problem lands in one.
+        nameId={nodeDomId(BUILDER_SECTIONS.name)}
+        descriptionId={nodeDomId(BUILDER_SECTIONS.description)}
+        nameInvalid={nameIssues !== undefined}
+        descriptionInvalid={noteIssues !== undefined}
+        nameError={<RowIssues issues={nameIssues} />}
+        descriptionError={<RowIssues issues={noteIssues} />}
+      />
 
-      <SentencePanel className="mt-4">{sentence}</SentencePanel>
+      <SentencePanel>{sentence}</SentencePanel>
 
       {liveCheck}
-    </div>
+    </FieldGroup>
   );
 }

@@ -223,8 +223,6 @@
         "windowUnit": "hrs",
         "yes": "Yes"
       },
-      "descriptionLabel": "Description",
-      "descriptionPlaceholder": "What this is for",
       "destinationDisabled": "Disabled destination",
       "errors": {
         "actionUnavailable": "These triggers do not supply what this action needs",
@@ -876,6 +874,8 @@
     "kindColumn": "Kind",
     "name": "Automation Name",
     "namePlaceholder": "A name for this automation",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "What this is for",
     "newAutomation": "New automation",
     "noAutomationsFound": "No automations found",
     "operators": {

@@ -506,8 +506,6 @@
         "notification": "An alert",
         "notificationDescription": "Recorded in Activity; never a violation."
       },
-      "descriptionLabel": "Note (optional)",
-      "descriptionPlaceholder": "What this is for",
       "severityLabel": "How serious?",
       "activeLabel": "Active",
       "saving": "Saving…",
@@ -1091,6 +1089,8 @@
     "name": "Name",
     "newAutomation": "New automation",
     "namePlaceholder": "A name for this automation",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "What this is for",
     "noAutomationsFound": "No automations found",
     "operators": {
       "eq": "equals",
