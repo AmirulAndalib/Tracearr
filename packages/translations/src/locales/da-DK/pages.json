@@ -832,6 +832,14 @@
       "webos": "webOS",
       "windows": "Windows"
     },
+    "provenance": {
+      "builtin": "Built-in · {{name}} {{version}}",
+      "customized": "Customized from {{name}}",
+      "customizedFromRemoved": "Customized from a ready-made automation that has since been removed",
+      "imported": "Imported {{date}} · {{name}} {{version}}",
+      "importedBy": "Imported {{date}} by {{author}} · {{name}} {{version}}",
+      "saved": "From {{name}} {{version}}"
+    },
     "recordsOnly": "Records runs only",
     "scope": {
       "account": "Account",
@@ -876,6 +884,22 @@
       "high": "High",
       "low": "Low",
       "warning": "Warning"
+    },
+    "template": {
+      "customize": "Customize",
+      "customizeConfirm": "Customizing lets you edit every step yourself, and there is no way back: this automation stops following the ready-made one and will not pick up its updates.",
+      "customizeConfirmAction": "Customize it",
+      "customizeFailed": "Couldn't customize that. Try again.",
+      "customizeFirst": "Customize this automation before editing its steps.",
+      "description": "The parts of this one that are yours. The rest comes from the ready-made automation it was built from.",
+      "gone": "The ready-made automation this was built from is no longer on this server.",
+      "review": "Review and update",
+      "title": "What it applies to",
+      "updateAvailable": "An update is available",
+      "updatedBody": "Check the answers below, then update to pick up the new version.",
+      "updatedTitle": "The ready-made automation has moved on to v{{version}}",
+      "upgradeFailed": "Couldn't update that. Try again.",
+      "version": "v{{version}}"
     },
     "templates": {
       "account-inactivity": {

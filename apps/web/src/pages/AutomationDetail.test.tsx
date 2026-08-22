@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import type * as ReactRouter from 'react-router';
-import type { Automation, AutomationRun, AutomationRunSummary } from '@tracearr/shared';
+import type {
+  Automation,
+  AutomationRun,
+  AutomationRunSummary,
+  AutomationTemplateRef,
+} from '@tracearr/shared';
+import { CONCURRENT_STREAMS } from '@/components/automations/gallery/__tests__/fixtures';
 import { AutomationDetail } from './AutomationDetail';
 
 vi.mock('react-i18next', () => ({
@@ -16,13 +22,26 @@ vi.mock('react-router', async () => {
 });
 
 const updateMutate = vi.fn();
+const detachMutate = vi.fn();
+const rebindMutate = vi.fn();
+const upgradeMutate = vi.fn();
 
 vi.mock('@/hooks/queries', () => ({
   useAutomation: vi.fn(),
   useToggleAutomation: () => ({ mutate: vi.fn(), isPending: false }),
   useUpdateAutomation: () => ({ mutate: updateMutate, mutateAsync: vi.fn(), isPending: false }),
+  useDetachAutomation: () => ({ mutate: detachMutate, isPending: false }),
+  useRebindAutomation: () => ({ mutate: rebindMutate, isPending: false }),
+  useUpgradeAutomation: () => ({ mutate: upgradeMutate, isPending: false }),
+  useTemplate: vi.fn(),
   useSettings: () => ({ data: undefined }),
 }));
+
+vi.mock('@/hooks/queries/useDestinations', () => ({ useDestinations: () => ({ data: [] }) }));
+vi.mock('@/hooks/queries/useSettings', () => ({
+  useSettings: () => ({ data: { unitSystem: 'metric' } }),
+}));
+vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined }) }));
 
 vi.mock('@/hooks/queries/useRuns', () => ({
   useAutomationRuns: vi.fn(),
@@ -38,10 +57,11 @@ vi.mock('@/hooks/useServer', () => ({
   useServer: () => ({ servers: [] }),
 }));
 
-import { useAutomation } from '@/hooks/queries';
+import { useAutomation, useTemplate } from '@/hooks/queries';
 import { useAutomationEvaluations, useAutomationRuns, useRun } from '@/hooks/queries/useRuns';
 
 const mockUseAutomation = vi.mocked(useAutomation);
+const mockUseTemplate = vi.mocked(useTemplate);
 const mockUseAutomationRuns = vi.mocked(useAutomationRuns);
 const mockUseAutomationEvaluations = vi.mocked(useAutomationEvaluations);
 const mockUseRun = vi.mocked(useRun);
@@ -67,6 +87,7 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     retentionDays: null,
     scopeRef: null,
     template: null,
+    templateInputs: null,
     origin: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -103,6 +124,37 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
   };
 }
 
+const templateRef = (overrides: Partial<AutomationTemplateRef> = {}): AutomationTemplateRef => ({
+  id: CONCURRENT_STREAMS.id,
+  slug: CONCURRENT_STREAMS.slug,
+  name: CONCURRENT_STREAMS.name,
+  version: 1,
+  currentVersion: 1,
+  source: 'builtin',
+  author: null,
+  addedAt: '2026-08-01T00:00:00.000Z',
+  ...overrides,
+});
+
+/** Two cards on the page carry a Save; this one is the template's. */
+function templateCard() {
+  const card = screen.getByText('pages:automations.template.title').closest('[data-slot="card"]');
+  if (!(card instanceof HTMLElement)) throw new Error('the template card is not on the page');
+  return within(card);
+}
+
+/** A bound row, with the catalog answering for the template it names. */
+function setBound(template: AutomationTemplateRef, inputs: Record<string, unknown> = { max: 4 }) {
+  mockUseAutomation.mockReturnValue({
+    data: automation({ template, templateInputs: inputs }),
+    isLoading: false,
+  } as unknown as ReturnType<typeof useAutomation>);
+  mockUseTemplate.mockReturnValue({
+    data: CONCURRENT_STREAMS,
+    isLoading: false,
+  } as unknown as ReturnType<typeof useTemplate>);
+}
+
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={['/automations/a-1']}>
@@ -134,6 +186,9 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useAutomationEvaluations>);
   mockUseRun.mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<
     typeof useRun
+  >);
+  mockUseTemplate.mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<
+    typeof useTemplate
   >);
 });
 
@@ -191,6 +246,68 @@ describe('AutomationDetail', () => {
     renderDetail();
 
     expect(screen.getByText('Ada')).toBeInTheDocument();
+  });
+});
+
+describe('AutomationDetail template binding', () => {
+  it('offers the template inputs instead of the builder', () => {
+    setBound(templateRef());
+
+    renderDetail();
+
+    expect(screen.getByText('pages:automations.template.title')).toBeInTheDocument();
+    expect(screen.getByLabelText('Streams allowed')).toHaveValue('4');
+    expect(screen.queryByRole('button', { name: 'common:actions.edit' })).not.toBeInTheDocument();
+  });
+
+  it('saves new answers against the row rather than opening the builder', async () => {
+    const user = userEvent.setup();
+    setBound(templateRef());
+
+    renderDetail();
+    await user.clear(screen.getByLabelText('Streams allowed'));
+    await user.type(screen.getByLabelText('Streams allowed'), '6');
+    await user.click(templateCard().getByRole('button', { name: 'common:actions.save' }));
+
+    expect(rebindMutate).toHaveBeenCalledWith({ id: 'a-1', inputs: { max: 6 } });
+    expect(upgradeMutate).not.toHaveBeenCalled();
+  });
+
+  it('reviews the new version rather than saving when the template has moved on', async () => {
+    const user = userEvent.setup();
+    setBound(templateRef({ version: 1, currentVersion: 2 }));
+
+    renderDetail();
+
+    expect(screen.getByText('pages:automations.template.updatedTitle')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'pages:automations.template.review' }));
+
+    expect(upgradeMutate).toHaveBeenCalledWith({ id: 'a-1', inputs: { max: 4 } });
+    expect(rebindMutate).not.toHaveBeenCalled();
+  });
+
+  it('detaches on a confirmed customize and opens the builder', async () => {
+    const user = userEvent.setup();
+    setBound(templateRef());
+
+    renderDetail();
+    await user.click(screen.getByRole('button', { name: 'pages:automations.template.customize' }));
+    await user.click(
+      screen.getByRole('button', { name: 'pages:automations.template.customizeConfirmAction' })
+    );
+
+    expect(detachMutate).toHaveBeenCalledWith('a-1', expect.anything());
+  });
+
+  it('names where a detached row came from', () => {
+    mockUseAutomation.mockReturnValue({
+      data: automation({ origin: { templateId: 't-1', version: 2, name: 'Too many streams' } }),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAutomation>);
+
+    renderDetail();
+
+    expect(screen.getByText('automations.provenance.customized')).toBeInTheDocument();
   });
 });
 

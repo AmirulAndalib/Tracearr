@@ -140,6 +140,8 @@ function boundRow(overrides: Record<string, unknown> = {}) {
     templateName: 'Stream started',
     templateCurrentVersion: 3,
     templateSource: 'builtin',
+    templateAuthor: null,
+    templateAddedAt: new Date('2026-08-01T00:00:00.000Z'),
     ...overrides,
   });
 }
@@ -1203,7 +1205,10 @@ describe('Automation routes', () => {
         version: 1,
         currentVersion: 3,
         source: 'builtin',
+        author: null,
+        addedAt: '2026-08-01T00:00:00.000Z',
       });
+      expect(body.templateInputs).toEqual({ to: [DESTINATION_ID], server: SERVER_ID });
       expect(body.origin).toEqual({
         templateId: OTHER_ID,
         version: 2,

@@ -16,6 +16,16 @@ export function useTemplates(options: { enabled?: boolean } = {}) {
   });
 }
 
+/** One template at its current version, for a bound automation's inputs. */
+export function useTemplate(id: string | undefined) {
+  return useQuery({
+    queryKey: [...TEMPLATES_KEY, 'detail', id],
+    queryFn: () => api.templates.get(id ?? ''),
+    enabled: id !== undefined,
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
 export function useInstantiateTemplate() {
   const { t } = useTranslation(['pages', 'notifications']);
   const queryClient = useQueryClient();

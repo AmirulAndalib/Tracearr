@@ -68,8 +68,11 @@ export {
   useBulkToggleAutomations,
   useCreateAutomation,
   useDeleteAutomation,
+  useDetachAutomation,
+  useRebindAutomation,
   useToggleAutomation,
   useUpdateAutomation,
+  useUpgradeAutomation,
 } from './useAutomations';
 
 // Automation template hooks
@@ -79,6 +82,7 @@ export {
   useImportTemplate,
   useInstantiateTemplate,
   usePreviewTemplate,
+  useTemplate,
   useTemplates,
 } from './useTemplates';
 

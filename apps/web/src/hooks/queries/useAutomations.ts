@@ -100,6 +100,62 @@ export function useToggleAutomation() {
   });
 }
 
+/** New answers to what the template asked; the definition is written from them again. */
+export function useRebindAutomation() {
+  const { t } = useTranslation('notifications');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, inputs }: { id: string; inputs: Record<string, unknown> }) =>
+      api.automations.rebind(id, inputs),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('toast.success.automationUpdated.title'), {
+        description: t('toast.success.automationUpdated.message'),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('toast.error.automationUpdateFailed'), { description: error.message });
+    },
+  });
+}
+
+/** One way: the row keeps its definition and loses the template that wrote it. */
+export function useDetachAutomation() {
+  const { t } = useTranslation(['pages', 'notifications']);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.automations.detach(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+    },
+    onError: (error: Error) => {
+      toast.error(t('pages:automations.template.customizeFailed'), { description: error.message });
+    },
+  });
+}
+
+/** Rebinds the row onto the template's current version with the inputs it was reviewed with. */
+export function useUpgradeAutomation() {
+  const { t } = useTranslation(['pages', 'notifications']);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, inputs }: { id: string; inputs: Record<string, unknown> }) =>
+      api.automations.upgrade(id, inputs),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
+      toast.success(t('notifications:toast.success.automationUpdated.title'), {
+        description: t('notifications:toast.success.automationUpdated.message'),
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(t('pages:automations.template.upgradeFailed'), { description: error.message });
+    },
+  });
+}
+
 export function useDeleteAutomation() {
   const { t } = useTranslation('notifications');
   const queryClient = useQueryClient();

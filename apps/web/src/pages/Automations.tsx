@@ -25,7 +25,7 @@ import type { FilterDescriptor } from '@/components/ui/filters';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Switch } from '@/components/ui/switch';
 import { ErrorState } from '@/components/library/ErrorState';
-import { ScopeChip } from '@/components/automations';
+import { ScopeChip, TemplateBadge } from '@/components/automations';
 import { NewAutomationDialog } from '@/components/automations/gallery/NewAutomationDialog';
 import { TemplateCard } from '@/components/automations/gallery/TemplateCard';
 import {
@@ -232,11 +232,8 @@ export function Automations() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{automation.name}</span>
-                    <ScopeChip
-                      automation={automation}
-                      servers={servers}
-                      filterOptions={filterOptions}
-                    />
+                    <ScopeChip automation={automation} servers={servers} />
+                    {automation.template && <TemplateBadge template={automation.template} />}
                     {automation.enforceAcrossServers && (
                       <Badge variant="secondary">{t('pages:automations.scope.crossServer')}</Badge>
                     )}

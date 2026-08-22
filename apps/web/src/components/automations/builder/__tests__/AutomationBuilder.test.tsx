@@ -61,6 +61,7 @@ function storedAutomation(overrides: Partial<Automation>): Automation {
     retentionDays: null,
     scopeRef: null,
     template: null,
+    templateInputs: null,
     origin: null,
     createdAt: '2026-08-21T00:00:00.000Z',
     updatedAt: '2026-08-21T00:00:00.000Z',

@@ -1,56 +1,53 @@
 import { useTranslation } from 'react-i18next';
 import { User } from 'lucide-react';
-import type { Automation, AutomationFilterOptions, Server } from '@tracearr/shared';
+import type { Automation, Server } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { ServerBadge } from '@/components/server';
-import { scopeFromAutomation } from '@/lib/automations';
 
 interface ScopeChipProps {
   automation: Automation;
   servers: Server[];
-  filterOptions?: AutomationFilterOptions;
 }
 
 /** Where the automation applies, as one chip beside its name. */
-export function ScopeChip({ automation, servers, filterOptions }: ScopeChipProps) {
+export function ScopeChip({ automation, servers }: ScopeChipProps) {
   const { t } = useTranslation('pages');
-  const scope = scopeFromAutomation(automation).mode;
+  const scope = automation.scopeRef;
 
-  if (scope === 'global') {
+  if (!scope) {
     return <Badge variant="secondary">{t('automations.scope.global')}</Badge>;
   }
 
-  if (scope === 'server') {
-    const server = servers.find((candidate) => candidate.id === automation.serverId);
-    return server ? <ServerBadge server={server} variant="outlined" /> : null;
+  if (scope.kind === 'server') {
+    const server = servers.find((candidate) => candidate.id === scope.id);
+    return <ServerBadge server={server ?? { id: scope.id, name: scope.name, color: null }} />;
   }
 
-  if (scope === 'person') {
+  if (scope.kind === 'person') {
     return (
       <Badge variant="secondary">
         <User aria-hidden="true" />
-        {(automation.scopeRef?.kind === 'person' ? automation.scopeRef.name : null) ??
-          t('automations.scope.person')}
+        {scope.name}
       </Badge>
     );
   }
 
-  // One option per person, keyed by a representative account. Only that
-  // representative carries a username and a server the scope can claim.
-  const account = automation.serverUserId;
-  const userOption = account
-    ? filterOptions?.users.find((user) => user.serverUserIds.includes(account))
+  // An account sits on one server, and the row names which; the colour comes from the
+  // server list when it is loaded.
+  const server = scope.serverId
+    ? (servers.find((candidate) => candidate.id === scope.serverId) ?? {
+        id: scope.serverId,
+        name: scope.serverName ?? '',
+        color: null,
+      })
     : undefined;
-  const representative = userOption?.id === account ? userOption : undefined;
-  const server = representative ? servers.find((s) => s.id === representative.serverId) : undefined;
-  const label = representative?.username ?? userOption?.identityName ?? userOption?.username;
 
   return (
     <span className="inline-flex items-center gap-1">
       {server && <ServerBadge server={server} variant="compact" />}
       <Badge variant="secondary">
         <User aria-hidden="true" />
-        {label ?? t('automations.scope.account')}
+        {scope.name}
       </Badge>
     </span>
   );

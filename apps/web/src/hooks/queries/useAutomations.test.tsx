@@ -57,6 +57,7 @@ function automation(id: string, isActive: boolean): Automation {
     retentionDays: null,
     scopeRef: null,
     template: null,
+    templateInputs: null,
     origin: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',

@@ -937,6 +937,12 @@ class ApiClient {
         body: JSON.stringify(data),
       }),
     delete: (id: string) => this.request<void>(`/automations/${id}`, { method: 'DELETE' }),
+    /** Re-answers what a bound row's template asked; the server re-materializes the definition. */
+    rebind: (id: string, templateInputs: Record<string, unknown>) =>
+      this.request<Automation>(`/automations/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ templateInputs }),
+      }),
     /** What a draft would do against the sessions playing now; nothing is recorded. */
     dryRun: (data: DryRunRequest) =>
       this.request<DryRunResponse>('/automations/dry-run', {

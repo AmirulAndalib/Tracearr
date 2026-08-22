@@ -307,6 +307,10 @@ export interface AutomationTemplateRef {
   version: number;
   currentVersion: number;
   source: 'builtin' | 'import' | 'local';
+  /** Whoever the envelope named; null for anything nobody signed. */
+  author: string | null;
+  /** When the template entered this library, which is when an import was pasted. */
+  addedAt: string;
 }
 
 /** Where a detached automation came from; the template may be gone by now. */
@@ -336,6 +340,8 @@ export interface Automation {
   retentionDays: number | null;
   scopeRef: AutomationScopeRef | null;
   template: AutomationTemplateRef | null;
+  /** What was answered when the row was bound; null for anything not on a template. */
+  templateInputs: Record<string, unknown> | null;
   origin: AutomationOrigin | null;
   createdAt: string;
   updatedAt: string;

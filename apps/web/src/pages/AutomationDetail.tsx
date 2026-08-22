@@ -1,24 +1,27 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Scissors } from 'lucide-react';
 import type { AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
   ActivityList,
   AutomationSettings,
   EvaluationsList,
+  ProvenanceLine,
   RunDetail,
   ScopeChip,
+  TemplateBadge,
+  TemplateBinding,
 } from '@/components/automations';
 import { automationIcon } from '@/lib/automations';
-import { useAutomation, useToggleAutomation } from '@/hooks/queries';
+import { useAutomation, useDetachAutomation, useToggleAutomation } from '@/hooks/queries';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
-import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useServer } from '@/hooks/useServer';
 
 const KIND_BADGE_VARIANT: Record<AutomationKind, 'default' | 'outline'> = {
@@ -33,10 +36,11 @@ export function AutomationDetail() {
   const { servers } = useServer();
 
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const { data: automation, isLoading } = useAutomation(id);
-  const { data: filterOptions } = useAutomationFilterOptions();
   const toggleAutomation = useToggleAutomation();
+  const detachAutomation = useDetachAutomation();
 
   usePageTitle(automation?.name);
 
@@ -66,6 +70,17 @@ export function AutomationDetail() {
     );
   }
 
+  const template = automation.template;
+
+  const customize = () => {
+    detachAutomation.mutate(automation.id, {
+      onSuccess: () => {
+        setCustomizeOpen(false);
+        void navigate(`/automations/${automation.id}/edit`);
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -81,15 +96,13 @@ export function AutomationDetail() {
                 <Badge variant={KIND_BADGE_VARIANT[automation.kind]}>
                   {t(`pages:automations.kind.${automation.kind}`)}
                 </Badge>
-                <ScopeChip
-                  automation={automation}
-                  servers={servers}
-                  filterOptions={filterOptions}
-                />
+                <ScopeChip automation={automation} servers={servers} />
+                {template && <TemplateBadge template={template} />}
               </div>
               {automation.description && (
                 <p className="text-muted-foreground text-sm">{automation.description}</p>
               )}
+              <ProvenanceLine automation={automation} />
             </div>
           </div>
         </div>
@@ -101,15 +114,34 @@ export function AutomationDetail() {
             }}
             aria-label={t('pages:automations.toggleAutomation', { name: automation.name })}
           />
-          <Button
-            variant="outline"
-            onClick={() => void navigate(`/automations/${automation.id}/edit`)}
-          >
-            <Pencil />
-            {t('common:actions.edit')}
-          </Button>
+          {template ? (
+            <Button variant="outline" onClick={() => setCustomizeOpen(true)}>
+              <Scissors />
+              {t('pages:automations.template.customize')}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => void navigate(`/automations/${automation.id}/edit`)}
+            >
+              <Pencil />
+              {t('common:actions.edit')}
+            </Button>
+          )}
         </div>
       </div>
+
+      {template && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('pages:automations.template.title')}</CardTitle>
+            <CardDescription>{t('pages:automations.template.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TemplateBinding automation={automation} template={template} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -152,6 +184,16 @@ export function AutomationDetail() {
         onOpenChange={(open) => {
           if (!open) setSelectedRunId(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        title={t('pages:automations.template.customize')}
+        description={t('pages:automations.template.customizeConfirm')}
+        confirmLabel={t('pages:automations.template.customizeConfirmAction')}
+        onConfirm={customize}
+        isLoading={detachAutomation.isPending}
       />
     </div>
   );

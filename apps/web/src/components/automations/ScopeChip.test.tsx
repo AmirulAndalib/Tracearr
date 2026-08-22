@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import type { Automation, AutomationFilterOptions, Server } from '@tracearr/shared';
+import type { Automation, AutomationScopeRef, Server } from '@tracearr/shared';
 import { ScopeChip } from './ScopeChip';
 
 vi.mock('react-i18next', () => ({
@@ -28,27 +28,7 @@ const servers: Server[] = [
   },
 ];
 
-// The API returns one row per person, on the representative account.
-const filterOptions: AutomationFilterOptions = {
-  platforms: [],
-  products: [],
-  devices: [],
-  countries: [],
-  cities: [],
-  servers: [],
-  users: [
-    {
-      id: 'su-plex',
-      username: 'alice-plex',
-      thumbUrl: null,
-      serverId: 'srv-plex',
-      identityName: 'Alice',
-      serverUserIds: ['su-plex', 'su-jf'],
-    },
-  ],
-};
-
-function automation(serverUserId: string): Automation {
+function automation(scopeRef: AutomationScopeRef | null): Automation {
   return {
     id: 'a-1',
     name: 'Nudge',
@@ -58,15 +38,16 @@ function automation(serverUserId: string): Automation {
     triggers: [],
     conditions: { groups: [] },
     actions: { actions: [] },
-    serverId: null,
-    serverUserId,
-    userId: null,
+    serverId: scopeRef?.kind === 'server' ? scopeRef.id : null,
+    serverUserId: scopeRef?.kind === 'account' ? scopeRef.id : null,
+    userId: scopeRef?.kind === 'person' ? scopeRef.id : null,
     enforceAcrossServers: false,
     isActive: true,
     cooldownMinutes: null,
     retentionDays: null,
-    scopeRef: null,
+    scopeRef,
     template: null,
+    templateInputs: null,
     origin: null,
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-01T00:00:00.000Z',
@@ -74,12 +55,17 @@ function automation(serverUserId: string): Automation {
 }
 
 describe('ScopeChip', () => {
-  it('names the account and its server when the scope is the representative', () => {
+  it('names the account and the server the row says it sits on', () => {
     render(
       <ScopeChip
-        automation={automation('su-plex')}
+        automation={automation({
+          kind: 'account',
+          id: 'su-plex',
+          name: 'alice-plex',
+          serverId: 'srv-plex',
+          serverName: 'Plex',
+        })}
         servers={servers}
-        filterOptions={filterOptions}
       />
     );
 
@@ -87,13 +73,49 @@ describe('ScopeChip', () => {
     expect(screen.getByLabelText('Plex')).toBeInTheDocument();
   });
 
-  it('falls back to the person for another of their accounts rather than the wrong server', () => {
+  it('names an account whose server has not loaded yet from the row itself', () => {
     render(
-      <ScopeChip automation={automation('su-jf')} servers={servers} filterOptions={filterOptions} />
+      <ScopeChip
+        automation={automation({
+          kind: 'account',
+          id: 'su-jf',
+          name: 'alice-jf',
+          serverId: 'srv-jf',
+          serverName: 'Jellyfin',
+        })}
+        servers={[]}
+      />
+    );
+
+    expect(screen.getByText('alice-jf')).toBeInTheDocument();
+    expect(screen.getByLabelText('Jellyfin')).toBeInTheDocument();
+  });
+
+  it('names the person a person-scoped row applies to', () => {
+    render(
+      <ScopeChip
+        automation={automation({ kind: 'person', id: 'usr-1', name: 'Alice' })}
+        servers={servers}
+      />
     );
 
     expect(screen.getByText('Alice')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Plex')).not.toBeInTheDocument();
-    expect(screen.queryByText('automations.scope.account')).not.toBeInTheDocument();
+  });
+
+  it('names the server a server-scoped row applies to', () => {
+    render(
+      <ScopeChip
+        automation={automation({ kind: 'server', id: 'srv-plex', name: 'Plex' })}
+        servers={servers}
+      />
+    );
+
+    expect(screen.getByTitle('Plex')).toBeInTheDocument();
+  });
+
+  it('says global when the row applies everywhere', () => {
+    render(<ScopeChip automation={automation(null)} servers={servers} />);
+
+    expect(screen.getByText('automations.scope.global')).toBeInTheDocument();
   });
 });

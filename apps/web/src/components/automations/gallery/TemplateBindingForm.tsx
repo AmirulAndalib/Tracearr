@@ -1,32 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AUTOMATION_NAME_MAX, type TemplateInput } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { SentencePanel } from '@/components/automations/builder/SentencePanel';
-import { useDestinations } from '@/hooks/queries/useDestinations';
-import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
-import { useSettings } from '@/hooks/queries/useSettings';
 import { useInstantiateTemplate } from '@/hooks/queries/useTemplates';
 import { useServer } from '@/hooks/useServer';
-import { describeTemplate, isUnbound, templateName, type DescribeRefs } from '@/lib/automations';
+import { templateName } from '@/lib/automations';
 import type { AutomationTemplate } from '@/lib/api';
-import { TemplateSentence } from './TemplateCard';
-import { TemplateInputField } from './TemplateInputField';
-
-/** Every optional input opens on its default, so no row is ever blank. */
-function initialValues(inputs: TemplateInput[]): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-  for (const input of inputs) {
-    if ('default' in input && input.default !== undefined) values[input.key] = input.default;
-  }
-  return values;
-}
-
-const serverInputKey = (inputs: TemplateInput[]): string | undefined =>
-  inputs.find((input) => input.kind === 'server')?.key;
+import {
+  boundInputValues,
+  initialInputValues,
+  missingInputs,
+  serverInputKey,
+  TemplateInputRows,
+} from './TemplateInputs';
 
 interface TemplateBindingFormProps {
   template: AutomationTemplate;
@@ -38,37 +27,17 @@ interface TemplateBindingFormProps {
 export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindingFormProps) {
   const { t } = useTranslation('pages');
   const { servers } = useServer();
-  const { data: settings } = useSettings();
-  const { data: destinations } = useDestinations();
-  const { data: filterOptions } = useAutomationFilterOptions();
   const instantiate = useInstantiateTemplate();
 
   const { version } = template;
-  const [values, setValues] = useState(() => initialValues(version.inputs));
+  const [values, setValues] = useState(() => initialInputValues(version.inputs));
   const [name, setName] = useState(() => templateName(t, template));
 
   const [nameDirty, setNameDirty] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [submitted, setSubmitted] = useState(false);
 
-  const unitSystem = settings?.unitSystem ?? 'metric';
   const boundServerId = String(values[serverInputKey(version.inputs) ?? ''] ?? '');
-
-  const refs = useMemo<DescribeRefs>(
-    () => ({
-      servers: Object.fromEntries(servers.map((server) => [server.id, server.name])),
-      destinations: Object.fromEntries(
-        (destinations ?? []).map((destination) => [destination.id, destination.name])
-      ),
-      countries: Object.fromEntries(
-        (filterOptions?.countries ?? []).map((country) => [country.code, country.name])
-      ),
-    }),
-    [servers, destinations, filterOptions]
-  );
-
-  const fragments = describeTemplate(version, values, refs, t, unitSystem);
-  const missing = version.inputs.filter((input) => input.required && isUnbound(values[input.key]));
 
   /** What the name reads as until it is edited, and what an emptied field falls back to. */
   const defaultName = (serverId: string) => {
@@ -85,12 +54,14 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
 
   const submit = () => {
     setSubmitted(true);
-    if (missing.length > 0) return;
-    const inputs = Object.fromEntries(
-      Object.entries(values).filter(([, value]) => !isUnbound(value))
-    );
+    if (missingInputs(version.inputs, values).length > 0) return;
     instantiate.mutate(
-      { id: template.id, inputs, name: name.trim() || defaultName(boundServerId), isActive },
+      {
+        id: template.id,
+        inputs: boundInputValues(values),
+        name: name.trim() || defaultName(boundServerId),
+        isActive,
+      },
       { onSuccess: onDone }
     );
   };
@@ -118,30 +89,12 @@ export function TemplateBindingForm({ template, onBack, onDone }: TemplateBindin
             />
           </Field>
 
-          <SentencePanel>
-            <p className="text-muted-foreground text-[0.9375rem] leading-relaxed">
-              <TemplateSentence fragments={fragments} clauses />
-            </p>
-          </SentencePanel>
-
-          {version.inputs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>
-          ) : (
-            version.inputs.map((input) => (
-              <TemplateInputField
-                key={input.key}
-                input={input}
-                definition={version.definition}
-                value={values[input.key]}
-                onChange={(value) => setValue(input, value)}
-                servers={servers}
-                boundServerId={boundServerId}
-                filterOptions={filterOptions}
-                unitSystem={unitSystem}
-                invalid={submitted && input.required && isUnbound(values[input.key])}
-              />
-            ))
-          )}
+          <TemplateInputRows
+            version={version}
+            values={values}
+            onChange={setValue}
+            submitted={submitted}
+          />
         </FieldGroup>
       </div>
 

@@ -37,6 +37,8 @@ interface AutomationJoins {
   templateName: string | null;
   templateCurrentVersion: number | null;
   templateSource: TemplateSource | null;
+  templateAuthor: string | null;
+  templateAddedAt: Date | null;
   originName: string | null;
 }
 
@@ -53,6 +55,8 @@ const automationColumns = {
   templateName: automationTemplates.name,
   templateCurrentVersion: automationTemplates.currentVersion,
   templateSource: automationTemplates.source,
+  templateAuthor: automationTemplates.author,
+  templateAddedAt: automationTemplates.createdAt,
   originName: originTemplates.name,
 };
 
@@ -122,6 +126,7 @@ function templateRefOf(row: AutomationDetailRow): AutomationTemplateRef | null {
   if (!templateId || !templateSlug || !templateName || !templateSource) return null;
   if (typeof row.templateVersion !== 'number') return null;
   if (typeof row.templateCurrentVersion !== 'number') return null;
+  if (!row.templateAddedAt) return null;
   return {
     id: templateId,
     slug: templateSlug,
@@ -129,6 +134,8 @@ function templateRefOf(row: AutomationDetailRow): AutomationTemplateRef | null {
     version: row.templateVersion,
     currentVersion: row.templateCurrentVersion,
     source: templateSource,
+    author: row.templateAuthor ?? null,
+    addedAt: row.templateAddedAt.toISOString(),
   };
 }
 
@@ -161,6 +168,7 @@ export function toAutomation(row: AutomationDetailRow): Automation {
     retentionDays: row.retentionDays,
     scopeRef: scopeRefOf(row),
     template: templateRefOf(row),
+    templateInputs: row.templateInputs,
     origin: originOf(row),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

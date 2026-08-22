@@ -1057,6 +1057,14 @@
         "photo": "Photo"
       }
     },
+    "provenance": {
+      "builtin": "Built-in · {{name}} {{version}}",
+      "imported": "Imported {{date}} · {{name}} {{version}}",
+      "importedBy": "Imported {{date}} by {{author}} · {{name}} {{version}}",
+      "saved": "From {{name}} {{version}}",
+      "customized": "Customized from {{name}}",
+      "customizedFromRemoved": "Customized from a ready-made automation that has since been removed"
+    },
     "recordsOnly": "Records runs only",
     "scope": {
       "global": "Global",
@@ -1101,6 +1109,22 @@
       "low": "Low",
       "warning": "Warning",
       "high": "High"
+    },
+    "template": {
+      "title": "What it applies to",
+      "description": "The parts of this one that are yours. The rest comes from the ready-made automation it was built from.",
+      "version": "v{{version}}",
+      "updateAvailable": "An update is available",
+      "updatedTitle": "The ready-made automation has moved on to v{{version}}",
+      "updatedBody": "Check the answers below, then update to pick up the new version.",
+      "review": "Review and update",
+      "customize": "Customize",
+      "customizeConfirm": "Customizing lets you edit every step yourself, and there is no way back: this automation stops following the ready-made one and will not pick up its updates.",
+      "customizeConfirmAction": "Customize it",
+      "customizeFirst": "Customize this automation before editing its steps.",
+      "customizeFailed": "Couldn't customize that. Try again.",
+      "upgradeFailed": "Couldn't update that. Try again.",
+      "gone": "The ready-made automation this was built from is no longer on this server."
     },
     "templates": {
       "account-inactivity": {
