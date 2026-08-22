@@ -1,6 +1,8 @@
 /** Real i18n: the update banner names a version number, which key-echoing hides. */
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { initI18n } from '@tracearr/translations';
 import type { Automation, AutomationTemplateRef } from '@tracearr/shared';
 import { CONCURRENT_STREAMS } from '@/components/automations/gallery/__tests__/fixtures';
@@ -17,15 +19,27 @@ vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined 
 
 const useTemplate = vi.fn();
 const useTemplateVersion = vi.fn();
+const rebind = vi.fn();
+const detach = vi.fn();
 
 vi.mock('@/hooks/queries', () => ({
   useTemplate: () => useTemplate(),
   useTemplateVersion: () => useTemplateVersion(),
-  useRebindAutomation: () => ({ mutate: vi.fn(), isPending: false }),
+  useRebindAutomation: () => ({ mutate: rebind, isPending: false }),
   useUpgradeAutomation: () => ({ mutate: vi.fn(), isPending: false }),
+  useDetachAutomation: () => ({ mutate: detach, isPending: false }),
 }));
 
 import { TemplateBinding } from './TemplateBinding';
+
+function renderBinding(template: AutomationTemplateRef) {
+  render(
+    <MemoryRouter>
+      <TemplateBinding automation={automation} template={template} />
+    </MemoryRouter>
+  );
+  return userEvent.setup();
+}
 
 const template = (overrides: Partial<AutomationTemplateRef> = {}): AutomationTemplateRef => ({
   id: CONCURRENT_STREAMS.id,
@@ -75,7 +89,7 @@ beforeEach(() => {
 
 describe('TemplateBinding', () => {
   it('names the version the template has moved on to', () => {
-    render(<TemplateBinding automation={automation} template={template({ currentVersion: 4 })} />);
+    renderBinding(template({ currentVersion: 4 }));
 
     expect(screen.getByText('The ready-made automation has moved on to v4')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review and update' })).toBeInTheDocument();
@@ -84,23 +98,43 @@ describe('TemplateBinding', () => {
   it('puts what it says now beside what it would say after', () => {
     useTemplateVersion.mockReturnValue({ data: CONCURRENT_STREAMS.version });
 
-    render(<TemplateBinding automation={automation} template={template({ currentVersion: 2 })} />);
+    renderBinding(template({ currentVersion: 2 }));
 
     expect(screen.getByText('Now')).toBeInTheDocument();
     expect(screen.getByText('After the update')).toBeInTheDocument();
   });
 
   it('just saves when the row is already current', () => {
-    render(<TemplateBinding automation={automation} template={template()} />);
+    renderBinding(template());
 
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
     expect(screen.queryByText('Now')).not.toBeInTheDocument();
   });
 
+  it('offers the builder beside the save, and leaves the name to the page header', () => {
+    renderBinding(template());
+
+    expect(screen.getByRole('button', { name: 'Open in the builder' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+  });
+
+  it('asks before the second door detaches the row', async () => {
+    const user = renderBinding(template());
+
+    await user.click(screen.getByRole('button', { name: 'Open in the builder' }));
+    const confirm = await screen.findByRole('alertdialog');
+    expect(within(confirm).getByText('Make it yours?')).toBeInTheDocument();
+    expect(detach).not.toHaveBeenCalled();
+
+    await user.click(within(confirm).getByRole('button', { name: 'Open in the builder' }));
+
+    expect(detach).toHaveBeenCalledWith('a-1', expect.anything());
+  });
+
   it('says so when the template it followed is gone', () => {
     useTemplate.mockReturnValue({ data: undefined, isLoading: false });
 
-    render(<TemplateBinding automation={automation} template={template()} />);
+    renderBinding(template());
 
     expect(
       screen.getByText('The ready-made automation this was built from is no longer on this server.')

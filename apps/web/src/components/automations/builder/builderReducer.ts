@@ -30,6 +30,7 @@ import {
   getDefaultValueForField,
   scopeFromAutomation,
   scopeToPayload,
+  type AutomationDraft,
   type AutomationScope,
 } from '@/lib/automations';
 
@@ -150,7 +151,8 @@ function stampActions(actions: AutomationActions): AutomationActions {
   };
 }
 
-export function builderStateFrom(automation: Automation): BuilderState {
+/** A stored row and a draft the reader has not saved yet seed the page the same way. */
+export function builderStateFrom(automation: AutomationDraft): BuilderState {
   return {
     name: automation.name,
     description: automation.description ?? '',

@@ -18,23 +18,39 @@ const NO_REFS: DescribeRefs = {};
 
 const PLACEHOLDER = /(\[[^\]]*\])/;
 
+/** The clause the focused field wrote, lifted out of the rest of the sentence. */
+const HIGHLIGHT =
+  'text-foreground bg-primary/15 decoration-primary rounded-sm px-0.5 underline decoration-1 underline-offset-2';
+
 interface TemplateSentenceProps {
   fragments: readonly DescribeFragment[];
   /** Lifts the clauses out of the connective words, as the binding form's panel does. */
   clauses?: boolean;
+  /** The input whose clause is lit while its field has focus. */
+  highlightKey?: string | null;
   className?: string;
 }
 
 /** The sentence as text, with the parts the reader still supplies standing out. */
-export function TemplateSentence({ fragments, clauses, className }: TemplateSentenceProps) {
+export function TemplateSentence({
+  fragments,
+  clauses,
+  highlightKey,
+  className,
+}: TemplateSentenceProps) {
   return (
     <>
       {fragments.map((fragment, index) => {
         const key = `${fragment.nodeId ?? 'text'}:${index}`;
+        const lit = highlightKey != null && (fragment.inputKeys?.includes(highlightKey) ?? false);
         return (
           <span
             key={key}
-            className={cn(clauses && fragment.nodeId !== null && 'text-foreground', className)}
+            className={cn(
+              clauses && fragment.nodeId !== null && 'text-foreground',
+              lit && HIGHLIGHT,
+              className
+            )}
           >
             {fragment.text.split(PLACEHOLDER).map((part, partIndex) => {
               const partKey = `${key}:${partIndex}`;

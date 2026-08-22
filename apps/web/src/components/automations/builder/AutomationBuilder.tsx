@@ -19,11 +19,13 @@ import {
   canEnforceAcrossServers,
   describeAutomation,
   scopeToPayload,
+  type AutomationDraft,
   type DescribeRefs,
 } from '@/lib/automations';
 import {
   branchOf,
   builderReducer,
+  builderStateFrom,
   emptyBuilderState,
   nodeDomId,
   toCreateInput,
@@ -48,6 +50,13 @@ import {
 interface AutomationBuilderProps {
   /** Absent while creating; the loaded row when editing. */
   automation?: Automation;
+  /** Answers carried over from a ready-made automation the reader opened up. */
+  draft?: AutomationDraft;
+}
+
+/** A draft lands dirty: the answers behind it are work the leave guard has to protect. */
+function seedBuilderState(draft: AutomationDraft | undefined) {
+  return draft ? { ...builderStateFrom(draft), dirty: true } : emptyBuilderState();
 }
 
 /** How long a node stays highlighted after the sentence or the error count jumps to it. */
@@ -93,7 +102,7 @@ function touchedKeys(action: BuilderAction, section: string): string[] {
   return keys;
 }
 
-export function AutomationBuilder({ automation }: AutomationBuilderProps) {
+export function AutomationBuilder({ automation, draft }: AutomationBuilderProps) {
   const { t } = useTranslation(['pages', 'common']);
   const navigate = useNavigate();
   const { servers } = useServer();
@@ -103,7 +112,7 @@ export function AutomationBuilder({ automation }: AutomationBuilderProps) {
   const createAutomation = useCreateAutomation();
   const updateAutomation = useUpdateAutomation();
 
-  const [state, dispatch] = useReducer(builderReducer, undefined, emptyBuilderState);
+  const [state, dispatch] = useReducer(builderReducer, draft, seedBuilderState);
   const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
   const [submitted, setSubmitted] = useState(false);
   const [pulseId, setPulseId] = useState<string | null>(null);

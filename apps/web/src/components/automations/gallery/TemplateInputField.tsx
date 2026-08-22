@@ -31,7 +31,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { DestinationsField } from '@/components/automations/builder/DestinationsField';
 import { conditionValueView, FieldControl } from '@/components/automations/builder/fields';
 import { useUsers } from '@/hooks/queries/useUsers';
-import { conditionFieldForInput, fieldDescriptor, templateInputLabel } from '@/lib/automations';
+import {
+  conditionFieldForInput,
+  fieldDescriptor,
+  messageSlotForInput,
+  templateInputLabel,
+} from '@/lib/automations';
 
 /** Longer than a line: the two viewer messages both are, and both want the box. */
 const TEXTAREA_OVER = 120;
@@ -49,6 +54,8 @@ interface TemplateInputFieldProps {
   unitSystem: UnitSystem;
   /** A required input left empty, once the reader has tried to submit. */
   invalid: boolean;
+  /** Told which row has focus, so the sentence can light the clause it wrote. */
+  onFocusInput?: (key: string | null) => void;
 }
 
 /** One template input as the row that fills it in. */
@@ -62,6 +69,7 @@ export function TemplateInputField({
   filterOptions,
   unitSystem,
   invalid,
+  onFocusInput,
 }: TemplateInputFieldProps) {
   const { t } = useTranslation('pages');
   const controlId = useId();
@@ -281,12 +289,24 @@ export function TemplateInputField({
     }
   };
 
-  const description =
-    input.description ?? (input.kind === 'server' ? t('automations.bind.serverHelper') : undefined);
+  const messageSlot = messageSlotForInput(definition, input.key);
+  // The envelope's own words win; these two slots get the app's when it carries none.
+  const ownHelper = messageSlot
+    ? t(`automations.bind.helper.${messageSlot}`)
+    : input.kind === 'server'
+      ? t('automations.bind.serverHelper')
+      : undefined;
+  const description = input.description ?? ownHelper;
+
+  // Capture catches the focus of every control the switch below can render.
+  const focus = {
+    onFocusCapture: () => onFocusInput?.(input.key),
+    onBlurCapture: () => onFocusInput?.(null),
+  };
 
   if (input.kind === 'boolean') {
     return (
-      <Field orientation="horizontal">
+      <Field orientation="horizontal" {...focus}>
         {control()}
         <FieldContent>
           <FieldLabel id={labelId} htmlFor={controlId}>
@@ -299,7 +319,7 @@ export function TemplateInputField({
   }
 
   return (
-    <Field data-invalid={invalid || undefined}>
+    <Field data-invalid={invalid || undefined} {...focus}>
       {/* Destinations are a chip group with no single control to point a label at. */}
       <FieldLabel id={labelId} htmlFor={input.kind === 'destinations' ? undefined : controlId}>
         {label}

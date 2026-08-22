@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Pencil, PencilRuler } from 'lucide-react';
-import type { AutomationKind } from '@tracearr/shared';
+import { ArrowLeft, Pencil } from 'lucide-react';
+import type { Automation, AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -19,8 +18,12 @@ import {
   TemplateBadge,
   TemplateBinding,
 } from '@/components/automations';
-import { automationIcon } from '@/lib/automations';
-import { useAutomation, useDetachAutomation, useToggleAutomation } from '@/hooks/queries';
+import {
+  TemplateSentencePanel,
+  useDescribeRefs,
+} from '@/components/automations/gallery/TemplateInputs';
+import { automationIcon, describeAutomation } from '@/lib/automations';
+import { useAutomation, useToggleAutomation } from '@/hooks/queries';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useServer } from '@/hooks/useServer';
 
@@ -36,11 +39,9 @@ export function AutomationDetail() {
   const { servers } = useServer();
 
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [customizeOpen, setCustomizeOpen] = useState(false);
 
   const { data: automation, isLoading } = useAutomation(id);
   const toggleAutomation = useToggleAutomation();
-  const detachAutomation = useDetachAutomation();
 
   usePageTitle(automation?.name);
 
@@ -71,15 +72,6 @@ export function AutomationDetail() {
   }
 
   const template = automation.template;
-
-  const customize = () => {
-    detachAutomation.mutate(automation.id, {
-      onSuccess: () => {
-        setCustomizeOpen(false);
-        void navigate(`/automations/${automation.id}/edit`);
-      },
-    });
-  };
 
   return (
     <div className="space-y-6">
@@ -114,12 +106,7 @@ export function AutomationDetail() {
             }}
             aria-label={t('pages:automations.toggleAutomation', { name: automation.name })}
           />
-          {template ? (
-            <Button variant="outline" onClick={() => setCustomizeOpen(true)}>
-              <PencilRuler />
-              {t('pages:automations.template.customize')}
-            </Button>
-          ) : (
+          {!template && (
             <Button
               variant="outline"
               onClick={() => void navigate(`/automations/${automation.id}/edit`)}
@@ -130,6 +117,8 @@ export function AutomationDetail() {
           )}
         </div>
       </div>
+
+      {!template && <AutomationSentence automation={automation} />}
 
       {template && (
         <Card>
@@ -186,18 +175,16 @@ export function AutomationDetail() {
           if (!open) setSelectedRunId(null);
         }}
       />
-
-      <ConfirmDialog
-        open={customizeOpen}
-        onOpenChange={setCustomizeOpen}
-        title={t('pages:automations.template.customizeTitle')}
-        description={t('pages:automations.template.customizeConfirm')}
-        confirmLabel={t('pages:automations.template.customizeConfirmAction')}
-        onConfirm={customize}
-        isLoading={detachAutomation.isPending}
-      />
     </div>
   );
+}
+
+/** A row that owns its own steps still says what it does, in the same words. */
+function AutomationSentence({ automation }: { automation: Automation }) {
+  const { t } = useTranslation('pages');
+  const { refs, unitSystem } = useDescribeRefs();
+
+  return <TemplateSentencePanel fragments={describeAutomation(automation, refs, t, unitSystem)} />;
 }
 
 function BackLink({ label }: { label: string }) {

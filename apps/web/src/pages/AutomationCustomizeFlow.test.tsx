@@ -3,12 +3,13 @@
  * builder page reads on the next tick, so it must not bounce back to the detail page.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { initI18n } from '@tracearr/translations';
 import type { Automation, AutomationTemplateRef } from '@tracearr/shared';
+import { CONCURRENT_STREAMS } from '@/components/automations/gallery/__tests__/fixtures';
 
 vi.mock('sonner', () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
@@ -20,13 +21,18 @@ vi.mock('@/lib/api', () => ({
 }));
 
 vi.mock('@/hooks/useServer', () => ({ useServer: () => ({ servers: [] }) }));
+vi.mock('@/hooks/queries/useSettings', () => ({
+  useSettings: () => ({ data: { unitSystem: 'metric' } }),
+}));
+vi.mock('@/hooks/queries/useDestinations', () => ({ useDestinations: () => ({ data: [] }) }));
+vi.mock('@/hooks/queries/useHistory', () => ({
+  useAutomationFilterOptions: () => ({ data: undefined }),
+}));
+vi.mock('@/hooks/queries/useUsers', () => ({ useUsers: () => ({ data: undefined }) }));
 vi.mock('@/hooks/useDocumentTitle', () => ({ usePageTitle: () => undefined }));
 vi.mock('@/components/automations/ActivityList', () => ({ ActivityList: () => null }));
 vi.mock('@/components/automations/EvaluationsList', () => ({ EvaluationsList: () => null }));
 vi.mock('@/components/automations/RunDetail', () => ({ RunDetail: () => null }));
-vi.mock('@/components/automations/TemplateBinding', () => ({
-  TemplateBinding: () => <p>the binding form</p>,
-}));
 vi.mock('@/components/automations/builder', () => ({
   AutomationBuilder: () => <p>the builder</p>,
 }));
@@ -37,7 +43,7 @@ import { AutomationDetail } from './AutomationDetail';
 import { AutomationBuilderPage } from './AutomationBuilderPage';
 
 const template: AutomationTemplateRef = {
-  id: 't-1',
+  id: CONCURRENT_STREAMS.id,
   slug: 'concurrent-streams',
   name: 'Too many streams at once',
   version: 1,
@@ -75,7 +81,9 @@ function automation(overrides: Partial<Automation> = {}): Automation {
 }
 
 const bound = automation({ template, templateInputs: { max: 4 } });
-const detached = automation({ origin: { templateId: 't-1', version: 1, name: template.name } });
+const detached = automation({
+  origin: { templateId: template.id, version: 1, name: template.name },
+});
 
 beforeEach(async () => {
   await initI18n({ lng: 'en' });
@@ -111,20 +119,21 @@ describe('customizing a template-bound automation', () => {
       return Promise.resolve(detached);
     });
 
+    vi.mocked(api.templates.get).mockResolvedValue(CONCURRENT_STREAMS);
+
     const client = renderFlow();
-    await screen.findByText('the binding form');
+    await screen.findByRole('button', { name: 'Save changes' });
 
     await user.click(screen.getByRole('button', { name: 'Open in the builder' }));
-    await user.click(
-      screen.getAllByRole('button', { name: 'Open in the builder' }).slice(-1)[0] as HTMLElement
-    );
+    const confirm = await screen.findByRole('alertdialog');
+    await user.click(within(confirm).getByRole('button', { name: 'Open in the builder' }));
     await waitFor(() => expect(api.automations.detach).toHaveBeenCalledWith('a-1'));
 
     await screen.findByText('the builder');
     // The row the builder read was the detached one, so nothing sent it back.
     expect(client.getQueryData(['automations', 'detail', 'a-1'])).toEqual(detached);
     expect(toast.info).not.toHaveBeenCalled();
-    expect(screen.queryByText('the binding form')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument();
   });
 
   it('still turns a bound row away from the builder', async () => {

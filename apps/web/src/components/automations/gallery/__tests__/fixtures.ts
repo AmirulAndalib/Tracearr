@@ -132,6 +132,14 @@ export const KILL_PAUSED = template(
         min: 1,
         max: 1440,
       },
+      {
+        key: 'message',
+        kind: 'text',
+        label: 'Message shown to the viewer',
+        required: false,
+        maxLength: 500,
+        default: 'Your stream was stopped because it was paused for too long',
+      },
     ],
     definition: {
       kind: 'notification',
@@ -146,7 +154,12 @@ export const KILL_PAUSED = template(
       conditions: { groups: [] },
       actions: {
         actions: [
-          { id: 'aaaaaaaa-0000-4000-8000-000000000022', type: 'kill_stream', enabled: true },
+          {
+            id: 'aaaaaaaa-0000-4000-8000-000000000022',
+            type: 'kill_stream',
+            enabled: true,
+            message: { $input: 'message' },
+          },
         ],
       },
       scope: {},
@@ -280,6 +293,29 @@ export const BLOCKED_COUNTRIES = template(
             enabled: true,
             message: 'Not here',
           },
+        ],
+      },
+      scope: {},
+      enforceAcrossServers: false,
+      cooldownMinutes: null,
+    },
+  }
+);
+
+/** Someone shared this one with every blank already answered. */
+export const NO_INPUTS = template(
+  { id: 'template-no-inputs', slug: 'no-inputs', name: 'Stop 4K transcodes', builtin: false },
+  {
+    inputs: [],
+    definition: {
+      kind: 'notification',
+      triggers: [
+        { id: 'aaaaaaaa-0000-4000-8000-000000000051', type: 'session.started', enabled: true },
+      ],
+      conditions: { groups: [] },
+      actions: {
+        actions: [
+          { id: 'aaaaaaaa-0000-4000-8000-000000000052', type: 'kill_stream', enabled: true },
         ],
       },
       scope: {},

@@ -37,21 +37,23 @@ export function useTemplateVersion(id: string | undefined, version: number | und
 }
 
 export function useInstantiateTemplate() {
-  const { t } = useTranslation(['pages', 'notifications']);
+  const { t } = useTranslation('pages');
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, ...body }: InstantiateTemplateInput & { id: string }) =>
       api.templates.instantiate(id, body),
-    onSuccess: () => {
+    onSuccess: (created, { isActive }) => {
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
       void queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY });
-      toast.success(t('notifications:toast.success.automationCreated.title'), {
-        description: t('notifications:toast.success.automationCreated.message'),
-      });
+      toast.success(
+        t(isActive === false ? 'automations.bind.createdOff' : 'automations.bind.created', {
+          name: created.name,
+        })
+      );
     },
     onError: (error: Error) => {
-      toast.error(t('pages:automations.bind.failed'), { description: error.message });
+      toast.error(t('automations.bind.failed'), { description: error.message });
     },
   });
 }

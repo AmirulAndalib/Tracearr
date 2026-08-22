@@ -26,6 +26,8 @@ import {
 export interface DescribeFragment {
   nodeId: string | null;
   text: string;
+  /** Template inputs whose answers wrote this clause; a stored automation carries none. */
+  inputKeys?: readonly string[];
 }
 
 /** A template leaves a value out until it is bound, naming the input that fills it. */

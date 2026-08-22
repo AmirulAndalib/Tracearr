@@ -6,7 +6,12 @@ import { useDestinations } from '@/hooks/queries/useDestinations';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useServer } from '@/hooks/useServer';
-import { describeTemplate, isUnbound, type DescribeRefs } from '@/lib/automations';
+import {
+  describeTemplate,
+  isUnbound,
+  type DescribeFragment,
+  type DescribeRefs,
+} from '@/lib/automations';
 import type { TemplateVersionPayload } from '@/lib/api';
 import { TemplateSentence } from './TemplateCard';
 import { TemplateInputField } from './TemplateInputField';
@@ -41,7 +46,7 @@ export const boundInputValues = (values: Record<string, unknown>): Record<string
   Object.fromEntries(Object.entries(values).filter(([, value]) => !isUnbound(value)));
 
 /** Every name a template sentence can put in place of an id. */
-function useDescribeRefs(): { refs: DescribeRefs; unitSystem: UnitSystem } {
+export function useDescribeRefs(): { refs: DescribeRefs; unitSystem: UnitSystem } {
   const { data: settings } = useSettings();
   const { data: destinations } = useDestinations();
   const { data: filterOptions } = useAutomationFilterOptions();
@@ -63,27 +68,38 @@ function useDescribeRefs(): { refs: DescribeRefs; unitSystem: UnitSystem } {
   return { refs, unitSystem: settings?.unitSystem ?? 'metric' };
 }
 
-interface TemplateSentencePanelProps {
-  version: TemplateVersionPayload;
-  values: Record<string, unknown>;
-  /** Names the panel when two of them sit side by side. */
-  label?: string;
-}
-
-/** One version's sentence, filled in as far as the answers reach. */
-export function TemplateSentencePanel({ version, values, label }: TemplateSentencePanelProps) {
+/** One version's sentence and the names behind it, for whoever is showing that version. */
+export function useTemplateBinding(
+  version: TemplateVersionPayload | undefined,
+  values: Record<string, unknown>
+): { refs: DescribeRefs; unitSystem: UnitSystem; fragments: DescribeFragment[] } {
   const { t } = useTranslation('pages');
   const { refs, unitSystem } = useDescribeRefs();
+  const fragments = version ? describeTemplate(version, values, refs, t, unitSystem) : [];
 
+  return { refs, unitSystem, fragments };
+}
+
+interface TemplateSentencePanelProps {
+  fragments: readonly DescribeFragment[];
+  /** Names the panel when two of them sit side by side. */
+  label?: string;
+  /** Lifts the clause the focused field wrote. */
+  highlightKey?: string | null;
+}
+
+/** The framed sentence, filled in as far as the answers reach. */
+export function TemplateSentencePanel({
+  fragments,
+  label,
+  highlightKey,
+}: TemplateSentencePanelProps) {
   return (
     <div className="space-y-1">
       {label !== undefined && <p className="text-muted-foreground text-xs">{label}</p>}
       <SentencePanel>
         <p className="text-muted-foreground text-[0.9375rem] leading-relaxed">
-          <TemplateSentence
-            fragments={describeTemplate(version, values, refs, t, unitSystem)}
-            clauses
-          />
+          <TemplateSentence fragments={fragments} highlightKey={highlightKey} clauses />
         </p>
       </SentencePanel>
     </div>
@@ -96,19 +112,18 @@ interface TemplateInputRowsProps {
   onChange: (input: TemplateInput, value: unknown) => void;
   /** Marks the required rows that are still blank, once the reader has tried to submit. */
   submitted: boolean;
-  /** Names the sentence panel when an upgrade puts the old one beside it. */
-  sentenceLabel?: string;
+  /** The key of the row that has focus, or null when focus has left the fields. */
+  onFocusInput?: (key: string | null) => void;
 }
 
-/** What the automation will say, then the parts the reader supplies. */
+/** The parts the reader supplies, one row each. */
 export function TemplateInputRows({
   version,
   values,
   onChange,
   submitted,
-  sentenceLabel,
+  onFocusInput,
 }: TemplateInputRowsProps) {
-  const { t } = useTranslation('pages');
   const { servers } = useServer();
   const { unitSystem } = useDescribeRefs();
   const { data: filterOptions } = useAutomationFilterOptions();
@@ -117,26 +132,21 @@ export function TemplateInputRows({
 
   return (
     <>
-      <TemplateSentencePanel version={version} values={values} label={sentenceLabel} />
-
-      {version.inputs.length === 0 ? (
-        <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>
-      ) : (
-        version.inputs.map((input) => (
-          <TemplateInputField
-            key={input.key}
-            input={input}
-            definition={version.definition}
-            value={values[input.key]}
-            onChange={(value) => onChange(input, value)}
-            servers={servers}
-            boundServerId={boundServerId}
-            filterOptions={filterOptions}
-            unitSystem={unitSystem}
-            invalid={submitted && input.required && isUnbound(values[input.key])}
-          />
-        ))
-      )}
+      {version.inputs.map((input) => (
+        <TemplateInputField
+          key={input.key}
+          input={input}
+          definition={version.definition}
+          value={values[input.key]}
+          onChange={(value) => onChange(input, value)}
+          servers={servers}
+          boundServerId={boundServerId}
+          filterOptions={filterOptions}
+          unitSystem={unitSystem}
+          invalid={submitted && input.required && isUnbound(values[input.key])}
+          onFocusInput={onFocusInput}
+        />
+      ))}
     </>
   );
 }

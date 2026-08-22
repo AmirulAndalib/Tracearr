@@ -4,7 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { initI18n } from '@tracearr/translations';
 import type { Destination } from '@tracearr/shared';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { BLOCKED_COUNTRIES, CONCURRENT_STREAMS, STREAM_STARTED } from './fixtures';
+import type { AutomationTemplate } from '@/lib/api';
+import {
+  BLOCKED_COUNTRIES,
+  CONCURRENT_STREAMS,
+  KILL_PAUSED,
+  NO_INPUTS,
+  STREAM_STARTED,
+} from './fixtures';
 
 vi.mock('@/hooks/queries/useSettings', () => ({
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
@@ -19,7 +26,7 @@ vi.mock('@/hooks/queries/useHistory', () => ({
 
 const destination: Destination = {
   id: 'dest-discord',
-  name: 'Team Discord',
+  name: 'Discord',
   type: 'discord',
   enabled: true,
   builtin: false,
@@ -52,26 +59,36 @@ vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
   ),
 }));
 
-const instantiate = vi.fn();
-
-vi.mock('@/hooks/queries/useTemplates', () => ({
-  useInstantiateTemplate: () => ({ mutate: instantiate, isPending: false }),
-}));
-
 import { TemplateBindingForm } from '../TemplateBindingForm';
 
 beforeAll(async () => {
   await initI18n({ lng: 'en' });
 });
 
+const onPrimary = vi.fn();
+const onSecondary = vi.fn();
+
 beforeEach(() => {
-  instantiate.mockReset();
+  onPrimary.mockReset();
+  onSecondary.mockReset();
 });
 
-function renderForm(template = STREAM_STARTED) {
-  const onDone = vi.fn();
-  render(<TemplateBindingForm template={template} onBack={vi.fn()} onDone={onDone} />);
-  return { onDone, user: userEvent.setup() };
+function renderForm(template: AutomationTemplate = STREAM_STARTED, showName = true) {
+  render(
+    <TemplateBindingForm
+      template={template}
+      showName={showName}
+      doors={{
+        primaryLabel: 'Use this',
+        onPrimary,
+        pending: false,
+        secondaryLabel: 'Open in the builder',
+        onSecondary,
+        helper: 'Either way works.',
+      }}
+    />
+  );
+  return { user: userEvent.setup() };
 }
 
 const sentence = () => screen.getByText('In plain words').parentElement?.textContent ?? '';
@@ -85,14 +102,43 @@ describe('TemplateBindingForm', () => {
     expect(screen.getByRole('switch')).toBeChecked();
   });
 
+  it('tells the story in order and puts the name last', () => {
+    renderForm();
+
+    const headings = [...document.querySelectorAll('h2, h3')].map((node) => node.textContent);
+    expect(headings).toEqual(['In plain words', 'What it needs from you', 'What this will do']);
+
+    const labels = [...document.querySelectorAll('label')].map((node) => node.textContent);
+    expect(labels).toEqual(['Which server', 'Send to', 'Name', 'Active']);
+  });
+
+  it('says what it will do to a person', () => {
+    renderForm(KILL_PAUSED);
+
+    expect(
+      screen.getByText("Can stop a stream that is playing.")
+    ).toBeInTheDocument();
+    expect(screen.getByText('Runs on every server.')).toBeInTheDocument();
+  });
+
+  it('reassures on a template that only sends messages', () => {
+    renderForm();
+
+    expect(
+      screen.getByText(
+        'Only notifies. Never stops a stream or changes an account.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('names the destination in the sentence once one is picked', async () => {
     const { user } = renderForm();
 
     expect(sentence()).toContain('[Send to]');
 
-    await user.click(screen.getByRole('button', { name: 'Team Discord' }));
+    await user.click(screen.getByRole('button', { name: 'Discord' }));
 
-    expect(sentence()).toContain('send to Team Discord');
+    expect(sentence()).toContain('send to Discord');
   });
 
   it('lets the reader add a destination without leaving the form', async () => {
@@ -103,7 +149,7 @@ describe('TemplateBindingForm', () => {
     expect(await screen.findByText('New destination')).toBeInTheDocument();
   });
 
-  it('follows the server into the name until the name is edited', async () => {
+  it('moves the sentence tail, the scope line and the name together on a server pick', async () => {
     const { user } = renderForm();
 
     await user.click(screen.getByRole('combobox', { name: /Which server/ }));
@@ -111,6 +157,7 @@ describe('TemplateBindingForm', () => {
 
     expect(screen.getByLabelText('Name')).toHaveValue('Stream started — Beehive');
     expect(sentence()).toContain('Applies to Beehive.');
+    expect(screen.getByText('Runs on Beehive only.')).toBeInTheDocument();
 
     await user.type(screen.getByLabelText('Name'), '!');
     await user.click(screen.getByRole('combobox', { name: /Which server/ }));
@@ -119,33 +166,53 @@ describe('TemplateBindingForm', () => {
     expect(screen.getByLabelText('Name')).toHaveValue('Stream started — Beehive!');
   });
 
+  it('lights the clause a focused field wrote, and clears it on the way out', async () => {
+    const { user } = renderForm(CONCURRENT_STREAMS);
+
+    const lit = () =>
+      screen.getByText('In plain words').parentElement?.querySelector('.bg-primary\\/15')
+        ?.textContent ?? '';
+
+    expect(lit()).toBe('');
+
+    await user.click(screen.getByLabelText('Streams allowed'));
+    expect(lit()).toContain('the stream count is above 3');
+
+    await user.tab();
+    expect(lit()).toBe('');
+  });
+
+  it('says when a viewer message is shown, since the sentence never mentions it', () => {
+    renderForm(KILL_PAUSED);
+
+    expect(
+      screen.getByText('Shown on the player when the stream stops.')
+    ).toBeInTheDocument();
+  });
+
   it('holds a missing destination back until the reader submits', async () => {
-    const { user, onDone } = renderForm();
+    const { user } = renderForm();
 
     expect(screen.queryByText('Pick at least one.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use this' })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: 'Use this' }));
 
     expect(screen.getByText('Pick at least one.')).toBeInTheDocument();
-    expect(instantiate).not.toHaveBeenCalled();
-    expect(onDone).not.toHaveBeenCalled();
+    expect(onPrimary).not.toHaveBeenCalled();
   });
 
-  it('sends the bound inputs and the name it shows', async () => {
+  it('hands the primary door the bound inputs and the name it shows', async () => {
     const { user } = renderForm();
 
-    await user.click(screen.getByRole('button', { name: 'Team Discord' }));
+    await user.click(screen.getByRole('button', { name: 'Discord' }));
     await user.click(screen.getByRole('button', { name: 'Use this' }));
 
-    expect(instantiate).toHaveBeenCalledWith(
-      {
-        id: 'template-stream-started',
-        inputs: { to: ['dest-discord'] },
-        name: 'Stream started',
-        isActive: true,
-      },
-      expect.anything()
-    );
+    expect(onPrimary).toHaveBeenCalledWith({
+      inputs: { to: ['dest-discord'] },
+      name: 'Stream started',
+      isActive: true,
+    });
   });
 
   it('sends a policy template with its numbers already filled in', async () => {
@@ -155,9 +222,8 @@ describe('TemplateBindingForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Use this' }));
 
-    expect(instantiate).toHaveBeenCalledWith(
-      expect.objectContaining({ inputs: { max: 3 }, isActive: true }),
-      expect.anything()
+    expect(onPrimary).toHaveBeenCalledWith(
+      expect.objectContaining({ inputs: { max: 3 }, isActive: true })
     );
   });
 
@@ -181,9 +247,8 @@ describe('TemplateBindingForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Use this' }));
 
-    expect(instantiate).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Too many streams at once' }),
-      expect.anything()
+    expect(onPrimary).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Too many streams at once' })
     );
   });
 
@@ -193,9 +258,35 @@ describe('TemplateBindingForm', () => {
     await user.click(screen.getByRole('switch'));
     await user.click(screen.getByRole('button', { name: 'Use this' }));
 
-    expect(instantiate).toHaveBeenCalledWith(
-      expect.objectContaining({ isActive: false }),
-      expect.anything()
+    expect(onPrimary).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }));
+  });
+
+  it('hands the second door the answers the reader typed, not the defaults', async () => {
+    const { user } = renderForm();
+
+    await user.click(screen.getByRole('button', { name: 'Discord' }));
+    await user.click(screen.getByRole('combobox', { name: /Which server/ }));
+    await user.click(await screen.findByRole('option', { name: 'Beehive' }));
+    await user.click(screen.getByRole('button', { name: 'Open in the builder' }));
+
+    expect(onSecondary).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Stream started — Beehive', serverId: 'server-1' })
     );
+    const [draft] = onSecondary.mock.calls[0] as [{ actions: { actions: unknown[] } }];
+    expect(draft.actions.actions[0]).toMatchObject({ type: 'send', to: ['dest-discord'] });
+  });
+
+  it('leaves out the name and the switch when the row already exists', () => {
+    renderForm(CONCURRENT_STREAMS, false);
+
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
+  it('says there is nothing to fill in when a template has no inputs', () => {
+    renderForm(NO_INPUTS);
+
+    expect(screen.getByText('Nothing to fill in — this one works as it is.')).toBeInTheDocument();
+    expect(screen.queryByText('What it needs from you')).not.toBeInTheDocument();
   });
 });

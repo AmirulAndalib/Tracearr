@@ -397,11 +397,16 @@
     "allStatuses": "All statuses",
     "bind": {
       "nameLabel": "Name",
+      "nameHelper": "What you'll see it called in your list.",
       "namePlaceholder": "A name for this automation",
       "activeLabel": "Active",
       "back": "Back",
       "submit": "Use this",
       "submitting": "Setting it up…",
+      "customize": "Open in the builder",
+      "doors": {
+        "helper": "Use this now — you can change your answers later, and it keeps up with the ready-made one. In the builder you can change every part, on your own from then on."
+      },
       "anyServer": "Any server",
       "serverHelper": "Leave it on Any server and it watches all of them.",
       "serverLabel": "Which server",
@@ -409,8 +414,17 @@
       "personLabel": "Which person",
       "destinationsLabel": "Send to",
       "required": "Pick at least one.",
+      "needs": {
+        "title": "What it needs from you"
+      },
+      "helper": {
+        "killMessage": "Shown on the player when the stream stops.",
+        "clientMessage": "Shown on the player while it keeps playing."
+      },
       "noInputs": "Nothing to fill in — this one works as it is.",
-      "failed": "Couldn't set that up. Try again."
+      "failed": "Couldn't set that up. Try again.",
+      "created": "{{name}} is set up and running.",
+      "createdOff": "{{name}} is set up, and off. Turn it on from the list when you want it."
     },
     "builder": {
       "destinationDisabled": "Disabled destination",
@@ -770,6 +784,17 @@
     },
     "disable": "Disable",
     "editAutomation": "Edit automation",
+    "effects": {
+      "title": "What this will do",
+      "kill": "Can stop a stream that is playing.",
+      "trust": "Changes trust scores.",
+      "message": "Puts a message on a player.",
+      "violation": "Records a violation against the matched person.",
+      "tellsOnly": "Only notifies. Never stops a stream or changes an account.",
+      "allServers": "Runs on every server unless one is chosen.",
+      "everyServer": "Runs on every server.",
+      "oneServer": "Runs on {{server}} only."
+    },
     "emptyTitle": "No automations yet",
     "emptyDescription": "Start from a ready-made one — you fill in the parts that are yours.",
     "emptySeeAll": "See all {{count}}",
@@ -967,18 +992,6 @@
       "madeBy": "Made by {{author}}",
       "madeOn": "{{date}}",
       "codeShort": "code {{fingerprint}}",
-      "effects": {
-        "title": "What this will do",
-        "kill": "Can stop a stream that is playing.",
-        "trust": "Changes trust scores.",
-        "message": "Puts a message on a player.",
-        "violation": "Records a violation against the matched person.",
-        "allServers": "It runs on every server unless you pick one below.",
-        "oneServer": "Runs on {{server}} only."
-      },
-      "needs": {
-        "title": "What it needs from you"
-      },
       "paused": {
         "label": "Start paused",
         "helper": "Turn it on from the list after review."

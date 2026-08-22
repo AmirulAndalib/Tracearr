@@ -654,4 +654,20 @@ describe('the media triggers in the picker and the sentence', () => {
     expect(text).toContain('the library is Movies');
     expect(text).toContain('the resolution is at least 4K');
   });
+  it('stamps no input keys on a stored automation', () => {
+    const fragments = describeAutomation(
+      {
+        kind: 'notification',
+        triggers: [{ id: 'trigger-1', type: 'session.started', enabled: true }],
+        conditions: conditions({ field: 'concurrent_streams', operator: 'gt', value: 3 }),
+        actions: { actions: [{ id: 'action-1', type: 'kill_stream', enabled: true }] },
+        serverId: 'server-1',
+      },
+      { servers: { 'server-1': 'Beehive' } },
+      t,
+      'metric'
+    );
+
+    expect(fragments.every((fragment) => fragment.inputKeys === undefined)).toBe(true);
+  });
 });

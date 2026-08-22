@@ -6,13 +6,20 @@
 import { slotValueFor } from '@tracearr/shared';
 import type { PagesKey } from '@tracearr/translations';
 import type {
+  AutomationActions,
+  AutomationConditions,
+  AutomationKind,
+  AutomationScopeRef,
   ConditionField,
   TemplateDefinition,
   TemplateInput,
+  TriggerNode,
   UnitSystem,
+  ViolationSeverity,
 } from '@tracearr/shared';
 import {
   describeAutomation,
+  SENTENCE_SECTIONS,
   type DescribableDefinition,
   type DescribeFragment,
   type DescribeRefs,
@@ -90,14 +97,33 @@ function placeholderKey(node: unknown): string | undefined {
   return typeof key === 'string' ? key : undefined;
 }
 
+/** A slot that sits outside any node the sentence can address. */
+const NO_NODE = '';
+
+/** Which inputs wrote each node, so a field can light the clause its answer landed in. */
+export type NodeInputKeys = ReadonlyMap<string, readonly string[]>;
+
+export interface BoundDefinition {
+  definition: DescribableDefinition;
+  inputsByNode: NodeInputKeys;
+}
+
+/** A node id, or the section a scope slot belongs to since scope carries no id. */
+function nodeIdOf(node: object, current: string): string {
+  const { id } = node as { id?: unknown };
+  return typeof id === 'string' ? id : current;
+}
+
 /**
- * The definition with bound values and defaults substituted. A required input nothing
- * filled stays a placeholder so the sentence can name it; an optional one drops out.
+ * The definition with bound values and defaults substituted. `placeholders` keeps an
+ * unbound required input naming itself, which the sentence wants and a draft does not.
  */
-function bindDefinition(
+export function bindDefinition(
   version: TemplateVersionBody,
-  bound: Record<string, unknown>
-): DescribableDefinition {
+  bound: Record<string, unknown>,
+  options: { placeholders?: boolean } = {}
+): BoundDefinition {
+  const placeholders = options.placeholders ?? true;
   const resolved = new Map<string, { input: TemplateInput; value: unknown }>();
   for (const input of version.inputs) {
     const value = isUnbound(bound[input.key])
@@ -108,20 +134,35 @@ function bindDefinition(
     if (!isUnbound(value)) resolved.set(input.key, { input, value });
   }
 
-  const substitute = (node: unknown, slot: string): unknown => {
+  const inputsByNode = new Map<string, string[]>();
+  const record = (nodeId: string, key: string) => {
+    const keys = inputsByNode.get(nodeId);
+    if (keys) keys.push(key);
+    else inputsByNode.set(nodeId, [key]);
+  };
+
+  const substitute = (node: unknown, slot: string, nodeId: string): unknown => {
     const key = placeholderKey(node);
     if (key !== undefined) {
       const binding = resolved.get(key);
-      if (binding) return slotValueFor(binding.input, binding.value, slot);
-      return version.inputs.find((input) => input.key === key)?.required ? node : DROP;
+      if (binding) {
+        record(nodeId, key);
+        return slotValueFor(binding.input, binding.value, slot);
+      }
+      if (!placeholders || !version.inputs.find((input) => input.key === key)?.required) {
+        return DROP;
+      }
+      record(nodeId, key);
+      return node;
     }
     if (Array.isArray(node)) {
-      return node.map((item) => substitute(item, slot)).filter((item) => item !== DROP);
+      return node.map((item) => substitute(item, slot, nodeId)).filter((item) => item !== DROP);
     }
     if (node !== null && typeof node === 'object') {
+      const own = nodeIdOf(node, nodeId);
       const out: Record<string, unknown> = {};
       for (const [childKey, child] of Object.entries(node as Record<string, unknown>)) {
-        const value = substitute(child, childKey);
+        const value = substitute(child, childKey, own);
         if (value !== DROP) out[childKey] = value;
       }
       return out;
@@ -132,22 +173,116 @@ function bindDefinition(
   const { definition } = version;
   const scope: DescribableDefinition['scope'] = {};
   for (const [key, value] of Object.entries(definition.scope)) {
-    const bindingValue = substitute(value, key);
+    const bindingValue = substitute(value, key, SENTENCE_SECTIONS.scope);
     if (bindingValue !== DROP && bindingValue !== undefined) {
       Object.assign(scope, { [key]: bindingValue });
     }
   }
 
   return {
-    kind: definition.kind,
-    triggers: substitute(definition.triggers, 'triggers') as DescribableDefinition['triggers'],
-    conditions: substitute(
-      definition.conditions,
-      'conditions'
-    ) as DescribableDefinition['conditions'],
-    actions: substitute(definition.actions, 'actions') as DescribableDefinition['actions'],
-    scope,
+    definition: {
+      kind: definition.kind,
+      triggers: substitute(
+        definition.triggers,
+        'triggers',
+        NO_NODE
+      ) as DescribableDefinition['triggers'],
+      conditions: substitute(
+        definition.conditions,
+        'conditions',
+        NO_NODE
+      ) as DescribableDefinition['conditions'],
+      actions: substitute(
+        definition.actions,
+        'actions',
+        NO_NODE
+      ) as DescribableDefinition['actions'],
+      scope,
+    },
+    inputsByNode,
   };
+}
+
+/**
+ * What the builder opens on before anything is saved. A stored `Automation` satisfies
+ * it, so one seeding path serves both.
+ */
+export interface AutomationDraft {
+  name: string;
+  description: string | null;
+  kind: AutomationKind;
+  severity: ViolationSeverity | null;
+  isActive: boolean;
+  triggers: TriggerNode[];
+  conditions: AutomationConditions;
+  actions: AutomationActions;
+  serverId: string | null;
+  serverUserId: string | null;
+  userId: string | null;
+  scopeRef?: AutomationScopeRef | null;
+  enforceAcrossServers: boolean;
+}
+
+/**
+ * The template as a row the builder can edit, with every slot nothing answered dropped.
+ * An empty required slot lands as a field the builder's own validation flags.
+ */
+export function templateDraft(
+  version: TemplateVersionBody,
+  bound: Record<string, unknown>,
+  options: { name: string; isActive: boolean }
+): AutomationDraft {
+  const { definition } = bindDefinition(version, bound, { placeholders: false });
+  const scope = definition.scope ?? {};
+  // Nothing unresolved survives the bind, so the remaining values are the stored kinds.
+  const scopeId = (value: unknown) => (typeof value === 'string' ? value : null);
+
+  return {
+    name: options.name,
+    description: null,
+    kind: version.definition.kind,
+    severity: version.definition.severity ?? null,
+    isActive: options.isActive,
+    triggers: (definition.triggers ?? []) as TriggerNode[],
+    conditions: (definition.conditions ?? { groups: [] }) as AutomationConditions,
+    actions: (definition.actions ?? { actions: [] }) as AutomationActions,
+    serverId: scopeId(scope.serverId),
+    serverUserId: scopeId(scope.serverUserId),
+    userId: scopeId(scope.userId),
+    enforceAcrossServers: version.definition.enforceAcrossServers ?? false,
+  };
+}
+
+/** The two message slots the app words for the reader when the envelope stays quiet. */
+export type MessageSlot = 'killMessage' | 'clientMessage';
+
+const MESSAGE_SLOTS: Record<string, MessageSlot> = {
+  kill_stream: 'killMessage',
+  message_client: 'clientMessage',
+};
+
+/**
+ * The message slot an input fills, so a viewer message says when the viewer sees it.
+ * Nothing in the sentence names either one.
+ */
+export function messageSlotForInput(
+  definition: TemplateDefinition,
+  key: string
+): MessageSlot | undefined {
+  const walk = (actions: TemplateDefinition['actions']['actions']): MessageSlot | undefined => {
+    for (const action of actions) {
+      if (action.type === 'if') {
+        const nested = walk([...action.then, ...action.else]);
+        if (nested) return nested;
+        continue;
+      }
+      const slot = MESSAGE_SLOTS[action.type];
+      if (slot && 'message' in action && placeholderKey(action.message) === key) return slot;
+    }
+    return undefined;
+  };
+
+  return walk(definition.actions.actions);
 }
 
 /**
@@ -185,8 +320,8 @@ export function describeTemplate(
   t: Translate,
   unitSystem: UnitSystem
 ): DescribeFragment[] {
-  const definition = bindDefinition(version, bound);
-  return describeAutomation(
+  const { definition, inputsByNode } = bindDefinition(version, bound);
+  const fragments = describeAutomation(
     {
       ...definition,
       inputs: version.inputs.map((input) => ({
@@ -198,4 +333,9 @@ export function describeTemplate(
     t,
     unitSystem
   );
+
+  return fragments.map((fragment) => {
+    const keys = fragment.nodeId === null ? undefined : inputsByNode.get(fragment.nodeId);
+    return keys ? { ...fragment, inputKeys: keys } : fragment;
+  });
 }

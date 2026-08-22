@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import type { Automation, AutomationTemplateRef } from '@tracearr/shared';
+import type { AutomationDraft } from '@/lib/automations';
 import { AutomationBuilderPage } from './AutomationBuilderPage';
 
 vi.mock('react-i18next', () => ({
@@ -11,7 +12,9 @@ vi.mock('react-i18next', () => ({
 vi.mock('sonner', () => ({ toast: { info: vi.fn() } }));
 
 vi.mock('@/components/automations/builder', () => ({
-  AutomationBuilder: () => <p>the builder</p>,
+  AutomationBuilder: ({ draft }: { draft?: AutomationDraft }) => (
+    <p>{draft ? `the builder · ${draft.name}` : 'the builder'}</p>
+  ),
 }));
 
 vi.mock('@/hooks/queries/useAutomations', () => ({ useAutomation: vi.fn() }));
@@ -59,10 +62,28 @@ function automation(overrides: Partial<Automation> = {}): Automation {
   };
 }
 
-function renderPage() {
+const draft = {
+  name: 'Stream started — Beehive',
+  description: null,
+  kind: 'notification',
+  severity: null,
+  isActive: true,
+  triggers: [],
+  conditions: { groups: [] },
+  actions: { actions: [] },
+  serverId: null,
+  serverUserId: null,
+  userId: null,
+  enforceAcrossServers: false,
+} satisfies AutomationDraft;
+
+function renderPage(
+  entry: string | { pathname: string; state: unknown } = '/automations/a-1/edit'
+) {
   return render(
-    <MemoryRouter initialEntries={['/automations/a-1/edit']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
+        <Route path="/automations/new" element={<AutomationBuilderPage />} />
         <Route path="/automations/:id/edit" element={<AutomationBuilderPage />} />
         <Route path="/automations/:id" element={<p>the detail page</p>} />
       </Routes>
@@ -82,6 +103,28 @@ describe('AutomationBuilderPage', () => {
     } as unknown as ReturnType<typeof useAutomation>);
 
     renderPage();
+
+    expect(screen.getByText('the builder')).toBeInTheDocument();
+  });
+
+  it('opens on the answers a ready-made automation carried over', () => {
+    mockUseAutomation.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAutomation>);
+
+    renderPage({ pathname: '/automations/new', state: { draft } });
+
+    expect(screen.getByText('the builder · Stream started — Beehive')).toBeInTheDocument();
+  });
+
+  it('ignores a carried draft on an edit route', () => {
+    mockUseAutomation.mockReturnValue({
+      data: automation(),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAutomation>);
+
+    renderPage({ pathname: '/automations/a-1/edit', state: { draft } });
 
     expect(screen.getByText('the builder')).toBeInTheDocument();
   });

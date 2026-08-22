@@ -87,10 +87,24 @@
       "activeLabel": "Active",
       "anyServer": "Any server",
       "back": "Back",
+      "created": "{{name}} is set up and running.",
+      "createdOff": "{{name}} is set up, and off. Turn it on from the list when you want it.",
+      "customize": "Open in the builder",
       "destinationsLabel": "Send to",
+      "doors": {
+        "helper": "Use this now — you can change your answers later, and it keeps up with the ready-made one. In the builder you can change every part, on your own from then on."
+      },
       "failed": "Couldn't set that up. Try again.",
+      "helper": {
+        "clientMessage": "Shown on the player while it keeps playing.",
+        "killMessage": "Shown on the player when the stream stops."
+      },
+      "nameHelper": "What you'll see it called in your list.",
       "nameLabel": "Name",
       "namePlaceholder": "A name for this automation",
+      "needs": {
+        "title": "What it needs from you"
+      },
       "noInputs": "Nothing to fill in — this one works as it is.",
       "personLabel": "Which person",
       "required": "Pick at least one.",
@@ -545,6 +559,17 @@
     },
     "disable": "Disable",
     "editAutomation": "Edit Automation",
+    "effects": {
+      "allServers": "Runs on every server unless one is chosen.",
+      "everyServer": "Runs on every server.",
+      "kill": "Can stop a stream that is playing.",
+      "message": "Puts a message on a player.",
+      "oneServer": "Runs on {{server}} only.",
+      "tellsOnly": "Only notifies. Never stops a stream or changes an account.",
+      "title": "What this will do",
+      "trust": "Changes trust scores.",
+      "violation": "Records a violation against the matched person."
+    },
     "emptyDescription": "Start from a ready-made one — you fill in the parts that are yours.",
     "emptySeeAll": "See all {{count}}",
     "emptySeeAllLoading": "See all",
@@ -741,15 +766,6 @@
         "title": "A different automation named {{name}} already exists."
       },
       "description": "Paste the code someone sent you. The whole thing is in the code — Tracearr doesn't go and fetch anything.",
-      "effects": {
-        "allServers": "It runs on every server unless you pick one below.",
-        "kill": "Can stop a stream that is playing.",
-        "message": "Puts a message on a player.",
-        "oneServer": "Runs on {{server}} only.",
-        "title": "What this will do",
-        "trust": "Changes trust scores.",
-        "violation": "Records a violation against the matched person."
-      },
       "errors": {
         "notACode": "That doesn't look like a Tracearr share code.",
         "notACodeHint": "A code starts with tracearr1. — or paste the JSON instead.",
@@ -767,9 +783,6 @@
       "formatHint": "A code starts with tracearr1. — or paste the JSON instead.",
       "madeBy": "Made by {{author}}",
       "madeOn": "{{date}}",
-      "needs": {
-        "title": "What it needs from you"
-      },
       "paused": {
         "helper": "Turn it on from the list after review.",
         "label": "Start paused"

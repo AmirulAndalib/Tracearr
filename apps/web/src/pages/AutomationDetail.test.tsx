@@ -239,6 +239,12 @@ describe('AutomationDetail', () => {
     expect(screen.getByText('the builder page')).toBeInTheDocument();
   });
 
+  it('says what a row that owns its own steps does', () => {
+    renderDetail();
+
+    expect(screen.getByText('automations.builder.sentence.label')).toBeInTheDocument();
+  });
+
   it('names the person a person-scoped automation targets', () => {
     mockUseAutomation.mockReturnValue({
       data: automation({
@@ -313,6 +319,16 @@ describe('AutomationDetail template binding', () => {
 
     expect(mockUseTemplateVersion).toHaveBeenCalledWith(undefined, undefined);
     expect(screen.queryByText('pages:automations.template.before')).not.toBeInTheDocument();
+  });
+
+  it('leaves the second door to the form rather than the page header', () => {
+    setBound(templateRef());
+
+    renderDetail();
+
+    expect(
+      screen.getAllByRole('button', { name: 'pages:automations.template.customize' })
+    ).toHaveLength(1);
   });
 
   it('detaches on a confirmed customize and opens the builder', async () => {

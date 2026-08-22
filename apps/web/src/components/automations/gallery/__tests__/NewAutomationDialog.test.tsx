@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { i18n, initI18n } from '@tracearr/translations';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { describeTemplate, describeText, type Translate } from '@/lib/automations';
@@ -56,6 +56,13 @@ beforeEach(() => {
   instantiate.mockReset();
 });
 
+/** The builder route, saying what the second door carried across. */
+function BuilderPage() {
+  const { state } = useLocation();
+  const draft = (state as { draft?: { name: string } } | null)?.draft;
+  return <p>{draft ? `the builder page · ${draft.name}` : 'the builder page'}</p>;
+}
+
 function renderDialog(props: { templateId?: string } = {}) {
   const onOpenChange = vi.fn();
   render(
@@ -65,7 +72,7 @@ function renderDialog(props: { templateId?: string } = {}) {
           path="/automations"
           element={<NewAutomationDialog open onOpenChange={onOpenChange} {...props} />}
         />
-        <Route path="/automations/new" element={<p>the builder page</p>} />
+        <Route path="/automations/new" element={<BuilderPage />} />
       </Routes>
     </MemoryRouter>
   );
@@ -189,6 +196,17 @@ describe('NewAutomationDialog', () => {
     await user.click(screen.getByText('Start from scratch'));
 
     expect(await screen.findByText('the builder page')).toBeInTheDocument();
+  });
+
+  it('takes the second door to the builder with the answers already given', async () => {
+    const { onOpenChange, user } = renderDialog({ templateId: 'template-concurrent-streams' });
+
+    await user.click(screen.getByRole('button', { name: 'Open in the builder' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(
+      await screen.findByText('the builder page · Too many streams at once')
+    ).toBeInTheDocument();
   });
 
   it('parks the paste row on a view of its own until import lands', async () => {

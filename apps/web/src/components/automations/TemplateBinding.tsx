@@ -1,19 +1,18 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpCircle, Save } from 'lucide-react';
-import type { Automation, AutomationTemplateRef, TemplateInput } from '@tracearr/shared';
+import type { Automation, AutomationTemplateRef } from '@tracearr/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { FieldGroup } from '@/components/ui/field';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TemplateBindingForm } from '@/components/automations/gallery/TemplateBindingForm';
 import {
-  boundInputValues,
-  initialInputValues,
-  missingInputs,
-  TemplateInputRows,
   TemplateSentencePanel,
+  useTemplateBinding,
 } from '@/components/automations/gallery/TemplateInputs';
 import {
+  useDetachAutomation,
   useRebindAutomation,
   useTemplate,
   useTemplateVersion,
@@ -52,10 +51,12 @@ function BindingFields({
   catalogEntry,
 }: TemplateBindingProps & { catalogEntry: AutomationTemplate }) {
   const { t } = useTranslation(['pages', 'common']);
+  const navigate = useNavigate();
   const rebindAutomation = useRebindAutomation();
   const upgradeAutomation = useUpgradeAutomation();
+  const detachAutomation = useDetachAutomation();
+  const [customizeOpen, setCustomizeOpen] = useState(false);
 
-  const { version } = catalogEntry;
   const behind = template.version < template.currentVersion;
 
   // Only an upgrade needs the old version, and only to say what the row does today.
@@ -63,23 +64,25 @@ function BindingFields({
     behind ? template.id : undefined,
     behind ? template.version : undefined
   );
-
-  const [values, setValues] = useState(() =>
-    initialInputValues(version.inputs, automation.templateInputs)
+  const { fragments: pinnedFragments } = useTemplateBinding(
+    behind ? pinned : undefined,
+    automation.templateInputs ?? {}
   );
-  const [submitted, setSubmitted] = useState(false);
-
-  const setValue = (input: TemplateInput, value: unknown) =>
-    setValues({ ...values, [input.key]: value });
 
   const pending = rebindAutomation.isPending || upgradeAutomation.isPending;
 
-  const submit = () => {
-    setSubmitted(true);
-    if (missingInputs(version.inputs, values).length > 0) return;
-    const inputs = boundInputValues(values);
+  const save = ({ inputs }: { inputs: Record<string, unknown> }) => {
     if (behind) upgradeAutomation.mutate({ id: automation.id, inputs });
     else rebindAutomation.mutate({ id: automation.id, inputs });
+  };
+
+  const detach = () => {
+    detachAutomation.mutate(automation.id, {
+      onSuccess: () => {
+        setCustomizeOpen(false);
+        void navigate(`/automations/${automation.id}/edit`);
+      },
+    });
   };
 
   return (
@@ -96,26 +99,37 @@ function BindingFields({
 
       {behind && pinned && (
         <TemplateSentencePanel
-          version={pinned}
-          values={automation.templateInputs ?? {}}
+          fragments={pinnedFragments}
           label={t('pages:automations.template.before')}
         />
       )}
 
-      <FieldGroup className="gap-5">
-        <TemplateInputRows
-          version={version}
-          values={values}
-          onChange={setValue}
-          submitted={submitted}
-          sentenceLabel={behind ? t('pages:automations.template.after') : undefined}
-        />
-      </FieldGroup>
+      <TemplateBindingForm
+        template={catalogEntry}
+        initialValues={automation.templateInputs}
+        showName={false}
+        sentenceLabel={behind ? t('pages:automations.template.after') : undefined}
+        doors={{
+          primaryLabel: behind
+            ? t('pages:automations.template.review')
+            : t('pages:automations.template.save'),
+          primaryIcon: behind ? <ArrowUpCircle /> : <Save />,
+          pending,
+          onPrimary: save,
+          secondaryLabel: t('pages:automations.template.customize'),
+          onSecondary: () => setCustomizeOpen(true),
+        }}
+      />
 
-      <Button onClick={submit} disabled={pending}>
-        {behind ? <ArrowUpCircle /> : <Save />}
-        {behind ? t('pages:automations.template.review') : t('pages:automations.template.save')}
-      </Button>
+      <ConfirmDialog
+        open={customizeOpen}
+        onOpenChange={setCustomizeOpen}
+        title={t('pages:automations.template.customizeTitle')}
+        description={t('pages:automations.template.customizeConfirm')}
+        confirmLabel={t('pages:automations.template.customizeConfirmAction')}
+        onConfirm={detach}
+        isLoading={detachAutomation.isPending}
+      />
     </div>
   );
 }

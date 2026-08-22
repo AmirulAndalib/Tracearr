@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useTemplates } from '@/hooks/queries/useTemplates';
+import { useInstantiateTemplate, useTemplates } from '@/hooks/queries/useTemplates';
 import { templateDescription, templateName } from '@/lib/automations';
 import { cn } from '@/lib/utils';
 import { TemplateBindingForm } from './TemplateBindingForm';
@@ -48,6 +47,7 @@ export function NewAutomationDialog({
   const [picked, setPicked] = useState<string | null>(templateId ?? null);
 
   const { data: templates, isLoading, isError, refetch } = useTemplates();
+  const instantiate = useInstantiateTemplate();
   const selected =
     picked === null ? undefined : templates?.find((template) => template.id === picked);
   // A deep link that names nothing this server has falls back rather than hanging on a blank form.
@@ -113,10 +113,13 @@ export function NewAutomationDialog({
                     : selected && templateName(t, selected)}
                 </DialogTitle>
                 {selected?.builtin && (
-                  <Badge variant="secondary">
+                  <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
+                    <span aria-hidden className="opacity-50">
+                      ·
+                    </span>
                     <ShieldCheck className="size-3" />
                     {t('automations.gallery.builtin')}
-                  </Badge>
+                  </span>
                 )}
               </div>
               <DialogDescription className="sr-only">
@@ -150,8 +153,26 @@ export function NewAutomationDialog({
         {view === 'bind' && selected && (
           <TemplateBindingForm
             template={selected}
-            onBack={backToGallery}
-            onDone={() => onOpenChange(false)}
+            bodyClassName="min-h-0 flex-1 overflow-y-auto px-6 py-4"
+            footerClassName="border-t px-6 py-4"
+            doors={{
+              primaryLabel: instantiate.isPending
+                ? t('automations.bind.submitting')
+                : t('automations.bind.submit'),
+              pending: instantiate.isPending,
+              onPrimary: (submission) => {
+                instantiate.mutate(
+                  { id: selected.id, ...submission },
+                  { onSuccess: () => onOpenChange(false) }
+                );
+              },
+              secondaryLabel: t('automations.bind.customize'),
+              onSecondary: (draft) => {
+                onOpenChange(false);
+                void navigate('/automations/new', { state: { draft } });
+              },
+              helper: t('automations.bind.doors.helper'),
+            }}
           />
         )}
 

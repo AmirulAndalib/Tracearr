@@ -204,3 +204,119 @@ describe('templateInputLabel', () => {
     expect(templateInputLabel(t, input)).toBe('Send to');
   });
 });
+
+describe('describeTemplate input keys', () => {
+  const keysFor = (
+    version: { inputs: TemplateInput[]; definition: TemplateDefinition },
+    bound: Record<string, unknown> = {},
+    match?: string
+  ) => {
+    const fragments = describeTemplate(version, bound, {}, t, 'metric');
+    const found = match ? fragments.filter((fragment) => fragment.text.includes(match)) : fragments;
+    return found.flatMap((fragment) => fragment.inputKeys ?? []);
+  };
+
+  const minutes: TemplateInput = {
+    key: 'minutes',
+    kind: 'duration',
+    unit: 'minutes',
+    label: 'Minutes paused',
+    required: false,
+    default: 30,
+  };
+
+  it('carries the duration key on the trigger clause it wrote', () => {
+    expect(keysFor({ inputs: [...inputs, minutes], definition: held() }, {}, 'paused')).toEqual([
+      'minutes',
+    ]);
+  });
+
+  it('carries a condition value key on the condition clause', () => {
+    const version = {
+      inputs: [
+        { key: 'max', kind: 'number', label: 'Streams allowed', required: false, default: 3 },
+      ] satisfies TemplateInput[],
+      definition: definition({
+        conditions: {
+          groups: [
+            {
+              id: 'group-1',
+              enabled: true,
+              conditions: [
+                {
+                  id: 'condition-1',
+                  enabled: true,
+                  field: 'concurrent_streams',
+                  operator: 'gt',
+                  value: { $input: 'max' },
+                },
+              ],
+            },
+          ],
+        },
+        actions: { actions: [] },
+      }),
+    };
+
+    expect(keysFor(version, {}, 'stream count')).toEqual(['max']);
+  });
+
+  it('carries the server key on the scope tail', () => {
+    expect(
+      keysFor({ inputs, definition: definition() }, { server: 'server-1' }, 'Applies to')
+    ).toEqual(['server']);
+  });
+
+  it('leaves an input with no slot out of every fragment', () => {
+    const version = {
+      inputs: [
+        ...inputs,
+        {
+          key: 'note',
+          kind: 'text',
+          label: 'Message shown',
+          required: false,
+        } satisfies TemplateInput,
+      ],
+      definition: definition(),
+    };
+
+    expect(keysFor(version, { note: 'hello' })).not.toContain('note');
+  });
+
+  it('names the required input the sentence is still asking for', () => {
+    expect(keysFor({ inputs, definition: definition() }, {}, '[Send to]')).toEqual(['to']);
+  });
+});
+
+describe('templateDraft', () => {
+  it('drops a required slot nothing answered rather than leaving a placeholder', () => {
+    const draft = templateDraft(
+      { inputs, definition: definition() },
+      {},
+      {
+        name: 'Stream started',
+        isActive: true,
+      }
+    );
+
+    expect(draft.actions.actions[0]).toEqual({ id: 'action-1', type: 'send', enabled: true });
+    expect(draft.serverId).toBeNull();
+  });
+
+  it('carries the answers the reader typed', () => {
+    const draft = templateDraft(
+      { inputs, definition: definition() },
+      { server: 'server-1', to: ['dest-1'] },
+      { name: 'Mine', isActive: false }
+    );
+
+    expect(draft).toMatchObject({
+      name: 'Mine',
+      isActive: false,
+      kind: 'notification',
+      serverId: 'server-1',
+    });
+    expect(draft.actions.actions[0]).toMatchObject({ type: 'send', to: ['dest-1'] });
+  });
+});
