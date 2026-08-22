@@ -5,7 +5,6 @@ import { Activity } from 'lucide-react';
 import type { Automation, AutomationRunSummary, RunOutcome } from '@tracearr/shared';
 import { contextOf, contextSupplies, listPageCount } from '@tracearr/shared';
 import { SELECTED_TOGGLE } from '@/components/automations/builder/selection';
-import { Badge } from '@/components/ui/badge';
 import {
   createDataTableColumnHelper,
   DataTableBody,
@@ -84,16 +83,18 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
         columnHelper.accessor('outcome', {
           header: t('pages:automations.activity.outcome'),
           cell: ({ row }) => (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 whitespace-nowrap">
               <span
                 aria-hidden="true"
                 className={cn('size-2 shrink-0 rounded-full', OUTCOME_DOT[row.original.outcome])}
               />
-              <Badge variant="secondary">
-                {t(`pages:automations.activity.outcomes.${row.original.outcome}`)}
-              </Badge>
+              {t(`pages:automations.activity.outcomes.${row.original.outcome}`)}
             </span>
           ),
+        }),
+        columnHelper.accessor('humanSummary', {
+          header: t('pages:automations.activity.summary'),
+          cell: ({ row }) => <SummaryCell run={row.original} />,
         }),
         ...(subjectColumn === 'who'
           ? [
@@ -127,10 +128,6 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
           header: t('pages:automations.activity.where'),
           cell: ({ row }) => <Named name={runWhere(row.original.subject)} />,
         }),
-        columnHelper.accessor('humanSummary', {
-          header: t('pages:automations.activity.summary'),
-          cell: ({ row }) => <SummaryCell run={row.original} />,
-        }),
         ...(kind === 'policy'
           ? [
               columnHelper.accessor('severity', {
@@ -151,17 +148,6 @@ export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
               {formatDistanceToNow(new Date(row.original.startedAt), { addSuffix: true })}
             </span>
           ),
-        }),
-        columnHelper.accessor('finishedAt', {
-          header: t('pages:automations.activity.finished'),
-          cell: ({ row }) => {
-            const finishedAt = row.original.finishedAt;
-            return (
-              <span className="text-muted-foreground whitespace-nowrap">
-                {finishedAt ? formatDistanceToNow(new Date(finishedAt), { addSuffix: true }) : '—'}
-              </span>
-            );
-          },
         }),
       ]),
     [t, kind, subjectColumn]

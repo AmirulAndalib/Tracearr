@@ -180,6 +180,19 @@ describe('ActivityList', () => {
     expect(screen.getByText('No notes')).toBeInTheDocument();
   });
 
+  it('reads a run in five columns, with what it did second', () => {
+    renderList([run()]);
+
+    expect(screen.getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      'Outcome',
+      'Summary',
+      'Who',
+      'Where',
+      'Severity',
+      'Started',
+    ]);
+  });
+
   it('says nothing has run when nothing has', () => {
     renderList([], counts({ completed: 0, stopped_by_condition: 0, total: 0, lastRunAt: null }));
 

@@ -164,6 +164,14 @@ function RunSubjectBlock({ run }: { run: AutomationRun }) {
     value: format(new Date(run.startedAt), 'PPpp'),
   });
 
+  // The table dropped this column because it repeats Started; the sheet is where it belongs.
+  if (run.finishedAt !== null) {
+    rows.push({
+      label: t('automations.activity.finished'),
+      value: format(new Date(run.finishedAt), 'PPpp'),
+    });
+  }
+
   return (
     <dl className="bg-muted/40 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg p-3 text-sm">
       {rows.map((row) => (
