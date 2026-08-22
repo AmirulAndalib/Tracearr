@@ -153,7 +153,10 @@ export type ViolationListParams = Partial<ViolationRosterFilters> & {
 
 /** Automation query params: the server's own filter schema plus paging and sort. */
 export type AutomationListParams = Partial<
-  Pick<AutomationListQuery, 'kind' | 'enabled' | 'search' | 'source' | 'serverId'>
+  Pick<
+    AutomationListQuery,
+    'kind' | 'enabled' | 'search' | 'source' | 'serverId' | 'trigger' | 'severity'
+  >
 > & {
   page?: number;
   pageSize?: number;

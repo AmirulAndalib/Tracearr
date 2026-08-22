@@ -305,6 +305,7 @@ export type {
 export type {
   AutomationKind,
   TriggerContext,
+  TriggerGroup,
   TriggerType,
   TriggerNode,
   RunOutcome,
@@ -367,6 +368,7 @@ export type {
 export {
   AUTOMATION_KINDS,
   TRIGGERS,
+  TRIGGER_GROUPS,
   TRIGGER_TYPES,
   CONDITION_FIELDS,
   operatorSchema,

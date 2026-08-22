@@ -1,10 +1,14 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Pencil, Plus, Power, PowerOff, Share2, Trash2, Workflow } from 'lucide-react';
 import type { Automation, AutomationSortField } from '@tracearr/shared';
-import { AUTOMATION_SORT_FIELDS, AUTOMATION_SOURCES, listPageCount } from '@tracearr/shared';
-import { Badge } from '@/components/ui/badge';
+import {
+  AUTOMATION_SORT_FIELDS,
+  AUTOMATION_SOURCES,
+  TRIGGER_GROUPS,
+  listPageCount,
+} from '@tracearr/shared';
 import { BulkActionsToolbar, type BulkAction } from '@/components/ui/bulk-actions-toolbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -291,18 +295,25 @@ export function Automations() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{automation.name}</span>
                     <ScopeChip automation={automation} servers={servers} />
-                    {automation.template && <TemplateBadge template={automation.template} />}
-                    {automation.enforceAcrossServers && (
-                      <Badge variant="secondary">{t('pages:automations.scope.crossServer')}</Badge>
-                    )}
-                    {automation.actions.actions.length === 0 && (
-                      <Badge variant="secondary">{t('pages:automations.recordsOnly')}</Badge>
-                    )}
                   </div>
                   <p className="text-muted-foreground truncate text-sm">
                     {automation.description ??
                       describeText(describeAutomation(automation, describeRefs, t, unitSystem), t)}
                   </p>
+                  {meta.length > 0 && (
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+                      {meta.map((entry, index) => (
+                        <Fragment key={entry.key}>
+                          {index > 0 && (
+                            <span aria-hidden className="opacity-50">
+                              ·
+                            </span>
+                          )}
+                          {entry.node}
+                        </Fragment>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );

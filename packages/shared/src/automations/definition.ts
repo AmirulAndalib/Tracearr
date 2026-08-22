@@ -14,6 +14,7 @@ import { ACTIONS, automationActionsSchema } from './actions.js';
 import { CONDITION_FIELDS, automationConditionsSchema } from './conditions.js';
 import {
   TRIGGERS,
+  TRIGGER_GROUPS,
   contextOf,
   contextSupplies,
   triggerNodeSchema,

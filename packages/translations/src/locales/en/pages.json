@@ -444,6 +444,7 @@
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
+    "allSeverities": "All severities",
     "bind": {
       "nameHelper": "The name in the automations list.",
       "namePlaceholder": "A name for this automation",
@@ -1456,7 +1457,9 @@
         "import": "Imported",
         "local": "Saved here",
         "own": "Built in the builder"
-      }
+      },
+      "trigger": "What starts it",
+      "allTriggers": "All triggers"
     }
   },
   "terminateStream": {

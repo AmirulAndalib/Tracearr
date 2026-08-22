@@ -319,7 +319,7 @@ describe('Automation routes', () => {
       expect(body.data[0].conditions).toEqual(conditions);
     });
 
-    it('filters on kind, enabled and a name search', async () => {
+    it('filters on kind, enabled and a search over the name or the description', async () => {
       app = await buildTestApp(ownerUser);
       const { pageChain, countChain } = setupListMocks([], 0);
 
@@ -333,10 +333,37 @@ describe('Automation routes', () => {
       expect(page.text).toContain('automations.kind = ');
       expect(page.text).toContain('automations.is_active = ');
       expect(page.text).toContain('automations.name ilike ');
+      expect(page.text).toContain('automations.description ilike ');
       // The literal % the caller typed is escaped, never a wildcard.
-      expect(page.params).toEqual(['notification', false, '%pause\\%%']);
+      expect(page.params).toEqual(['notification', false, '%pause\\%%', '%pause\\%%']);
       // The count counts exactly the page's rows.
       expect(renderCall(countChain).text).toBe(page.text);
+    });
+
+    it('narrows to what starts a row, over every trigger type in the group', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/automations?trigger=updates' });
+
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('jsonb_array_elements(automations.triggers)');
+      expect(page.params).toEqual([
+        'plugin.update_available',
+        'server.update_available',
+        'tracearr.update_available',
+      ]);
+    });
+
+    it('narrows on severity, which is a column of its own', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/automations?severity=high' });
+
+      const page = renderCall(pageChain);
+      expect(page.text).toContain('automations.severity = ');
+      expect(page.params).toEqual(['high']);
     });
 
     it('narrows to the library a row came from, counting exactly what it lists', async () => {

@@ -7,7 +7,9 @@ describe('buildAutomationFilterParams', () => {
       search: undefined,
       source: undefined,
       serverId: undefined,
+      trigger: undefined,
       kind: undefined,
+      severity: undefined,
       enabled: undefined,
     });
   });
@@ -26,6 +28,12 @@ describe('buildAutomationFilterParams', () => {
     expect(buildAutomationFilterParams({ status: 'active' }).enabled).toBe(true);
     expect(buildAutomationFilterParams({ status: 'inactive' }).enabled).toBe(false);
     expect(buildAutomationFilterParams({}).enabled).toBeUndefined();
+  });
+
+  it('carries what starts a row and how loud it is', () => {
+    const params = buildAutomationFilterParams({ trigger: 'updates', severity: 'high' });
+
+    expect(params).toMatchObject({ trigger: 'updates', severity: 'high' });
   });
 
   it('carries the search text and the kind', () => {

@@ -65,6 +65,10 @@ const MEDIA_QUALITY_VARS = [
   'media.to.fileSize',
 ] as const;
 
+/** What a trigger is about, and what the list filters on. */
+export const TRIGGER_GROUPS = ['sessions', 'accounts', 'library', 'servers', 'updates'] as const;
+export type TriggerGroup = (typeof TRIGGER_GROUPS)[number];
+
 export const TRIGGERS = {
   'session.started': { context: 'session', group: 'sessions', variables: SESSION_VARS },
   'session.stopped': {
@@ -109,11 +113,7 @@ export const TRIGGERS = {
   },
 } as const satisfies Record<
   string,
-  {
-    context: TriggerContext;
-    group: 'sessions' | 'accounts' | 'library' | 'servers' | 'updates';
-    variables: readonly string[];
-  }
+  { context: TriggerContext; group: TriggerGroup; variables: readonly string[] }
 >;
 
 export type TriggerType = keyof typeof TRIGGERS;

@@ -131,6 +131,7 @@
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
+    "allSeverities": "All severities",
     "bind": {
       "accountLabel": "Which account",
       "activeLabel": "Turn it on now",
@@ -1143,7 +1144,9 @@
         "import": "Imported",
         "local": "Saved here",
         "own": "Built in the builder"
-      }
+      },
+      "trigger": "What starts it",
+      "allTriggers": "All triggers"
     }
   },
   "dashboard": {

@@ -5,13 +5,15 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { and, count, eq, ilike, inArray, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   REDIS_KEYS,
   AUTOMATION_CROSS_SERVER_ENFORCEMENT_ERROR_MESSAGE,
   AUTOMATION_SCOPE_ERROR_MESSAGE,
   TEMPLATE_GROUPS,
+  TRIGGERS,
+  TRIGGER_TYPES,
   automationDefinitionSchema,
   automationListQuerySchema,
   bulkDeleteAutomationsSchema,
@@ -31,6 +33,7 @@ import {
   type AutomationSortField,
   type AutomationSource,
   type CreateAutomationInput,
+  type TriggerGroup,
   type ListResponse,
   type NearMissEntry,
   type AutomationActions,
@@ -123,6 +126,19 @@ const AUTOMATION_SORT_KEYS: Record<AutomationSortField, SortKey> = {
 function cameFrom(source: AutomationSource): SQL {
   if (source === 'own') return isNull(automations.templateId);
   return sql`EXISTS (SELECT 1 FROM automation_templates t WHERE t.id = ${automations.templateId} AND t.source = ${source})`;
+}
+
+/**
+ * Whether any of the row's triggers belongs to the group. Unindexed on purpose:
+ * an install holds tens of automations, so the scan is cheaper than a GIN index.
+ */
+function startsWith(group: TriggerGroup): SQL {
+  const types = TRIGGER_TYPES.filter((type) => TRIGGERS[type].group === group);
+  const list = sql.join(
+    types.map((type) => sql`${type}`),
+    sql`, `
+  );
+  return sql`EXISTS (SELECT 1 FROM jsonb_array_elements(${automations.triggers}) AS node WHERE node->>'type' IN (${list}))`;
 }
 
 /**
@@ -242,16 +258,23 @@ export const automationRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest('Invalid query parameters');
     }
 
-    const { page, pageSize, orderBy, orderDir, kind, enabled, search, source, serverId } =
-      query.data;
-    const conditions: SQL[] = [];
-    const visible = visibleAutomations(request.user);
-    if (visible) conditions.push(visible);
+    const { page, pageSize, orderBy, orderDir } = query.data;
+    const { kind, enabled, search, source, serverId, trigger, severity } = query.data;
+    const conditions: (SQL | undefined)[] = [];
+    conditions.push(visibleAutomations(request.user));
     if (kind) conditions.push(eq(automations.kind, kind));
     if (enabled !== undefined) conditions.push(eq(automations.isActive, enabled));
     if (source) conditions.push(cameFrom(source));
     if (serverId) conditions.push(eq(automations.serverId, serverId));
-    if (search) conditions.push(ilike(automations.name, likePattern(search)));
+    if (trigger) conditions.push(startsWith(trigger));
+    if (severity) conditions.push(eq(automations.severity, severity));
+    if (search) {
+      // The description is the sentence under the name, and it is what a reader remembers.
+      const pattern = likePattern(search);
+      conditions.push(
+        or(ilike(automations.name, pattern), ilike(automations.description, pattern))
+      );
+    }
 
     const where = and(...conditions);
     const rows = await automationSelect()
