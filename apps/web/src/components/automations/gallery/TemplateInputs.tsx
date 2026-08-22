@@ -1,18 +1,19 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TemplateInput, UnitSystem } from '@tracearr/shared';
+import type { Automation, TemplateInput, UnitSystem } from '@tracearr/shared';
 import { SentencePanel } from '@/components/automations/builder/SentencePanel';
 import { useDestinations } from '@/hooks/queries/useDestinations';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
 import { useSettings } from '@/hooks/queries/useSettings';
 import { useServer } from '@/hooks/useServer';
 import {
+  describeAutomation,
   describeTemplate,
   isUnbound,
   type DescribeFragment,
   type DescribeRefs,
+  type TemplateVersionBody,
 } from '@/lib/automations';
-import type { TemplateVersionPayload } from '@/lib/api';
 import { TemplateSentence } from './TemplateCard';
 import { TemplateInputField } from './TemplateInputField';
 
@@ -20,7 +21,7 @@ import { TemplateInputField } from './TemplateInputField';
  * An answer already given wins; anything else opens on its default, so no row is
  * ever blank. Keys the version no longer declares drop out.
  */
-export function initialInputValues(
+function initialInputValues(
   inputs: TemplateInput[],
   bound?: Record<string, unknown> | null
 ): Record<string, unknown> {
@@ -33,16 +34,14 @@ export function initialInputValues(
   return values;
 }
 
-export const serverInputKey = (inputs: TemplateInput[]): string | undefined =>
+const serverInputKey = (inputs: TemplateInput[]): string | undefined =>
   inputs.find((input) => input.kind === 'server')?.key;
 
-export const missingInputs = (
-  inputs: TemplateInput[],
-  values: Record<string, unknown>
-): TemplateInput[] => inputs.filter((input) => input.required && isUnbound(values[input.key]));
+const missingInputs = (inputs: TemplateInput[], values: Record<string, unknown>): TemplateInput[] =>
+  inputs.filter((input) => input.required && isUnbound(values[input.key]));
 
 /** What the values are worth as a bound answer: an unbound one is not an answer. */
-export const boundInputValues = (values: Record<string, unknown>): Record<string, unknown> =>
+const boundInputValues = (values: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(values).filter(([, value]) => !isUnbound(value)));
 
 /** Every name a template sentence can put in place of an id. */
@@ -70,7 +69,7 @@ export function useDescribeRefs(): { refs: DescribeRefs; unitSystem: UnitSystem 
 
 /** One version's sentence and the names behind it, for whoever is showing that version. */
 export function useTemplateBinding(
-  version: TemplateVersionPayload | undefined,
+  version: TemplateVersionBody | undefined,
   values: Record<string, unknown>
 ): { refs: DescribeRefs; unitSystem: UnitSystem; fragments: DescribeFragment[] } {
   const { t } = useTranslation('pages');
@@ -78,6 +77,53 @@ export function useTemplateBinding(
   const fragments = version ? describeTemplate(version, values, refs, t, unitSystem) : [];
 
   return { refs, unitSystem, fragments };
+}
+
+export interface TemplateAnswers {
+  values: Record<string, unknown>;
+  setValue: (input: TemplateInput, value: unknown) => void;
+  submitted: boolean;
+  focused: string | null;
+  setFocused: (key: string | null) => void;
+  refs: DescribeRefs;
+  fragments: DescribeFragment[];
+  /** The key of the server input, when the version has one to offer. */
+  serverKey: string | undefined;
+  boundServerId: string;
+  /** Reveals the blanks, and answers whether every required one is filled. */
+  attemptSubmit: () => boolean;
+  /** The answers worth sending: an unbound one is not an answer. */
+  bound: () => Record<string, unknown>;
+}
+
+/** The answers a form or a review is collecting, and everything derived from them. */
+export function useTemplateAnswers(
+  version: TemplateVersionBody,
+  initialValues?: Record<string, unknown> | null
+): TemplateAnswers {
+  const [values, setValues] = useState(() => initialInputValues(version.inputs, initialValues));
+  const [submitted, setSubmitted] = useState(false);
+  const [focused, setFocused] = useState<string | null>(null);
+
+  const { refs, fragments } = useTemplateBinding(version, values);
+  const serverKey = serverInputKey(version.inputs);
+
+  return {
+    values,
+    setValue: (input, value) => setValues({ ...values, [input.key]: value }),
+    submitted,
+    focused,
+    setFocused,
+    refs,
+    fragments,
+    serverKey,
+    boundServerId: String(values[serverKey ?? ''] ?? ''),
+    attemptSubmit: () => {
+      setSubmitted(true);
+      return missingInputs(version.inputs, values).length === 0;
+    },
+    bound: () => boundInputValues(values),
+  };
 }
 
 interface TemplateSentencePanelProps {
@@ -106,8 +152,16 @@ export function TemplateSentencePanel({
   );
 }
 
+/** A row that owns its own steps still says what it does, in the same words. */
+export function AutomationSentencePanel({ automation }: { automation: Automation }) {
+  const { t } = useTranslation('pages');
+  const { refs, unitSystem } = useDescribeRefs();
+
+  return <TemplateSentencePanel fragments={describeAutomation(automation, refs, t, unitSystem)} />;
+}
+
 interface TemplateInputRowsProps {
-  version: TemplateVersionPayload;
+  version: TemplateVersionBody;
   values: Record<string, unknown>;
   onChange: (input: TemplateInput, value: unknown) => void;
   /** The server the form has bound, so an account picker knows whose accounts to offer. */

@@ -139,8 +139,15 @@ const viewerUser: AuthUser = {
   serverIds: ['srv-1'],
 };
 
+/** What each route registered, so a per-route rate limit is visible without the plugin. */
+const registeredRoutes = new Map<string, unknown>();
+
 async function buildTestApp(authUser: AuthUser): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
+  registeredRoutes.clear();
+  app.addHook('onRoute', (route) => {
+    registeredRoutes.set(`${String(route.method)} ${route.url}`, route.config);
+  });
   await app.register(sensible);
 
   app.decorate('authenticate', async (request: unknown) => {
@@ -281,6 +288,14 @@ describe('Template routes', () => {
   });
 
   describe('POST /templates/preview', () => {
+    it('caps the two routes that decode a pasted code', async () => {
+      app = await buildTestApp(ownerUser);
+
+      const cap = { rateLimit: { max: 60, timeWindow: '1 minute' } };
+      expect(registeredRoutes.get('POST /templates/preview')).toEqual(cap);
+      expect(registeredRoutes.get('POST /templates')).toEqual(cap);
+    });
+
     it('decodes a share code and writes nothing', async () => {
       app = await buildTestApp(ownerUser);
       const envelope = envelopeOf('stream-started');

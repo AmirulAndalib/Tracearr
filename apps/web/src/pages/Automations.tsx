@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Pencil, Plus, Power, PowerOff, Trash2, Workflow } from 'lucide-react';
+import { Pencil, Plus, Power, PowerOff, Share2, Trash2, Workflow } from 'lucide-react';
 import type { Automation, AutomationKind, AutomationSortField } from '@tracearr/shared';
 import { AUTOMATION_SORT_FIELDS, listPageCount } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +28,8 @@ import { ErrorState } from '@/components/library/ErrorState';
 import { ScopeChip, TemplateBadge } from '@/components/automations';
 import { NewAutomationDialog } from '@/components/automations/gallery/NewAutomationDialog';
 import { TemplateCard } from '@/components/automations/gallery/TemplateCard';
+import { ExportDialog } from '@/components/automations/sharing/ExportDialog';
+import { ImportDialog } from '@/components/automations/sharing/ImportDialog';
 import {
   useAutomations,
   useBulkDeleteAutomations,
@@ -83,6 +85,8 @@ export function Automations() {
   const [page, setPage] = useState(1);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState<Automation | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
 
   const unitSystem = settings?.unitSystem ?? 'metric';
@@ -307,6 +311,14 @@ export function Automations() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label={t('common:actions.export')}
+                  onClick={() => setExporting(automation)}
+                >
+                  <Share2 />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   aria-label={t('common:actions.delete')}
                   className="text-destructive hover:text-destructive"
                   onClick={() => setDeleteConfirmId(automation.id)}
@@ -409,11 +421,16 @@ export function Automations() {
     );
   };
 
-  const addButton = (
-    <Button onClick={() => setDialogView('gallery')}>
-      <Plus />
-      {t('pages:automations.newAutomation')}
-    </Button>
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" onClick={() => setImportOpen(true)}>
+        {t('common:actions.import')}
+      </Button>
+      <Button onClick={() => setDialogView('gallery')}>
+        <Plus />
+        {t('pages:automations.newAutomation')}
+      </Button>
+    </div>
   );
 
   const startLinks = (
@@ -445,7 +462,7 @@ export function Automations() {
           <h1 className="text-3xl font-bold">{t('pages:automations.title')}</h1>
           <p className="text-muted-foreground">{t('pages:automations.description')}</p>
         </div>
-        {addButton}
+        {headerActions}
       </div>
 
       <Card>
@@ -534,6 +551,18 @@ export function Automations() {
           }}
           templateId={templateParam}
           initialView={dialogView ?? 'gallery'}
+        />
+      )}
+
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+
+      {exporting && (
+        <ExportDialog
+          automation={exporting}
+          open
+          onOpenChange={(next) => {
+            if (!next) setExporting(null);
+          }}
         />
       )}
 

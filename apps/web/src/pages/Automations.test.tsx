@@ -27,6 +27,8 @@ vi.mock('@/hooks/queries', () => ({
 vi.mock('@/hooks/queries/useTemplates', () => ({
   useTemplates: () => ({ data: TEMPLATES, isLoading: false, isError: false, refetch: vi.fn() }),
   useInstantiateTemplate: () => ({ mutate: vi.fn(), isPending: false }),
+  usePreviewTemplate: () => ({ mutate: vi.fn(), isPending: false }),
+  useImportTemplate: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/queries/useSettings', () => ({
@@ -277,6 +279,27 @@ describe('Automations', () => {
 
     expect(await screen.findByRole('heading', { name: 'New automation' })).toBeInTheDocument();
     expect(openedBuilder()).not.toBeInTheDocument();
+  });
+
+  it('opens the paste box from the header, with no gallery behind it', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    expect(await screen.findByRole('heading', { name: 'Paste a share code' })).toBeInTheDocument();
+    expect(screen.queryByText('Start from scratch')).not.toBeInTheDocument();
+  });
+
+  it('offers a share code for the row it was asked about', async () => {
+    const user = userEvent.setup();
+    renderAutomations();
+
+    await user.click(screen.getByRole('button', { name: 'Export' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Share this automation' })
+    ).toBeInTheDocument();
   });
 
   it('asks for confirmation before deleting a single automation', async () => {

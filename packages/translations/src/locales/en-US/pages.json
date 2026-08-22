@@ -587,6 +587,22 @@
       },
       "title": "Recent evaluations"
     },
+    "export": {
+      "authorHelper": "Included in the code as the author. Optional.",
+      "authorLabel": "Made by",
+      "authorPlaceholder": "Name",
+      "carries": "The code carries the steps only. Destinations, servers and accounts are not included; the receiving side fills in its own.",
+      "codeTab": "Share code",
+      "copyCode": "Copy the share code",
+      "copyJson": "Copy the JSON",
+      "description": "A code another Tracearr can paste in.",
+      "failed": "Couldn't make a code for this one.",
+      "jsonTab": "JSON",
+      "save": "Save as a template",
+      "saveFailed": "Couldn't save that as a template.",
+      "saved": "{{name}} is in your templates.",
+      "title": "Share this automation"
+    },
     "fields": {
       "account_age_days": {
         "description": "Days since account creation",
@@ -745,7 +761,6 @@
       "noMatchesHint": "Try a word from the outcome: discord, offline, paused.",
       "paste": {
         "description": "Paste a code and review what it does before adding it.",
-        "pending": "Pasting a share code is not ready yet.",
         "title": "Paste a share code"
       },
       "retry": "Try again",
@@ -757,6 +772,7 @@
       "title": "New automation"
     },
     "import": {
+      "adding": "Adding it…",
       "check": "Check it",
       "checking": "Reading it…",
       "codeShort": "code {{fingerprint}}",
@@ -773,6 +789,8 @@
         "rejectedHint": "It may come from a different tool or have been edited by hand.",
         "tooBig": "That's too big to be a Tracearr automation.",
         "tooBigHint": "Codes are a few thousand characters at most.",
+        "tooMany": "That's a lot of codes in one minute.",
+        "tooManyHint": "Wait a moment, then check it again.",
         "tooNew": "This needs Tracearr {{required}} or newer.",
         "tooNewHint": "This server runs {{current}}. Update Tracearr, then paste again.",
         "truncated": "This code looks cut off.",
@@ -782,15 +800,14 @@
       "existingUse": "Use it",
       "formatHint": "A code starts with tracearr1. The JSON works too.",
       "madeBy": "Made by {{author}}",
-      "madeOn": "{{date}}",
       "paused": {
         "helper": "Turn it on from the list after review.",
         "label": "Start paused"
       },
       "placeholder": "tracearr1.…",
-      "raw": "Show the raw code",
+      "raw": "Show the JSON",
+      "reviewDescription": "What the code does, and what to fill in.",
       "submit": "Add it",
-      "submitAndUse": "Add it and set it up",
       "title": "Paste a share code",
       "valid": "This is a Tracearr automation."
     },

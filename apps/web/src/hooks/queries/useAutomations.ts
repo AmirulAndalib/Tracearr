@@ -120,6 +120,19 @@ export function useRebindAutomation() {
   });
 }
 
+/**
+ * The share code for one automation; the author it carries is part of what is asked for,
+ * and the code already on screen stays there while a new name settles.
+ */
+export function useExportAutomation(id: string | undefined, author: string) {
+  return useQuery({
+    queryKey: [...AUTOMATIONS_KEY, 'export', id, author],
+    queryFn: () => api.automations.export(id ?? '', author),
+    enabled: id !== undefined,
+    placeholderData: (prev) => prev,
+  });
+}
+
 /** One way: the row keeps its definition and loses the template that wrote it. */
 export function useDetachAutomation() {
   const { t } = useTranslation(['pages', 'notifications']);

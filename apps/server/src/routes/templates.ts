@@ -143,6 +143,8 @@ function readEnvelope(body: { code?: string; envelope?: unknown }): EnvelopeResu
 export const templateRoutes: FastifyPluginAsync = async (app) => {
   const owner = { preHandler: [app.requireOwner] };
   const authed = { preHandler: [app.authenticate] };
+  // Decoding a pasted code costs real work, so the two routes that do it are capped.
+  const decoding = { ...owner, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } };
 
   /**
    * GET /templates - Every stored template with the number of automations on it
@@ -176,7 +178,7 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
   /**
    * POST /templates/preview - What an import would land on, without writing anything
    */
-  app.post('/preview', owner, async (request, reply) => {
+  app.post('/preview', decoding, async (request, reply) => {
     const body = importBodySchema.safeParse(request.body);
     if (!body.success) {
       return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);
@@ -197,7 +199,7 @@ export const templateRoutes: FastifyPluginAsync = async (app) => {
   /**
    * POST /templates - Store an imported or locally saved template
    */
-  app.post('/', owner, async (request, reply) => {
+  app.post('/', decoding, async (request, reply) => {
     const body = importBodySchema.safeParse(request.body);
     if (!body.success) {
       return reply.badRequest(`Invalid request body: ${firstIssueMessage(body.error)}`);

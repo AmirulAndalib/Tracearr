@@ -960,8 +960,10 @@ class ApiClient {
         body: JSON.stringify({ ids }),
       }),
     /** The automation as an envelope plus the code that carries it. */
-    export: (id: string) =>
-      this.request<{ envelope: TemplateEnvelope; code: string }>(`/automations/${id}/export`),
+    export: (id: string, author?: string) =>
+      this.request<{ envelope: TemplateEnvelope; code: string }>(
+        `/automations/${id}/export${author ? `?author=${encodeURIComponent(author)}` : ''}`
+      ),
     detach: (id: string) =>
       this.request<Automation>(`/automations/${id}/detach`, { method: 'POST' }),
     upgrade: (id: string, inputs: Record<string, unknown>) =>

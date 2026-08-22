@@ -1573,6 +1573,26 @@ describe('Automation routes', () => {
       ).toEqual(envelope);
     });
 
+    it('carries nothing but the envelope and the code it packs into', async () => {
+      app = await buildTestApp(ownerUser);
+      setupSelect([boundRow({ serverName: 'Plex' })]);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/automations/${AUTOMATION_ID}/export`,
+      });
+
+      const body = response.json();
+      expect(Object.keys(body).sort()).toEqual(['code', 'envelope']);
+      // Nothing this install can be identified by travels. Node ids do: they name
+      // steps inside the definition and mean nothing anywhere else.
+      const packed = JSON.stringify(body.envelope);
+      for (const id of [DESTINATION_ID, SERVER_ID, AUTOMATION_ID, TEMPLATE_ID]) {
+        expect(packed).not.toContain(id);
+      }
+      expect(packed).not.toContain('Plex');
+    });
+
     it('carries the author the caller typed and exports a detached automation too', async () => {
       app = await buildTestApp(ownerUser);
       setupSelect([

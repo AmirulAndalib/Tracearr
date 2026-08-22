@@ -11,18 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ImportSteps, MOBILE_FULLSCREEN } from '@/components/automations/sharing/ImportDialog';
 import { useInstantiateTemplate, useTemplates } from '@/hooks/queries/useTemplates';
 import { templateDescription, templateName } from '@/lib/automations';
 import { cn } from '@/lib/utils';
+import type { ImportPreview } from '@/components/automations/sharing/ImportPasteStep';
 import { TemplateBindingForm } from './TemplateBindingForm';
 import { TemplateGallery } from './TemplateGallery';
 
-/** The import views are the paste step and its review; the review arrives with import. */
-type View = 'gallery' | 'bind' | 'paste';
-
-/** Full screen below sm, and still a Dialog: one tree, one focus story. */
-const MOBILE_FULLSCREEN =
-  'max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0';
+/** The reviewed paste is a view of its own; nothing reaches it without a checked code. */
+type View = 'gallery' | 'bind' | 'paste' | 'review';
 
 interface NewAutomationDialogProps {
   open: boolean;
@@ -43,8 +41,11 @@ export function NewAutomationDialog({
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const [intent, setIntent] = useState<View>(templateId ? 'bind' : initialView);
+  const [intent, setIntent] = useState<'gallery' | 'bind' | 'paste'>(
+    templateId ? 'bind' : initialView
+  );
   const [picked, setPicked] = useState<string | null>(templateId ?? null);
+  const [checked, setChecked] = useState<ImportPreview | null>(null);
 
   const { data: templates, isLoading, isError, refetch } = useTemplates();
   const instantiate = useInstantiateTemplate();
@@ -53,11 +54,19 @@ export function NewAutomationDialog({
   // A deep link that names nothing this server has falls back rather than hanging on a blank form.
   const missing = intent === 'bind' && picked !== null && templates !== undefined && !selected;
   // The gallery covers the wait, so the binding form only ever renders a template it has.
-  const view: View = intent === 'bind' && !selected ? 'gallery' : intent;
+  const view: View =
+    intent === 'bind' && !selected ? 'gallery' : intent === 'paste' && checked ? 'review' : intent;
 
   const backToGallery = () => {
     setIntent('gallery');
     setPicked(null);
+    setChecked(null);
+  };
+
+  /** One step back: the review returns to the box it was pasted in, everything else to the gallery. */
+  const goBack = () => {
+    if (view === 'review') setChecked(null);
+    else backToGallery();
   };
 
   useEffect(() => {
@@ -79,7 +88,7 @@ export function NewAutomationDialog({
           // A stray Esc must not throw away a half-filled form; it goes back first.
           if (view === 'gallery') return;
           event.preventDefault();
-          backToGallery();
+          goBack();
         }}
         onKeyDown={(event) => {
           if (event.key !== '/' || view !== 'gallery') return;
@@ -103,14 +112,16 @@ export function NewAutomationDialog({
                   size="icon"
                   className="-ml-2 size-7"
                   aria-label={t('automations.bind.back')}
-                  onClick={backToGallery}
+                  onClick={goBack}
                 >
                   <ChevronLeft />
                 </Button>
                 <DialogTitle>
-                  {view === 'paste'
-                    ? t('automations.gallery.paste.title')
-                    : selected && templateName(t, selected)}
+                  {view === 'review'
+                    ? checked?.preview.envelope.name
+                    : view === 'paste'
+                      ? t('automations.import.title')
+                      : selected && templateName(t, selected)}
                 </DialogTitle>
                 {selected?.builtin && (
                   <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
@@ -123,9 +134,11 @@ export function NewAutomationDialog({
                 )}
               </div>
               <DialogDescription className="sr-only">
-                {view === 'paste'
-                  ? t('automations.gallery.paste.description')
-                  : selected && templateDescription(t, selected)}
+                {view === 'review'
+                  ? t('automations.import.reviewDescription')
+                  : view === 'paste'
+                    ? t('automations.import.description')
+                    : selected && templateDescription(t, selected)}
               </DialogDescription>
             </>
           )}
@@ -176,17 +189,14 @@ export function NewAutomationDialog({
           />
         )}
 
-        {view === 'paste' && (
-          <div className="flex flex-1 flex-col">
-            <p className="text-muted-foreground flex-1 px-6 py-4 text-sm">
-              {t('automations.gallery.paste.pending')}
-            </p>
-            <div className="flex justify-end border-t px-6 py-4">
-              <Button type="button" variant="outline" onClick={backToGallery}>
-                {t('automations.bind.back')}
-              </Button>
-            </div>
-          </div>
+        {(view === 'paste' || view === 'review') && (
+          <ImportSteps
+            checked={checked}
+            onChecked={setChecked}
+            onExit={backToGallery}
+            onDone={() => onOpenChange(false)}
+            backLabel={t('automations.bind.back')}
+          />
         )}
       </DialogContent>
     </Dialog>

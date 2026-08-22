@@ -1,0 +1,115 @@
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import { initI18n } from '@tracearr/translations';
+import type * as ApiModule from '@/lib/api';
+
+vi.mock('@/lib/api', async () => {
+  const { ApiError } = await vi.importActual<typeof ApiModule>('@/lib/api');
+  return {
+    api: { automations: { export: vi.fn() }, templates: { create: vi.fn() } },
+    ApiError,
+  };
+});
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
+vi.mock('@/hooks/queries/useSettings', () => ({
+  useSettings: () => ({ data: { unitSystem: 'metric' } }),
+}));
+vi.mock('@/hooks/useServer', () => ({
+  useServer: () => ({ servers: [{ id: 'server-1', name: 'Beehive' }] }),
+}));
+vi.mock('@/hooks/queries/useDestinations', () => ({ useDestinations: () => ({ data: [] }) }));
+vi.mock('@/hooks/queries/useHistory', () => ({
+  useAutomationFilterOptions: () => ({ data: undefined }),
+}));
+
+import { api } from '@/lib/api';
+import { toast } from 'sonner';
+import { ExportDialog } from '../ExportDialog';
+import { previewOf, renderSharing, SHARE_CODE, SHARED_ENVELOPE } from './fixtures';
+
+const exported = vi.mocked(api.automations.export);
+const create = vi.mocked(api.templates.create);
+
+beforeAll(async () => {
+  await initI18n({ lng: 'en' });
+});
+
+const automation = { id: 'automation-1', name: 'Two places at once — Beehive' };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  exported.mockResolvedValue({ envelope: SHARED_ENVELOPE, code: SHARE_CODE });
+  create.mockResolvedValue(previewOf().envelope as never);
+});
+
+function renderDialog() {
+  return renderSharing(<ExportDialog automation={automation} open onOpenChange={vi.fn()} />);
+}
+
+describe('ExportDialog', () => {
+  it('shows the one line to send, and copies it', async () => {
+    const { user } = renderDialog();
+
+    expect(await screen.findByText(SHARE_CODE)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Copy the share code' }));
+
+    await expect(navigator.clipboard.readText()).resolves.toBe(SHARE_CODE);
+  });
+
+  it('offers the envelope itself on the other tab', async () => {
+    const { user } = renderDialog();
+
+    await user.click(await screen.findByRole('tab', { name: 'JSON' }));
+
+    expect(screen.getByText(/"slug": "two-places-at-once"/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy the JSON' }));
+    await expect(navigator.clipboard.readText()).resolves.toContain('"two-places-at-once"');
+  });
+
+  it('offers one way out, so nothing is named Close twice', async () => {
+    renderDialog();
+
+    await screen.findByText(SHARE_CODE);
+
+    expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
+  });
+
+  it('says what the code leaves behind', async () => {
+    renderDialog();
+
+    expect(
+      await screen.findByText(/Your destinations, servers and accounts stay here/)
+    ).toBeInTheDocument();
+  });
+
+  it('asks the server again once a name is typed', async () => {
+    const { user } = renderDialog();
+
+    await screen.findByText(SHARE_CODE);
+    await user.type(screen.getByLabelText('Made by'), 'Ada');
+
+    await waitFor(() => expect(exported).toHaveBeenCalledWith('automation-1', 'Ada'));
+  });
+
+  it('saves the same envelope into the library as one of your own', async () => {
+    const { user } = renderDialog();
+
+    await user.click(await screen.findByRole('button', { name: 'Save as a template' }));
+
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith({ envelope: SHARED_ENVELOPE, source: 'local' })
+    );
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it('says so when the automation cannot be turned into a code', async () => {
+    exported.mockRejectedValue(new Error('This automation cannot be exported'));
+    renderDialog();
+
+    expect(await screen.findByText("Couldn't make a code for this one.")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save as a template' })).not.toBeInTheDocument();
+  });
+});

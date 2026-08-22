@@ -63,6 +63,20 @@ async function sweepAutomations(page: Page) {
   });
 }
 
+/** The import test stores a template too; it can only go once no automation uses it. */
+async function sweepTemplates(page: Page) {
+  const listed = await page.request.get('/api/v1/templates');
+  if (!listed.ok()) return;
+
+  const { data } = (await listed.json()) as {
+    data: { id: string; name: string; builtin: boolean }[];
+  };
+  for (const template of data) {
+    if (template.builtin || !template.name.startsWith(PREFIX)) continue;
+    await page.request.delete(`/api/v1/templates/${template.id}`);
+  }
+}
+
 test.describe('Automations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/automations');
@@ -71,6 +85,7 @@ test.describe('Automations', () => {
 
   test.afterEach(async ({ page }) => {
     await sweepAutomations(page);
+    await sweepTemplates(page);
   });
 
   test('builds an automation from scratch on the builder page', async ({ page }) => {
@@ -131,6 +146,35 @@ test.describe('Automations', () => {
     await expect(rowFor(page, name)).toBeVisible();
 
     await deleteAutomation(page, name);
+  });
+
+  test('exports one automation as a code and pastes it back in', async ({ page }) => {
+    const name = uniqueName('Share');
+
+    await buildAutomation(page, name);
+
+    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    const exportDialog = page.getByRole('dialog', { name: 'Share this automation' });
+    await expect(exportDialog).toBeVisible();
+    const code = (await exportDialog.locator('pre').first().innerText()).trim();
+    expect(code).toMatch(/^tracearr1\./);
+    await exportDialog.getByRole('button', { name: 'Close' }).click();
+
+    await page.goto('/automations');
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    const paste = page.getByRole('dialog', { name: 'Paste a share code' });
+    await paste.getByRole('textbox', { name: 'Paste a share code' }).fill(code);
+    await paste.getByRole('button', { name: 'Check it' }).click();
+
+    const review = page.getByRole('dialog', { name });
+    await expect(review.getByText('This is a Tracearr automation.')).toBeVisible();
+    await review.getByRole('button', { name: 'Browser toasts' }).click();
+    await review.getByRole('button', { name: 'Add it' }).click();
+
+    await expect(review).toBeHidden();
+    // It lands paused, so the row that came back from the code says Disabled.
+    await expect(rowFor(page, name).filter({ hasText: 'Disabled' })).toBeVisible();
   });
 
   test('filters the list by kind', async ({ page }) => {

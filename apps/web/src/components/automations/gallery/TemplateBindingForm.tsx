@@ -11,15 +11,7 @@ import { templateDraft, templateName, type AutomationDraft } from '@/lib/automat
 import { cn } from '@/lib/utils';
 import type { AutomationTemplate } from '@/lib/api';
 import { TemplateEffects } from './TemplateEffects';
-import {
-  boundInputValues,
-  initialInputValues,
-  missingInputs,
-  serverInputKey,
-  TemplateInputRows,
-  TemplateSentencePanel,
-  useTemplateBinding,
-} from './TemplateInputs';
+import { TemplateInputRows, TemplateSentencePanel, useTemplateAnswers } from './TemplateInputs';
 
 /** What the primary door is handed once every required answer is in. */
 export interface TemplateBindingSubmission {
@@ -67,18 +59,13 @@ export function TemplateBindingForm({
   const { servers } = useServer();
 
   const { version } = template;
-  const [values, setValues] = useState(() => initialInputValues(version.inputs, initialValues));
+  const answers = useTemplateAnswers(version, initialValues);
   const [name, setName] = useState(() => templateName(t, template));
 
   const [nameDirty, setNameDirty] = useState(false);
   const [isActive, setIsActive] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
-  const [focused, setFocused] = useState<string | null>(null);
 
-  const { refs, fragments } = useTemplateBinding(version, values);
-
-  const serverKey = serverInputKey(version.inputs);
-  const boundServerId = String(values[serverKey ?? ''] ?? '');
+  const { refs, fragments, serverKey, boundServerId } = answers;
 
   /** What the name reads as until it is edited, and what an emptied field falls back to. */
   const defaultName = (serverId: string) => {
@@ -88,20 +75,19 @@ export function TemplateBindingForm({
   };
 
   const setValue = (input: TemplateInput, value: unknown) => {
-    setValues({ ...values, [input.key]: value });
+    answers.setValue(input, value);
     if (input.kind !== 'server' || nameDirty) return;
     setName(defaultName(typeof value === 'string' ? value : ''));
   };
 
   const submission = (): TemplateBindingSubmission => ({
-    inputs: boundInputValues(values),
+    inputs: answers.bound(),
     name: name.trim() || defaultName(boundServerId),
     isActive,
   });
 
   const submit = () => {
-    setSubmitted(true);
-    if (missingInputs(version.inputs, values).length > 0) return;
+    if (!answers.attemptSubmit()) return;
     doors.onPrimary(submission());
   };
 
@@ -113,7 +99,11 @@ export function TemplateBindingForm({
   return (
     <>
       <div className={cn('flex flex-col gap-5', bodyClassName)}>
-        <TemplateSentencePanel fragments={fragments} label={sentenceLabel} highlightKey={focused} />
+        <TemplateSentencePanel
+          fragments={fragments}
+          label={sentenceLabel}
+          highlightKey={answers.focused}
+        />
 
         {version.inputs.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>
@@ -123,11 +113,11 @@ export function TemplateBindingForm({
             <FieldGroup className="gap-5">
               <TemplateInputRows
                 version={version}
-                values={values}
+                values={answers.values}
                 onChange={setValue}
                 boundServerId={boundServerId}
-                submitted={submitted}
-                onFocusInput={setFocused}
+                submitted={answers.submitted}
+                onFocusInput={answers.setFocused}
               />
             </FieldGroup>
           </section>

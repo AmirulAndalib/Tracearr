@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Pencil } from 'lucide-react';
-import type { Automation, AutomationKind } from '@tracearr/shared';
+import { ArrowLeft, Pencil, Share2 } from 'lucide-react';
+import type { AutomationKind } from '@tracearr/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,11 +18,9 @@ import {
   TemplateBadge,
   TemplateBinding,
 } from '@/components/automations';
-import {
-  TemplateSentencePanel,
-  useDescribeRefs,
-} from '@/components/automations/gallery/TemplateInputs';
-import { automationIcon, describeAutomation } from '@/lib/automations';
+import { AutomationSentencePanel } from '@/components/automations/gallery/TemplateInputs';
+import { ExportDialog } from '@/components/automations/sharing/ExportDialog';
+import { automationIcon } from '@/lib/automations';
 import { useAutomation, useToggleAutomation } from '@/hooks/queries';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { useServer } from '@/hooks/useServer';
@@ -39,6 +37,7 @@ export function AutomationDetail() {
   const { servers } = useServer();
 
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { data: automation, isLoading } = useAutomation(id);
   const toggleAutomation = useToggleAutomation();
@@ -106,6 +105,10 @@ export function AutomationDetail() {
             }}
             aria-label={t('pages:automations.toggleAutomation', { name: automation.name })}
           />
+          <Button variant="outline" onClick={() => setExportOpen(true)}>
+            <Share2 />
+            {t('common:actions.export')}
+          </Button>
           {!template && (
             <Button
               variant="outline"
@@ -118,7 +121,7 @@ export function AutomationDetail() {
         </div>
       </div>
 
-      {!template && <AutomationSentence automation={automation} />}
+      {!template && <AutomationSentencePanel automation={automation} />}
 
       {template && (
         <Card>
@@ -168,6 +171,8 @@ export function AutomationDetail() {
         </Card>
       </div>
 
+      {exportOpen && <ExportDialog automation={automation} open onOpenChange={setExportOpen} />}
+
       <RunDetail
         runId={selectedRunId}
         canReplay={template === null}
@@ -177,14 +182,6 @@ export function AutomationDetail() {
       />
     </div>
   );
-}
-
-/** A row that owns its own steps still says what it does, in the same words. */
-function AutomationSentence({ automation }: { automation: Automation }) {
-  const { t } = useTranslation('pages');
-  const { refs, unitSystem } = useDescribeRefs();
-
-  return <TemplateSentencePanel fragments={describeAutomation(automation, refs, t, unitSystem)} />;
 }
 
 function BackLink({ label }: { label: string }) {

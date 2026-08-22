@@ -5,7 +5,9 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { i18n, initI18n } from '@tracearr/translations';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { describeTemplate, describeText, type Translate } from '@/lib/automations';
+import { previewOf, SHARE_CODE } from '../../sharing/__tests__/fixtures';
 import { BLOCKED_COUNTRIES, TEMPLATES } from './fixtures';
+import type { TemplatePreview } from '@/lib/api';
 
 vi.mock('@/hooks/queries/useSettings', () => ({
   useSettings: () => ({ data: { unitSystem: 'metric' } }),
@@ -36,10 +38,17 @@ vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const instantiate = vi.fn();
+const store = vi.fn();
+/** The paste step's own test drives the real mutation; here the answer just arrives. */
+const check = vi.fn((_body: unknown, options?: { onSuccess?: (p: TemplatePreview) => void }) =>
+  options?.onSuccess?.(previewOf())
+);
 
 vi.mock('@/hooks/queries/useTemplates', () => ({
   useTemplates: () => ({ data: TEMPLATES, isLoading: false, isError: false, refetch: vi.fn() }),
   useInstantiateTemplate: () => ({ mutate: instantiate, isPending: false }),
+  usePreviewTemplate: () => ({ mutate: check, isPending: false }),
+  useImportTemplate: () => ({ mutate: store, isPending: false }),
 }));
 
 import { toast } from 'sonner';
@@ -54,6 +63,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   instantiate.mockReset();
+  store.mockReset();
 });
 
 /** The builder route, saying what the second door carried across. */
@@ -209,11 +219,34 @@ describe('NewAutomationDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('parks the paste row on a view of its own until import lands', async () => {
+  it('takes the paste row to the box, then to the review of what was pasted', async () => {
     const { user } = renderDialog();
 
     await user.click(screen.getByText('Paste a share code'));
+    await user.type(await screen.findByRole('textbox', { name: 'Paste a share code' }), SHARE_CODE);
+    await user.click(screen.getByRole('button', { name: 'Check it' }));
 
-    expect(await screen.findByText(/is not ready yet/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Two places at once' })).toBeInTheDocument();
+    expect(screen.getByText('This is a Tracearr automation.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add it' })).toBeInTheDocument();
+  });
+
+  it('walks Esc back from the review to the box, then to the gallery, then out', async () => {
+    const { onOpenChange, user } = renderDialog();
+
+    await user.click(screen.getByText('Paste a share code'));
+    await user.type(await screen.findByRole('textbox', { name: 'Paste a share code' }), SHARE_CODE);
+    await user.click(screen.getByRole('button', { name: 'Check it' }));
+    await screen.findByRole('heading', { name: 'Two places at once' });
+
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('textbox', { name: 'Paste a share code' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(await screen.findByText('Stream started')).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    await user.keyboard('{Escape}');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
