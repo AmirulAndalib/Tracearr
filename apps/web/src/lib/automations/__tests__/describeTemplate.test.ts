@@ -92,10 +92,10 @@ describe('describeTemplate', () => {
     const sentence = text(
       { inputs, definition: definition() },
       { server: 'server-1', to: ['dest-1'] },
-      { servers: { 'server-1': 'Beehive' }, destinations: { 'dest-1': 'Team Discord' } }
+      { servers: { 'server-1': 'Beehive' }, destinations: { 'dest-1': 'Discord' } }
     );
 
-    expect(sentence).toBe('When a stream starts, send to Team Discord. Applies to Beehive.');
+    expect(sentence).toBe('When a stream starts, send to Discord. Applies to Beehive.');
   });
 
   it('reads an empty destination pick as unbound rather than as nowhere', () => {

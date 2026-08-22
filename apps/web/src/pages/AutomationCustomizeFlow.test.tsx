@@ -155,7 +155,7 @@ describe('customizing a template-bound automation', () => {
     await screen.findByText('the detail page');
     await waitFor(() =>
       expect(toast.info).toHaveBeenCalledWith(
-        'This one still follows a ready-made automation. Make it yours first.'
+        'This automation follows a ready-made one. Open it in the builder first.'
       )
     );
   });

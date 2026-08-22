@@ -76,7 +76,7 @@ describe('ConditionsSection', () => {
     const { dispatch } = renderSection({ groups: [] });
 
     expect(screen.getByRole('heading', { name: /And only if/ })).toBeInTheDocument();
-    expect(screen.getByText('No extra checks — this runs every time.')).toBeInTheDocument();
+    expect(screen.getByText('No extra checks. This runs every time.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Add a check/ }));
 
@@ -122,7 +122,7 @@ describe('ConditionsSection', () => {
       },
     ]);
 
-    expect(screen.getByText('No extra checks — this runs every time.')).toBeInTheDocument();
+    expect(screen.getByText('No extra checks. This runs every time.')).toBeInTheDocument();
     expect(screen.queryByText(/don't offer any checks/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add a check/ })).toBeDisabled();
   });
@@ -198,7 +198,7 @@ describe('ConditionsSection', () => {
     );
 
     expect(
-      screen.getByText('This can never pass — the trigger already fires at 30 minutes.')
+      screen.getByText('This can never pass. The trigger already fires at 30 minutes.')
     ).toBeInTheDocument();
   });
 

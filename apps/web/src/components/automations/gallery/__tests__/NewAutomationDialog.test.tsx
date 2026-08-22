@@ -214,6 +214,6 @@ describe('NewAutomationDialog', () => {
 
     await user.click(screen.getByText('Paste a share code'));
 
-    expect(await screen.findByText(/arrives with import/)).toBeInTheDocument();
+    expect(await screen.findByText(/is not ready yet/)).toBeInTheDocument();
   });
 });

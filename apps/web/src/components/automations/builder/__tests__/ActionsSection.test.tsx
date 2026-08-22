@@ -150,7 +150,7 @@ describe('ActionsSection', () => {
       ],
     });
 
-    expect(screen.getByText('Nothing — the automation carries on.')).toBeInTheDocument();
+    expect(screen.getByText('Nothing. The automation carries on.')).toBeInTheDocument();
   });
 
   it('reads the branch back while it is folded away', async () => {

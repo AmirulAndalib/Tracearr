@@ -106,7 +106,7 @@ describe('TemplateBindingForm', () => {
     renderForm();
 
     const headings = [...document.querySelectorAll('h2, h3')].map((node) => node.textContent);
-    expect(headings).toEqual(['In plain words', 'What it needs from you', 'What this will do']);
+    expect(headings).toEqual(['In plain words', 'Fill in', 'What this does']);
 
     const labels = [...document.querySelectorAll('label')].map((node) => node.textContent);
     expect(labels).toEqual(['Which server', 'Send to', 'Name', 'Active']);
@@ -286,7 +286,7 @@ describe('TemplateBindingForm', () => {
   it('says there is nothing to fill in when a template has no inputs', () => {
     renderForm(NO_INPUTS);
 
-    expect(screen.getByText('Nothing to fill in — this one works as it is.')).toBeInTheDocument();
-    expect(screen.queryByText('What it needs from you')).not.toBeInTheDocument();
+    expect(screen.getByText('Nothing to fill in.')).toBeInTheDocument();
+    expect(screen.queryByText('Fill in')).not.toBeInTheDocument();
   });
 });

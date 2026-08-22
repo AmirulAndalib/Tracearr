@@ -91,7 +91,7 @@ describe('TemplateBinding', () => {
   it('names the version the template has moved on to', () => {
     renderBinding(template({ currentVersion: 4 }));
 
-    expect(screen.getByText('The ready-made automation has moved on to v4')).toBeInTheDocument();
+    expect(screen.getByText('The ready-made automation is now on v4')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Review and update' })).toBeInTheDocument();
   });
 
@@ -123,7 +123,7 @@ describe('TemplateBinding', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open in the builder' }));
     const confirm = await screen.findByRole('alertdialog');
-    expect(within(confirm).getByText('Make it yours?')).toBeInTheDocument();
+    expect(within(confirm).getByText('Open this in the builder?')).toBeInTheDocument();
     expect(detach).not.toHaveBeenCalled();
 
     await user.click(within(confirm).getByRole('button', { name: 'Open in the builder' }));
