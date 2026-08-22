@@ -36,6 +36,13 @@ function runRow(overrides: Record<string, unknown> = {}) {
     sessionId: 's-1',
     serverId: 'srv-1',
     subjectKey: 's-1',
+    serverName: 'Basement',
+    accountName: 'ada@plex',
+    personName: 'Ada',
+    personUsername: 'ada',
+    itemTitle: null,
+    itemMediaType: null,
+    libraryName: null,
     startedAt: new Date('2026-08-20T10:00:00.000Z'),
     createdAt: new Date('2026-08-20T10:00:00.000Z'),
     finishedAt: new Date('2026-08-20T10:00:02.000Z'),
@@ -43,6 +50,27 @@ function runRow(overrides: Record<string, unknown> = {}) {
     dismissedAt: null,
     ...overrides,
   };
+}
+
+/** The session row the detail route reads on its own, keyed off the run's session id. */
+const SESSION_CONTEXT = {
+  mediaTitle: 'The Bear',
+  mediaType: 'episode',
+  grandparentTitle: 'The Bear',
+  player: 'Living Room TV',
+  device: 'Apple TV',
+  product: 'Plex for Apple TV',
+  platform: 'tvOS',
+  ipAddress: '10.0.0.9',
+  city: 'Boston',
+  country: 'United States',
+};
+
+/** The run query, then the session lookup the detail route makes when it has one. */
+function setupDetailMocks(row: unknown, session: unknown[] = [SESSION_CONTEXT]) {
+  vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>)
+    .mockReturnValueOnce(queryChain(vi.fn, row === undefined ? [] : [row]))
+    .mockReturnValue(queryChain(vi.fn, session));
 }
 
 const ownerUser: AuthUser = {
@@ -121,6 +149,14 @@ describe('Run routes', () => {
         sessionId: 's-1',
         serverId: 'srv-1',
         subjectKey: 's-1',
+        subject: {
+          kind: 'session',
+          name: 'ada@plex',
+          personName: 'Ada',
+          serverName: 'Basement',
+          libraryName: null,
+          mediaType: null,
+        },
         startedAt: '2026-08-20T10:00:00.000Z',
         finishedAt: '2026-08-20T10:00:02.000Z',
         acknowledgedAt: null,
@@ -174,6 +210,150 @@ describe('Run routes', () => {
       // A filter on an automations column would throw against a FROM that omits the join.
       expect(renderedJoins(pageChain)).toEqual(['automation_runs.rule_id = automations.id']);
       expect(renderedJoins(countChain)).toEqual(renderedJoins(pageChain));
+    });
+
+    it('reads the names off the run ids rather than a second query per row', async () => {
+      app = await buildTestApp(ownerUser);
+      const { pageChain } = setupListMocks([], 0);
+
+      await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(renderedJoins(pageChain, 'leftJoin')).toEqual([
+        'servers.id = automation_runs.server_id',
+        'server_users.id = automation_runs.server_user_id',
+        'users.id = server_users.user_id',
+        'library_items.id = CASE WHEN automation_runs.subject_key LIKE $1 THEN substring(automation_runs.subject_key FROM $2)::uuid END',
+        '(libraries.server_id = library_items.server_id and libraries.library_id = library_items.library_id)',
+      ]);
+    });
+
+    it('names the library item a media run was about, and the library it sits in', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks(
+        [
+          runRow({
+            serverUserId: null,
+            sessionId: null,
+            accountName: null,
+            personName: null,
+            personUsername: null,
+            subjectKey: 'media:11111111-1111-4111-8111-111111111111',
+            itemTitle: 'Dune',
+            itemMediaType: 'movie',
+            libraryName: 'Movies',
+          }),
+        ],
+        1
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(response.json().data[0].subject).toEqual({
+        kind: 'media',
+        name: 'Dune',
+        personName: null,
+        serverName: 'Basement',
+        libraryName: 'Movies',
+        mediaType: 'movie',
+      });
+    });
+
+    it('attributes a server run to its server and nobody else', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks(
+        [
+          runRow({
+            kind: 'notification',
+            serverUserId: null,
+            sessionId: null,
+            accountName: null,
+            personName: null,
+            personUsername: null,
+            subjectKey: 'server:srv-1',
+          }),
+        ],
+        1
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(response.json().data[0].subject).toEqual({
+        kind: 'server',
+        name: null,
+        personName: null,
+        serverName: 'Basement',
+        libraryName: null,
+        mediaType: null,
+      });
+    });
+
+    it('reads an install-wide run as belonging to no server', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks(
+        [
+          runRow({
+            kind: 'notification',
+            serverId: null,
+            serverName: null,
+            serverUserId: null,
+            sessionId: null,
+            accountName: null,
+            personName: null,
+            personUsername: null,
+            subjectKey: 'install',
+          }),
+        ],
+        1
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(response.json().data[0].subject).toEqual({
+        kind: 'install',
+        name: null,
+        personName: null,
+        serverName: null,
+        libraryName: null,
+        mediaType: null,
+      });
+    });
+
+    it('reads an hourly account run as being about the account', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks([runRow({ sessionId: null, subjectKey: 'su-1' })], 1);
+
+      const response = await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(response.json().data[0].subject.kind).toBe('account');
+      expect(response.json().data[0].subject.name).toBe('ada@plex');
+    });
+
+    it('falls back to the account username when the identity has no display name', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks([runRow({ personName: null })], 1);
+
+      expect(
+        (await app.inject({ method: 'GET', url: '/runs' })).json().data[0].subject
+      ).toMatchObject({ personName: 'ada' });
+    });
+
+    it('names nobody when the account behind a run has been purged', async () => {
+      app = await buildTestApp(ownerUser);
+      setupListMocks(
+        [runRow({ accountName: null, personName: null, personUsername: null, serverName: null })],
+        1
+      );
+
+      const response = await app.inject({ method: 'GET', url: '/runs' });
+
+      expect(response.json().data[0].subject).toEqual({
+        kind: 'session',
+        name: null,
+        personName: null,
+        serverName: null,
+        libraryName: null,
+        mediaType: null,
+      });
     });
 
     it('defaults to newest first, tiebroken on the run id', async () => {
@@ -230,9 +410,7 @@ describe('Run routes', () => {
     it('carries the step log and the version the run evaluated', async () => {
       app = await buildTestApp(ownerUser);
       const steps = [{ trigger: { type: 'session.started' } }, { action: 'kill_stream' }];
-      vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-        queryChain(vi.fn, [{ ...runRow(), steps, definitionVersionId: 'ver-2' }])
-      );
+      setupDetailMocks({ ...runRow(), steps, definitionVersionId: 'ver-2' });
 
       const response = await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` });
 
@@ -243,11 +421,55 @@ describe('Run routes', () => {
       expect(body.id).toBe(RUN_ID);
     });
 
+    it('carries what was playing and every condition the run weighed', async () => {
+      app = await buildTestApp(ownerUser);
+      const evidence = [
+        {
+          groupIndex: 0,
+          matched: true,
+          conditions: [
+            { field: 'concurrent_streams', operator: 'gt', threshold: 2, actual: 3, matched: true },
+          ],
+        },
+      ];
+      setupDetailMocks({ ...runRow(), steps: [], evidence, definitionVersionId: 'ver-2' });
+
+      const body = (await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json();
+
+      expect(body.session).toEqual(SESSION_CONTEXT);
+      expect(body.evidence).toEqual(evidence);
+    });
+
+    it('reports no session context for a run that was never about one', async () => {
+      app = await buildTestApp(ownerUser);
+      setupDetailMocks({
+        ...runRow({ sessionId: null, subjectKey: 'install' }),
+        steps: [],
+        evidence: null,
+        definitionVersionId: null,
+      });
+
+      const body = (await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json();
+
+      expect(body.session).toBeNull();
+      expect(body.evidence).toEqual([]);
+      // The run named no session, so nothing went looking for one.
+      expect(db.select).toHaveBeenCalledOnce();
+    });
+
+    it('reports no session context once the session has been purged', async () => {
+      app = await buildTestApp(ownerUser);
+      setupDetailMocks({ ...runRow(), steps: [], definitionVersionId: null }, []);
+
+      const body = (await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` })).json();
+
+      expect(body.session).toBeNull();
+      expect(body.subject.name).toBe('ada@plex');
+    });
+
     it('reports an empty step log rather than null', async () => {
       app = await buildTestApp(ownerUser);
-      vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-        queryChain(vi.fn, [{ ...runRow(), steps: null, definitionVersionId: null }])
-      );
+      setupDetailMocks({ ...runRow(), steps: null, definitionVersionId: null });
 
       const response = await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` });
 
@@ -256,9 +478,7 @@ describe('Run routes', () => {
 
     it('404s when there is no such run', async () => {
       app = await buildTestApp(ownerUser);
-      vi.mocked(db.select as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-        queryChain(vi.fn, [])
-      );
+      setupDetailMocks(undefined);
 
       const response = await app.inject({ method: 'GET', url: `/runs/${RUN_ID}` });
 

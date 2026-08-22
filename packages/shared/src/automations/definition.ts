@@ -29,7 +29,7 @@ import type {
   Operator,
 } from './conditions.js';
 import type { TriggerNode } from './triggers.js';
-import type { ViolationSeverity } from '../types.js';
+import type { MediaType, ViolationSeverity } from '../types.js';
 
 export const AUTOMATION_KINDS = ['policy', 'notification'] as const;
 export type AutomationKind = (typeof AUTOMATION_KINDS)[number];
@@ -341,6 +341,39 @@ export interface Automation {
   updatedAt: string;
 }
 
+/** What a run was about, read off its subject key. */
+export type RunSubjectKind = 'session' | 'account' | 'media' | 'server' | 'install';
+
+/** The names behind a run's ids. Every field is null once the row it named is gone. */
+export interface RunSubject {
+  kind: RunSubjectKind;
+  /** The account for session and account runs; the item's title for media runs. */
+  name: string | null;
+  /** The person the account belongs to, when the identity carries a name. */
+  personName: string | null;
+  /** Null for install-wide runs, the only ones no server is behind. */
+  serverName: string | null;
+  /** The library a media subject sits in. */
+  libraryName: string | null;
+  /** A media subject's own type; sessions carry theirs in the session context. */
+  mediaType: string | null;
+}
+
+/** What was playing when a session run fired, as far as the session row still says. */
+export interface RunSessionContext {
+  mediaTitle: string;
+  mediaType: MediaType;
+  /** The show an episode belongs to. */
+  grandparentTitle: string | null;
+  player: string | null;
+  device: string | null;
+  product: string | null;
+  platform: string | null;
+  ipAddress: string | null;
+  city: string | null;
+  country: string | null;
+}
+
 export interface AutomationRunSummary {
   id: string;
   automationId: string;
@@ -354,6 +387,7 @@ export interface AutomationRunSummary {
   /** Null only for a run with no server account to attribute it to. */
   serverId: string | null;
   subjectKey: string | null;
+  subject: RunSubject;
   startedAt: string;
   finishedAt: string | null;
   acknowledgedAt: string | null;
@@ -375,5 +409,9 @@ export interface RunFinishedEvent {
 export interface AutomationRun extends AutomationRunSummary {
   /** Ordered step log; step zero is the trigger payload. */
   steps: unknown[];
+  /** Null for anything but a session run, and for a session that has since been purged. */
+  session: RunSessionContext | null;
+  /** Every condition the run weighed, so a completed run can say what it read. */
+  evidence: GroupEvidence[];
   definitionVersionId: string | null;
 }

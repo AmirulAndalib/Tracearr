@@ -87,6 +87,14 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
     sessionId: null,
     serverId: null,
     subjectKey: 'sess-1',
+    subject: {
+      kind: 'session',
+      name: 'ada@plex',
+      personName: 'Ada',
+      serverName: 'Basement',
+      libraryName: null,
+      mediaType: null,
+    },
     startedAt: '2026-08-19T00:00:00.000Z',
     finishedAt: '2026-08-19T00:00:01.000Z',
     acknowledgedAt: null,
@@ -228,6 +236,8 @@ describe('AutomationDetail activity', () => {
     const detail: AutomationRun = {
       ...run(),
       definitionVersionId: 'ver-1',
+      session: null,
+      evidence: [],
       steps: [
         { trigger: { id: 'n1', type: 'session.started', edgeKey: 'edge-7' } },
         { action: 'kill_stream', success: true },

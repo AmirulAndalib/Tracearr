@@ -2,7 +2,6 @@ import { and, eq, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm';
 import {
   REDIS_KEYS,
   WS_EVENTS,
-  type AutomationRunSummary,
   type GroupEvidence,
   type RunFinishedEvent,
   type NearMissEntry,
@@ -346,47 +345,6 @@ export async function recordNearMiss(automationId: string, entry: NearMiss): Pro
   } catch {
     // Best-effort: a lost near miss costs one line in a diagnostic list
   }
-}
-
-/** Takes the columns rather than the row, so a joined summary select maps through here too. */
-export function toRunSummary(
-  row: Pick<
-    AutomationRunRow,
-    | 'id'
-    | 'automationId'
-    | 'kind'
-    | 'outcome'
-    | 'humanSummary'
-    | 'severity'
-    | 'serverUserId'
-    | 'serverId'
-    | 'sessionId'
-    | 'subjectKey'
-    | 'startedAt'
-    | 'createdAt'
-    | 'finishedAt'
-    | 'acknowledgedAt'
-    | 'dismissedAt'
-  >,
-  automationName: string
-): AutomationRunSummary {
-  return {
-    id: row.id,
-    automationId: row.automationId,
-    automationName,
-    kind: row.kind,
-    outcome: row.outcome,
-    humanSummary: row.humanSummary,
-    severity: row.severity ?? null,
-    serverUserId: row.serverUserId,
-    sessionId: row.sessionId,
-    serverId: row.serverId,
-    subjectKey: row.subjectKey,
-    startedAt: (row.startedAt ?? row.createdAt).toISOString(),
-    finishedAt: row.finishedAt?.toISOString() ?? null,
-    acknowledgedAt: row.acknowledgedAt?.toISOString() ?? null,
-    dismissedAt: row.dismissedAt?.toISOString() ?? null,
-  };
 }
 
 /** The four fields a client needs to know which lists went stale. */

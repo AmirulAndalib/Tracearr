@@ -105,7 +105,6 @@ import {
   recordRun,
   publishRunFinished,
   runFinishedOf,
-  toRunSummary,
   type RecordRunArgs,
 } from '../automations/runRecorder.js';
 
@@ -796,28 +795,6 @@ describe('near misses and cooldown', () => {
 
     expect(await automationCoolingDown({ ...automation, cooldownMinutes: 5 }, 's1')).toBe(true);
     expect(mockRedisExists).toHaveBeenCalledExactlyOnceWith('tracearr:automation:cooldown:r1:s1');
-  });
-});
-
-describe('toRunSummary', () => {
-  it('serializes the wire shape with ISO dates', () => {
-    expect(toRunSummary(inserted as never, 'Rule')).toEqual({
-      id: 'v1',
-      automationId: 'r1',
-      automationName: 'Rule',
-      kind: 'policy',
-      outcome: 'completed',
-      humanSummary: null,
-      severity: 'high',
-      serverUserId: 'su1',
-      sessionId: 's1',
-      serverId: 'srv1',
-      subjectKey: 's1',
-      startedAt: '2026-08-20T10:00:00.000Z',
-      finishedAt: '2026-08-20T10:00:00.000Z',
-      acknowledgedAt: null,
-      dismissedAt: null,
-    });
   });
 });
 

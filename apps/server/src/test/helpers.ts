@@ -30,6 +30,7 @@ export function renderSql(
 // The union of every mocked query shape: an extra method on a chain is inert.
 const QUERY_CHAIN_METHODS = [
   'from',
+  '$dynamic',
   'innerJoin',
   'leftJoin',
   'where',
@@ -66,9 +67,12 @@ export function renderCall(
   return { text: rendered.sql.replace(/\s+/g, ' ').trim(), params: rendered.params };
 }
 
-// The ON condition of every inner join a chain recorded, in join order.
-export function renderedJoins(chain: any): string[] {
-  return chain.innerJoin.mock.calls.map((call: unknown[]) =>
+// The ON condition of every join of one kind a chain recorded, in join order.
+export function renderedJoins(
+  chain: any,
+  method: 'innerJoin' | 'leftJoin' = 'innerJoin'
+): string[] {
+  return chain[method].mock.calls.map((call: unknown[]) =>
     renderSql(call[1] as SQL)
       .sql.replace(/\s+/g, ' ')
       .trim()
