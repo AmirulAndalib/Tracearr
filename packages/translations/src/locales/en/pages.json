@@ -804,7 +804,7 @@
       "title": "Recent evaluations",
       "description": "Trigger matches that recorded no run.",
       "empty": "No recent evaluations",
-      "emptyDescription": "Cooldowns, replayed edges and blocked gates land here.",
+      "emptyDescription": "Cooldowns, replayed edges and blocked gates are listed here.",
       "reasons": {
         "cooldown_active": "Cooldown was active",
         "edge_replayed": "Same edge already handled",
@@ -868,7 +868,7 @@
       "user_id": {
         "label": "User",
         "description": "Specific users by account",
-        "placeholder": "Select users..."
+        "placeholder": "Select users…"
       },
       "trust_score": {
         "label": "Trust Score",
@@ -898,7 +898,7 @@
       "country": {
         "label": "Country",
         "description": "Geographic country",
-        "placeholder": "Select countries..."
+        "placeholder": "Select countries…"
       },
       "ip_in_range": {
         "label": "IP Range",
@@ -908,7 +908,7 @@
       "server_id": {
         "label": "Server",
         "description": "Specific media server",
-        "placeholder": "Select servers..."
+        "placeholder": "Select servers…"
       },
       "media_type": {
         "label": "Media Type",
@@ -1106,7 +1106,7 @@
       "account": "Account",
       "crossServer": "Cross-server"
     },
-    "searchPlaceholder": "Search automations...",
+    "searchPlaceholder": "Search automations…",
     "sessionTargets": {
       "triggering": {
         "label": "Triggering session",

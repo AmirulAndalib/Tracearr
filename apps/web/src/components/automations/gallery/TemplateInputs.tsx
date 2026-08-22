@@ -110,6 +110,8 @@ interface TemplateInputRowsProps {
   version: TemplateVersionPayload;
   values: Record<string, unknown>;
   onChange: (input: TemplateInput, value: unknown) => void;
+  /** The server the form has bound, so an account picker knows whose accounts to offer. */
+  boundServerId: string;
   /** Marks the required rows that are still blank, once the reader has tried to submit. */
   submitted: boolean;
   /** The key of the row that has focus, or null when focus has left the fields. */
@@ -121,14 +123,13 @@ export function TemplateInputRows({
   version,
   values,
   onChange,
+  boundServerId,
   submitted,
   onFocusInput,
 }: TemplateInputRowsProps) {
   const { servers } = useServer();
   const { unitSystem } = useDescribeRefs();
   const { data: filterOptions } = useAutomationFilterOptions();
-
-  const boundServerId = String(values[serverInputKey(version.inputs) ?? ''] ?? '');
 
   return (
     <>

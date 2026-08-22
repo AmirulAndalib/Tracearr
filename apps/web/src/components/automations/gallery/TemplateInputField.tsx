@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   AutomationFilterOptions,
@@ -72,6 +72,7 @@ export function TemplateInputField({
   onFocusInput,
 }: TemplateInputFieldProps) {
   const { t } = useTranslation('pages');
+  const fieldRef = useRef<HTMLDivElement>(null);
   const controlId = useId();
   const labelId = `${controlId}-label`;
   const label = templateInputLabel(t, input);
@@ -298,10 +299,15 @@ export function TemplateInputField({
       : undefined;
   const description = input.description ?? ownHelper;
 
-  // Capture catches the focus of every control the switch below can render.
+  // Capture catches every control this row can render. A picker's list is portalled away,
+  // so focus reaching it is not the reader leaving the row.
   const focus = {
+    ref: fieldRef,
     onFocusCapture: () => onFocusInput?.(input.key),
-    onBlurCapture: () => onFocusInput?.(null),
+    onBlurCapture: () => {
+      if (fieldRef.current?.querySelector<HTMLElement>('[aria-expanded="true"]')) return;
+      onFocusInput?.(null);
+    },
   };
 
   if (input.kind === 'boolean') {

@@ -578,7 +578,7 @@
     "evaluations": {
       "description": "Trigger matches that recorded no run.",
       "empty": "No recent evaluations",
-      "emptyDescription": "Cooldowns, replayed edges and blocked gates land here.",
+      "emptyDescription": "Cooldowns, replayed edges and blocked gates are listed here.",
       "reasons": {
         "cooldown_active": "Cooldown was active",
         "edge_replayed": "Same edge already handled",
@@ -612,7 +612,7 @@
       "country": {
         "description": "Geographic country",
         "label": "Country",
-        "placeholder": "Select countries..."
+        "placeholder": "Select countries…"
       },
       "current_pause_minutes": {
         "description": "How long the session has been continuously paused",
@@ -679,7 +679,7 @@
       "server_id": {
         "description": "Specific media server",
         "label": "Server",
-        "placeholder": "Select servers..."
+        "placeholder": "Select servers…"
       },
       "source_bitrate_mbps": {
         "description": "Original media bitrate",
@@ -712,7 +712,7 @@
       "user_id": {
         "description": "Specific users by account",
         "label": "User",
-        "placeholder": "Select users..."
+        "placeholder": "Select users…"
       },
       "video_codec_after": {
         "description": "Video codec the item ends up with",
@@ -881,7 +881,7 @@
       "global": "Global",
       "person": "Person"
     },
-    "searchPlaceholder": "Search automations...",
+    "searchPlaceholder": "Search automations…",
     "sessionTargets": {
       "all_except_one": {
         "label": "All except one (keep oldest)",

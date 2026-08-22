@@ -93,6 +93,11 @@ function renderForm(template: AutomationTemplate = STREAM_STARTED, showName = tr
 
 const sentence = () => screen.getByText('In plain words').parentElement?.textContent ?? '';
 
+/** The clause the focused field wrote, as the panel renders it. */
+const lit = () =>
+  screen.getByText('In plain words').parentElement?.querySelector('.bg-primary\\/15')
+    ?.textContent ?? '';
+
 describe('TemplateBindingForm', () => {
   it('opens on Any server, with the template name and Active on', () => {
     renderForm();
@@ -169,10 +174,6 @@ describe('TemplateBindingForm', () => {
   it('lights the clause a focused field wrote, and clears it on the way out', async () => {
     const { user } = renderForm(CONCURRENT_STREAMS);
 
-    const lit = () =>
-      screen.getByText('In plain words').parentElement?.querySelector('.bg-primary\\/15')
-        ?.textContent ?? '';
-
     expect(lit()).toBe('');
 
     await user.click(screen.getByLabelText('Streams allowed'));
@@ -180,6 +181,21 @@ describe('TemplateBindingForm', () => {
 
     await user.tab();
     expect(lit()).toBe('');
+  });
+
+  it('keeps the clause lit while the picker it belongs to is open', async () => {
+    const { user } = renderForm();
+
+    await user.click(screen.getByRole('combobox', { name: /Which server/ }));
+    await user.click(await screen.findByRole('option', { name: 'Beehive' }));
+
+    expect(lit()).toContain('Applies to Beehive');
+
+    // The list is portalled out of the field, so focus leaving is not the reader leaving.
+    await user.click(screen.getByRole('combobox', { name: /Which server/ }));
+    expect(await screen.findByRole('option', { name: 'Beehive' })).toBeInTheDocument();
+
+    expect(lit()).toContain('Applies to Beehive');
   });
 
   it('says when a viewer message is shown, since the sentence never mentions it', () => {

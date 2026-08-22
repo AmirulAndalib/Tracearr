@@ -101,9 +101,9 @@ function placeholderKey(node: unknown): string | undefined {
 const NO_NODE = '';
 
 /** Which inputs wrote each node, so a field can light the clause its answer landed in. */
-export type NodeInputKeys = ReadonlyMap<string, readonly string[]>;
+type NodeInputKeys = ReadonlyMap<string, readonly string[]>;
 
-export interface BoundDefinition {
+interface BoundDefinition {
   definition: DescribableDefinition;
   inputsByNode: NodeInputKeys;
 }
@@ -118,7 +118,7 @@ function nodeIdOf(node: object, current: string): string {
  * The definition with bound values and defaults substituted. `placeholders` keeps an
  * unbound required input naming itself, which the sentence wants and a draft does not.
  */
-export function bindDefinition(
+function bindDefinition(
   version: TemplateVersionBody,
   bound: Record<string, unknown>,
   options: { placeholders?: boolean } = {}

@@ -125,6 +125,7 @@ export function TemplateBindingForm({
                 version={version}
                 values={values}
                 onChange={setValue}
+                boundServerId={boundServerId}
                 submitted={submitted}
                 onFocusInput={setFocused}
               />
