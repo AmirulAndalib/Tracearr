@@ -26,6 +26,16 @@ export function useTemplate(id: string | undefined) {
   });
 }
 
+/** The version a bound row is pinned to, so an upgrade can show what it says today. */
+export function useTemplateVersion(id: string | undefined, version: number | undefined) {
+  return useQuery({
+    queryKey: [...TEMPLATES_KEY, 'version', id, version],
+    queryFn: () => api.templates.getVersion(id ?? '', version ?? 0),
+    enabled: id !== undefined && version !== undefined,
+    staleTime: Infinity,
+  });
+}
+
 export function useInstantiateTemplate() {
   const { t } = useTranslation(['pages', 'notifications']);
   const queryClient = useQueryClient();

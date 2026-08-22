@@ -975,6 +975,9 @@ class ApiClient {
   templates = {
     list: () => this.request<{ data: AutomationTemplate[] }>('/templates'),
     get: (id: string) => this.request<AutomationTemplate>(`/templates/${id}`),
+    /** One stored version, however old: what a row pinned to it still says. */
+    getVersion: (id: string, version: number) =>
+      this.request<TemplateVersionPayload>(`/templates/${id}/versions/${version}`),
     /** What an import would land on; nothing is written. */
     preview: (body: TemplateImportBody) =>
       this.request<TemplatePreview>('/templates/preview', {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { TemplateInput } from '@tracearr/shared';
+import type { TemplateInput, UnitSystem } from '@tracearr/shared';
 import { SentencePanel } from '@/components/automations/builder/SentencePanel';
 import { useDestinations } from '@/hooks/queries/useDestinations';
 import { useAutomationFilterOptions } from '@/hooks/queries/useHistory';
@@ -40,29 +40,12 @@ export const missingInputs = (
 export const boundInputValues = (values: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(Object.entries(values).filter(([, value]) => !isUnbound(value)));
 
-interface TemplateInputRowsProps {
-  version: TemplateVersionPayload;
-  values: Record<string, unknown>;
-  onChange: (input: TemplateInput, value: unknown) => void;
-  /** Marks the required rows that are still blank, once the reader has tried to submit. */
-  submitted: boolean;
-}
-
-/** What the automation will say, then the parts the reader supplies. */
-export function TemplateInputRows({
-  version,
-  values,
-  onChange,
-  submitted,
-}: TemplateInputRowsProps) {
-  const { t } = useTranslation('pages');
-  const { servers } = useServer();
+/** Every name a template sentence can put in place of an id. */
+function useDescribeRefs(): { refs: DescribeRefs; unitSystem: UnitSystem } {
   const { data: settings } = useSettings();
   const { data: destinations } = useDestinations();
   const { data: filterOptions } = useAutomationFilterOptions();
-
-  const unitSystem = settings?.unitSystem ?? 'metric';
-  const boundServerId = String(values[serverInputKey(version.inputs) ?? ''] ?? '');
+  const { servers } = useServer();
 
   const refs = useMemo<DescribeRefs>(
     () => ({
@@ -77,15 +60,64 @@ export function TemplateInputRows({
     [servers, destinations, filterOptions]
   );
 
-  const fragments = describeTemplate(version, values, refs, t, unitSystem);
+  return { refs, unitSystem: settings?.unitSystem ?? 'metric' };
+}
+
+interface TemplateSentencePanelProps {
+  version: TemplateVersionPayload;
+  values: Record<string, unknown>;
+  /** Names the panel when two of them sit side by side. */
+  label?: string;
+}
+
+/** One version's sentence, filled in as far as the answers reach. */
+export function TemplateSentencePanel({ version, values, label }: TemplateSentencePanelProps) {
+  const { t } = useTranslation('pages');
+  const { refs, unitSystem } = useDescribeRefs();
+
+  return (
+    <div className="space-y-1">
+      {label !== undefined && <p className="text-muted-foreground text-xs">{label}</p>}
+      <SentencePanel>
+        <p className="text-muted-foreground text-[0.9375rem] leading-relaxed">
+          <TemplateSentence
+            fragments={describeTemplate(version, values, refs, t, unitSystem)}
+            clauses
+          />
+        </p>
+      </SentencePanel>
+    </div>
+  );
+}
+
+interface TemplateInputRowsProps {
+  version: TemplateVersionPayload;
+  values: Record<string, unknown>;
+  onChange: (input: TemplateInput, value: unknown) => void;
+  /** Marks the required rows that are still blank, once the reader has tried to submit. */
+  submitted: boolean;
+  /** Names the sentence panel when an upgrade puts the old one beside it. */
+  sentenceLabel?: string;
+}
+
+/** What the automation will say, then the parts the reader supplies. */
+export function TemplateInputRows({
+  version,
+  values,
+  onChange,
+  submitted,
+  sentenceLabel,
+}: TemplateInputRowsProps) {
+  const { t } = useTranslation('pages');
+  const { servers } = useServer();
+  const { unitSystem } = useDescribeRefs();
+  const { data: filterOptions } = useAutomationFilterOptions();
+
+  const boundServerId = String(values[serverInputKey(version.inputs) ?? ''] ?? '');
 
   return (
     <>
-      <SentencePanel>
-        <p className="text-muted-foreground text-[0.9375rem] leading-relaxed">
-          <TemplateSentence fragments={fragments} clauses />
-        </p>
-      </SentencePanel>
+      <TemplateSentencePanel version={version} values={values} label={sentenceLabel} />
 
       {version.inputs.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t('automations.bind.noInputs')}</p>

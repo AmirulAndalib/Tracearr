@@ -15,8 +15,9 @@ export function ProvenanceLine({ automation }: { automation: Automation }) {
     if (template.source === 'builtin') {
       return <Line>{t('automations.provenance.builtin', { name, version })}</Line>;
     }
+    const date = format(new Date(template.addedAt), 'PP');
+
     if (template.source === 'import') {
-      const date = format(new Date(template.addedAt), 'PP');
       return (
         <Line>
           {template.author
@@ -30,7 +31,7 @@ export function ProvenanceLine({ automation }: { automation: Automation }) {
         </Line>
       );
     }
-    return <Line>{t('automations.provenance.saved', { name, version })}</Line>;
+    return <Line>{t('automations.provenance.saved', { name, version, date })}</Line>;
   }
 
   if (!origin) return null;

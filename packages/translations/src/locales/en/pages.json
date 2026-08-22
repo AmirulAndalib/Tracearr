@@ -386,11 +386,12 @@
       },
       "group": "Group {{number}}",
       "branch": {
-        "then": "Took the first branch",
-        "else": "Took the second branch"
+        "then": "Took the 'if' steps",
+        "else": "Took the 'otherwise' steps"
       },
       "whyBranch": "What it read",
-      "openInEditor": "Open in the editor with this run"
+      "openInEditor": "Open in the editor with this run",
+      "tabsLabel": "Filter by outcome"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
@@ -594,7 +595,8 @@
         "unfinished": "Shows what this would do once the automation is complete.",
         "paused": "Paused while this saves",
         "sampleTitle": "What this would do to that run",
-        "sampleGone": "That session is no longer on record; nothing to check against."
+        "sampleGone": "That session is no longer on record; nothing to check against.",
+        "backToLive": "Back to what's playing now"
       }
     },
     "categories": {
@@ -1078,9 +1080,9 @@
     },
     "provenance": {
       "builtin": "Built-in · {{name}} {{version}}",
-      "imported": "Imported {{date}} · {{name}} {{version}}",
-      "importedBy": "Imported {{date}} by {{author}} · {{name}} {{version}}",
-      "saved": "From {{name}} {{version}}",
+      "imported": "Imported from a share code on {{date}} · {{name}} {{version}}",
+      "importedBy": "Imported from a share code by {{author}} on {{date}} · {{name}} {{version}}",
+      "saved": "Saved here from {{name}} on {{date}} · {{version}}",
       "customized": "Customized from {{name}}",
       "customizedFromRemoved": "Customized from a ready-made automation that has since been removed"
     },
@@ -1116,7 +1118,13 @@
     },
     "settings": {
       "title": "Settings",
-      "description": "How long this automation keeps its runs, and how often it may fire.",
+      "description": "Everything about this automation that is yours, whatever wrote its steps.",
+      "nameLabel": "Name",
+      "nameInvalid": "Give it a name.",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "What this one is for (optional)",
+      "severityLabel": "Severity",
+      "severityHint": "How loudly a violation this one records is triaged.",
       "retentionLabel": "Retention (days)",
       "retentionHint": "Leave empty to keep runs for {{days}} days.",
       "retentionInvalid": "Enter a whole number of days, at least 1, or leave it empty.",
@@ -1130,12 +1138,14 @@
       "high": "High"
     },
     "template": {
-      "title": "What it applies to",
+      "title": "Fill in",
       "description": "The parts of this one that are yours. The rest comes from the ready-made automation it was built from.",
       "version": "v{{version}}",
       "updateAvailable": "An update is available",
       "updatedTitle": "The ready-made automation has moved on to v{{version}}",
       "updatedBody": "Check the answers below, then update to pick up the new version.",
+      "before": "Now",
+      "after": "After the update",
       "review": "Review and update",
       "save": "Save changes",
       "customize": "Open in the builder",

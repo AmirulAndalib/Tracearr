@@ -84,6 +84,7 @@ export {
   usePreviewTemplate,
   useTemplate,
   useTemplates,
+  useTemplateVersion,
 } from './useTemplates';
 
 // Automation run hooks

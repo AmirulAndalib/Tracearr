@@ -34,6 +34,7 @@ vi.mock('@/hooks/queries', () => ({
   useRebindAutomation: () => ({ mutate: rebindMutate, isPending: false }),
   useUpgradeAutomation: () => ({ mutate: upgradeMutate, isPending: false }),
   useTemplate: vi.fn(),
+  useTemplateVersion: vi.fn(),
   useSettings: () => ({ data: undefined }),
 }));
 
@@ -57,11 +58,12 @@ vi.mock('@/hooks/useServer', () => ({
   useServer: () => ({ servers: [] }),
 }));
 
-import { useAutomation, useTemplate } from '@/hooks/queries';
+import { useAutomation, useTemplate, useTemplateVersion } from '@/hooks/queries';
 import { useAutomationEvaluations, useAutomationRuns, useRun } from '@/hooks/queries/useRuns';
 
 const mockUseAutomation = vi.mocked(useAutomation);
 const mockUseTemplate = vi.mocked(useTemplate);
+const mockUseTemplateVersion = vi.mocked(useTemplateVersion);
 const mockUseAutomationRuns = vi.mocked(useAutomationRuns);
 const mockUseAutomationEvaluations = vi.mocked(useAutomationEvaluations);
 const mockUseRun = vi.mocked(useRun);
@@ -190,6 +192,9 @@ beforeEach(() => {
   mockUseTemplate.mockReturnValue({ data: undefined, isLoading: false } as unknown as ReturnType<
     typeof useTemplate
   >);
+  mockUseTemplateVersion.mockReturnValue({ data: undefined } as unknown as ReturnType<
+    typeof useTemplateVersion
+  >);
 });
 
 describe('AutomationDetail', () => {
@@ -286,6 +291,28 @@ describe('AutomationDetail template binding', () => {
 
     expect(upgradeMutate).toHaveBeenCalledWith({ id: 'a-1', inputs: { max: 4 } });
     expect(rebindMutate).not.toHaveBeenCalled();
+  });
+
+  it('puts what the row says now beside what the update would make it say', () => {
+    setBound(templateRef({ version: 1, currentVersion: 2 }));
+    mockUseTemplateVersion.mockReturnValue({
+      data: CONCURRENT_STREAMS.version,
+    } as unknown as ReturnType<typeof useTemplateVersion>);
+
+    renderDetail();
+
+    expect(mockUseTemplateVersion).toHaveBeenCalledWith(CONCURRENT_STREAMS.id, 1);
+    expect(screen.getByText('pages:automations.template.before')).toBeInTheDocument();
+    expect(screen.getByText('pages:automations.template.after')).toBeInTheDocument();
+  });
+
+  it('asks for no old version when the row is already on the current one', () => {
+    setBound(templateRef());
+
+    renderDetail();
+
+    expect(mockUseTemplateVersion).toHaveBeenCalledWith(undefined, undefined);
+    expect(screen.queryByText('pages:automations.template.before')).not.toBeInTheDocument();
   });
 
   it('detaches on a confirmed customize and opens the builder', async () => {
@@ -597,7 +624,13 @@ describe('AutomationDetail settings', () => {
 
     expect(updateMutate).toHaveBeenCalledWith({
       id: 'a-1',
-      data: { retentionDays: null, cooldownMinutes: null },
+      data: {
+        name: 'Concurrent cap',
+        description: null,
+        severity: 'warning',
+        retentionDays: null,
+        cooldownMinutes: null,
+      },
     });
   });
 
@@ -608,10 +641,66 @@ describe('AutomationDetail settings', () => {
     await user.type(screen.getByLabelText('pages:automations.settings.retentionLabel'), '90');
     await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
 
-    expect(updateMutate).toHaveBeenCalledWith({
-      id: 'a-1',
-      data: { retentionDays: 90, cooldownMinutes: null },
-    });
+    expect(updateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'a-1', data: expect.objectContaining({ retentionDays: 90 }) })
+    );
+  });
+
+  it('renames a template-bound row, which the template never owned', async () => {
+    const user = userEvent.setup();
+    setBound(templateRef());
+
+    renderDetail();
+    await user.clear(screen.getByLabelText('pages:automations.settings.nameLabel'));
+    await user.type(screen.getByLabelText('pages:automations.settings.nameLabel'), 'Streams cap');
+    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: 'Streams cap' }) })
+    );
+  });
+
+  it('saves a description and a severity alongside the rest', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.type(
+      screen.getByLabelText('pages:automations.settings.descriptionLabel'),
+      'Caps the household'
+    );
+    await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          description: 'Caps the household',
+          severity: 'warning',
+        }),
+      })
+    );
+  });
+
+  it('leaves severity off a notification automation, which triages nothing', () => {
+    mockUseAutomation.mockReturnValue({
+      data: automation({ kind: 'notification', severity: null }),
+      isLoading: false,
+    } as unknown as ReturnType<typeof useAutomation>);
+
+    renderDetail();
+
+    expect(
+      screen.queryByLabelText('pages:automations.settings.severityLabel')
+    ).not.toBeInTheDocument();
+  });
+
+  it('refuses a nameless automation rather than letting the API reject it', async () => {
+    const user = userEvent.setup();
+    renderDetail();
+
+    await user.clear(screen.getByLabelText('pages:automations.settings.nameLabel'));
+
+    expect(screen.getByText('pages:automations.settings.nameInvalid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
   });
 
   it('refuses a retention of zero instead of letting the API reject it', async () => {
@@ -642,9 +731,8 @@ describe('AutomationDetail settings', () => {
     await user.type(screen.getByLabelText('pages:automations.settings.cooldownLabel'), '0');
     await user.click(screen.getByRole('button', { name: 'common:actions.save' }));
 
-    expect(updateMutate).toHaveBeenCalledWith({
-      id: 'a-1',
-      data: { retentionDays: null, cooldownMinutes: 0 },
-    });
+    expect(updateMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'a-1', data: expect.objectContaining({ cooldownMinutes: 0 }) })
+    );
   });
 });

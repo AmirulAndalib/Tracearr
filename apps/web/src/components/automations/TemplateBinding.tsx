@@ -11,8 +11,14 @@ import {
   initialInputValues,
   missingInputs,
   TemplateInputRows,
+  TemplateSentencePanel,
 } from '@/components/automations/gallery/TemplateInputs';
-import { useRebindAutomation, useTemplate, useUpgradeAutomation } from '@/hooks/queries';
+import {
+  useRebindAutomation,
+  useTemplate,
+  useTemplateVersion,
+  useUpgradeAutomation,
+} from '@/hooks/queries';
 import type { AutomationTemplate } from '@/lib/api';
 
 interface TemplateBindingProps {
@@ -52,6 +58,12 @@ function BindingFields({
   const { version } = catalogEntry;
   const behind = template.version < template.currentVersion;
 
+  // Only an upgrade needs the old version, and only to say what the row does today.
+  const { data: pinned } = useTemplateVersion(
+    behind ? template.id : undefined,
+    behind ? template.version : undefined
+  );
+
   const [values, setValues] = useState(() =>
     initialInputValues(version.inputs, automation.templateInputs)
   );
@@ -82,12 +94,21 @@ function BindingFields({
         </Alert>
       )}
 
+      {behind && pinned && (
+        <TemplateSentencePanel
+          version={pinned}
+          values={automation.templateInputs ?? {}}
+          label={t('pages:automations.template.before')}
+        />
+      )}
+
       <FieldGroup className="gap-5">
         <TemplateInputRows
           version={version}
           values={values}
           onChange={setValue}
           submitted={submitted}
+          sentenceLabel={behind ? t('pages:automations.template.after') : undefined}
         />
       </FieldGroup>
 

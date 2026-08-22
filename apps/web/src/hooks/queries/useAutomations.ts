@@ -127,7 +127,10 @@ export function useDetachAutomation() {
 
   return useMutation({
     mutationFn: (id: string) => api.automations.detach(id),
-    onSuccess: () => {
+    onSuccess: (detached) => {
+      // The builder reads this row on the next tick. Seeding it before the refetch is
+      // what stops it bouncing the caller back for a template the row no longer has.
+      queryClient.setQueryData([...AUTOMATIONS_KEY, 'detail', detached.id], detached);
       void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_KEY });
     },
     onError: (error: Error) => {

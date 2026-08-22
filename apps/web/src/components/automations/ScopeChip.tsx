@@ -20,7 +20,12 @@ export function ScopeChip({ automation, servers }: ScopeChipProps) {
 
   if (scope.kind === 'server') {
     const server = servers.find((candidate) => candidate.id === scope.id);
-    return <ServerBadge server={server ?? { id: scope.id, name: scope.name, color: null }} />;
+    return (
+      <ServerBadge
+        server={server ?? { id: scope.id, name: scope.name, color: null }}
+        variant="outlined"
+      />
+    );
   }
 
   if (scope.kind === 'person') {
