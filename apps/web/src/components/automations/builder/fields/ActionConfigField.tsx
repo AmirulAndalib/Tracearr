@@ -24,18 +24,20 @@ export function ActionConfigField({ t, field, value, onChange }: ActionConfigFie
   const controlId = useId();
   const labelId = useId();
   const options = configFieldOptions(t, field);
+  const label = t(field.labelKey);
+  const description = field.descriptionKey === undefined ? undefined : t(field.descriptionKey);
 
   if (field.type === 'destinations') {
     return (
       <Field className="col-span-full">
-        <FieldLabel id={labelId}>{field.label}</FieldLabel>
+        <FieldLabel id={labelId}>{label}</FieldLabel>
         <DestinationsField
           value={(value as string[]) ?? []}
           onChange={onChange}
-          label={field.label}
+          label={label}
           labelledBy={labelId}
         />
-        {field.description && <FieldDescription>{field.description}</FieldDescription>}
+        {description && <FieldDescription>{description}</FieldDescription>}
       </Field>
     );
   }
@@ -45,7 +47,7 @@ export function ActionConfigField({ t, field, value, onChange }: ActionConfigFie
   return (
     <Field className={cn(field.fullWidth && 'col-span-full')}>
       <FieldLabel htmlFor={controlId}>
-        {field.label}
+        {label}
         {tooltips.length > 0 && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -66,24 +68,36 @@ export function ActionConfigField({ t, field, value, onChange }: ActionConfigFie
       </FieldLabel>
       <FieldControl
         id={controlId}
-        spec={toControlSpec(field, options)}
+        spec={toControlSpec(t, field, options, label)}
         value={value as ControlValue | undefined}
         onChange={onChange}
       />
-      {field.description && <FieldDescription>{field.description}</FieldDescription>}
+      {description && <FieldDescription>{description}</FieldDescription>}
     </Field>
   );
 }
 
-function toControlSpec(field: ConfigField, options: ConfigFieldOption[]): ControlSpec {
+function toControlSpec(
+  t: Translate,
+  field: ConfigField,
+  options: ConfigFieldOption[],
+  label: string
+): ControlSpec {
+  const placeholder = field.placeholderKey === undefined ? undefined : t(field.placeholderKey);
   switch (field.type) {
     case 'number':
-      return { kind: 'number', min: field.min, max: field.max, step: field.step, unit: field.unit };
+      return {
+        kind: 'number',
+        min: field.min,
+        max: field.max,
+        step: field.step,
+        unit: field.unitKey === undefined ? undefined : t(field.unitKey),
+      };
     case 'select':
-      return { kind: 'select', options, placeholder: field.placeholder };
+      return { kind: 'select', options, placeholder };
     case 'slider':
       return { kind: 'slider', min: field.min ?? 0, max: field.max ?? 100, step: field.step ?? 1 };
     default:
-      return { kind: 'text', placeholder: field.placeholder ?? field.label };
+      return { kind: 'text', placeholder: placeholder ?? label };
   }
 }

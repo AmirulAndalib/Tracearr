@@ -26,7 +26,7 @@ export interface NodePickerEntry {
 
 type NodeGroup = (typeof TRIGGERS)[TriggerType]['group'] | (typeof ACTIONS)[ActionType]['group'];
 
-export function nodeGroupLabel(t: Translate, group: NodeGroup): string {
+function nodeGroupLabel(t: Translate, group: NodeGroup): string {
   return t(`automations.catalog.groups.${group}`);
 }
 

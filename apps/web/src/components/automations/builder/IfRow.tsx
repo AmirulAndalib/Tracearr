@@ -68,6 +68,8 @@ export function IfRow({
   const enabled = action.enabled !== false;
   const groups = action.conditions.groups;
   const firstGroup = groups[0];
+  // The chevron sits outside the Collapsible, so it names the panel it opens itself.
+  const branchId = `${nodeDomId(id)}-branch`;
 
   const summary = useMemo(() => {
     const fragments = describeConditions(
@@ -112,6 +114,7 @@ export function IfRow({
             variant="ghost"
             size="icon"
             aria-expanded={open}
+            aria-controls={branchId}
             aria-label={
               open
                 ? t('automations.builder.actions.collapseBranch')
@@ -133,7 +136,10 @@ export function IfRow({
       </div>
 
       <Collapsible open={open} onOpenChange={() => expansion.toggle(id)}>
-        <CollapsibleContent className="border-primary/40 [&_[data-slot=item]:not([data-orphaned=true])]:bg-card ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5">
+        <CollapsibleContent
+          id={branchId}
+          className="border-primary/40 [&_[data-slot=item]:not([data-orphaned=true])]:bg-card ml-3 space-y-3 border-l-2 pl-3.5 @max-lg:ml-1 @max-lg:pl-2.5"
+        >
           {/* The header said "If", so the checks go straight underneath with no second label. */}
           {groups.map((group) => (
             <ConditionGroupCard

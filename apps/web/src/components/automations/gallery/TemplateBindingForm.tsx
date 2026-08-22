@@ -38,7 +38,7 @@ interface TemplateBindingFormProps {
   /** The answers a bound row already carries; a new one opens on the defaults. */
   initialValues?: Record<string, unknown> | null;
   /** The page header owns the name and the switch once the automation exists. */
-  showName?: boolean;
+  showInstanceFields?: boolean;
   /** Names the sentence panel when an upgrade puts the old one beside it. */
   sentenceLabel?: string;
   bodyClassName?: string;
@@ -50,7 +50,7 @@ export function TemplateBindingForm({
   template,
   doors,
   initialValues,
-  showName = true,
+  showInstanceFields = true,
   sentenceLabel,
   bodyClassName,
   footerClassName,
@@ -132,7 +132,7 @@ export function TemplateBindingForm({
           />
         </section>
 
-        {showName && (
+        {showInstanceFields && (
           <>
             <Separator />
             <Field>
@@ -160,7 +160,7 @@ export function TemplateBindingForm({
 
       <div className={cn('flex flex-col gap-2.5', footerClassName)}>
         <div className="flex flex-wrap items-center gap-2.5">
-          {showName && (
+          {showInstanceFields && (
             <div className="flex items-center gap-2">
               <Switch id="template-active" checked={isActive} onCheckedChange={setIsActive} />
               <FieldLabel htmlFor="template-active">{t('automations.bind.activeLabel')}</FieldLabel>

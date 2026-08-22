@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { initI18n } from '@tracearr/translations';
-import type { Automation } from '@tracearr/shared';
+import { AUTOMATION_DESCRIPTION_MAX, AUTOMATION_NAME_MAX, type Automation } from '@tracearr/shared';
 import { ApiError } from '@/lib/api';
 
 vi.mock('@/hooks/useServer', () => ({ useServer: () => ({ servers: [] }) }));
@@ -208,6 +208,15 @@ describe('AutomationBuilder', () => {
     await user.type(screen.getByPlaceholderText('What this is for'), 'Nightly sweep');
 
     expect(screen.getByPlaceholderText('What this is for')).toHaveValue('Nightly sweep');
+  });
+
+  it('stops the name and the note at the length the schema allows', () => {
+    renderBuilder();
+
+    expect(screen.getByLabelText('Name')).toHaveAttribute('maxLength', String(AUTOMATION_NAME_MAX));
+    expect(
+      screen.getByPlaceholderText('What this is for')
+    ).toHaveAttribute('maxLength', String(AUTOMATION_DESCRIPTION_MAX));
   });
 
   it('takes the caret to an open picker rather than shutting it', async () => {

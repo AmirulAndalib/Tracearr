@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Check, Info, Loader2, Save, TriangleAlert } from 'lucide-react';
-import type { Automation } from '@tracearr/shared';
+import { AUTOMATION_DESCRIPTION_MAX, type Automation } from '@tracearr/shared';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -35,6 +35,7 @@ import { ActionsSection } from './ActionsSection';
 import { BuilderTitleBar } from './BuilderTitleBar';
 import { ConditionsSection } from './ConditionsSection';
 import { LiveCheckStrip } from './LiveCheckStrip';
+import { RowIssues } from './RowActions';
 import { Sentence } from './Sentence';
 import { SummaryCard } from './SummaryCard';
 import { TriggersSection } from './TriggersSection';
@@ -81,6 +82,9 @@ function touchedKeys(action: BuilderAction, section: string): string[] {
     case 'setName':
       keys.push(BUILDER_SECTIONS.name);
       break;
+    case 'setDescription':
+      keys.push(BUILDER_SECTIONS.description);
+      break;
     case 'setScope':
       keys.push(BUILDER_SECTIONS.scope);
       break;
@@ -124,7 +128,7 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const loadedIdRef = useRef<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
-  const noteId = useId();
+  const noteId = nodeDomId(BUILDER_SECTIONS.description);
 
   const blocker = useUnsavedChanges(state.dirty);
 
@@ -164,7 +168,7 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
 
   // What the API rejected describes the definition it was sent, so any edit retires it
   // and Save is free to go again.
-  useEffect(() => setRejected([]), [state]);
+  useEffect(() => setRejected((held) => (held.length === 0 ? held : [])), [state]);
 
   useEffect(() => {
     if (pulseId === null) return;
@@ -242,6 +246,8 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
       ),
     [issues, submitted, touched]
   );
+
+  const noteIssues = byNode.get(BUILDER_SECTIONS.description);
 
   const expansion = useMemo<BranchExpansion>(
     () => ({
@@ -422,12 +428,15 @@ export function AutomationBuilder({ automation, draft }: AutomationBuilderProps)
           <Textarea
             id={noteId}
             rows={2}
+            maxLength={AUTOMATION_DESCRIPTION_MAX}
             value={state.description}
             placeholder={t('pages:automations.builder.descriptionPlaceholder')}
+            aria-invalid={noteIssues !== undefined}
             onChange={(event) =>
               track.header({ type: 'setDescription', value: event.target.value })
             }
           />
+          <RowIssues issues={noteIssues} />
         </Field>
 
         <div className="bg-background/95 sticky bottom-0 z-10 mt-7 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">

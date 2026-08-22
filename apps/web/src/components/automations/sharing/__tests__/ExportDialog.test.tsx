@@ -97,7 +97,7 @@ describe('ExportDialog', () => {
   it('saves the same envelope into the library as one of your own', async () => {
     const { user } = renderDialog();
 
-    await user.click(await screen.findByRole('button', { name: 'Save as a template' }));
+    await user.click(await screen.findByRole('button', { name: 'Save as ready-made' }));
 
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith({ envelope: SHARED_ENVELOPE, source: 'local' })
@@ -110,6 +110,6 @@ describe('ExportDialog', () => {
     renderDialog();
 
     expect(await screen.findByText("Couldn't make a code for this one.")).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Save as a template' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save as ready-made' })).not.toBeInTheDocument();
   });
 });

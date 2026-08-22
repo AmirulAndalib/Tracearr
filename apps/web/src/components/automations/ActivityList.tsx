@@ -37,7 +37,7 @@ const OUTCOME_DOT: Record<RunOutcome, string> = {
  * The outcome filter the API already takes, plus everything. A toggle group rather than
  * tabs: these switch one table's rows, they do not switch between panels.
  */
-const OUTCOME_TABS = ['all', 'completed', 'stopped_by_condition', 'error'] as const;
+const OUTCOME_TABS = ['completed', 'stopped_by_condition', 'error', 'all'] as const;
 type OutcomeTab = (typeof OUTCOME_TABS)[number];
 
 const isOutcomeTab = (value: string): value is OutcomeTab =>
@@ -52,7 +52,8 @@ interface ActivityListProps {
 export function ActivityList({ automationId, kind, onSelectRun }: ActivityListProps) {
   const { t } = useTranslation(['pages', 'common']);
   const [page, setPage] = useState(1);
-  const [tab, setTab] = useState<OutcomeTab>('all');
+  // Runs that did something are what the page is for; the rest are one click away.
+  const [tab, setTab] = useState<OutcomeTab>('completed');
 
   const { data, isLoading } = useAutomationRuns(automationId, {
     page,

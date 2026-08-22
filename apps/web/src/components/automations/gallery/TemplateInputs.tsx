@@ -110,7 +110,7 @@ export function useTemplateAnswers(
 
   return {
     values,
-    setValue: (input, value) => setValues({ ...values, [input.key]: value }),
+    setValue: (input, value) => setValues((held) => ({ ...held, [input.key]: value })),
     submitted,
     focused,
     setFocused,

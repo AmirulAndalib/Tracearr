@@ -48,7 +48,7 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
   const addButton = (
     <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
       <Plus className="h-4 w-4" />
-      {t('pages:settings.destinations.add')}
+      {t('pages:automations.builder.newDestination')}
     </Button>
   );
 
@@ -135,5 +135,3 @@ export function DestinationsField({ value, onChange, label, labelledBy }: Destin
     </div>
   );
 }
-
-export default DestinationsField;

@@ -151,7 +151,7 @@ export function ConditionRow({
             className="w-auto @max-lg:w-full"
             aria-label={t('automations.builder.conditions.operatorLabel')}
           >
-            <SelectValue placeholder={t('automations.builder.conditions.operatorPlaceholder')} />
+            <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {descriptor.operators.map((operator) => (

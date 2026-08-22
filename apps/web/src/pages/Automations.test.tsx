@@ -271,6 +271,28 @@ describe('Automations', () => {
     expect(openedDetail()).not.toBeInTheDocument();
   });
 
+  it('offers no pencil on a row the builder would only bounce back', () => {
+    mockList([
+      automation({
+        template: {
+          id: 't-1',
+          slug: 'stream-started',
+          name: 'Stream started',
+          version: 1,
+          currentVersion: 1,
+          source: 'builtin',
+          author: null,
+          addedAt: '2026-08-01T00:00:00.000Z',
+        },
+        templateInputs: { max: 4 },
+      }),
+    ]);
+    renderAutomations();
+
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
+  });
+
   it('opens the gallery from the header button rather than navigating', async () => {
     const user = userEvent.setup();
     renderAutomations();

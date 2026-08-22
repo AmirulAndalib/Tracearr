@@ -70,7 +70,7 @@ export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProp
   const status = statusOf(t, { active, ready, replaying, check, samples });
 
   return (
-    <div className="mt-4 space-y-2" aria-live="polite">
+    <div className="mt-4 space-y-2">
       <Separator className="mb-4" />
       <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs font-medium">
         <Radio className="size-3.5" />
@@ -99,11 +99,14 @@ export function LiveCheckStrip({ definition, ready, paused }: LiveCheckStripProp
         )}
       </p>
 
-      {status !== null && <p className="text-muted-foreground text-sm">{status}</p>}
+      {/* Only the verdict speaks; the heading and the footnote do not change. */}
+      <div className="space-y-2" aria-live="polite">
+        {status !== null && <p className="text-muted-foreground text-sm">{status}</p>}
 
-      {samples.map((sample) => (
-        <SampleRow key={sample.subject.sessionId} sample={sample} />
-      ))}
+        {samples.map((sample) => (
+          <SampleRow key={sample.subject.sessionId} sample={sample} />
+        ))}
+      </div>
 
       <p className="text-muted-foreground text-xs">{t('automations.builder.liveCheck.footnote')}</p>
     </div>

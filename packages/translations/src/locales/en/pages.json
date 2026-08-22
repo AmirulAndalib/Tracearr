@@ -339,20 +339,60 @@
     "actions": {
       "send": {
         "label": "Send Notification",
-        "description": "Send to one or more destinations"
+        "description": "Send to one or more destinations",
+        "fields": {
+          "cooldown_minutes": {
+            "description": "Minimum time between notifications"
+          }
+        }
       },
       "trust": {
         "label": "Trust Score",
-        "description": "Adjust, set, or reset the trust score"
+        "description": "Adjust, set, or reset the trust score",
+        "fields": {
+          "mode": {
+            "label": "Mode"
+          },
+          "amount": {
+            "label": "Amount",
+            "description": "Positive to increase, negative to decrease"
+          },
+          "value": {
+            "label": "Value"
+          }
+        }
       },
       "kill_stream": {
         "label": "Kill Stream",
-        "description": "Terminate the active stream"
+        "description": "Terminate the active stream",
+        "fields": {
+          "cooldown_minutes": {
+            "description": "Minimum time between terminations for the same user"
+          },
+          "delay_seconds": {
+            "label": "Sustain window",
+            "description": "Waits this many seconds, then kills the stream only if the automation still matches. 0 kills right after a final re-check."
+          },
+          "target": {
+            "description": "Which sessions to terminate"
+          },
+          "message": {
+            "placeholder": "Optional message"
+          }
+        }
       },
       "message_client": {
         "label": "Message Client",
         "description": "Send a message to the media player",
-        "hint": "Jellyfin and Emby only. Plex only supports messages when killing a stream."
+        "hint": "Jellyfin and Emby only. Plex only supports messages when killing a stream.",
+        "fields": {
+          "target": {
+            "description": "Which sessions to message"
+          },
+          "message": {
+            "placeholder": "Message to display…"
+          }
+        }
       }
     },
     "activity": {
@@ -429,6 +469,7 @@
     "builder": {
       "destinationDisabled": "Disabled destination",
       "noDestinations": "No destinations yet. Add one to send notifications.",
+      "newDestination": "New destination",
       "errors": {
         "sendNeedsDestination": "Pick at least one destination",
         "nameRequired": "Give this automation a name",
@@ -446,7 +487,8 @@
         "fieldNotAvailableFor": "Not available for: {{triggers}}",
         "trustAmountRange": "Trust changes by between -100 and 100 points",
         "trustValueRange": "Trust score is between 0 and 100",
-        "messageRequired": "Type the message to show"
+        "messageRequired": "Type the message to show",
+        "tooLong": "At most {{max}} characters"
       },
       "recordAs": {
         "label": "When this runs, record it as",
@@ -485,7 +527,6 @@
       "conditions": {
         "addGroup": "Add a separate set of checks",
         "fieldPlaceholder": "Pick something to check",
-        "operatorPlaceholder": "Operator",
         "windowPrefix": "in",
         "windowUnit": "hrs",
         "uniqueDevices": "Unique devices",
@@ -823,9 +864,9 @@
       "authorLabel": "Made by",
       "authorPlaceholder": "Name",
       "authorHelper": "Included in the code as the author. Optional.",
-      "save": "Save as a template",
-      "saved": "{{name}} is in your templates.",
-      "saveFailed": "Couldn't save that as a template.",
+      "save": "Save as ready-made",
+      "saved": "{{name}} saved as a ready-made automation.",
+      "saveFailed": "Could not save it.",
       "failed": "Couldn't make a code for this one."
     },
     "fields": {
@@ -1146,6 +1187,28 @@
         "tooltip": "Every active session for this user"
       }
     },
+    "configFields": {
+      "cooldown_minutes": {
+        "label": "Cooldown"
+      },
+      "target": {
+        "label": "Target"
+      },
+      "message": {
+        "label": "Message"
+      }
+    },
+    "trustModes": {
+      "adjust": {
+        "label": "Adjust by amount"
+      },
+      "set": {
+        "label": "Set to value"
+      },
+      "reset": {
+        "label": "Reset to default (100)"
+      }
+    },
     "settings": {
       "title": "Settings",
       "description": "Name and run limits.",
@@ -1294,7 +1357,8 @@
       "days": "days",
       "minutes": "minutes",
       "hours": "hours",
-      "gb": "GB"
+      "gb": "GB",
+      "seconds": "seconds"
     },
     "updateAutomation": "Save changes",
     "catalog": {

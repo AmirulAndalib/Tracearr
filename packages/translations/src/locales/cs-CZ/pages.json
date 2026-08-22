@@ -26,19 +26,59 @@
     "actions": {
       "kill_stream": {
         "description": "Terminate the active stream",
+        "fields": {
+          "cooldown_minutes": {
+            "description": "Minimum time between terminations for the same user"
+          },
+          "delay_seconds": {
+            "description": "Waits this many seconds, then kills the stream only if the automation still matches. 0 kills right after a final re-check.",
+            "label": "Sustain window"
+          },
+          "message": {
+            "placeholder": "Optional message"
+          },
+          "target": {
+            "description": "Which sessions to terminate"
+          }
+        },
         "label": "Kill Stream"
       },
       "message_client": {
         "description": "Send a message to the media player",
+        "fields": {
+          "message": {
+            "placeholder": "Message to display…"
+          },
+          "target": {
+            "description": "Which sessions to message"
+          }
+        },
         "hint": "Jellyfin and Emby only. Plex only supports messages when killing a stream.",
         "label": "Message Client"
       },
       "send": {
         "description": "Send to one or more destinations",
+        "fields": {
+          "cooldown_minutes": {
+            "description": "Minimum time between notifications"
+          }
+        },
         "label": "Send Notification"
       },
       "trust": {
         "description": "Adjust, set, or reset the trust score",
+        "fields": {
+          "amount": {
+            "description": "Positive to increase, negative to decrease",
+            "label": "Amount"
+          },
+          "mode": {
+            "label": "Mode"
+          },
+          "value": {
+            "label": "Value"
+          }
+        },
         "label": "Trust Score"
       }
     },
@@ -161,7 +201,6 @@
         "no": "No",
         "noFields": "No checks are available for these triggers. Add a stream or account trigger first.",
         "operatorLabel": "Comparison",
-        "operatorPlaceholder": "Operator",
         "optional": "optional",
         "recentlySeen": "Recently seen",
         "removeGroup": "Remove this set of checks",
@@ -191,6 +230,7 @@
         "policyNeedsSubject": "A policy needs a stream or account trigger: violations are about a person",
         "scopeIncomplete": "Pick a target for the selected scope",
         "sendNeedsDestination": "Pick at least one destination",
+        "tooLong": "At most {{max}} characters",
         "triggerRequired": "Add what starts this, or switch one back on",
         "trustAmountRange": "Trust changes by between -100 and 100 points",
         "trustValueRange": "Trust score is between 0 and 100",
@@ -238,6 +278,7 @@
         "title": "Right now on the servers",
         "unfinished": "Shows what this would do once the automation is complete."
       },
+      "newDestination": "New destination",
       "noDestinations": "No destinations yet. Add one to send notifications.",
       "noMatches": "No matches",
       "picker": {
@@ -396,6 +437,17 @@
       "session_behavior": "Session Behavior",
       "stream_quality": "Stream Quality",
       "user_attributes": "User Attributes"
+    },
+    "configFields": {
+      "cooldown_minutes": {
+        "label": "Cooldown"
+      },
+      "message": {
+        "label": "Message"
+      },
+      "target": {
+        "label": "Target"
+      }
     },
     "createAutomation": "Create Automation",
     "customAutomation": "Custom automation",
@@ -598,9 +650,9 @@
       "description": "A code another Tracearr can paste in.",
       "failed": "Couldn't make a code for this one.",
       "jsonTab": "JSON",
-      "save": "Save as a template",
-      "saveFailed": "Couldn't save that as a template.",
-      "saved": "{{name}} is in your templates.",
+      "save": "Save as ready-made",
+      "saveFailed": "Could not save it.",
+      "saved": "{{name}} saved as a ready-made automation.",
       "title": "Share this automation"
     },
     "fields": {
@@ -1061,6 +1113,17 @@
     },
     "title": "Automations",
     "toggleAutomation": "Turn {{name}} on or off",
+    "trustModes": {
+      "adjust": {
+        "label": "Adjust by amount"
+      },
+      "reset": {
+        "label": "Reset to default (100)"
+      },
+      "set": {
+        "label": "Set to value"
+      }
+    },
     "tryAdjustingFilters": "Try adjusting your filters.",
     "units": {
       "days": "days",
@@ -1069,7 +1132,8 @@
       "km": "km",
       "kmh": "km/h",
       "mbps": "Mbps",
-      "minutes": "minutes"
+      "minutes": "minutes",
+      "seconds": "seconds"
     },
     "updateAutomation": "Update Automation"
   },

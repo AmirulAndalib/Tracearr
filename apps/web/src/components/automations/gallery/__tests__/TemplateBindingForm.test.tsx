@@ -53,7 +53,7 @@ vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
   }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>New destination</DialogTitle>
+        <DialogTitle>Destination dialog</DialogTitle>
       </DialogContent>
     </Dialog>
   ),
@@ -73,11 +73,11 @@ beforeEach(() => {
   onSecondary.mockReset();
 });
 
-function renderForm(template: AutomationTemplate = STREAM_STARTED, showName = true) {
+function renderForm(template: AutomationTemplate = STREAM_STARTED, showInstanceFields = true) {
   render(
     <TemplateBindingForm
       template={template}
-      showName={showName}
+      showInstanceFields={showInstanceFields}
       doors={{
         primaryLabel: 'Use this',
         onPrimary,
@@ -149,9 +149,9 @@ describe('TemplateBindingForm', () => {
   it('lets the reader add a destination without leaving the form', async () => {
     const { user } = renderForm();
 
-    await user.click(screen.getByRole('button', { name: 'Add destination' }));
+    await user.click(screen.getByRole('button', { name: 'New destination' }));
 
-    expect(await screen.findByText('New destination')).toBeInTheDocument();
+    expect(await screen.findByText('Destination dialog')).toBeInTheDocument();
   });
 
   it('moves the sentence tail, the scope line and the name together on a server pick', async () => {

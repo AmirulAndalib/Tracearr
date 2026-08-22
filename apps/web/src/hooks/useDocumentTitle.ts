@@ -17,6 +17,9 @@ function buildRouteMap(): Map<string, NavKey> {
 
 const routeMap = buildRouteMap();
 
+/** What a page called itself, by path, so the route derivation defers to it. */
+const pageTitles = new Map<string, string>();
+
 /**
  * Hook to automatically update the document title based on the current route.
  * Titles are derived from nav-data.ts for consistency.
@@ -27,6 +30,13 @@ export function useDocumentTitle() {
 
   useEffect(() => {
     const pathname = location.pathname;
+
+    // A page that knows its own name has already said so, whether or not its effect ran first.
+    const own = pageTitles.get(pathname);
+    if (own !== undefined) {
+      document.title = `${own} | ${APP_NAME}`;
+      return;
+    }
 
     // Check for exact match in navigation
     const navKey = routeMap.get(pathname);
@@ -88,12 +98,16 @@ export function useDocumentTitle() {
  * previous title comes back on unmount, so a route with nothing to say is unaffected.
  */
 export function usePageTitle(title: string | undefined) {
+  const { pathname } = useLocation();
+
   useEffect(() => {
     if (title === undefined || title === '') return;
     const previous = document.title;
+    pageTitles.set(pathname, title);
     document.title = `${title} | ${APP_NAME}`;
     return () => {
+      pageTitles.delete(pathname);
       document.title = previous;
     };
-  }, [title]);
+  }, [pathname, title]);
 }

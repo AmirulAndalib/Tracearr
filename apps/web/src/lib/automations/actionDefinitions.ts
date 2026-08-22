@@ -2,13 +2,12 @@
 
 import {
   LEAF_ACTION_TYPES,
-  type AutomationKind,
   type LeafAction,
   type LeafActionType,
   type TrustAction,
   type ViolationSeverity,
 } from '@tracearr/shared';
-import type { Translate } from './conditionFields';
+import type { PagesTextKey, Translate } from './conditionFields';
 
 // Config field types for rendering action configuration
 export type ConfigFieldType = 'number' | 'text' | 'select' | 'slider' | 'destinations';
@@ -24,18 +23,19 @@ export interface ConfigFieldOption {
 // Config field definition
 export interface ConfigField {
   name: string;
-  label: string;
   type: ConfigFieldType;
+  /** An idea several actions carry is labelled once, from the shared catalog. */
+  labelKey: PagesTextKey;
+  descriptionKey?: PagesTextKey;
+  placeholderKey?: PagesTextKey;
+  /** The unit named beside a number input. */
+  unitKey?: PagesTextKey;
   required?: boolean;
-  options?: ConfigFieldOption[];
   /** Options this field takes from a translated catalog instead of carrying inline. */
-  optionSource?: 'sessionTargets';
+  optionSource?: 'sessionTargets' | 'trustModes';
   min?: number;
   max?: number;
   step?: number;
-  unit?: string;
-  placeholder?: string;
-  description?: string;
   /** If true, renders on its own line below other fields */
   fullWidth?: boolean;
 }
@@ -56,6 +56,8 @@ export const SEVERITIES = [
 /** Which sessions a kill_stream or message_client action reaches. */
 const SESSION_TARGETS = ['triggering', 'oldest', 'newest', 'all_except_one', 'all_user'] as const;
 
+const TRUST_MODES = ['adjust', 'set', 'reset'] as const satisfies readonly TrustAction['mode'][];
+
 export function severityLabel(t: Translate, severity: ViolationSeverity): string {
   return t(`automations.severity.${severity}`);
 }
@@ -73,37 +75,46 @@ export function actionHint(t: Translate, type: LeafActionType): string | undefin
   return type === 'message_client' ? t('automations.actions.message_client.hint') : undefined;
 }
 
-/** A config field's choices, translated when they come from a catalog. */
+/** A config field's choices, translated from the catalog it names. */
 export function configFieldOptions(t: Translate, field: ConfigField): ConfigFieldOption[] {
-  if (field.optionSource !== 'sessionTargets') return field.options ?? [];
-  return SESSION_TARGETS.map((value) => ({
-    value,
-    label: t(`automations.sessionTargets.${value}.label`),
-    tooltip: t(`automations.sessionTargets.${value}.tooltip`),
-  }));
+  switch (field.optionSource) {
+    case 'sessionTargets':
+      return SESSION_TARGETS.map((value) => ({
+        value,
+        label: t(`automations.sessionTargets.${value}.label`),
+        tooltip: t(`automations.sessionTargets.${value}.tooltip`),
+      }));
+    case 'trustModes':
+      return TRUST_MODES.map((value) => ({
+        value,
+        label: t(`automations.trustModes.${value}.label`),
+      }));
+    default:
+      return [];
+  }
 }
 
 // The main action definitions registry
-export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
+const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
   send: {
     type: 'send',
     color: 'default',
     configFields: [
       {
         name: 'to',
-        label: 'Destinations',
+        labelKey: 'automations.bind.destinationsLabel',
         type: 'destinations',
         required: true,
       },
       {
         name: 'cooldown_minutes',
-        label: 'Cooldown',
+        labelKey: 'automations.configFields.cooldown_minutes.label',
+        descriptionKey: 'automations.actions.send.fields.cooldown_minutes.description',
         type: 'number',
         min: 0,
         max: 1440,
         step: 5,
-        unit: 'minutes',
-        description: 'Minimum time between notifications',
+        unitKey: 'automations.units.minutes',
       },
     ],
   },
@@ -114,27 +125,23 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
     configFields: [
       {
         name: 'mode',
-        label: 'Mode',
+        labelKey: 'automations.actions.trust.fields.mode.label',
         type: 'select',
         required: true,
-        options: [
-          { value: 'adjust', label: 'Adjust by amount' },
-          { value: 'set', label: 'Set to value' },
-          { value: 'reset', label: 'Reset to default (100)' },
-        ],
+        optionSource: 'trustModes',
       },
       {
         name: 'amount',
-        label: 'Amount',
+        labelKey: 'automations.actions.trust.fields.amount.label',
+        descriptionKey: 'automations.actions.trust.fields.amount.description',
         type: 'number',
         min: -100,
         max: 100,
         step: 1,
-        description: 'Positive to increase, negative to decrease',
       },
       {
         name: 'value',
-        label: 'Value',
+        labelKey: 'automations.actions.trust.fields.value.label',
         type: 'slider',
         min: 0,
         max: 100,
@@ -149,39 +156,38 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
     configFields: [
       {
         name: 'cooldown_minutes',
-        label: 'Cooldown',
+        labelKey: 'automations.configFields.cooldown_minutes.label',
+        descriptionKey: 'automations.actions.kill_stream.fields.cooldown_minutes.description',
         type: 'number',
         min: 0,
         max: 1440,
         step: 5,
-        unit: 'minutes',
-        description: 'Minimum time between terminations for the same user',
+        unitKey: 'automations.units.minutes',
       },
       {
         name: 'delay_seconds',
-        label: 'Sustain window',
+        labelKey: 'automations.actions.kill_stream.fields.delay_seconds.label',
+        descriptionKey: 'automations.actions.kill_stream.fields.delay_seconds.description',
         type: 'number',
         min: 0,
         max: 300,
         step: 5,
-        unit: 'seconds',
-        description:
-          'Wait this many seconds, then kill the stream only if the rule still matches. 0 kills immediately after a final re-check.',
+        unitKey: 'automations.units.seconds',
       },
       {
         name: 'target',
-        label: 'Target',
+        labelKey: 'automations.configFields.target.label',
+        descriptionKey: 'automations.actions.kill_stream.fields.target.description',
         type: 'select',
         optionSource: 'sessionTargets',
-        description: 'Which sessions to terminate',
         fullWidth: true,
       },
       {
         name: 'message',
-        label: 'Message',
+        labelKey: 'automations.configFields.message.label',
+        placeholderKey: 'automations.actions.kill_stream.fields.message.placeholder',
+        descriptionKey: 'automations.bind.helper.killMessage',
         type: 'text',
-        placeholder: 'Message shown to user (optional)',
-        description: 'Text displayed before termination. Leave empty for silent termination.',
         fullWidth: true,
       },
     ],
@@ -193,19 +199,19 @@ export const ACTION_DEFINITIONS: Record<LeafActionType, ActionDefinition> = {
     configFields: [
       {
         name: 'target',
-        label: 'Target',
+        labelKey: 'automations.configFields.target.label',
+        descriptionKey: 'automations.actions.message_client.fields.target.description',
         type: 'select',
         optionSource: 'sessionTargets',
-        description: 'Which sessions to message',
         fullWidth: true,
       },
       {
         name: 'message',
-        label: 'Message',
+        labelKey: 'automations.configFields.message.label',
+        placeholderKey: 'automations.actions.message_client.fields.message.placeholder',
+        descriptionKey: 'automations.bind.helper.clientMessage',
         type: 'text',
         required: true,
-        placeholder: 'Message to display...',
-        description: 'Text shown to the user',
       },
     ],
   },
@@ -249,19 +255,6 @@ export function applyActionFieldChange(
     return next;
   }
   return { ...action, [name]: value };
-}
-
-/** The picker offers whatever the contract declares, so a new action type cannot go unoffered. */
-const OFFERED_ACTION_TYPES: readonly LeafActionType[] = LEAF_ACTION_TYPES;
-
-/** The action type a freshly added row starts on, for either kind. */
-export const DEFAULT_ACTION_TYPE: LeafActionType = 'send';
-
-/** Both kinds may use every action; a notification automation just leads with `send`. */
-export function actionTypesForKind(kind: AutomationKind): LeafActionType[] {
-  const types: LeafActionType[] = [...OFFERED_ACTION_TYPES];
-  if (kind !== 'notification') return types;
-  return ['send', ...types.filter((type) => type !== 'send')];
 }
 
 /** Create a default action of a given type. */

@@ -78,7 +78,6 @@ export {
 // Automation template hooks
 export {
   TEMPLATES_KEY,
-  useDeleteTemplate,
   useImportTemplate,
   useInstantiateTemplate,
   usePreviewTemplate,

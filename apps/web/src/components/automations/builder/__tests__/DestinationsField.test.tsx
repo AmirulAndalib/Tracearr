@@ -154,7 +154,9 @@ describe('DestinationsField', () => {
     render(<DestinationsField value={[]} onChange={onChange} label="Destinations" />);
 
     expect(screen.getByText('pages:automations.builder.noDestinations')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'pages:settings.destinations.add' }));
+    await user.click(
+      screen.getByRole('button', { name: 'pages:automations.builder.newDestination' })
+    );
     await user.click(screen.getByRole('button', { name: 'simulate created' }));
     expect(onChange).toHaveBeenCalledWith(['dest-new']);
   });

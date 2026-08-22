@@ -429,6 +429,22 @@ describe('AutomationDetail activity', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
+  it('opens Activity on the runs that did something, with All last', () => {
+    renderDetail();
+
+    expect(mockUseAutomationRuns).toHaveBeenLastCalledWith('a-1', {
+      page: 1,
+      pageSize: 20,
+      outcome: 'completed',
+    });
+    expect(screen.getAllByRole('radio').map((tab) => tab.textContent)).toEqual([
+      'pages:automations.activity.tabs.completed',
+      'pages:automations.activity.tabs.stopped_by_condition',
+      'pages:automations.activity.tabs.error',
+      'pages:automations.activity.tabs.all',
+    ]);
+  });
+
   it('asks the API for one outcome when a tab is chosen', async () => {
     const user = userEvent.setup();
     renderDetail();

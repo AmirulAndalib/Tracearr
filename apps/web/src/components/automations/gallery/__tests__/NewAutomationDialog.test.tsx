@@ -29,7 +29,7 @@ vi.mock('@/components/settings/destinations/DestinationDialog', () => ({
   }) => (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>New destination</DialogTitle>
+        <DialogTitle>Destination dialog</DialogTitle>
       </DialogContent>
     </Dialog>
   ),
@@ -191,8 +191,8 @@ describe('NewAutomationDialog', () => {
   it('leaves the outer dialog alone when Esc closes the destination dialog on top', async () => {
     const { onOpenChange, user } = renderDialog({ templateId: 'template-stream-started' });
 
-    await user.click(screen.getByRole('button', { name: 'Add destination' }));
-    expect(await screen.findByText('New destination')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'New destination' }));
+    expect(await screen.findByText('Destination dialog')).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
 

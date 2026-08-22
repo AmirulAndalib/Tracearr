@@ -73,14 +73,3 @@ export function useImportTemplate() {
     },
   });
 }
-
-export function useDeleteTemplate() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (id: string) => api.templates.remove(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: TEMPLATES_KEY });
-    },
-  });
-}

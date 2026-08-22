@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { i18n, initI18n } from '@tracearr/translations';
-import type { Automation } from '@tracearr/shared';
+import { AUTOMATION_DESCRIPTION_MAX, AUTOMATION_NAME_MAX, type Automation } from '@tracearr/shared';
 import { SENTENCE_SECTIONS, type Translate } from '@/lib/automations';
 import { builderReducer, builderStateFrom, emptyBuilderState } from '../builderReducer';
 import { ApiError } from '@/lib/api';
@@ -60,6 +60,28 @@ describe('builderIssues', () => {
     expect(issues).toContainEqual({
       nodeId: BUILDER_SECTIONS.name,
       message: 'Give this automation a name',
+    });
+  });
+
+  it('sends a length complaint to the field it is about, not to the name by default', () => {
+    const named = builderReducer(emptyBuilderState(), {
+      type: 'setName',
+      value: 'n'.repeat(AUTOMATION_NAME_MAX + 1),
+    });
+    const noted = builderReducer(named, {
+      type: 'setDescription',
+      value: 'd'.repeat(AUTOMATION_DESCRIPTION_MAX + 1),
+    });
+
+    const issues = builderIssues(noted, t);
+
+    expect(issues).toContainEqual({
+      nodeId: BUILDER_SECTIONS.name,
+      message: `At most ${AUTOMATION_NAME_MAX} characters`,
+    });
+    expect(issues).toContainEqual({
+      nodeId: BUILDER_SECTIONS.description,
+      message: `At most ${AUTOMATION_DESCRIPTION_MAX} characters`,
     });
   });
 

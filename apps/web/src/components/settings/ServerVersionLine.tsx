@@ -17,7 +17,7 @@ export function ServerVersionLine({ server }: { server: Server }) {
         <>
           {' · '}
           {outdated ? (
-            <span className="text-amber-500">
+            <span className="text-warning">
               {t('servers.version.updateAvailable', { version: server.latestVersion })}
             </span>
           ) : (

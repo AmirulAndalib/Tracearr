@@ -107,7 +107,7 @@ function BindingFields({
       <TemplateBindingForm
         template={catalogEntry}
         initialValues={automation.templateInputs}
-        showName={false}
+        showInstanceFields={false}
         sentenceLabel={behind ? t('pages:automations.template.after') : undefined}
         doors={{
           primaryLabel: behind

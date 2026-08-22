@@ -300,14 +300,17 @@ export function Automations() {
                   event.stopPropagation();
                 }}
               >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t('common:actions.edit')}
-                  onClick={() => void navigate(`/automations/${automation.id}/edit`)}
-                >
-                  <Pencil />
-                </Button>
+                {/* A bound row is edited through its answers, and the builder turns it away. */}
+                {!automation.template && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('common:actions.edit')}
+                    onClick={() => void navigate(`/automations/${automation.id}/edit`)}
+                  >
+                    <Pencil />
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

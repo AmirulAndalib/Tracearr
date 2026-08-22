@@ -991,7 +991,6 @@ class ApiClient {
         method: 'POST',
         body: JSON.stringify(body),
       }),
-    remove: (id: string) => this.request<void>(`/templates/${id}`, { method: 'DELETE' }),
     instantiate: (id: string, body: InstantiateTemplateInput) =>
       this.request<Automation>(`/templates/${id}/instantiate`, {
         method: 'POST',

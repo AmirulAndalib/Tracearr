@@ -4,6 +4,8 @@
  */
 
 import {
+  AUTOMATION_DESCRIPTION_MAX,
+  AUTOMATION_NAME_MAX,
   createAutomationSchema,
   type Action,
   type Condition,
@@ -16,6 +18,7 @@ import { TRIGGER_PARAM_BOUNDS, toCreateInput, type BuilderState } from './builde
 /** What a problem points at when it belongs to the page rather than to a node. */
 export const BUILDER_SECTIONS = {
   name: 'name',
+  description: 'description',
   triggers: 'triggers',
   conditions: 'conditions',
   actions: 'actions',
@@ -84,6 +87,7 @@ function nodeIdForPath(state: BuilderState, path: readonly PropertyKey[]): strin
   if (head === 'serverId' || head === 'serverUserId' || head === 'userId') {
     return BUILDER_SECTIONS.scope;
   }
+  if (head === 'description') return BUILDER_SECTIONS.description;
   return BUILDER_SECTIONS.name;
 }
 
@@ -122,14 +126,17 @@ function unavailableField(t: Translate, state: BuilderState, nodeId: string): st
   return t('automations.builder.errors.fieldNotAvailableFor', { triggers: triggers.join(', ') });
 }
 
+/** What the schema or the API rejected, before it is turned into words. */
+interface RawIssue {
+  path: readonly PropertyKey[];
+  message: string;
+  /** The zod code, so a length complaint reads differently from a missing value. */
+  code?: string;
+}
+
 /** The path's last key says what went wrong; the schema's English is the last resort. */
-function messageFor(
-  t: Translate,
-  path: readonly PropertyKey[],
-  fallback: string,
-  state: BuilderState,
-  nodeId: string
-): string {
+function messageFor(t: Translate, issue: RawIssue, state: BuilderState, nodeId: string): string {
+  const { path, message: fallback } = issue;
   const last = path[path.length - 1] ?? '';
   if (path[0] === 'actions' && !path.includes('conditions')) {
     const message = actionMessage(t, last);
@@ -155,7 +162,13 @@ function messageFor(
     case 'measure':
       return t('automations.builder.errors.measureInvalid');
     case 'name':
-      return t('automations.builder.errors.nameRequired');
+      return issue.code === 'too_big'
+        ? t('automations.builder.errors.tooLong', { max: AUTOMATION_NAME_MAX })
+        : t('automations.builder.errors.nameRequired');
+    case 'description':
+      return issue.code === 'too_big'
+        ? t('automations.builder.errors.tooLong', { max: AUTOMATION_DESCRIPTION_MAX })
+        : fallback;
     case 'serverId':
     case 'serverUserId':
     case 'userId':
@@ -183,7 +196,7 @@ export function builderIssues(state: BuilderState, t: Translate): BuilderIssue[]
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const nodeId = nodeIdForPath(state, issue.path);
-      const message = messageFor(t, issue.path, issue.message, state, nodeId);
+      const message = messageFor(t, issue, state, nodeId);
       issues.push({ nodeId, message, ...toneFor(issue.path) });
     }
   }
@@ -220,7 +233,7 @@ export function serverIssues(state: BuilderState, error: unknown, t: Translate):
   return record.fields.filter(isServerField).map((entry) => {
     const path = pathFromField(entry.field);
     const nodeId = nodeIdForPath(state, path);
-    const message = messageFor(t, path, entry.message, state, nodeId);
+    const message = messageFor(t, { path, message: entry.message }, state, nodeId);
     return { nodeId, message, ...toneFor(path) };
   });
 }

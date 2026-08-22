@@ -5,6 +5,7 @@
  * flags — lives in CONDITION_FIELDS. This module only translates and orders.
  */
 
+import type { PagesKey, PagesTranslations, TranslationValue } from '@tracearr/translations';
 import type { TFunction } from 'i18next';
 import {
   CONDITION_FIELDS,
@@ -23,6 +24,11 @@ import {
 
 /** Accessors take the caller's `pages` translator rather than opening their own. */
 export type Translate = TFunction<'pages'>;
+
+/** A `pages` key that names one string; `PagesKey` also names the groups above them. */
+export type PagesTextKey = {
+  [K in PagesKey]: TranslationValue<PagesTranslations, K> extends string ? K : never;
+}[PagesKey];
 
 export type FieldCategory = ConditionFieldDescriptor['category'];
 export type FieldUnit = NonNullable<ConditionFieldDescriptor['unit']>;
@@ -116,7 +122,7 @@ export function optionLabel(t: Translate, value: FieldOptionValue): string {
  * Library item types read their own labels: the flat namespace speaks the session
  * vocabulary, where a track is "Music" and an episode is "TV Episode".
  */
-export function itemTypeLabel(t: Translate, value: LibraryItemType): string {
+function itemTypeLabel(t: Translate, value: LibraryItemType): string {
   return t(`automations.options.libraryItemType.${value}`);
 }
 

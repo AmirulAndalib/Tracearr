@@ -121,6 +121,17 @@ describe('ActionsSection', () => {
     expect(screen.getByRole('button', { name: /Choose what happens/ })).toBeInTheDocument();
   });
 
+  it('names every action field from the catalog, and the destinations row by what it does', () => {
+    renderSection(pair);
+
+    expect(screen.getByText('Send to')).toBeInTheDocument();
+    expect(screen.queryByText('Destinations')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New destination' })).toBeInTheDocument();
+    expect(screen.getAllByText('Cooldown')).toHaveLength(2);
+    expect(screen.getByText('Minimum time between notifications')).toBeInTheDocument();
+    expect(screen.getByText('Sustain window')).toBeInTheDocument();
+  });
+
   it('asks how a run is recorded once there is something to record', () => {
     renderSection(pair);
 

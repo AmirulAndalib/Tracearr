@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { AUTOMATION_NAME_MAX } from '@tracearr/shared';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { nodeDomId, type BuilderDispatch } from './builderReducer';
@@ -30,6 +31,7 @@ export function SummaryCard({ name, issues, sentence, liveCheck, dispatch }: Sum
         <Input
           id={nameId}
           value={name}
+          maxLength={AUTOMATION_NAME_MAX}
           placeholder={t('automations.namePlaceholder')}
           aria-invalid={nameIssues !== undefined}
           onChange={(event) => dispatch({ type: 'setName', value: event.target.value })}
