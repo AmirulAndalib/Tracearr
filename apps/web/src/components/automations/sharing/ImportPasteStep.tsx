@@ -6,6 +6,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui
 import { Textarea } from '@/components/ui/textarea';
 import { usePreviewTemplate } from '@/hooks/queries/useTemplates';
 import { cn } from '@/lib/utils';
+import { GALLERY_URL, LinkOut } from './links';
 import { ApiError, type TemplateImportBody, type TemplatePreview } from '@/lib/api';
 
 /** The most the server will decode, so a runaway paste never becomes a request. */
@@ -120,6 +121,11 @@ export function ImportPasteStep({
             </FieldError>
           )}
         </Field>
+
+        <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
+          {t('automations.import.source')}
+          <LinkOut href={GALLERY_URL} label={t('automations.openGallery')} />
+        </div>
       </div>
 
       <div className={cn('flex justify-end gap-2', footerClassName)}>

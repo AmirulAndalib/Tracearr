@@ -37,10 +37,6 @@ import type { TemplateGroup } from '@/lib/api';
 /** Long enough that a name is finished before the code is rebuilt around it. */
 const AUTHOR_SETTLE_MS = 400;
 
-/** The gallery is a docs page and a repository; Tracearr reads neither. */
-const GALLERY_URL = 'https://docs.tracearr.com/templates';
-const REPOSITORY_URL = 'https://github.com/Tracearr/automation-templates';
-
 interface ExportDialogProps {
   automation: Pick<Automation, 'id' | 'name'>;
   open: boolean;

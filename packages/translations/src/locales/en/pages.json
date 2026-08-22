@@ -1057,12 +1057,12 @@
       "description": "Paste the code. Everything is in the code; Tracearr fetches nothing.",
       "reviewDescription": "What the code does, and what to fill in.",
       "placeholder": "tracearr1.…",
-      "formatHint": "A code starts with tracearr1. The JSON works too.",
+      "formatHint": "A code starts with tracearr1.",
       "check": "Check it",
       "checking": "Reading it…",
-      "valid": "This is a Tracearr automation.",
-      "madeBy": "Made by {{author}}",
-      "codeShort": "code {{fingerprint}}",
+      "valid": "Tracearr can read this code.",
+      "madeBy": "Author: {{author}}, as written in the code",
+      "codeShort": "Code {{fingerprint}}",
       "paused": {
         "label": "Start paused",
         "helper": "Turn it on from the list after review."
@@ -1090,7 +1090,10 @@
         "tooManyHint": "Wait a moment, then check it again.",
         "rejected": "Tracearr couldn't read this one.",
         "rejectedHint": "It may come from a different tool or have been edited by hand."
-      }
+      },
+      "source": "Shared automations are listed at docs.tracearr.com/templates.",
+      "validCaveat": "Nothing in a code says who wrote it or whether it is safe. The steps are below.",
+      "builtinMatch": "This is {{name}}, one of the automations Tracearr ships."
     },
     "kind": {
       "policy": "Violation",

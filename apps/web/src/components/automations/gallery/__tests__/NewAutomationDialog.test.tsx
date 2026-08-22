@@ -239,7 +239,7 @@ describe('NewAutomationDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Check it' }));
 
     expect(await screen.findByRole('heading', { name: 'Two places at once' })).toBeInTheDocument();
-    expect(screen.getByText('This is a Tracearr automation.')).toBeInTheDocument();
+    expect(screen.getByText('Tracearr can read this code.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add it' })).toBeInTheDocument();
   });
 

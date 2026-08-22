@@ -34,6 +34,19 @@ const box = () => screen.getByRole('textbox', { name: 'Paste a share code' });
 const checkIt = () => screen.getByRole('button', { name: 'Check it' });
 
 describe('ImportPasteStep', () => {
+  it('says where codes come from, and links out to the gallery it names', () => {
+    renderStep();
+
+    expect(
+      screen.getByText('Shared automations are listed at docs.tracearr.com/templates.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Open the gallery/ })).toHaveAttribute(
+      'href',
+      'https://docs.tracearr.com/templates'
+    );
+    expect(screen.getByText('A code starts with tracearr1.')).toBeInTheDocument();
+  });
+
   it('waits for something to read before it offers to read it', async () => {
     const { user } = renderStep();
 

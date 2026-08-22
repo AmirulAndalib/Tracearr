@@ -155,20 +155,38 @@ test.describe('Automations', () => {
 
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const exportDialog = page.getByRole('dialog', { name: 'Share this automation' });
-    await expect(exportDialog).toBeVisible();
-    const code = (await exportDialog.locator('pre').first().innerText()).trim();
+    await expect(exportDialog.getByRole('heading', { name: 'In plain words' })).toBeVisible();
+
+    // The code is the body, and it is the only block here: the JSON sits behind the
+    // gallery section, so a second `pre` would mean it is being offered twice.
+    await expect(exportDialog.locator('pre')).toHaveCount(1);
+    const code = (await exportDialog.locator('pre').innerText()).trim();
     expect(code).toMatch(/^tracearr1\./);
-    await exportDialog.getByRole('button', { name: 'Close' }).click();
+    await expect(exportDialog.getByRole('button', { name: 'Copy the share code' })).toBeVisible();
+
+    const close = exportDialog.getByRole('button', { name: 'Close' });
+    await expect(close).toHaveCount(1);
+    await close.click();
+    await expect(exportDialog).toBeHidden();
 
     await page.goto('/automations');
     await page.getByRole('button', { name: 'Import', exact: true }).click();
 
     const paste = page.getByRole('dialog', { name: 'Paste a share code' });
+    await expect(
+      paste.getByText('Shared automations are listed at docs.tracearr.com/templates.')
+    ).toBeVisible();
     await paste.getByRole('textbox', { name: 'Paste a share code' }).fill(code);
     await paste.getByRole('button', { name: 'Check it' }).click();
 
     const review = page.getByRole('dialog', { name });
-    await expect(review.getByText('This is a Tracearr automation.')).toBeVisible();
+    // A pasted code is not one Tracearr ships, so the review claims only that it read it.
+    await expect(review.getByText('Tracearr can read this code.')).toBeVisible();
+    await expect(
+      review.getByText('Nothing in a code says who wrote it or whether it is safe.')
+    ).toBeVisible();
+    await expect(review.getByRole('heading', { name: 'In plain words' })).toBeVisible();
+
     await review.getByRole('button', { name: 'Browser toasts' }).click();
     await review.getByRole('button', { name: 'Add it' }).click();
 

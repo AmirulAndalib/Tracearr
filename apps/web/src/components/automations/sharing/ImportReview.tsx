@@ -54,6 +54,8 @@ export function ImportReview({
 
   const known = existing?.fingerprintMatch === true ? existing : undefined;
   const collision = existing && !existing.fingerprintMatch ? existing : undefined;
+  // The one claim the app can make itself: these steps are the ones Tracearr ships.
+  const shipped = known?.builtin === true ? known : undefined;
 
   const create = (): TemplateImportBody => ({
     ...(code === null ? { envelope } : { code }),
@@ -83,9 +85,19 @@ export function ImportReview({
       <div className={cn('flex flex-col gap-5', bodyClassName)}>
         <div className="flex flex-col gap-1">
           <p className="flex items-center gap-2 text-sm font-medium">
-            <CheckCircle2 aria-hidden className="text-success size-4 shrink-0" />
-            {t('automations.import.valid')}
+            <CheckCircle2
+              aria-hidden
+              className={cn('size-4 shrink-0', shipped ? 'text-success' : 'text-muted-foreground')}
+            />
+            {shipped
+              ? t('automations.import.builtinMatch', { name: shipped.name })
+              : t('automations.import.valid')}
           </p>
+          {!shipped && (
+            <p className="text-muted-foreground pl-6 text-xs">
+              {t('automations.import.validCaveat')}
+            </p>
+          )}
           <p className="text-muted-foreground pl-6 text-xs">
             {[
               envelope.author === undefined

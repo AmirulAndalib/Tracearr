@@ -101,15 +101,48 @@ async function bindDestination(user: ReturnType<typeof renderReview>['user']) {
 const addIt = () => screen.getByRole('button', { name: 'Add it' });
 
 describe('ImportReview', () => {
-  it('says what it is, who made it and which code it is, and claims nothing more', () => {
+  it('says only that it can read the code, and says who cannot vouch for it', () => {
     renderReview();
 
-    expect(screen.getByText('This is a Tracearr automation.')).toBeInTheDocument();
-    expect(screen.getByText(/Made by moviesRus/)).toBeInTheDocument();
-    expect(screen.getByText(/code 4f2a…c13/)).toBeInTheDocument();
+    expect(screen.getByText('Tracearr can read this code.')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Nothing in a code says who wrote it or whether it is safe. The steps are below.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Author: moviesRus, as written in the code/)).toBeInTheDocument();
+    expect(screen.getByText(/Code 4f2a…c13/)).toBeInTheDocument();
+    // The tick is muted until something is actually verified.
+    expect(screen.getByText('Tracearr can read this code.').querySelector('svg')).toHaveClass(
+      'text-muted-foreground'
+    );
     // A pasted code has nobody vouching for it, and the absence is the message.
     expect(screen.queryByText('Built-in')).not.toBeInTheDocument();
     expect(screen.queryByText(/Verified/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the green tick for a fingerprint that matches one Tracearr ships', () => {
+    renderReview(
+      previewOf({
+        existing: {
+          templateId: 'template-builtin',
+          version: 1,
+          name: 'Two places at once',
+          builtin: true,
+          fingerprintMatch: true,
+        },
+      })
+    );
+
+    expect(
+      screen.getByText('This is Two places at once, one of the automations Tracearr ships.')
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText('This is Two places at once, one of the automations Tracearr ships.')
+        .querySelector('svg')
+    ).toHaveClass('text-success');
+    expect(screen.queryByText(/Nothing in a code says who wrote it/)).not.toBeInTheDocument();
   });
 
   it('reads the consequences off the definition, branch and all', () => {

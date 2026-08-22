@@ -842,7 +842,7 @@
       "adding": "Adding it…",
       "check": "Check it",
       "checking": "Reading it…",
-      "codeShort": "code {{fingerprint}}",
+      "codeShort": "Code {{fingerprint}}",
       "collision": {
         "add": "Keep both",
         "replace": "Replace mine",
@@ -865,8 +865,8 @@
       },
       "existing": "Already saved as {{name}}.",
       "existingUse": "Use it",
-      "formatHint": "A code starts with tracearr1. The JSON works too.",
-      "madeBy": "Made by {{author}}",
+      "formatHint": "A code starts with tracearr1.",
+      "madeBy": "Author: {{author}}, as written in the code",
       "paused": {
         "helper": "Turn it on from the list after review.",
         "label": "Start paused"
@@ -876,7 +876,10 @@
       "reviewDescription": "What the code does, and what to fill in.",
       "submit": "Add it",
       "title": "Paste a share code",
-      "valid": "This is a Tracearr automation."
+      "valid": "Tracearr can read this code.",
+      "source": "Shared automations are listed at docs.tracearr.com/templates.",
+      "validCaveat": "Nothing in a code says who wrote it or whether it is safe. The steps are below.",
+      "builtinMatch": "This is {{name}}, one of the automations Tracearr ships."
     },
     "kind": {
       "notification": "Alert",
