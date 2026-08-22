@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -14,6 +15,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UserCell } from '@/components/users/UserCell';
 import { useRun } from '@/hooks/queries/useRuns';
 import {
   conditionText,
@@ -128,9 +130,26 @@ export function RunDetail({ runId, canReplay = false, onOpenChange }: RunDetailP
 function RunSubjectBlock({ run }: { run: AutomationRun }) {
   const { t } = useTranslation('pages');
 
-  const rows: { label: string; value: string }[] = [];
+  const rows: { label: string; value: ReactNode }[] = [];
+  const person = run.subject.kind === 'session' || run.subject.kind === 'account';
   const who = runWho(run.subject);
-  if (who) rows.push({ label: t('automations.activity.who'), value: who });
+  if (who) {
+    rows.push({
+      label: t('automations.activity.who'),
+      value: person ? (
+        <UserCell
+          serverUserId={run.serverUserId}
+          username={run.subject.name}
+          identityName={run.subject.personName}
+          thumbUrl={run.subject.thumbUrl}
+          serverId={run.serverId}
+          showUsername
+        />
+      ) : (
+        who
+      ),
+    });
+  }
   const where = runWhere(run.subject);
   if (where) rows.push({ label: t('automations.activity.where'), value: where });
 

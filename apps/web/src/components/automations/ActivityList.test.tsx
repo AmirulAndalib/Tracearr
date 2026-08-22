@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { initI18n } from '@tracearr/translations';
-import type { AutomationRunSummary, RunCounts } from '@tracearr/shared';
+import type { Automation, AutomationRunSummary, RunCounts } from '@tracearr/shared';
 
 const useAutomationRuns = vi.fn();
 const useRunCounts = vi.fn();
@@ -31,6 +31,7 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
       kind: 'session',
       name: 'rebecc101',
       personName: 'Rebecca Lin',
+      thumbUrl: null,
       serverName: 'Basement',
       libraryName: null,
       mediaType: null,
@@ -60,7 +61,38 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-function renderList(rows: AutomationRunSummary[], tallies: RunCounts = counts()) {
+function automation(overrides: Partial<Automation> = {}): Automation {
+  return {
+    id: 'a-1',
+    name: 'Impossible travel',
+    description: null,
+    kind: 'policy',
+    severity: 'warning',
+    triggers: [{ id: 't-1', type: 'session.started', enabled: true }],
+    conditions: { groups: [] },
+    actions: { actions: [] },
+    serverId: null,
+    serverUserId: null,
+    userId: null,
+    enforceAcrossServers: false,
+    isActive: true,
+    cooldownMinutes: null,
+    retentionDays: null,
+    scopeRef: null,
+    template: null,
+    templateInputs: null,
+    origin: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    updatedAt: '2026-08-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function renderList(
+  rows: AutomationRunSummary[],
+  tallies: RunCounts = counts(),
+  row: Automation = automation()
+) {
   useAutomationRuns.mockReturnValue({
     data: { data: rows, meta: { page: 1, pageSize: 20, total: rows.length } },
     isLoading: false,
@@ -68,7 +100,7 @@ function renderList(rows: AutomationRunSummary[], tallies: RunCounts = counts())
   useRunCounts.mockReturnValue({ data: tallies });
   render(
     <MemoryRouter>
-      <ActivityList automationId="a-1" kind="policy" onSelectRun={vi.fn()} />
+      <ActivityList automation={row} onSelectRun={vi.fn()} />
     </MemoryRouter>
   );
 }
@@ -89,6 +121,50 @@ describe('ActivityList', () => {
     renderList([run({ outcome: 'stopped_by_condition' })]);
 
     expect(screen.getAllByText('No match')).toHaveLength(2);
+  });
+
+  it('shows a person with a face, and the way to their page', () => {
+    renderList([run({ subject: { ...run().subject, thumbUrl: null } })]);
+
+    const link = screen.getByRole('link', { name: /Rebecca Lin/ });
+    expect(link).toHaveAttribute('href', '/users/su-1');
+    expect(screen.getByText('@rebecc101')).toBeInTheDocument();
+  });
+
+  it('names the item rather than a person when the triggers watch media', () => {
+    renderList(
+      [
+        run({
+          serverUserId: null,
+          subject: {
+            kind: 'media',
+            name: 'Dune',
+            personName: null,
+            thumbUrl: null,
+            serverName: 'Basement',
+            libraryName: 'Movies',
+            mediaType: 'movie',
+          },
+        }),
+      ],
+      counts(),
+      automation({ triggers: [{ id: 't-1', type: 'media.added', enabled: true }] })
+    );
+
+    expect(screen.getByRole('columnheader', { name: 'Item' })).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Who' })).not.toBeInTheDocument();
+    expect(screen.getByText('Dune')).toBeInTheDocument();
+  });
+
+  it('leaves the column out where no person and no item is possible', () => {
+    renderList(
+      [run()],
+      counts(),
+      automation({ triggers: [{ id: 't-1', type: 'server.up', enabled: true }] })
+    );
+
+    expect(screen.queryByRole('columnheader', { name: 'Who' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Item' })).not.toBeInTheDocument();
   });
 
   it('says nothing has run when nothing has', () => {

@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { Activity } from 'lucide-react';
-import type { AutomationKind, AutomationRunSummary, RunOutcome } from '@tracearr/shared';
-import { listPageCount } from '@tracearr/shared';
+import type { Automation, AutomationRunSummary, RunOutcome } from '@tracearr/shared';
+import { contextOf, contextSupplies, listPageCount } from '@tracearr/shared';
 import { SELECTED_TOGGLE } from '@/components/automations/builder/selection';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -17,6 +17,7 @@ import {
   useDataTable,
 } from '@/components/ui/data-table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { UserCell } from '@/components/users/UserCell';
 import { SeverityBadge } from '@/components/violations/SeverityBadge';
 import { useAutomationRuns, useRunCounts } from '@/hooks/queries/useRuns';
 import { runWhere, runWho } from '@/lib/automations';
@@ -44,12 +45,12 @@ const isOutcomeTab = (value: string): value is OutcomeTab =>
   (OUTCOME_TABS as readonly string[]).includes(value);
 
 interface ActivityListProps {
-  automationId: string;
-  kind: AutomationKind;
+  automation: Automation;
   onSelectRun: (runId: string) => void;
 }
 
-export function ActivityList({ automationId, kind, onSelectRun }: ActivityListProps) {
+export function ActivityList({ automation, onSelectRun }: ActivityListProps) {
+  const { id: automationId, kind } = automation;
   const { t } = useTranslation(['pages', 'common']);
   const [page, setPage] = useState(1);
   // Runs that did something are what the page is for; the rest are one click away.
@@ -65,6 +66,17 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
   const pageCount = data ? listPageCount(data.meta) : 1;
   // A Ran tab with nothing in it means something different once other outcomes exist.
   const onlyNonMatches = tab === 'completed' && counts !== undefined && counts.total > 0;
+
+  // What the triggers watch decides whether there can be a person, an item, or neither.
+  const context = contextOf(automation.triggers);
+  const subjectColumn =
+    context === null
+      ? null
+      : contextSupplies(context, 'account')
+        ? 'who'
+        : context === 'media'
+          ? 'item'
+          : null;
 
   const columns = useMemo(
     () =>
@@ -83,11 +95,33 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
             </span>
           ),
         }),
-        columnHelper.accessor('subject', {
-          id: 'who',
-          header: t('pages:automations.activity.who'),
-          cell: ({ row }) => <Named name={runWho(row.original.subject)} />,
-        }),
+        ...(subjectColumn === 'who'
+          ? [
+              columnHelper.accessor('subject', {
+                id: 'who',
+                header: t('pages:automations.activity.who'),
+                cell: ({ row }) => (
+                  <UserCell
+                    serverUserId={row.original.serverUserId}
+                    username={row.original.subject.name}
+                    identityName={row.original.subject.personName}
+                    thumbUrl={row.original.subject.thumbUrl}
+                    serverId={row.original.serverId}
+                    showUsername
+                  />
+                ),
+              }),
+            ]
+          : []),
+        ...(subjectColumn === 'item'
+          ? [
+              columnHelper.accessor('subject', {
+                id: 'item',
+                header: t('pages:automations.activity.item'),
+                cell: ({ row }) => <Named name={runWho(row.original.subject)} />,
+              }),
+            ]
+          : []),
         columnHelper.accessor('subject', {
           id: 'where',
           header: t('pages:automations.activity.where'),
@@ -134,7 +168,7 @@ export function ActivityList({ automationId, kind, onSelectRun }: ActivityListPr
           },
         }),
       ]),
-    [t, kind]
+    [t, kind, subjectColumn]
   );
 
   const { table, pager } = useDataTable<AutomationRunSummary>({

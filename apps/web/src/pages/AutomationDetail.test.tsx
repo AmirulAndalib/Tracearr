@@ -83,7 +83,7 @@ function automation(overrides: Partial<Automation> = {}): Automation {
     description: null,
     kind: 'policy',
     severity: 'warning',
-    triggers: [],
+    triggers: [{ id: 't-1', type: 'session.started', enabled: true }],
     conditions: {
       groups: [{ conditions: [{ field: 'concurrent_streams', operator: 'gt', value: 3 }] }],
     },
@@ -122,6 +122,7 @@ function run(overrides: Partial<AutomationRunSummary> = {}): AutomationRunSummar
       kind: 'session',
       name: 'grace@plex',
       personName: 'Grace',
+      thumbUrl: null,
       serverName: 'Basement',
       libraryName: null,
       mediaType: null,
@@ -424,6 +425,7 @@ describe('AutomationDetail activity', () => {
           kind: 'media',
           name: 'Dune',
           personName: null,
+          thumbUrl: null,
           serverName: 'Basement',
           libraryName: 'Movies',
           mediaType: 'movie',
@@ -435,6 +437,7 @@ describe('AutomationDetail activity', () => {
           kind: 'server',
           name: null,
           personName: null,
+          thumbUrl: null,
           serverName: 'Basement',
           libraryName: null,
           mediaType: null,
@@ -445,7 +448,6 @@ describe('AutomationDetail activity', () => {
     renderDetail();
 
     expect(screen.getByText('Grace')).toBeInTheDocument();
-    expect(screen.getByText('Dune')).toBeInTheDocument();
     expect(screen.getByText('Movies')).toBeInTheDocument();
     // The server run is about no account, so its Who cell says nothing.
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);

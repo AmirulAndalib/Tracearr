@@ -27,6 +27,7 @@ function run(overrides: Partial<AutomationRun> = {}): AutomationRun {
       kind: 'session',
       name: 'grace@plex',
       personName: 'Grace',
+      thumbUrl: null,
       serverName: 'Basement',
       libraryName: null,
       mediaType: null,

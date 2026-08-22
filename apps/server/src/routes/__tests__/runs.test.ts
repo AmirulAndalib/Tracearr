@@ -38,6 +38,7 @@ function runRow(overrides: Record<string, unknown> = {}) {
     subjectKey: 's-1',
     serverName: 'Basement',
     accountName: 'ada@plex',
+    accountThumbUrl: '/library/metadata/1/thumb',
     personName: 'Ada',
     personUsername: 'ada',
     itemTitle: null,
@@ -155,6 +156,7 @@ describe('Run routes', () => {
           kind: 'session',
           name: 'ada@plex',
           personName: 'Ada',
+          thumbUrl: '/library/metadata/1/thumb',
           serverName: 'Basement',
           libraryName: null,
           mediaType: null,
@@ -229,7 +231,7 @@ describe('Run routes', () => {
       ]);
     });
 
-    it('names the library item a media run was about, and the library it sits in', async () => {
+    it('names the library item a media run was about, and no account behind it', async () => {
       app = await buildTestApp(ownerUser);
       setupListMocks(
         [
@@ -254,6 +256,7 @@ describe('Run routes', () => {
         kind: 'media',
         name: 'Dune',
         personName: null,
+        thumbUrl: null,
         serverName: 'Basement',
         libraryName: 'Movies',
         mediaType: 'movie',
@@ -271,6 +274,7 @@ describe('Run routes', () => {
             accountName: null,
             personName: null,
             personUsername: null,
+            accountThumbUrl: null,
             subjectKey: 'server:srv-1',
           }),
         ],
@@ -283,6 +287,7 @@ describe('Run routes', () => {
         kind: 'server',
         name: null,
         personName: null,
+        thumbUrl: null,
         serverName: 'Basement',
         libraryName: null,
         mediaType: null,
@@ -302,6 +307,7 @@ describe('Run routes', () => {
             accountName: null,
             personName: null,
             personUsername: null,
+            accountThumbUrl: null,
             subjectKey: 'install',
           }),
         ],
@@ -314,6 +320,7 @@ describe('Run routes', () => {
         kind: 'install',
         name: null,
         personName: null,
+        thumbUrl: null,
         serverName: null,
         libraryName: null,
         mediaType: null,
@@ -342,7 +349,15 @@ describe('Run routes', () => {
     it('names nobody when the account behind a run has been purged', async () => {
       app = await buildTestApp(ownerUser);
       setupListMocks(
-        [runRow({ accountName: null, personName: null, personUsername: null, serverName: null })],
+        [
+          runRow({
+            accountName: null,
+            accountThumbUrl: null,
+            personName: null,
+            personUsername: null,
+            serverName: null,
+          }),
+        ],
         1
       );
 
@@ -352,6 +367,7 @@ describe('Run routes', () => {
         kind: 'session',
         name: null,
         personName: null,
+        thumbUrl: null,
         serverName: null,
         libraryName: null,
         mediaType: null,

@@ -77,6 +77,7 @@ const runSummaryColumns = {
   // The joins ride along outside the select chain, so what they can miss is spelled out.
   serverName: sql<string | null>`${servers.name}`,
   accountName: sql<string | null>`${serverUsers.username}`,
+  accountThumbUrl: sql<string | null>`${serverUsers.thumbUrl}`,
   personName: sql<string | null>`${users.name}`,
   personUsername: sql<string | null>`${users.username}`,
   itemTitle: sql<string | null>`${libraryItems.title}`,
@@ -168,6 +169,7 @@ function subjectOf(row: RunSummaryRow): RunSubject {
     kind,
     name: media ? row.itemTitle : row.accountName,
     personName: media ? null : (row.personName ?? row.personUsername),
+    thumbUrl: media ? null : row.accountThumbUrl,
     serverName: row.serverName,
     libraryName: media ? row.libraryName : null,
     mediaType: media ? row.itemMediaType : null,

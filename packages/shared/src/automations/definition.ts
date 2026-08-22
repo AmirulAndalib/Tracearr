@@ -370,6 +370,8 @@ export interface RunSubject {
   name: string | null;
   /** The person the account belongs to, when the identity carries a name. */
   personName: string | null;
+  /** The account's avatar, as the media server stores it. */
+  thumbUrl: string | null;
   /** Null for install-wide runs, the only ones no server is behind. */
   serverName: string | null;
   /** The library a media subject sits in. */

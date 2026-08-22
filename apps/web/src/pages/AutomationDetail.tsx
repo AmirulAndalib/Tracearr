@@ -145,11 +145,7 @@ export function AutomationDetail() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ActivityList
-            automationId={automation.id}
-            kind={automation.kind}
-            onSelectRun={setSelectedRunId}
-          />
+          <ActivityList automation={automation} onSelectRun={setSelectedRunId} />
         </CardContent>
       </Card>
 

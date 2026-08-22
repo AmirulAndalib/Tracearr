@@ -121,7 +121,8 @@
       "whyBranch": "What it read",
       "emptyRan": "Nothing has matched yet",
       "emptyRanDescription_one": "{{count}} check ran and did not match.",
-      "emptyRanDescription_other": "{{count}} checks ran and did not match."
+      "emptyRanDescription_other": "{{count}} checks ran and did not match.",
+      "item": "Item"
     },
     "allKinds": "All kinds",
     "allStatuses": "All statuses",
