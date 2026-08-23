@@ -9,9 +9,10 @@ import type { Redis } from 'ioredis';
 import { eq, sql } from 'drizzle-orm';
 import { REDIS_KEYS } from '@tracearr/shared';
 import { db, type Executor } from '../../db/client.js';
-import { serverUsers, sessions, ruleActionResults } from '../../db/schema.js';
+import { sessions, ruleActionResults } from '../../db/schema.js';
 import { automationsLogger } from '../../utils/logger.js';
-import { recomputeIdentityAggregates } from '../userService.js';
+import { applyTrustChange, type TrustChange } from '../userService.js';
+import { dispatchTrustChanged } from './events/producers.js';
 import {
   setActionExecutorDeps,
   type ActionExecutorDeps,
@@ -67,6 +68,28 @@ export async function armCooldown(redis: Redis, key: string, minutes: number): P
 // Dependency Factory
 // ============================================================================
 
+/** The three modes share one path: write, then announce the move the write made. */
+async function changeTrust(
+  serverUserId: string,
+  change: TrustChange,
+  reason: string
+): Promise<void> {
+  const applied = await applyTrustChange(serverUserId, change);
+  if (!applied) return;
+  const { previous, serverUser } = applied;
+  automationsLogger.debug(`Trust score ${previous} -> ${serverUser.trustScore}`, {
+    userId: serverUserId,
+    mode: change.mode,
+  });
+  await dispatchTrustChanged({
+    serverId: serverUser.serverId,
+    serverUserId,
+    previous,
+    next: serverUser.trustScore,
+    reason,
+  });
+}
+
 /**
  * Create real implementations for all action executor dependencies.
  *
@@ -89,79 +112,11 @@ export function createActionExecutorDeps(redis: Redis): ActionExecutorDeps {
       return count;
     },
 
-    /**
-     * Adjust user trust score by delta amount.
-     * Clamps result to 0-100 using GREATEST/LEAST SQL functions.
-     *
-     * Despite the param name (kept for interface compatibility), this is a
-     * serverUserId - the account's identity rollup is recomputed in the same
-     * transaction so it never reflects a trust change that hasn't happened yet.
-     */
-    adjustUserTrust: async (serverUserId, delta) => {
-      await db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(serverUsers)
-          .set({
-            trustScore: sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} + ${delta}))`,
-            updatedAt: new Date(),
-          })
-          .where(eq(serverUsers.id, serverUserId))
-          .returning({ userId: serverUsers.userId });
-
-        if (updated) {
-          await recomputeIdentityAggregates(updated.userId, tx);
-        }
-      });
-
-      automationsLogger.debug(`Adjusted trust score by ${delta}`, { userId: serverUserId });
-    },
-
-    /**
-     * Set user trust score to a specific value.
-     * Clamps to 0-100 range.
-     */
-    setUserTrust: async (serverUserId, value) => {
-      const clampedValue = Math.min(100, Math.max(0, value));
-
-      await db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(serverUsers)
-          .set({
-            trustScore: clampedValue,
-            updatedAt: new Date(),
-          })
-          .where(eq(serverUsers.id, serverUserId))
-          .returning({ userId: serverUsers.userId });
-
-        if (updated) {
-          await recomputeIdentityAggregates(updated.userId, tx);
-        }
-      });
-
-      automationsLogger.debug(`Set trust score to ${clampedValue}`, { userId: serverUserId });
-    },
-
-    /**
-     * Reset user trust score to baseline (100).
-     */
-    resetUserTrust: async (serverUserId) => {
-      await db.transaction(async (tx) => {
-        const [updated] = await tx
-          .update(serverUsers)
-          .set({
-            trustScore: 100,
-            updatedAt: new Date(),
-          })
-          .where(eq(serverUsers.id, serverUserId))
-          .returning({ userId: serverUsers.userId });
-
-        if (updated) {
-          await recomputeIdentityAggregates(updated.userId, tx);
-        }
-      });
-
-      automationsLogger.debug('Reset trust score to 100', { userId: serverUserId });
-    },
+    adjustUserTrust: (serverUserId, delta, reason) =>
+      changeTrust(serverUserId, { mode: 'adjust', amount: delta }, reason),
+    setUserTrust: (serverUserId, value, reason) =>
+      changeTrust(serverUserId, { mode: 'set', value }, reason),
+    resetUserTrust: (serverUserId, reason) => changeTrust(serverUserId, { mode: 'reset' }, reason),
 
     /**
      * Enqueue termination through the kill queue rather than terminating inline.

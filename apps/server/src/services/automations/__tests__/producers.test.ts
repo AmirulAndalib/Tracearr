@@ -89,6 +89,7 @@ import {
   dispatchServerUpdate,
   dispatchSessionStopped,
   dispatchTracearrUpdate,
+  dispatchTrustChanged,
   hasMediaListeners,
 } from '../events/producers.js';
 import { registerRuleSubscribers, resetRuleSubscribersForTests } from '../events/subscribers.js';
@@ -161,6 +162,99 @@ function captureEvents(...types: Array<RuleEvent['type']>) {
 // ============================================================================
 // Tests
 // ============================================================================
+
+describe('dispatchTrustChanged', () => {
+  const trustRules = () => [automation([node('account.trust_changed')])];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetDispatcherForTests();
+    mockGetActiveAutomations.mockResolvedValue([]);
+  });
+
+  it('a write that landed on the stored value is not a change', async () => {
+    const seen = captureEvents('account.trust_changed');
+
+    await dispatchTrustChanged({
+      serverId: 'server-1',
+      serverUserId: 'su-1',
+      previous: 100,
+      next: 100,
+      reason: 'Reset trust',
+    });
+
+    expect(seen).toHaveLength(0);
+    expect(mockGetActiveAutomations).not.toHaveBeenCalled();
+    expect(mockLoadEvaluationContext).not.toHaveBeenCalled();
+  });
+
+  it('reads no context when nothing listens', async () => {
+    const seen = captureEvents('account.trust_changed');
+
+    await dispatchTrustChanged({
+      serverId: 'server-1',
+      serverUserId: 'su-1',
+      previous: 90,
+      next: 40,
+      reason: null,
+    });
+
+    expect(seen).toHaveLength(0);
+    expect(mockLoadEvaluationContext).not.toHaveBeenCalled();
+  });
+
+  it('carries both sides and the reason, on a context holding the score the write left', async () => {
+    const rules = trustRules();
+    mockGetActiveAutomations.mockResolvedValue(rules);
+    // The producer loads this fresh, so trustScore is the new value rather than the old one.
+    const serverUser = {
+      id: 'su-1',
+      userId: 'u-1',
+      trustScore: 40,
+      identityServerUserIds: ['su-1'],
+    };
+    const inputs = { activeAutomations: rules, activeSessions: [], recentSessions: [] };
+    mockLoadEvaluationContext.mockResolvedValue({ server, serverUser, inputs });
+    const seen = captureEvents('account.trust_changed');
+
+    await dispatchTrustChanged({
+      serverId: 'server-1',
+      serverUserId: 'su-1',
+      previous: 90,
+      next: 40,
+      reason: 'Too many devices',
+    });
+
+    expect(mockLoadEvaluationContext).toHaveBeenCalledWith('server-1', 'su-1', rules);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.event).toMatchObject({
+      type: 'account.trust_changed',
+      server,
+      serverUser: { id: 'su-1', trustScore: 40 },
+      session: null,
+      previous: 90,
+      next: 40,
+      reason: 'Too many devices',
+    });
+    expect(seen[0]?.inputs).toBe(inputs);
+  });
+
+  it('says nothing when the account is gone by the time the context is read', async () => {
+    mockGetActiveAutomations.mockResolvedValue(trustRules());
+    mockLoadEvaluationContext.mockResolvedValue(null);
+    const seen = captureEvents('account.trust_changed');
+
+    await dispatchTrustChanged({
+      serverId: 'server-1',
+      serverUserId: 'su-1',
+      previous: 90,
+      next: 40,
+      reason: null,
+    });
+
+    expect(seen).toHaveLength(0);
+  });
+});
 
 describe('dispatchSessionStopped', () => {
   beforeEach(() => {

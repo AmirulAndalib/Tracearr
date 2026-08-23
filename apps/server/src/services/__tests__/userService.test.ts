@@ -34,13 +34,12 @@ import {
   createOwnerUser,
   linkPlexAccount,
   syncUserFromMediaServer,
-  updateServerUserTrustScore,
+  applyTrustChange,
   getServerUsersByServer,
   batchSyncUsersFromMediaServer,
   getServerUserDisplayNames,
   recomputeIdentityAggregates,
   UserNotFoundError,
-  ServerUserNotFoundError,
 } from '../userService.js';
 
 // Helper to create mock user (identity layer)
@@ -570,49 +569,49 @@ describe('syncUserFromMediaServer', () => {
   });
 });
 
-describe('updateServerUserTrustScore', () => {
-  it('should update trust score successfully and recompute the identity rollup', async () => {
+describe('applyTrustChange', () => {
+  it('returns both sides of the one write and recomputes the identity rollup', async () => {
     const serverUserId = randomUUID();
     const userId = randomUUID();
-    const updatedServerUser = createMockServerUser({ id: serverUserId, userId, trustScore: 80 });
+    const updated = createMockServerUser({ id: serverUserId, userId, trustScore: 75 });
 
     const txUpdate = vi.fn().mockReturnValue({
       set: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      returning: vi.fn().mockResolvedValue([updatedServerUser]),
+      returning: vi.fn().mockResolvedValue([{ previous: 80, row: updated }]),
     });
     const txSelect = vi.fn().mockReturnValue({
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
-      where: vi.fn().mockResolvedValue([{ trust: 80, count: 0 }]),
+      where: vi.fn().mockResolvedValue([{ trust: 75, count: 0 }]),
     });
     vi.mocked(db.transaction).mockImplementation(async (callback) => {
       return callback({ update: txUpdate, select: txSelect } as never);
     });
 
-    const result = await updateServerUserTrustScore(serverUserId, 80);
+    const result = await applyTrustChange(serverUserId, { mode: 'adjust', amount: -5 });
 
-    expect(result.trustScore).toBe(80);
+    expect(result?.previous).toBe(80);
+    expect(result?.serverUser.trustScore).toBe(75);
     // Rollup recompute reads and writes within the same transaction
     expect(txSelect).toHaveBeenCalled();
     expect(txUpdate).toHaveBeenCalledTimes(2);
   });
 
-  it('should throw ServerUserNotFoundError when server user not found', async () => {
+  it('returns null when the account is already gone', async () => {
+    const txUpdate = vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([]),
+    });
     vi.mocked(db.transaction).mockImplementation(async (callback) => {
-      const tx = {
-        update: vi.fn().mockReturnValue({
-          set: vi.fn().mockReturnThis(),
-          where: vi.fn().mockReturnThis(),
-          returning: vi.fn().mockResolvedValue([]),
-        }),
-      };
-      return callback(tx as never);
+      return callback({ update: txUpdate } as never);
     });
 
-    await expect(updateServerUserTrustScore('non-existent', 50)).rejects.toThrow(
-      ServerUserNotFoundError
-    );
+    expect(await applyTrustChange('non-existent', { mode: 'reset' })).toBeNull();
+    expect(txUpdate).toHaveBeenCalledTimes(1);
   });
 });
 

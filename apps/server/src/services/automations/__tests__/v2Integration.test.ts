@@ -10,9 +10,13 @@ import type { Redis } from 'ioredis';
 import { automationsLogger } from '../../../utils/logger.js';
 import type { NotificationEvent } from '../../notifications/events.js';
 
-const { mockEnqueueNotification } = vi.hoisted(() => ({
-  mockEnqueueNotification: vi.fn().mockResolvedValue(2),
-}));
+const { mockEnqueueNotification, mockApplyTrustChange, mockDispatchTrustChanged } = vi.hoisted(
+  () => ({
+    mockEnqueueNotification: vi.fn().mockResolvedValue(2),
+    mockApplyTrustChange: vi.fn(),
+    mockDispatchTrustChanged: vi.fn().mockResolvedValue(undefined),
+  })
+);
 
 vi.mock('../../../jobs/notificationQueue.js', () => ({
   enqueueNotification: mockEnqueueNotification,
@@ -26,6 +30,11 @@ vi.mock('../../../jobs/poller/database.js', () => ({
 
 vi.mock('../../userService.js', () => ({
   recomputeIdentityAggregates: vi.fn(),
+  applyTrustChange: mockApplyTrustChange,
+}));
+
+vi.mock('../events/producers.js', () => ({
+  dispatchTrustChanged: mockDispatchTrustChanged,
 }));
 
 import { createActionExecutorDeps } from '../v2Integration.js';
@@ -52,6 +61,49 @@ const event: NotificationEvent = {
     },
   },
 };
+
+describe('createActionExecutorDeps - trust', () => {
+  const redis = {} as Redis;
+  const applied = {
+    previous: 90,
+    serverUser: { id: 'su-1', serverId: 'srv-1', trustScore: 85 },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockApplyTrustChange.mockResolvedValue(applied);
+  });
+
+  it.each([
+    ['adjustUserTrust', [-5], { mode: 'adjust', amount: -5 }],
+    ['setUserTrust', [20], { mode: 'set', value: 20 }],
+    ['resetUserTrust', [], { mode: 'reset' }],
+  ] as const)('%s writes once and announces the move once', async (dep, args, change) => {
+    const deps = createActionExecutorDeps(redis);
+
+    await (deps[dep] as (...a: unknown[]) => Promise<void>)('su-1', ...args, 'Sharing penalty');
+
+    expect(mockApplyTrustChange).toHaveBeenCalledTimes(1);
+    expect(mockApplyTrustChange).toHaveBeenCalledWith('su-1', change);
+    expect(mockDispatchTrustChanged).toHaveBeenCalledTimes(1);
+    expect(mockDispatchTrustChanged).toHaveBeenCalledWith({
+      serverId: 'srv-1',
+      serverUserId: 'su-1',
+      previous: 90,
+      next: 85,
+      // The automation's own name is what the notification says moved the score.
+      reason: 'Sharing penalty',
+    });
+  });
+
+  it('announces nothing when the account is already gone', async () => {
+    mockApplyTrustChange.mockResolvedValue(null);
+
+    await createActionExecutorDeps(redis).resetUserTrust('su-1', 'Sharing penalty');
+
+    expect(mockDispatchTrustChanged).not.toHaveBeenCalled();
+  });
+});
 
 describe('createActionExecutorDeps - enqueueAutomationNotification', () => {
   beforeEach(() => {

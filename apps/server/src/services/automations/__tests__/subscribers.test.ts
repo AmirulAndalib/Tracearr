@@ -2234,6 +2234,38 @@ describe('edgeKeyOf', () => {
     ).toBe('4k||HEVC|TRUEHD||42000000000');
   });
 
+  it('a first-seen device has no edge, and a trust edge is the transition it made', () => {
+    const session = toRuleSession(createPausedSession());
+    expect(
+      edgeKeyOf(
+        {
+          type: 'account.new_device',
+          at,
+          server,
+          serverUser,
+          session,
+          device: { name: 'Living Room TV', platform: null, product: null, location: null },
+        },
+        null
+      )
+    ).toBeNull();
+    expect(
+      edgeKeyOf(
+        {
+          type: 'account.trust_changed',
+          at,
+          server,
+          serverUser,
+          session: null,
+          previous: 90,
+          next: 85,
+          reason: null,
+        },
+        null
+      )
+    ).toBe('90->85');
+  });
+
   it('a held_for automation with no enabled node has no edge', () => {
     const unstamped = createPauseRule({ triggers: [] });
     expect(keyFor(heldForEvent(pauseInput), unstamped)).toBeNull();

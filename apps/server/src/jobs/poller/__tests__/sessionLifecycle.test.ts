@@ -835,6 +835,42 @@ describe('wasTriggeringSessionTargetedForKill (Issue #357)', () => {
 // 7. buildRuleContextSessions (twin exclusion)
 // ============================================================================
 
+describe('deviceKeyOf', () => {
+  it('prefers the device id, falls back to the player name, and gives up on neither', async () => {
+    const { deviceKeyOf } = await import('../sessionLifecycle.js');
+
+    expect(deviceKeyOf({ deviceId: 'abc123', playerName: 'Living Room TV' })).toEqual({
+      column: 'deviceId',
+      value: 'abc123',
+    });
+    expect(deviceKeyOf({ deviceId: null, playerName: 'Living Room TV' })).toEqual({
+      column: 'playerName',
+      value: 'Living Room TV',
+    });
+    // An unnamed device is not a device, so it never announces.
+    expect(deviceKeyOf({ deviceId: null, playerName: null })).toBeNull();
+    expect(deviceKeyOf({})).toBeNull();
+  });
+});
+
+describe('sessionLocation', () => {
+  it('names the city with its region, falls back to the country, and empties to null', async () => {
+    const { sessionLocation } = await import('../sessionLifecycle.js');
+
+    expect(
+      sessionLocation({ geoCity: 'Boston', geoRegion: 'Massachusetts', geoCountry: 'US' })
+    ).toBe('Boston, Massachusetts');
+    expect(sessionLocation({ geoCity: 'Boston', geoRegion: null, geoCountry: null })).toBe(
+      'Boston'
+    );
+    expect(sessionLocation({ geoCity: null, geoRegion: null, geoCountry: 'US' })).toBe('US');
+    expect(sessionLocation({ geoCity: 'Boston', geoRegion: null, geoCountry: 'US' })).toBe(
+      'Boston, US'
+    );
+    expect(sessionLocation({ geoCity: null, geoRegion: null, geoCountry: null })).toBeNull();
+  });
+});
+
 describe('buildRuleContextSessions', () => {
   it('excludes the stopped twin from the active session list', async () => {
     const { buildRuleContextSessions } = await import('../sessionLifecycle.js');

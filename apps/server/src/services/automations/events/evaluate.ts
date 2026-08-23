@@ -6,6 +6,8 @@ import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
 import type { EvaluationContext } from '../types.js';
 import type {
   AccountInactiveForEvent,
+  AccountNewDeviceEvent,
+  AccountTrustChangedEvent,
   EvaluationInputs,
   MediaAddedEvent,
   MediaUpgradedEvent,
@@ -27,10 +29,12 @@ export type SessionEvaluatingEvent =
   | SessionStoppedEvent
   | SessionTranscodeChangedEvent
   | SessionPausedEvent
-  | SessionHeldForEvent;
+  | SessionHeldForEvent
+  | AccountNewDeviceEvent;
 
 /** The events that carry the account a run is about. */
-export type UserEvaluatingEvent = SessionEvaluatingEvent | AccountInactiveForEvent;
+export type UserEvaluatingEvent =
+  SessionEvaluatingEvent | AccountInactiveForEvent | AccountTrustChangedEvent;
 
 /** The events about a server and nobody on it. */
 export type ServerEvaluatingEvent =

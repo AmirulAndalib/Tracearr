@@ -19,7 +19,11 @@ import { serverUsers, sessions, users } from '../../db/schema.js';
 import type { GeoLocation } from '../../services/geoip.js';
 import { toRuleSession } from '../../services/automations/events/contextAssembly.js';
 import { dispatch } from '../../services/automations/events/dispatcher.js';
-import { dispatchSessionStopped } from '../../services/automations/events/producers.js';
+import { matchesTrigger } from '../../services/automations/events/evaluate.js';
+import {
+  dispatchNewDevice,
+  dispatchSessionStopped,
+} from '../../services/automations/events/producers.js';
 import type { ActionResult } from '../../services/automations/executors/index.js';
 import { getWatchedThreshold } from '../../services/settings.js';
 import { clearDbWriteTracking } from './dbWriteThrottle.js';
@@ -29,6 +33,7 @@ import {
   checkWatchCompletion,
   shouldRecordSession,
 } from './stateTracker.js';
+import type { DbTx } from '../../services/automations/events/types.js';
 import type { SessionIdentity as MediaItemIdentity } from './database.js';
 import type {
   CompositeSessionIdentity,
@@ -582,6 +587,53 @@ export function buildRuleContextSessions(
     : [...countableSessions, triggeringSession];
 }
 
+/** What a device is known by, matching what evaluateUniqueDevicesInWindow counts; null announces nothing. */
+export function deviceKeyOf(session: {
+  deviceId?: string | null;
+  playerName?: string | null;
+}): { column: 'deviceId' | 'playerName'; value: string } | null {
+  if (session.deviceId) return { column: 'deviceId', value: session.deviceId };
+  if (session.playerName) return { column: 'playerName', value: session.playerName };
+  return null;
+}
+
+/** City and region as a message names them, or null when the session carries no geo columns. */
+export function sessionLocation(session: {
+  geoCity: string | null;
+  geoRegion: string | null;
+  geoCountry: string | null;
+}): string | null {
+  const parts = [session.geoCity, session.geoRegion ?? session.geoCountry].filter(
+    (part): part is string => part !== null && part !== ''
+  );
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+/**
+ * Whether this account has ever streamed from the device. Ordered append visits the newest
+ * chunk first and stops at the first row, so a device already on file never fans out.
+ */
+async function accountHasSeenDevice(
+  tx: DbTx,
+  serverUserId: string,
+  key: { column: 'deviceId' | 'playerName'; value: string }
+): Promise<boolean> {
+  const seen = await tx
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.serverUserId, serverUserId),
+        key.column === 'deviceId'
+          ? eq(sessions.deviceId, key.value)
+          : and(isNull(sessions.deviceId), eq(sessions.playerName, key.value))
+      )
+    )
+    .orderBy(desc(sessions.startedAt))
+    .limit(1);
+  return seen.length > 0;
+}
+
 /**
  * Whether the triggering session had a kill job enqueued for it.
  *
@@ -753,8 +805,8 @@ export async function createSessionWithRulesAtomic(
 
   for (let attempt = 1; attempt <= MAX_SERIALIZATION_RETRIES; attempt++) {
     try {
-      const { insertedSession, violationResults, deferredActions } = await db.transaction(
-        async (tx) => {
+      const { insertedSession, violationResults, deferredActions, newDevice } =
+        await db.transaction(async (tx) => {
           // Set SERIALIZABLE isolation to prevent duplicate violations from concurrent polls
           // This ensures that if two transactions read the violations table simultaneously,
           // one will be forced to retry after the other commits
@@ -765,6 +817,17 @@ export async function createSessionWithRulesAtomic(
           await tx.execute(
             sql`SET LOCAL statement_timeout = ${sql.raw(String(TRANSACTION_TIMEOUT_MS))}`
           );
+
+          // Before the insert: after it the new row would match itself. The rules are in
+          // hand, so an install with no such automation never issues the query.
+          const deviceKey = activeAutomations.some((candidate) =>
+            matchesTrigger(candidate, 'account.new_device')
+          )
+            ? deviceKeyOf(processed)
+            : null;
+          const isNewDevice = deviceKey
+            ? !(await accountHasSeenDevice(tx, serverUser.id, deviceKey))
+            : false;
 
           const insertedRows = await tx
             .insert(sessions)
@@ -862,31 +925,51 @@ export async function createSessionWithRulesAtomic(
             .where(eq(users.id, serverUser.userId));
 
           const session = toRuleSession(inserted);
+          const ruleServer = { id: server.id, name: server.name, type: server.type };
+          const inputs = {
+            activeAutomations,
+            // The quality-change twin was stopped in STEP 1 but still sits in the caller's snapshot.
+            activeSessions: qualityChange
+              ? activeSessions.filter((s) => s.id !== qualityChange.stoppedSession.id)
+              : activeSessions,
+            recentSessions,
+            identityServerUserIds: serverUser.identityServerUserIds,
+          };
           const { violations: violationResults, deferredActions } = await dispatch(
             {
               type: 'session.started',
               at: inserted.startedAt,
-              server: { id: server.id, name: server.name, type: server.type },
+              server: ruleServer,
               serverUser,
               session,
             },
-            {
-              activeAutomations,
-              // The quality-change twin was stopped in STEP 1 but still sits in the caller's snapshot.
-              activeSessions: qualityChange
-                ? activeSessions.filter((s) => s.id !== qualityChange.stoppedSession.id)
-                : activeSessions,
-              recentSessions,
-              identityServerUserIds: serverUser.identityServerUserIds,
-            },
+            inputs,
             { tx, deferActions: true }
           );
 
-          return { insertedSession: inserted, violationResults, deferredActions };
-        }
-      );
+          const newDevice = isNewDevice
+            ? {
+                event: {
+                  at: inserted.startedAt,
+                  server: ruleServer,
+                  serverUser,
+                  session,
+                  device: {
+                    name: inserted.playerName ?? inserted.device ?? inserted.product ?? '',
+                    platform: inserted.platform,
+                    product: inserted.product,
+                    location: sessionLocation(inserted),
+                  },
+                },
+                inputs,
+              }
+            : null;
+
+          return { insertedSession: inserted, violationResults, deferredActions, newDevice };
+        });
 
       const actionResults = deferredActions ? await deferredActions() : [];
+      if (newDevice) await dispatchNewDevice(newDevice.event, newDevice.inputs);
       const wasTerminatedByRule = wasTriggeringSessionTargetedForKill(
         actionResults,
         insertedSession.id

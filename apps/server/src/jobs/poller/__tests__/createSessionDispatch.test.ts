@@ -94,6 +94,9 @@ const insertedRow = {
   discNumber: null,
 } as unknown as typeof sessions.$inferSelect;
 
+/** What the device probe finds: a row means this account has streamed from it before. */
+let deviceProbeRows: Array<{ id: string }> = [];
+
 const fakeTx = {
   execute: vi.fn(),
   insert: vi.fn(() => ({
@@ -101,6 +104,13 @@ const fakeTx = {
   })),
   update: vi.fn(() => ({
     set: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
+  })),
+  select: vi.fn(() => ({
+    from: vi.fn(() => ({
+      where: vi.fn(() => ({
+        orderBy: vi.fn(() => ({ limit: vi.fn().mockResolvedValue(deviceProbeRows) })),
+      })),
+    })),
   })),
 };
 
@@ -239,7 +249,23 @@ const rule: EngineAutomation = {
   updatedAt: new Date('2026-01-01'),
 };
 
+const newDeviceRule: EngineAutomation = {
+  ...rule,
+  id: 'r2',
+  name: 'New device',
+  kind: 'notification',
+  conditions: { groups: [] },
+  actions: { actions: [] },
+  triggers: [{ id: randomUUID(), type: 'account.new_device', enabled: true }],
+};
+
 const violationRow = { id: 'v1', ruleId: 'r1', serverUserId: 'su1', sessionId: 'sess-1' };
+
+/** The recordRun calls a trigger type produced, in order. */
+const runsFor = (trigger: string) =>
+  mockRecordRun.mock.calls
+    .map(([args]) => args as { scope: unknown; trigger: { type: string } })
+    .filter((args) => args.trigger.type === trigger);
 
 function killResults(enqueuedSessionIds: string[]) {
   return [
@@ -271,6 +297,7 @@ function create(activeAutomations: EngineAutomation[] = [rule]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  deviceProbeRows = [];
   executeActionsCallsAtCommit = -1;
   resetDispatcherForTests();
   resetRuleSubscribersForTests();
@@ -338,6 +365,45 @@ describe('createSessionWithRulesAtomic dispatch contract', () => {
     expect(mockExecuteActions).not.toHaveBeenCalled();
     expect(result.violationResults).toEqual([]);
     expect(result.wasTerminatedByRule).toBe(false);
+  });
+
+  it('never probes for a device when no automation listens for one', async () => {
+    await create();
+
+    expect(fakeTx.select).not.toHaveBeenCalled();
+    expect(runsFor('account.new_device')).toHaveLength(0);
+  });
+
+  it('announces a device this account has no session for, after the commit', async () => {
+    mockEvaluateRulesAsync.mockImplementation((_context: unknown, rules: EngineAutomation[]) =>
+      Promise.resolve(
+        rules.map((r) => ({
+          ruleId: r.id,
+          ruleName: r.name,
+          matched: true,
+          matchedGroups: [],
+          actions: r.actions.actions,
+          evidence: [],
+        }))
+      )
+    );
+
+    await create([rule, newDeviceRule]);
+
+    expect(fakeTx.select).toHaveBeenCalledTimes(1);
+    const runs = runsFor('account.new_device');
+    expect(runs).toHaveLength(1);
+    // Not fresh: the row was committed before the dispatch, so the gate applies.
+    expect(runs[0]?.scope).toEqual({ kind: 'session', sessionId: 'sess-1' });
+  });
+
+  it('stays quiet when a session for the device is already on file', async () => {
+    deviceProbeRows = [{ id: 'sess-0' }];
+
+    await create([rule, newDeviceRule]);
+
+    expect(fakeTx.select).toHaveBeenCalledTimes(1);
+    expect(runsFor('account.new_device')).toHaveLength(0);
   });
 
   it('propagates a subscriber failure out of the transaction and retries a serialization error', async () => {

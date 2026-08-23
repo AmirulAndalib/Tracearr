@@ -114,6 +114,28 @@ export interface AccountInactiveForEvent extends BaseEvent {
   session: null;
 }
 
+/** The session that announced the device is the one it fires on, so it carries every session field. */
+export interface AccountNewDeviceEvent extends SessionEventBase {
+  type: 'account.new_device';
+  device: {
+    name: string;
+    platform: string | null;
+    product: string | null;
+    location: string | null;
+  };
+}
+
+export interface AccountTrustChangedEvent extends BaseEvent {
+  type: 'account.trust_changed';
+  server: EvaluationServer;
+  serverUser: EvaluationServerUser;
+  session: null;
+  previous: number;
+  next: number;
+  /** The automation that moved it, or how an owner did; null when the writer named none. */
+  reason: string | null;
+}
+
 interface MediaEventBase extends BaseEvent {
   server: EvaluationServer;
   media: MediaSubject;
@@ -171,6 +193,8 @@ export type RuleEvent =
   | SessionStoppedEvent
   | SessionRefEvent
   | AccountInactiveForEvent
+  | AccountNewDeviceEvent
+  | AccountTrustChangedEvent
   | MediaAddedEvent
   | MediaUpgradedEvent
   | ServerDownEvent

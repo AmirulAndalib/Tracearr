@@ -10,7 +10,13 @@ import {
 } from './contextAssembly.js';
 import { dispatch } from './dispatcher.js';
 import { matchesTrigger } from './evaluate.js';
-import type { EvaluationServer, SessionStopReason, TriggerType } from './types.js';
+import type {
+  AccountNewDeviceEvent,
+  EvaluationInputs,
+  EvaluationServer,
+  SessionStopReason,
+  TriggerType,
+} from './types.js';
 import type { MediaQuality, MediaSubject } from '../types.js';
 
 /** The active automations when one of them listens for the trigger, else null: no listener, no context read. */
@@ -85,6 +91,53 @@ export async function dispatchSessionStopped(
         serverUser: context.serverUser,
         session,
         durationMs,
+      },
+      context.inputs
+    );
+  });
+}
+
+/**
+ * The poller probed for the device inside the insert transaction, so this runs on the
+ * inputs session.started already evaluated in rather than assembling a second set.
+ */
+export async function dispatchNewDevice(
+  event: Omit<AccountNewDeviceEvent, 'type'>,
+  inputs: EvaluationInputs
+): Promise<void> {
+  await guarded('account.new_device', async () => {
+    await dispatch({ type: 'account.new_device', ...event }, inputs);
+  });
+}
+
+/**
+ * Every trust writer announces through here, after its commit. A write that landed on the
+ * value already stored is not a change, which is what most clamps and resets are.
+ */
+export async function dispatchTrustChanged(args: {
+  serverId: string;
+  serverUserId: string;
+  previous: number;
+  next: number;
+  reason: string | null;
+}): Promise<void> {
+  if (args.previous === args.next) return;
+  await guarded('account.trust_changed', async () => {
+    const rules = await listeningRules('account.trust_changed');
+    if (!rules) return;
+    // A fresh read, so the evaluation context carries the score the write just left behind.
+    const context = await loadEvaluationContext(args.serverId, args.serverUserId, rules);
+    if (!context) return;
+    await dispatch(
+      {
+        type: 'account.trust_changed',
+        at: new Date(),
+        server: context.server,
+        serverUser: context.serverUser,
+        session: null,
+        previous: args.previous,
+        next: args.next,
+        reason: args.reason,
       },
       context.inputs
     );

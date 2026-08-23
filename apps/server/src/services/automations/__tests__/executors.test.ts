@@ -230,7 +230,7 @@ describe('Action Executor Registry', () => {
       const deps = getActionExecutorDeps();
       expect(deps).toBeDefined();
       // Default deps should not throw
-      expect(async () => await deps.resetUserTrust('user-1')).not.toThrow();
+      expect(async () => await deps.resetUserTrust('user-1', 'rule')).not.toThrow();
     });
 
     it('should allow setting custom dependencies', () => {
@@ -599,7 +599,11 @@ describe('Action Executor Registry', () => {
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
+        expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(
+          context.serverUser.id,
+          -10,
+          context.rule.name
+        );
       });
 
       it('should not adjust if amount is 0', async () => {
@@ -618,7 +622,11 @@ describe('Action Executor Registry', () => {
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 30);
+        expect(mockDeps.setUserTrust).toHaveBeenCalledWith(
+          context.serverUser.id,
+          30,
+          context.rule.name
+        );
       });
 
       it('should reset user trust in reset mode', async () => {
@@ -628,7 +636,10 @@ describe('Action Executor Registry', () => {
         const result = await executeAction(context, action);
 
         expect(result.success).toBe(true);
-        expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
+        expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(
+          context.serverUser.id,
+          context.rule.name
+        );
       });
     });
 
@@ -1581,7 +1592,11 @@ describe('Action Executor Registry', () => {
         60
       );
       expect(mockDeps.enqueueAutomationNotification).not.toHaveBeenCalled();
-      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -10);
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(
+        context.serverUser.id,
+        -10,
+        context.rule.name
+      );
       expect(results[0]).toMatchObject({ skipped: true, skipReason: 'On cooldown (60 minutes)' });
       expect(results[1]).toMatchObject({ success: true, message: 'Executed trust' });
     });
@@ -1612,9 +1627,20 @@ describe('Action Executor Registry', () => {
 
       await executeActions(context, actions);
 
-      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
-      expect(mockDeps.setUserTrust).toHaveBeenCalledWith(context.serverUser.id, 20);
-      expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(context.serverUser.id);
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(
+        context.serverUser.id,
+        -5,
+        context.rule.name
+      );
+      expect(mockDeps.setUserTrust).toHaveBeenCalledWith(
+        context.serverUser.id,
+        20,
+        context.rule.name
+      );
+      expect(mockDeps.resetUserTrust).toHaveBeenCalledWith(
+        context.serverUser.id,
+        context.rule.name
+      );
     });
 
     it('records a failure without aborting later actions', async () => {
@@ -1631,7 +1657,11 @@ describe('Action Executor Registry', () => {
 
       const results = await executeActions(context, actions);
 
-      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(context.serverUser.id, -5);
+      expect(mockDeps.adjustUserTrust).toHaveBeenCalledWith(
+        context.serverUser.id,
+        -5,
+        context.rule.name
+      );
       expect(results[0]).toMatchObject({ success: false, message: 'discord webhook 500' });
       expect(results[1]).toMatchObject({ success: true });
     });

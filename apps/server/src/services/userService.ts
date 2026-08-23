@@ -475,33 +475,46 @@ export async function updateServerUser(
   return serverUser;
 }
 
+/** How a trust write names its new value; `adjust` is a delta, the other two are absolute. */
+export type TrustChange =
+  { mode: 'adjust'; amount: number } | { mode: 'set'; value: number } | { mode: 'reset' };
+
+export interface TrustChangeResult {
+  previous: number;
+  serverUser: ServerUser;
+}
+
+const TRUST_BASELINE = 100;
+
 /**
- * Update server user trust score
+ * The one trust writer. Both sides come back from a single statement, so nothing can read a
+ * value another write already moved, and the identity rollup commits with it.
  */
-export async function updateServerUserTrustScore(
+export async function applyTrustChange(
   serverUserId: string,
-  trustScore: number
-): Promise<ServerUser> {
-  // The identity rollup recompute runs in the same transaction as the trust
-  // write so the two never commit out of sync with each other.
+  change: TrustChange
+): Promise<TrustChangeResult | null> {
+  const next =
+    change.mode === 'adjust'
+      ? sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} + ${change.amount}))`
+      : sql`${change.mode === 'set' ? Math.min(100, Math.max(0, change.value)) : TRUST_BASELINE}`;
+
   return db.transaction(async (tx) => {
     const rows = await tx
       .update(serverUsers)
-      .set({
-        trustScore,
-        updatedAt: new Date(),
-      })
-      .where(eq(serverUsers.id, serverUserId))
-      .returning();
+      .set({ trustScore: next, updatedAt: new Date() })
+      .from(sql`${serverUsers} AS before`)
+      .where(sql`before.id = ${serverUsers.id} AND ${eq(serverUsers.id, serverUserId)}`)
+      // Aliased: an unaliased before.trust_score would collide with the row's own column.
+      .returning({
+        previous: sql<number>`before.trust_score`.as('previous_trust'),
+        row: serverUsers,
+      });
 
-    const serverUser = rows[0];
-    if (!serverUser) {
-      throw new ServerUserNotFoundError(serverUserId);
-    }
-
-    await recomputeIdentityAggregates(serverUser.userId, tx);
-
-    return serverUser;
+    const updated = rows[0];
+    if (!updated) return null;
+    await recomputeIdentityAggregates(updated.row.userId, tx);
+    return { previous: updated.previous, serverUser: updated.row };
   });
 }
 

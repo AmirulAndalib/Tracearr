@@ -68,6 +68,8 @@ export function toEngineAutomation(definition: CreateAutomationInput): EngineAut
 function sessionTriggersOf(triggers: TriggerNode[]): TriggerType[] {
   const types = triggers
     .filter((node) => node.enabled && TRIGGERS[node.type].context === 'session')
+    // A live session cannot be re-tested for device newness: its own row already matches.
+    .filter((node) => node.type !== 'account.new_device')
     .map((node) => node.type);
   return [...new Set(types)];
 }

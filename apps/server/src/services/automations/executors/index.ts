@@ -55,9 +55,10 @@ export interface ActionExecutorDeps {
     event: NotificationEvent;
     source: NotificationSource;
   }) => Promise<number>;
-  adjustUserTrust: (userId: string, delta: number) => Promise<void>;
-  setUserTrust: (userId: string, value: number) => Promise<void>;
-  resetUserTrust: (userId: string) => Promise<void>;
+  /** `reason` is what a trust notification says moved the score: the automation's own name. */
+  adjustUserTrust: (userId: string, delta: number, reason: string) => Promise<void>;
+  setUserTrust: (userId: string, value: number, reason: string) => Promise<void>;
+  resetUserTrust: (userId: string, reason: string) => Promise<void>;
   terminateSession: (
     sessionId: string,
     serverId: string,
@@ -398,7 +399,7 @@ const executeTrust: ActionExecutor = async (
   context: EvaluationContext,
   action: Action
 ): Promise<{ skipReason: string } | void> => {
-  const { serverUser } = context;
+  const { serverUser, rule } = context;
   if (!serverUser) return { skipReason: 'No account to adjust' };
   const typedAction = action as TrustAction;
 
@@ -407,17 +408,17 @@ const executeTrust: ActionExecutor = async (
       // Stored rows are not revalidated on read, so a missing parameter falls through quietly.
       const amount = typedAction.amount ?? 0;
       if (amount !== 0) {
-        await currentDeps.adjustUserTrust(serverUser.id, amount);
+        await currentDeps.adjustUserTrust(serverUser.id, amount, rule.name);
       }
       break;
     }
     case 'set':
       if (typedAction.value !== undefined) {
-        await currentDeps.setUserTrust(serverUser.id, typedAction.value);
+        await currentDeps.setUserTrust(serverUser.id, typedAction.value, rule.name);
       }
       break;
     case 'reset':
-      await currentDeps.resetUserTrust(serverUser.id);
+      await currentDeps.resetUserTrust(serverUser.id, rule.name);
       break;
   }
 };
