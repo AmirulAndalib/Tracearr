@@ -219,6 +219,11 @@ export const REDIS_KEYS = {
     `${_redisPrefix}tracearr:library:precache:watermark:${serverId}`,
   LIBRARY_PRECACHE_LAST_FULL: (serverId: string) =>
     `${_redisPrefix}tracearr:library:precache:last-full:${serverId}`,
+  // Poster cache: one-time boot reconciliation marker, the last sweep's tally,
+  // and the disk-limited flag the precache sets when the guard refused writes.
+  IMAGE_CACHE_SCHEMA: `${_redisPrefix}tracearr:image-cache:schema`,
+  IMAGE_CACHE_TALLY: `${_redisPrefix}tracearr:image-cache:tally`,
+  IMAGE_CACHE_DISK_LIMITED: `${_redisPrefix}tracearr:image-cache:disk-limited`,
   // Auth tokens
   REFRESH_TOKEN: (hash: string) => `${_redisPrefix}tracearr:refresh:${hash}`,
   PLEX_TEMP_TOKEN: (token: string) => `${_redisPrefix}tracearr:plex_temp:${token}`,
@@ -330,6 +335,9 @@ export const NOTIFICATION_EVENTS = {
   NEW_DEVICE: 'new_device',
   TRUST_SCORE_CHANGED: 'trust_score_changed',
 } as const;
+
+/** The one size a poster is cached at. Every poster URL the server hands out uses it. */
+export const POSTER_IMAGE_SIZE = { width: 360, height: 540 } as const;
 
 // API version
 /**

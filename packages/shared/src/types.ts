@@ -904,6 +904,27 @@ export interface Settings {
   preferredPosterServerId: string | null;
 }
 
+/** GET /settings/image-cache. Sizes in bytes; timestamps ISO. */
+export interface ImageCacheStatus {
+  bytes: number;
+  files: number;
+  versionedFiles: number;
+  sweptAt: string | null;
+  freedBytesLastSweep: number;
+  deletedFilesLastSweep: number;
+  /** Rows in library_items with a thumb path, removed ones included. */
+  postersWithThumb: number;
+  /** postersWithThumb × 18 KB. */
+  estimatedNeedBytes: number;
+  freeBytes: number;
+  totalBytes: number;
+  minFreePercent: number;
+  /** IMAGE_CACHE_MAX_MB in bytes, or null when unset. */
+  maxBytes: number | null;
+  diskLimitedSince: string | null;
+  shortfallBytes: number;
+}
+
 // Tailscale integration
 export type TailscaleStatus =
   'disabled' | 'starting' | 'awaiting_auth' | 'connected' | 'error' | 'stopping';
