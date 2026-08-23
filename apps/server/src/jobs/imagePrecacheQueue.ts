@@ -98,7 +98,7 @@ export function initImagePrecacheQueue(redisUrl: string): void {
 /**
  * Start the image precache worker to process queued jobs.
  */
-export function startImagePrecacheWorker(): void {
+export async function startImagePrecacheWorker(): Promise<void> {
   if (!connectionOptions) {
     throw new Error('Image precache queue not initialized. Call initImagePrecacheQueue first.');
   }
@@ -107,6 +107,12 @@ export function startImagePrecacheWorker(): void {
     console.log('[ImagePrecache] Worker already running');
     return;
   }
+
+  // Older builds queued a pass per sync, so an install can boot with a backlog.
+  // A sweep that can't reach Redis must not cost the process its worker.
+  await dropDuplicatePasses().catch((err: unknown) => {
+    console.error('[ImagePrecache] Backlog sweep failed:', err);
+  });
 
   const bullPrefix = getBullPrefix();
 
@@ -127,14 +133,82 @@ export function startImagePrecacheWorker(): void {
   console.log('[ImagePrecache] Worker started');
 }
 
+/** Everything the queue holds for one server (or for every server), split by
+ *  whether the worker has already picked it up. */
+async function queuedPassJobs(serverId?: string): Promise<{
+  active: Array<Job<ImagePrecacheJobData>>;
+  pending: Array<Job<ImagePrecacheJobData>>;
+}> {
+  if (!imagePrecacheQueue) return { active: [], pending: [] };
+
+  const [active, pending] = await Promise.all([
+    imagePrecacheQueue.getJobs(['active']),
+    imagePrecacheQueue.getJobs(['waiting', 'delayed']),
+  ]);
+  const forServer = (jobs: Array<Job<ImagePrecacheJobData>>) =>
+    serverId === undefined ? jobs : jobs.filter((job) => job.data.serverId === serverId);
+
+  return { active: forServer(active), pending: forServer(pending) };
+}
+
+/** A pass start is what enqueueImagePrecache adds: no cursor and no
+ *  passStartedAt. Both conjuncts matter - passStartedAt only ships from 2.1.0,
+ *  so a 2.0.x backlog's continuations are told apart by their cursor. */
+function isPassStart(job: Job<ImagePrecacheJobData>): boolean {
+  return job.data.passStartedAt === undefined && job.data.cursor === null;
+}
+
+/**
+ * Remove queued pass starts beyond the one that should remain for a server:
+ * the OLDEST survives (its sinceUpdatedAt is the earliest, so it covers the
+ * most), and a server whose pass is already in flight keeps none. Other
+ * servers and the continuations of a running pass are never touched.
+ */
+async function dropDuplicatePasses(serverId?: string): Promise<string[]> {
+  const { active, pending } = await queuedPassJobs(serverId);
+
+  const inFlight = new Set(
+    [...active, ...pending.filter((job) => !isPassStart(job))].map((job) => job.data.serverId)
+  );
+  const startsByServer = new Map<string, Array<Job<ImagePrecacheJobData>>>();
+  for (const job of pending) {
+    if (!isPassStart(job)) continue;
+    const starts = startsByServer.get(job.data.serverId) ?? [];
+    starts.push(job);
+    startsByServer.set(job.data.serverId, starts);
+  }
+
+  const dropped: string[] = [];
+  for (const [id, starts] of startsByServer) {
+    starts.sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+    const doomed = inFlight.has(id) ? starts : starts.slice(1);
+    let removedHere = 0;
+    for (const job of doomed) {
+      // A start that raced to active refuses removal - it is the pass now, not a duplicate.
+      const gone = await job
+        .remove()
+        .then(() => true)
+        .catch(() => false);
+      if (!gone) continue;
+      removedHere++;
+      if (job.id !== undefined) dropped.push(job.id);
+    }
+    if (removedHere > 0) {
+      console.log(`[ImagePrecache] dropped ${removedHere} duplicate passes for ${id}`);
+    }
+  }
+
+  return dropped;
+}
+
 /**
  * Enqueue an image precache pass for a server. No-ops when the setting is
- * disabled or the queue isn't initialized, so callers don't need to check
- * either condition themselves.
+ * disabled, the queue isn't initialized, or a pass for the server is already
+ * queued or running, so callers don't need to check any of that themselves.
+ * A returned job id is the caller's proof that a pass really queued.
  */
 export async function enqueueImagePrecache(
   serverId: string,
-  cursor: string | null = null,
   sinceUpdatedAt?: string | null
 ): Promise<string | undefined> {
   if (!imagePrecacheQueue) return undefined;
@@ -142,11 +216,20 @@ export async function enqueueImagePrecache(
   const enabled = await getSetting('imagePrecacheEnabled');
   if (!enabled) return undefined;
 
+  const { active, pending } = await queuedPassJobs(serverId);
+  if (active.length > 0 || pending.length > 0) return undefined;
+
   const job = await imagePrecacheQueue.add(
     'precache',
-    sinceUpdatedAt ? { serverId, cursor, sinceUpdatedAt } : { serverId, cursor },
-    { jobId: `precache-${serverId}-${cursor ?? 'start'}-${Date.now()}` }
+    sinceUpdatedAt ? { serverId, cursor: null, sinceUpdatedAt } : { serverId, cursor: null },
+    { jobId: `precache-${serverId}-start-${Date.now()}` }
   );
+
+  // Two syncs can clear the check above in the same tick. The sweep leaves one
+  // start either way; which of them reports it depends on who sweeps first, and
+  // both resolved the same watermark, so the survivor covers either one's window.
+  const dropped = await dropDuplicatePasses(serverId);
+  if (job.id !== undefined && dropped.includes(job.id)) return undefined;
 
   return job.id;
 }

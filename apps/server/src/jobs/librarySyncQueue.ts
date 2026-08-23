@@ -267,7 +267,11 @@ export function startLibrarySyncWorker(): void {
           hadChanges
         );
         if (precachePass) {
-          await enqueueImagePrecache(serverId, null, precachePass.sinceUpdatedAt);
+          const passJobId = await enqueueImagePrecache(serverId, precachePass.sinceUpdatedAt);
+          // Stamps move only for a pass that really queued: a waiting pass carries an
+          // older window that covers this sync's items too, and for an active one the
+          // unmoved watermark hands them to the next pass.
+          if (passJobId) await precachePass.commit();
         }
 
         const duration = Math.round((Date.now() - startTime) / 1000);
