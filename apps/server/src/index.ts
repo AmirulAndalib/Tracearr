@@ -934,12 +934,12 @@ async function initializeServices(app: FastifyInstance) {
   try {
     initImagePrecacheQueue(redisUrl);
     await startImagePrecacheWorker();
-    startImageCacheSweepTimer();
     app.log.info('Image precache queue initialized');
   } catch (err) {
     app.log.error({ err }, 'Failed to initialize image precache queue');
     // Don't throw - image precache is non-critical
   }
+  startImageCacheSweepTimer();
 
   // Initialize version check queue (uses Redis for job storage and caching)
   try {

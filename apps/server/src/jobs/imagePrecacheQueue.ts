@@ -21,7 +21,7 @@ import { POSTER_IMAGE_SIZE } from '@tracearr/shared';
 import { getBullPrefix, queueConnectionOptions } from './queueConnection.js';
 import { isMaintenance } from '../serverState.js';
 import { db } from '../db/client.js';
-import { libraryItems } from '../db/schema.js';
+import { libraryItems, servers } from '../db/schema.js';
 import { proxyImage, posterCacheEntryExists } from '../services/imageProxy.js';
 import {
   takeRefusedWrites,
@@ -29,9 +29,11 @@ import {
   clearDiskLimited,
   readDiskLimited,
 } from '../services/imageCacheGuard.js';
+import { sweepImageCache } from '../services/imageCacheSweep.js';
 import { getRedis } from '../lib/redisShared.js';
 import { getSetting } from '../services/settings.js';
 import { getLibrarySyncStatus } from './librarySyncQueue.js';
+import { reconcileImagePrecacheOnBoot } from './imagePrecacheBoot.js';
 
 export interface ImagePrecacheJobData {
   serverId: string;
@@ -112,6 +114,19 @@ export async function startImagePrecacheWorker(): Promise<void> {
     console.log('[ImagePrecache] Worker already running');
     return;
   }
+
+  // One-time reconciliation for the 2.2 poster cache change: empties any
+  // backlog of interleaved passes, queues one fresh pass per server, and
+  // sweeps the old copies. A failure here must not cost the process its worker.
+  await reconcileImagePrecacheOnBoot({
+    queue: imagePrecacheQueue!,
+    redis: getRedis(),
+    listServerIds: async () => (await db.select({ id: servers.id }).from(servers)).map((r) => r.id),
+    enqueuePass: (serverId) => enqueueImagePrecache(serverId),
+    sweep: () => sweepImageCache(),
+  }).catch((err: unknown) => {
+    console.error('[ImagePrecache] boot reconciliation failed:', err);
+  });
 
   // Older builds queued a pass per sync, so an install can boot with a backlog.
   // A sweep that can't reach Redis must not cost the process its worker.

@@ -20,6 +20,8 @@ const mockTakeRefusedWrites = vi.fn();
 const mockWriteDiskLimited = vi.fn();
 const mockClearDiskLimited = vi.fn();
 const mockReadDiskLimited = vi.fn();
+const mockReconcileImagePrecacheOnBoot = vi.fn();
+const mockSweepImageCache = vi.fn();
 
 vi.mock('../../services/settings.js', () => ({
   getSetting: (...args: unknown[]) => mockGetSetting(...args),
@@ -43,6 +45,14 @@ vi.mock('../../services/imageCacheGuard.js', () => ({
 
 vi.mock('../../lib/redisShared.js', () => ({
   getRedis: () => ({}) as never,
+}));
+
+vi.mock('../../services/imageCacheSweep.js', () => ({
+  sweepImageCache: (...args: unknown[]) => mockSweepImageCache(...args),
+}));
+
+vi.mock('../imagePrecacheBoot.js', () => ({
+  reconcileImagePrecacheOnBoot: (...args: unknown[]) => mockReconcileImagePrecacheOnBoot(...args),
 }));
 
 vi.mock('../../db/client.js', () => ({
@@ -184,6 +194,7 @@ describe('imagePrecacheQueue', () => {
     mockPosterCacheEntryExists.mockResolvedValue(false);
     mockTakeRefusedWrites.mockReturnValue(0);
     mockReadDiskLimited.mockResolvedValue(null);
+    mockReconcileImagePrecacheOnBoot.mockResolvedValue({ ran: false, passes: 0 });
     queueHolds({});
   });
 
@@ -339,6 +350,24 @@ describe('imagePrecacheQueue', () => {
       await startImagePrecacheWorker();
 
       expect(queued.remove).toHaveBeenCalledTimes(1);
+    });
+
+    it('constructs the worker only after boot reconciliation resolves', async () => {
+      let resolveReconcile: (() => void) | undefined;
+      mockReconcileImagePrecacheOnBoot.mockReturnValue(
+        new Promise((resolve) => {
+          resolveReconcile = () => resolve({ ran: true, passes: 1 });
+        })
+      );
+
+      const startPromise = startImagePrecacheWorker();
+
+      expect(vi.mocked(Worker)).not.toHaveBeenCalled();
+
+      resolveReconcile?.();
+      await startPromise;
+
+      expect(vi.mocked(Worker)).toHaveBeenCalledTimes(1);
     });
   });
 
