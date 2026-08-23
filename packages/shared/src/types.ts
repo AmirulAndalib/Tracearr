@@ -1345,7 +1345,9 @@ export type NotificationEventType =
   | 'server_update_available'
   | 'tracearr_update_available'
   | 'media_added'
-  | 'media_upgraded';
+  | 'media_upgraded'
+  | 'new_device'
+  | 'trust_score_changed';
 
 // Notification preferences (per-device settings)
 export interface NotificationPreferences {

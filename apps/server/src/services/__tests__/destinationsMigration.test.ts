@@ -193,14 +193,29 @@ describe('planDestinationsMigration', () => {
       }),
       routing: null,
     });
-    const all = ['violation_detected', 'server_down', 'server_up', 'plugin_update_available'];
+    const all = [
+      'violation_detected',
+      'server_down',
+      'server_up',
+      'plugin_update_available',
+      'new_device',
+      'trust_score_changed',
+    ];
     expect(result.destinations[0]?.events).toEqual(all);
     expect(result.destinations[1]?.events).toEqual(all);
-    expect(result.builtinEvents.push).toEqual(['violation_detected', 'server_down', 'server_up']);
+    expect(result.builtinEvents.push).toEqual([
+      'violation_detected',
+      'server_down',
+      'server_up',
+      'new_device',
+      'trust_score_changed',
+    ]);
+    // The toast mask drops trust alone; 0018 checked that column for every row.
     expect(result.builtinEvents.webToast).toEqual([
       'violation_detected',
       'server_down',
       'server_up',
+      'new_device',
     ]);
   });
 
@@ -214,8 +229,13 @@ describe('planDestinationsMigration', () => {
         { eventType: 'plugin_update_available', pushEnabled: true, webToastEnabled: true },
       ]),
     });
-    expect(result.builtinEvents.push).toEqual(['violation_detected', 'stream_started']);
-    expect(result.builtinEvents.webToast).toEqual(['stream_started', 'server_down']);
+    expect(result.builtinEvents.push).toEqual([
+      'violation_detected',
+      'stream_started',
+      'new_device',
+      'trust_score_changed',
+    ]);
+    expect(result.builtinEvents.webToast).toEqual(['stream_started', 'server_down', 'new_device']);
   });
 
   it('rewrites notify actions to send across every rule, dropping email and empty actions', () => {
@@ -427,8 +447,10 @@ describe('runDestinationsMigration', () => {
       'violation_detected',
       'server_down',
       'server_up',
+      'new_device',
+      'trust_score_changed',
     ]);
-    expect(builtinPatches[1]?.patch.events).toEqual(['server_down', 'server_up']);
+    expect(builtinPatches[1]?.patch.events).toEqual(['server_down', 'server_up', 'new_device']);
 
     const ruleUpdate = harness.updates.find((u) => u.table === automations);
     expect(ruleUpdate?.patch.actions).toEqual({

@@ -20,6 +20,7 @@ import {
   Server,
   Settings2,
   Shield,
+  Smartphone,
   Split,
   TrendingUp,
   UserRound,
@@ -68,10 +69,12 @@ const ACTION_ICONS = {
   if: Split,
 } as const satisfies Record<ActionType, LucideIcon>;
 
-/** Two triggers a reader scans for by what they are rather than by their group. */
+/** The triggers a reader scans for by what they are rather than by their group. */
 const TRIGGER_ICONS: Partial<Record<TriggerType, LucideIcon>> = {
   'session.held_for': Pause,
   'account.inactive_for': UserRound,
+  'account.new_device': Smartphone,
+  'account.trust_changed': Shield,
 };
 
 function iconForTrigger(type: TriggerType): LucideIcon {

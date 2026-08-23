@@ -24,6 +24,8 @@ export const NOTIFICATION_EVENT_TYPES = [
   'tracearr_update_available',
   'media_added',
   'media_upgraded',
+  'new_device',
+  'trust_score_changed',
 ] as const satisfies readonly NotificationEventType[];
 
 /** What a destination may subscribe to on its own; every other event reaches it through an automation. */

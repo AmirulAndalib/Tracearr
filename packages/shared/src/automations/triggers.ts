@@ -39,6 +39,7 @@ const SESSION_VARS = [
   'server.name',
   'server.type',
 ] as const;
+const ACCOUNT_VARS = ['user.username', 'user.identityName', 'server.name', 'server.type'] as const;
 const SERVER_VARS = ['server.name', 'server.type'] as const;
 /** `server.name` doubles `media.server` so an automation that also carries a server trigger keeps one. */
 const MEDIA_VARS = [
@@ -86,7 +87,23 @@ export const TRIGGERS = {
   'account.inactive_for': {
     context: 'account',
     group: 'accounts',
-    variables: ['user.username', 'user.identityName', 'server.name', 'server.type', 'days'],
+    variables: [...ACCOUNT_VARS, 'days'],
+  },
+  'account.new_device': {
+    context: 'session',
+    group: 'accounts',
+    variables: [
+      ...SESSION_VARS,
+      'device.name',
+      'device.platform',
+      'device.product',
+      'device.location',
+    ],
+  },
+  'account.trust_changed': {
+    context: 'account',
+    group: 'accounts',
+    variables: [...ACCOUNT_VARS, 'trust.previous', 'trust.new', 'trust.reason'],
   },
   'media.added': { context: 'media', group: 'library', variables: MEDIA_VARS },
   'media.upgraded': {
@@ -118,6 +135,12 @@ export const TRIGGERS = {
 
 export type TriggerType = keyof typeof TRIGGERS;
 export const TRIGGER_TYPES = Object.keys(TRIGGERS) as TriggerType[];
+
+/** Triggers a violation is never about: nobody did anything wrong by picking up a new phone. */
+export const NOTIFICATION_ONLY_TRIGGERS = [
+  'account.new_device',
+  'account.trust_changed',
+] as const satisfies readonly TriggerType[];
 
 type ParamlessTriggerType = Exclude<TriggerType, 'session.held_for' | 'account.inactive_for'>;
 

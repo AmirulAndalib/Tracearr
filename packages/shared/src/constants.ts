@@ -327,6 +327,8 @@ export const NOTIFICATION_EVENTS = {
   TRACEARR_UPDATE_AVAILABLE: 'tracearr_update_available',
   MEDIA_ADDED: 'media_added',
   MEDIA_UPGRADED: 'media_upgraded',
+  NEW_DEVICE: 'new_device',
+  TRUST_SCORE_CHANGED: 'trust_score_changed',
 } as const;
 
 // API version

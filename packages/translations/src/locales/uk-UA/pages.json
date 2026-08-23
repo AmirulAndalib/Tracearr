@@ -385,6 +385,14 @@
           "label": "An account goes quiet",
           "synonyms": "inactive, dormant, unused, stale, cleanup"
         },
+        "accountNewDevice": {
+          "description": "The first time an account streams from a device Tracearr has not seen before.",
+          "synonyms": "device, new, unknown, unrecognized, phone, login, sharing"
+        },
+        "accountTrustChanged": {
+          "description": "An account's trust score is written to a different value, by an automation or by hand.",
+          "synonyms": "trust, score, reputation, penalty, adjusted"
+        },
         "mediaAdded": {
           "description": "A library item shows up on a server for the first time.",
           "synonyms": "new, added, library, movie, episode, import"
@@ -580,6 +588,8 @@
       "then": "then {{text}}",
       "triggers": {
         "accountInactiveFor": "an account has been inactive for {{duration}}",
+        "accountNewDevice": "an account plays from a new device",
+        "accountTrustChanged": "an account's trust score changes",
         "mediaAdded": "media is added",
         "mediaUpgraded": "media is upgraded",
         "pluginUpdateAvailable": "a plugin update is available",

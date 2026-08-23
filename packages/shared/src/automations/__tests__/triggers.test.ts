@@ -6,6 +6,8 @@ const started = { id: id(1), type: 'session.started', enabled: true } as const;
 const down = { id: id(2), type: 'server.down', enabled: true } as const;
 const added = { id: id(3), type: 'media.added', enabled: true } as const;
 const upgraded = { id: id(4), type: 'media.upgraded', enabled: true } as const;
+const newDevice = { id: id(5), type: 'account.new_device', enabled: true } as const;
+const trustChanged = { id: id(6), type: 'account.trust_changed', enabled: true } as const;
 
 describe('trigger contexts', () => {
   it('walks the parent chain to say what a context supplies', () => {
@@ -22,6 +24,12 @@ describe('trigger contexts', () => {
     expect(contextOf([added, upgraded])).toBe('media');
     expect(contextOf([added])).toBe('media');
     expect(contextOf([started, down])).toBe('server');
+  });
+
+  it('meets a new-device trigger with the account it sits under and the server beyond it', () => {
+    expect(contextOf([newDevice])).toBe('session');
+    expect(contextOf([newDevice, trustChanged])).toBe('account');
+    expect(contextOf([newDevice, added])).toBe('server');
   });
 
   it('lists every catalog key', () => {

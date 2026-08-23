@@ -101,6 +101,8 @@ export const TRIGGER_KEYS = {
   'session.paused': 'sessionPaused',
   'session.held_for': 'sessionHeldFor',
   'account.inactive_for': 'accountInactiveFor',
+  'account.new_device': 'accountNewDevice',
+  'account.trust_changed': 'accountTrustChanged',
   'media.added': 'mediaAdded',
   'media.upgraded': 'mediaUpgraded',
   'server.down': 'serverDown',

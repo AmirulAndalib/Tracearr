@@ -25,6 +25,8 @@ const held = {
 } as const;
 const mediaAdded = { id: id(4), type: 'media.added', enabled: true } as const;
 const mediaUpgraded = { id: id(5), type: 'media.upgraded', enabled: true } as const;
+const newDevice = { id: id(6), type: 'account.new_device', enabled: true } as const;
+const trustChanged = { id: id(7), type: 'account.trust_changed', enabled: true } as const;
 const base = {
   name: 'x',
   kind: 'notification',
@@ -34,14 +36,19 @@ const base = {
 };
 
 describe('catalog', () => {
-  it('has thirteen triggers with a context and a group', () => {
-    expect(TRIGGER_TYPES).toHaveLength(13);
+  it('has fifteen triggers with a context and a group', () => {
+    expect(TRIGGER_TYPES).toHaveLength(15);
     for (const t of TRIGGER_TYPES)
       expect(TRIGGERS[t].context).toMatch(/session|account|media|server|install/);
     expect(TRIGGERS['server.down'].context).toBe('server');
     expect(TRIGGERS['tracearr.update_available'].context).toBe('install');
     expect(TRIGGERS['media.added'].context).toBe('media');
     expect(TRIGGERS['media.upgraded'].group).toBe('library');
+    // The group is picker taxonomy; a new device arrives on a session and carries one.
+    expect(TRIGGERS['account.new_device'].context).toBe('session');
+    expect(TRIGGERS['account.new_device'].group).toBe('accounts');
+    expect(TRIGGERS['account.trust_changed'].context).toBe('account');
+    expect(TRIGGERS['account.trust_changed'].group).toBe('accounts');
   });
   it('has 31 condition fields each with requires and operators', () => {
     expect(Object.keys(CONDITION_FIELDS)).toHaveLength(31);
@@ -307,6 +314,78 @@ describe('definition refinements', () => {
     expect(
       automationDefinitionSchema.safeParse({ ...base, triggers: [{ ...started, enabled: false }] })
         .success
+    ).toBe(false);
+  });
+
+  it.each([[newDevice], [trustChanged]])('keeps %o off a policy and takes it on a send', (node) => {
+    const policy = automationDefinitionSchema.safeParse({
+      ...base,
+      kind: 'policy',
+      severity: 'warning',
+      triggers: [node],
+    });
+    expect(policy.success).toBe(false);
+    expect(policy.success ? '' : policy.error.issues[0]?.path.join('.')).toBe('triggers');
+    expect(automationDefinitionSchema.safeParse({ ...base, triggers: [node] }).success).toBe(true);
+  });
+
+  it('refuses a trust action beside a trust trigger, branches included', () => {
+    const trust = { type: 'trust', mode: 'adjust', amount: -5 };
+    const flat = automationDefinitionSchema.safeParse({
+      ...base,
+      triggers: [trustChanged],
+      actions: { actions: [trust] },
+    });
+    expect(flat.success).toBe(false);
+    expect(flat.success ? '' : flat.error.issues[0]?.path.join('.')).toBe('actions.actions.0.type');
+
+    const branched = automationDefinitionSchema.safeParse({
+      ...base,
+      triggers: [trustChanged],
+      actions: { actions: [{ type: 'if', conditions: { groups: [] }, then: [trust], else: [] }] },
+    });
+    expect(branched.success).toBe(false);
+    expect(branched.success ? '' : branched.error.issues[0]?.path.join('.')).toBe(
+      'actions.actions.0.then.0.type'
+    );
+
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [started],
+        actions: { actions: [trust] },
+      }).success
+    ).toBe(true);
+  });
+
+  it('offers a trust trigger its account fields and a device trigger the session ones', () => {
+    expect(fieldsAvailableFor(contextOf([trustChanged]))).toEqual([
+      'inactive_days',
+      'user_id',
+      'trust_score',
+      'account_age_days',
+      'server_id',
+    ]);
+    expect(variablesFor([newDevice, trustChanged])).toEqual([
+      'user.username',
+      'user.identityName',
+      'server.name',
+      'server.type',
+    ]);
+    const send = (body: string) => ({ type: 'send', to: [id(9)], body });
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [newDevice],
+        actions: { actions: [send('{{device.location}}')] },
+      }).success
+    ).toBe(true);
+    expect(
+      automationDefinitionSchema.safeParse({
+        ...base,
+        triggers: [trustChanged],
+        actions: { actions: [send('{{device.location}}')] },
+      }).success
     ).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import {
 import { ACTIONS, automationActionsSchema } from './actions.js';
 import { CONDITION_FIELDS, automationConditionsSchema } from './conditions.js';
 import {
+  NOTIFICATION_ONLY_TRIGGERS,
   TRIGGERS,
   TRIGGER_GROUPS,
   contextOf,
@@ -123,6 +124,22 @@ function definitionRefinements(
       message: 'A policy needs a stream or account trigger: violations are about a user',
     });
   }
+  // A session context supplies an account, so the rule above would let a policy sit on a new device.
+  if (
+    def.kind === 'policy' &&
+    enabled.some((trigger) =>
+      (NOTIFICATION_ONLY_TRIGGERS as readonly string[]).includes(trigger.type)
+    )
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['triggers'],
+      message:
+        'New device and trust score changed can only send: neither is something a person did wrong',
+    });
+  }
+  // A trust action one hop from the writer that fired the trigger walks the score down on every run.
+  const watchesTrust = enabled.some((trigger) => trigger.type === 'account.trust_changed');
   const checkGroups = (groups: ConditionGroup[], path: (string | number)[]) => {
     groups.forEach((group, groupIndex) =>
       group.conditions.forEach((condition, conditionIndex) => {
@@ -166,6 +183,13 @@ function definitionRefinements(
           code: 'custom',
           path: [...path, 'type'],
           message: `${action.type} needs a ${need} trigger`,
+        });
+      }
+      if (watchesTrust && action.type === 'trust') {
+        ctx.addIssue({
+          code: 'custom',
+          path: [...path, 'type'],
+          message: 'An automation that watches trust cannot also change it',
         });
       }
     }

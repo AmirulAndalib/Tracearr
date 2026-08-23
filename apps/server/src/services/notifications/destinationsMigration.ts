@@ -223,9 +223,11 @@ export function planDestinationsMigration(input: PlanInput): Plan {
         'push',
         evts((r) => r.pushEnabled)
       ),
+      // 0018 set web_toast_enabled true on every existing row, so a checked toast is not
+      // evidence anyone wanted trust-score alerts - its other three columns all default off.
       webToast: capable(
         'web_toast',
-        evts((r) => r.webToastEnabled)
+        evts((r) => r.webToastEnabled && r.eventType !== 'trust_score_changed')
       ),
     },
     ruleUpdates,
