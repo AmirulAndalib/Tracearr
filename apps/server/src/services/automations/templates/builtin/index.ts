@@ -7,6 +7,7 @@ import impossibleTravel from './impossible-travel.json' with { type: 'json' };
 import killPausedStreams from './kill-paused-streams.json' with { type: 'json' };
 import mediaAdded from './media-added.json' with { type: 'json' };
 import mediaUpgraded from './media-upgraded.json' with { type: 'json' };
+import newDevice from './new-device.json' with { type: 'json' };
 import no4kTranscodes from './no-4k-transcodes.json' with { type: 'json' };
 import pausedTooLong from './paused-too-long.json' with { type: 'json' };
 import pluginUpdate from './plugin-update.json' with { type: 'json' };
@@ -18,6 +19,7 @@ import streamEnded from './stream-ended.json' with { type: 'json' };
 import streamStarted from './stream-started.json' with { type: 'json' };
 import tracearrUpdate from './tracearr-update.json' with { type: 'json' };
 import transcodeStarted from './transcode-started.json' with { type: 'json' };
+import trustScoreChanged from './trust-score-changed.json' with { type: 'json' };
 
 /**
  * The bundled envelopes, parsed at import: a malformed one is a build mistake,
@@ -30,6 +32,8 @@ export const BUILTIN_ENVELOPES: TemplateEnvelope[] = [
   pausedTooLong,
   mediaAdded,
   mediaUpgraded,
+  newDevice,
+  trustScoreChanged,
   serverDown,
   serverUp,
   pluginUpdate,

@@ -39,6 +39,8 @@ const EVENT_TEMPLATES: ReadonlyArray<readonly [NotificationEventType, string]> =
   ['server_down', 'server-down'],
   ['server_up', 'server-up'],
   ['plugin_update_available', 'plugin-update'],
+  ['new_device', 'new-device'],
+  ['trust_score_changed', 'trust-score-changed'],
 ];
 
 const KEPT_EVENTS = sql.join(

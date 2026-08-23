@@ -215,7 +215,8 @@ async function bindPausedTooLong(destinationId: string): Promise<{ id: string }>
 /**
  * The routing table a fresh install's migrations leave behind: browser toasts for streams,
  * every channel for the rest. Restated rather than assumed, since the destinations migration
- * retires the table on the first boot that reads it.
+ * retires the table on the first boot that reads it. 0004 seeds new_device on and
+ * trust_score_changed off; 0018 then checks web_toast_enabled for every row it finds.
  */
 async function seedRoutingTable(): Promise<void> {
   await db.execute(sql`
@@ -235,7 +236,9 @@ async function seedRoutingTable(): Promise<void> {
            ('server_down', true, true, true, true),
            ('server_up', true, true, true, true),
            ('stream_started', false, false, false, true),
-           ('stream_stopped', false, false, false, true)
+           ('stream_stopped', false, false, false, true),
+           ('new_device', true, true, true, true),
+           ('trust_score_changed', false, false, false, true)
     ON CONFLICT (event_type) DO UPDATE SET
       discord_enabled = excluded.discord_enabled,
       webhook_enabled = excluded.webhook_enabled,
@@ -520,6 +523,43 @@ describe('runSystemEventsMigration', () => {
     expect(await seededBySlug('plugin-update')).toBeNull();
     expect(await events(builtins.pushId)).toEqual(['violation_detected']);
     expect(await events(builtins.webToastId)).toEqual(['violation_detected']);
+  });
+
+  it('seeds new device on a fresh install and leaves trust score changed alone', async () => {
+    await seedRoutingTable();
+    await seedBuiltinTemplates();
+
+    await runDestinationsMigration();
+    const builtins = await seedBuiltinDestinations();
+    await runSystemEventsMigration();
+
+    const both = [builtins.pushId, builtins.webToastId].sort();
+    expect(sendTo(await seededBySlug('new-device'))).toEqual(both);
+    // 0018 checked the toast column for every row, so a checked toast is not evidence
+    // anyone asked for trust alerts; its other three columns are all off.
+    expect(await seededBySlug('trust-score-changed')).toBeNull();
+
+    const seeded = await db
+      .select({ id: automations.id })
+      .from(automations)
+      .where(sql`template_id IS NOT NULL`);
+    expect(seeded).toHaveLength(5);
+  });
+
+  it('converts a trust subscription the owner actually ticked', async () => {
+    await seedRoutingTable();
+    await seedBuiltinTemplates();
+    // Push is a column an owner had to tick themselves, unlike the toast 0018 set for everyone.
+    await db.execute(sql`
+      UPDATE notification_channel_routing
+      SET push_enabled = true WHERE event_type = 'trust_score_changed'
+    `);
+
+    await runDestinationsMigration();
+    const builtins = await seedBuiltinDestinations();
+    await runSystemEventsMigration();
+
+    expect(sendTo(await seededBySlug('trust-score-changed'))).toEqual([builtins.pushId]);
   });
 
   it('finishes the steps a half-applied upgrade left behind without seeding twice', async () => {
