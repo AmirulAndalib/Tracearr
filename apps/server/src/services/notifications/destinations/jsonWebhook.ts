@@ -5,6 +5,8 @@ import { getMediaDisplay, getPlaybackType, getUserDisplayName } from './sessionT
 import type {
   MediaAddedContext,
   MediaUpgradedContext,
+  NewDeviceContext,
+  TrustChangedContext,
   NotificationPayload,
   PluginUpdateContext,
   ServerContext,
@@ -185,9 +187,10 @@ function buildTracearrUpdate(
   };
 }
 
-function buildMedia(
+/** The contexts that are already flat: the discriminator names the event, the rest is the body. */
+function buildFlat(
   payload: NotificationPayload,
-  ctx: MediaAddedContext | MediaUpgradedContext
+  ctx: MediaAddedContext | MediaUpgradedContext | NewDeviceContext | TrustChangedContext
 ): JsonWebhookBody {
   const { type, ...data } = ctx;
   return { event: type, timestamp: payload.timestamp, data };
@@ -218,7 +221,9 @@ function bodyOf(payload: NotificationPayload): JsonWebhookBody {
       return buildTracearrUpdate(payload, payload.context);
     case 'media_added':
     case 'media_upgraded':
-      return buildMedia(payload, payload.context);
+    case 'new_device':
+    case 'trust_score_changed':
+      return buildFlat(payload, payload.context);
   }
 }
 

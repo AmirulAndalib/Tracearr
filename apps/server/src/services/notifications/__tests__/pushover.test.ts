@@ -229,6 +229,42 @@ describe('pushoverType.deliver', () => {
   });
 });
 
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
 const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
   source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
@@ -239,6 +275,18 @@ describe('pushoverType.render with an automation source', () => {
     const message = await render({ type: 'session_started', payload: session }, automationCtx());
 
     expect(message.title).toBe('Stream Started');
+  });
+
+  it('renders a new device and a trust move from the payload text', async () => {
+    const device = await render(newDevice, automationCtx());
+    expect(device.title).toBe('New Device Detected');
+    expect(device.message).toBe(
+      'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
+    );
+
+    const trust = await render(trustChanged, automationCtx());
+    expect(trust.title).toBe('Trust Score Changed');
+    expect(trust.message).toBe("Test User's trust score decreased from 90 to 40: Sharing penalty");
   });
 
   it('renders a media upgrade, and an override still wins', async () => {

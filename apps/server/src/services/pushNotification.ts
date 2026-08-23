@@ -17,6 +17,7 @@ import { quietHoursService, type NotificationSeverity } from './quietHours.js';
 import { pushEncryptionService } from './pushEncryption.js';
 import { getNetworkSettings } from '../routes/settings.js';
 import { buildPushPosterUrl, buildPushAvatarUrl, buildLogoUrl } from './imageProxy.js';
+import type { NewDevicePayload, TrustChangedPayload } from './notifications/events.js';
 
 // Initialize Expo SDK
 const expo = new Expo();
@@ -794,6 +795,103 @@ export class PushNotificationService {
         priority: 'high',
         channelId: 'alerts',
         sound: 'default',
+        imageUrl,
+      })
+    );
+
+    await sendPushNotifications(messages);
+  }
+
+  /**
+   * Send new device notification to devices that have enabled device alerts.
+   * The per-device toggle is the opt-in here, unlike the update and library sends.
+   */
+  async notifyNewDevice(payload: NewDevicePayload, override?: PushTextOverride): Promise<void> {
+    const sessions = await getSessionsWithPreferences();
+    if (sessions.length === 0) return;
+
+    const eligibleSessions = sessions.filter((s) => s.pushEnabled && s.onNewDevice);
+    if (eligibleSessions.length === 0) {
+      console.log(`[Push] No eligible sessions for new device notification`);
+      return;
+    }
+
+    const rateLimitedSessions = await applyRateLimiting(eligibleSessions, 'new_device');
+    if (rateLimitedSessions.length === 0) {
+      console.log(`[Push] All sessions rate limited for new device notification`);
+      return;
+    }
+
+    const activeSessions = applyQuietHours(rateLimitedSessions, 'warning', 'new_device');
+    if (activeSessions.length === 0) {
+      console.log(`[Push] All sessions in quiet hours for new device notification`);
+      return;
+    }
+
+    const { externalUrl } = await getNetworkSettings();
+    const imageUrl = buildLogoUrl(externalUrl);
+    const where = payload.location ? ` from ${payload.location}` : '';
+
+    const messages = activeSessions.map((s) =>
+      buildPushMessage(s.expoPushToken, s.deviceSecret, {
+        title: override?.title ?? payload.userName,
+        subtitle: 'New Device',
+        body: override?.body ?? `${payload.deviceName}${where}`,
+        data: { ...payload, type: 'new_device' },
+        priority: 'high',
+        channelId: 'alerts',
+        sound: 'default',
+        imageUrl,
+      })
+    );
+
+    await sendPushNotifications(messages);
+  }
+
+  /** Send trust score notification to devices that have enabled trust alerts. */
+  async notifyTrustChanged(
+    payload: TrustChangedPayload,
+    override?: PushTextOverride
+  ): Promise<void> {
+    const sessions = await getSessionsWithPreferences();
+    if (sessions.length === 0) return;
+
+    const eligibleSessions = sessions.filter((s) => s.pushEnabled && s.onTrustScoreChanged);
+    if (eligibleSessions.length === 0) {
+      console.log(`[Push] No eligible sessions for trust score notification`);
+      return;
+    }
+
+    const rateLimitedSessions = await applyRateLimiting(eligibleSessions, 'trust_score_changed');
+    if (rateLimitedSessions.length === 0) {
+      console.log(`[Push] All sessions rate limited for trust score notification`);
+      return;
+    }
+
+    const dropped = payload.newScore < payload.previousScore;
+    const activeSessions = applyQuietHours(
+      rateLimitedSessions,
+      dropped ? 'warning' : 'low',
+      'trust_score_changed'
+    );
+    if (activeSessions.length === 0) {
+      console.log(`[Push] All sessions in quiet hours for trust score notification`);
+      return;
+    }
+
+    const { externalUrl } = await getNetworkSettings();
+    const imageUrl = buildLogoUrl(externalUrl);
+    const why = payload.reason ? `: ${payload.reason}` : '';
+    const move = `${dropped ? 'Dropped' : 'Rose'} from ${String(payload.previousScore)} to ${String(payload.newScore)}`;
+
+    const messages = activeSessions.map((s) =>
+      buildPushMessage(s.expoPushToken, s.deviceSecret, {
+        title: override?.title ?? payload.userName,
+        subtitle: 'Trust Score',
+        body: override?.body ?? `${move}${why}`,
+        data: { ...payload, type: 'trust_score_changed' },
+        priority: dropped ? 'high' : 'default',
+        channelId: 'alerts',
         imageUrl,
       })
     );

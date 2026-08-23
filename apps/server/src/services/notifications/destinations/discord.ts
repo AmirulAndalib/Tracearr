@@ -205,9 +205,10 @@ function buildTracearrUpdateEmbed(
   return { title: text.title, description: text.message, color: 0x3498db }; // Blue
 }
 
-function buildMediaEmbed(payload: NotificationPayload): DiscordEmbed {
+/** The events whose whole text the payload already carries; the colour is all that differs. */
+function buildOwnText(payload: NotificationPayload, color: number): DiscordEmbed {
   const text = ownText(payload);
-  return { title: text.title, description: text.message, color: 0x1abc9c }; // Teal
+  return { title: text.title, description: text.message, color };
 }
 
 function buildEmbed(payload: NotificationPayload): DiscordEmbed {
@@ -230,7 +231,11 @@ function buildEmbed(payload: NotificationPayload): DiscordEmbed {
       return buildTracearrUpdateEmbed(payload, payload.context);
     case 'media_added':
     case 'media_upgraded':
-      return buildMediaEmbed(payload);
+      return buildOwnText(payload, 0x1abc9c); // Teal
+    case 'new_device':
+      return buildOwnText(payload, 0xf39c12); // Orange/Warning
+    case 'trust_score_changed':
+      return buildOwnText(payload, 0x9b59b6); // Purple
   }
 }
 

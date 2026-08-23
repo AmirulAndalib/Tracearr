@@ -383,6 +383,61 @@ describe('Action Executor Registry', () => {
         expect(payload.server).toEqual({ id: 'server-1', name: 'Test Server', type: 'plex' });
       });
 
+      it('sends the account events natively, not the violation shape their account would allow', async () => {
+        const context = createMockContext({ rule: createMockRule({ kind: 'notification' }) });
+        context.trigger = {
+          type: 'account.new_device',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: context.session,
+          device: {
+            name: 'Living Room TV',
+            platform: 'tvOS',
+            product: 'Plex for Apple TV',
+            location: 'Boston',
+          },
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        const device = enqueueCall();
+        expect(device.event.type).toBe('new_device');
+        expect(device.event.payload).toMatchObject({
+          serverUserId: context.serverUser.id,
+          sessionId: context.session.id,
+          username: context.serverUser.username,
+          deviceName: 'Living Room TV',
+          product: 'Plex for Apple TV',
+          location: 'Boston',
+        });
+      });
+
+      it('sends a trust move natively, with both scores and the reason', async () => {
+        const context = createMockContext({ rule: createMockRule({ kind: 'notification' }) });
+        context.trigger = {
+          type: 'account.trust_changed',
+          at: new Date(),
+          server: { id: 'server-1', name: 'Test Server', type: 'plex' },
+          serverUser: evaluationServerUser(context.serverUser),
+          session: null,
+          previous: 90,
+          next: 40,
+          reason: 'Sharing penalty',
+        };
+
+        await executeAction(context, { type: 'send', to: ['d1'] });
+
+        const trust = enqueueCall();
+        expect(trust.event.type).toBe('trust_score_changed');
+        expect(trust.event.payload).toMatchObject({
+          serverUserId: context.serverUser.id,
+          previousScore: 90,
+          newScore: 40,
+          reason: 'Sharing penalty',
+        });
+      });
+
       it('carries the stop duration onto the native stream_stopped event', async () => {
         const context = createMockContext({ rule: createMockRule({ kind: 'notification' }) });
         context.trigger = {

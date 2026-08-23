@@ -217,6 +217,109 @@ describe('toNotificationPayload with an automation source', () => {
   });
 });
 
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
+describe('account events', () => {
+  it('says who connected from where, and warns', () => {
+    const payload = PayloadBuilders.fromNewDevice(newDevice.payload);
+
+    expect(payload.event).toBe('new_device');
+    expect(payload.title).toBe('New Device Detected');
+    expect(payload.message).toBe(
+      'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
+    );
+    expect(payload.severity).toBe('warning');
+  });
+
+  it('drops the location clause when the session carries no geo', () => {
+    const payload = PayloadBuilders.fromNewDevice({ ...newDevice.payload, location: null });
+
+    expect(payload.message).toBe('Test User connected from a new device: Living Room TV');
+  });
+
+  it('names the direction of a trust move and warns only on a drop', () => {
+    const dropped = PayloadBuilders.fromTrustScoreChanged(trustChanged.payload);
+
+    expect(dropped.event).toBe('trust_score_changed');
+    expect(dropped.title).toBe('Trust Score Changed');
+    expect(dropped.message).toBe(
+      "Test User's trust score decreased from 90 to 40: Sharing penalty"
+    );
+    expect(dropped.severity).toBe('warning');
+
+    const rose = PayloadBuilders.fromTrustScoreChanged({
+      ...trustChanged.payload,
+      previousScore: 40,
+      newScore: 90,
+      reason: null,
+    });
+
+    expect(rose.message).toBe("Test User's trust score increased from 40 to 90");
+    expect(rose.severity).toBe('low');
+  });
+
+  it('renders the device and trust variables an override names', () => {
+    const device = toNotificationPayload(
+      newDevice,
+      automation({
+        body: '{{user.username}} on {{device.product}} ({{device.location}}) - {{session.mediaTitle}}',
+      })
+    );
+
+    expect(device.message).toBe('testuser on Plex for Apple TV (Boston, Massachusetts) - Cars');
+
+    const trust = toNotificationPayload(
+      trustChanged,
+      automation({ body: '{{trust.previous}} -> {{trust.new}} ({{trust.reason}})' })
+    );
+
+    expect(trust.message).toBe('90 -> 40 (Sharing penalty)');
+  });
+
+  it('leaves a name the event does not carry empty rather than showing the braces', () => {
+    const trust = toNotificationPayload(
+      trustChanged,
+      automation({ body: 'was [{{device.product}}]' })
+    );
+
+    expect(trust.message).toBe('was []');
+  });
+});
+
 describe('media events', () => {
   it('names the item, the library and the server by default', () => {
     const added = toNotificationPayload({ type: 'media_added', payload: mediaPayload }, system);

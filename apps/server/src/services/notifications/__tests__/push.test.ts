@@ -7,6 +7,42 @@ import type { RenderContext } from '../destinations/types.js';
 
 const destination = { id: 'dest-push', name: 'Mobile push' };
 const systemCtx: RenderContext = { destination, source: { kind: 'system' } };
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
 const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
   source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
@@ -106,6 +142,15 @@ describe('pushType.render', () => {
     });
   });
 
+  it('keeps the account events on the event arm, so the device toggles still gate them', async () => {
+    expect(await render(newDevice, automationCtx())).toEqual({ kind: 'event', event: newDevice });
+    expect(await render(trustChanged, automationCtx({ body: 'trust moved' }))).toEqual({
+      kind: 'event',
+      event: trustChanged,
+      override: { body: 'trust moved' },
+    });
+  });
+
   it('renders a media event as library text', async () => {
     expect(await render(mediaAdded, automationCtx())).toEqual({
       kind: 'text',
@@ -136,6 +181,12 @@ function spyOnNotifiers() {
       .mockResolvedValue(undefined),
     notifyUpdate: vi.spyOn(pushNotificationService, 'notifyUpdate').mockResolvedValue(undefined),
     notifyLibrary: vi.spyOn(pushNotificationService, 'notifyLibrary').mockResolvedValue(undefined),
+    notifyNewDevice: vi
+      .spyOn(pushNotificationService, 'notifyNewDevice')
+      .mockResolvedValue(undefined),
+    notifyTrustChanged: vi
+      .spyOn(pushNotificationService, 'notifyTrustChanged')
+      .mockResolvedValue(undefined),
   };
 }
 
@@ -221,6 +272,21 @@ describe('pushType.deliver', () => {
     );
 
     expect(spies.notifyServerUp).toHaveBeenCalledWith('Plex Server', 's1', undefined);
+  });
+
+  it('sends a new device and a trust move to their own notifiers', async () => {
+    await pushType.deliver({ kind: 'event', event: newDevice }, {}, deliverCtx);
+    await pushType.deliver(
+      { kind: 'event', event: trustChanged, override: { title: 'Trust dropped' } },
+      {},
+      deliverCtx
+    );
+
+    expect(spies.notifyNewDevice).toHaveBeenCalledWith(newDevice.payload, undefined);
+    expect(spies.notifyTrustChanged).toHaveBeenCalledWith(trustChanged.payload, {
+      title: 'Trust dropped',
+    });
+    expect(spies.notifyLibrary).not.toHaveBeenCalled();
   });
 
   it('sends a tracearr release through notifyUpdate', async () => {

@@ -218,6 +218,16 @@ function dedupeKey(
       tail = `${event.type}-${event.payload.libraryItemId}-${automation}${bucket}`;
       break;
     }
+    case 'new_device': {
+      // The default arm keys on the server, which would collapse two accounts into one job.
+      tail = `${event.type}-${event.payload.sessionId}-${automation}${bucket}`;
+      break;
+    }
+    case 'trust_score_changed': {
+      // Per account: two moves on one account inside a bucket are meant to collapse.
+      tail = `${event.type}-${event.payload.serverUserId}-${automation}${bucket}`;
+      break;
+    }
     default: {
       // The tracearr release is about the install, not a server.
       const serverId = 'serverId' in event.payload ? event.payload.serverId : 'install';

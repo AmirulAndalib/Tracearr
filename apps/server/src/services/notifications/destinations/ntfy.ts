@@ -184,6 +184,8 @@ function bodyOf(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
       return buildTracearrUpdate(payload, payload.context);
     case 'media_added':
     case 'media_upgraded':
+    case 'new_device':
+    case 'trust_score_changed':
       return buildMedia(payload);
   }
 }

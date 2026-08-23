@@ -90,6 +90,10 @@ export const pushType: DestinationType<Record<string, never>, PushRendered> = {
           e.payload.serverId,
           override
         );
+      case 'new_device':
+        return pushNotificationService.notifyNewDevice(e.payload, override);
+      case 'trust_score_changed':
+        return pushNotificationService.notifyTrustChanged(e.payload, override);
       case 'plugin_update_available':
       case 'server_update_available':
       case 'tracearr_update_available':

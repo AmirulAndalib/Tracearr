@@ -274,6 +274,49 @@ function nativeEventFor(context: EvaluationContext): NotificationEvent | null {
           releaseUrl: trigger.releaseUrl,
         },
       };
+    // Both carry an account, so the violation shape would succeed and send the wrong thing.
+    case 'account.new_device': {
+      const { session, serverUser } = context;
+      if (!session || !serverUser || !server) return null;
+      return {
+        type: 'new_device',
+        payload: {
+          serverId: server.id,
+          serverName: server.name,
+          serverType: server.type,
+          serverUserId: serverUser.id,
+          sessionId: session.id,
+          userName: serverUser.identityName ?? serverUser.username,
+          username: serverUser.username,
+          identityName: serverUser.identityName ?? null,
+          mediaTitle: session.mediaTitle,
+          mediaType: session.mediaType,
+          deviceName: trigger.device.name,
+          platform: trigger.device.platform,
+          product: trigger.device.product,
+          location: trigger.device.location,
+        },
+      };
+    }
+    case 'account.trust_changed': {
+      const { serverUser } = context;
+      if (!serverUser || !server) return null;
+      return {
+        type: 'trust_score_changed',
+        payload: {
+          serverId: server.id,
+          serverName: server.name,
+          serverType: server.type,
+          serverUserId: serverUser.id,
+          userName: serverUser.identityName ?? serverUser.username,
+          username: serverUser.username,
+          identityName: serverUser.identityName ?? null,
+          previousScore: trigger.previous,
+          newScore: trigger.next,
+          reason: trigger.reason,
+        },
+      };
+    }
     case 'media.added':
     case 'media.upgraded': {
       // A media context has no account, so the violation shape would skip the send entirely.

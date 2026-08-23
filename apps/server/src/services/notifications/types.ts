@@ -9,8 +9,10 @@ import type { MediaQuality } from '../automations/types.js';
 import type {
   MediaEventPayload,
   MediaUpgradedPayload,
+  NewDevicePayload,
   NotificationEvent,
   NotificationSource,
+  TrustChangedPayload,
 } from './events.js';
 
 // Re-export for convenience
@@ -97,6 +99,20 @@ export interface MediaUpgradedContext extends MediaUpgradedPayload {
 }
 
 /**
+ * Context provided with the first session an account ran from a device
+ */
+export interface NewDeviceContext extends NewDevicePayload {
+  type: 'new_device';
+}
+
+/**
+ * Context provided when a write moved an account's trust score
+ */
+export interface TrustChangedContext extends TrustChangedPayload {
+  type: 'trust_score_changed';
+}
+
+/**
  * Union of all notification contexts
  */
 export type NotificationContext =
@@ -107,7 +123,9 @@ export type NotificationContext =
   | ServerUpdateContext
   | TracearrUpdateContext
   | MediaAddedContext
-  | MediaUpgradedContext;
+  | MediaUpgradedContext
+  | NewDeviceContext
+  | TrustChangedContext;
 
 /**
  * Unified notification payload for all agents
@@ -269,6 +287,31 @@ export const PayloadBuilders = {
     };
   },
 
+  fromNewDevice(ctx: NewDevicePayload): NotificationPayload {
+    const locationStr = ctx.location ? ` from ${ctx.location}` : '';
+    return {
+      event: 'new_device',
+      title: 'New Device Detected',
+      message: `${ctx.userName} connected from a new device: ${ctx.deviceName}${locationStr}`,
+      severity: 'warning',
+      timestamp: new Date().toISOString(),
+      context: { type: 'new_device', ...ctx },
+    };
+  },
+
+  fromTrustScoreChanged(ctx: TrustChangedPayload): NotificationPayload {
+    const dropped = ctx.newScore < ctx.previousScore;
+    const reasonStr = ctx.reason ? `: ${ctx.reason}` : '';
+    return {
+      event: 'trust_score_changed',
+      title: 'Trust Score Changed',
+      message: `${ctx.userName}'s trust score ${dropped ? 'decreased' : 'increased'} from ${String(ctx.previousScore)} to ${String(ctx.newScore)}${reasonStr}`,
+      severity: dropped ? 'warning' : 'low',
+      timestamp: new Date().toISOString(),
+      context: { type: 'trust_score_changed', ...ctx },
+    };
+  },
+
   fromPluginUpdate(
     serverId: string,
     serverName: string,
@@ -323,6 +366,21 @@ function qualityVariables(side: 'from' | 'to', quality: MediaQuality): Record<st
       qualityText(field, quality[field]),
     ])
   );
+}
+
+/** The four names every account trigger offers, however the event names the person. */
+function accountVariables(payload: {
+  username: string;
+  identityName: string | null;
+  serverName: string;
+  serverType: string;
+}): Record<string, string> {
+  return {
+    'user.username': payload.username,
+    'user.identityName': payload.identityName ?? payload.username,
+    'server.name': payload.serverName,
+    'server.type': payload.serverType,
+  };
 }
 
 /** The TRIGGERS variable vocabulary, read off whatever the event carries. */
@@ -396,6 +454,27 @@ function variablesOf(event: NotificationEvent): Record<string, string> {
         ...qualityVariables('from', event.payload.from),
         ...qualityVariables('to', event.payload.to),
       };
+    case 'new_device': {
+      const d = event.payload;
+      return {
+        ...accountVariables(d),
+        'session.mediaTitle': d.mediaTitle,
+        'session.mediaType': d.mediaType,
+        'device.name': d.deviceName,
+        'device.platform': d.platform ?? '',
+        'device.product': d.product ?? '',
+        'device.location': d.location ?? '',
+      };
+    }
+    case 'trust_score_changed': {
+      const t = event.payload;
+      return {
+        ...accountVariables(t),
+        'trust.previous': String(t.previousScore),
+        'trust.new': String(t.newScore),
+        'trust.reason': t.reason ?? '',
+      };
+    }
   }
 }
 
@@ -442,6 +521,10 @@ export function toNotificationPayload(
         return PayloadBuilders.fromMediaAdded(event.payload);
       case 'media_upgraded':
         return PayloadBuilders.fromMediaUpgraded(event.payload);
+      case 'new_device':
+        return PayloadBuilders.fromNewDevice(event.payload);
+      case 'trust_score_changed':
+        return PayloadBuilders.fromTrustScoreChanged(event.payload);
     }
   })();
   if (source.kind === 'rule') {

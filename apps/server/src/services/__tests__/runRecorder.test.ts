@@ -93,6 +93,7 @@ vi.mock('../../lib/redisShared.js', () => ({
   }),
 }));
 vi.mock('../../utils/logger.js', () => ({
+  createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
   automationsLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 

@@ -262,6 +262,42 @@ describe('jsonWebhookType.deliver', () => {
   });
 });
 
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
 const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
   source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
@@ -280,6 +316,16 @@ describe('jsonWebhookType.render with an automation source', () => {
       title: 'Heads up',
       message: 'testuser pressed play',
     });
+  });
+
+  it('carries the account payloads flat, under the event name', async () => {
+    const device = await render(newDevice, automationCtx());
+    expect(device.event).toBe('new_device');
+    expect(device.data).toEqual(newDevice.payload);
+
+    const trust = await render(trustChanged, automationCtx());
+    expect(trust.event).toBe('trust_score_changed');
+    expect(trust.data).toEqual(trustChanged.payload);
   });
 
   it('carries the whole media payload as data under the event name', async () => {

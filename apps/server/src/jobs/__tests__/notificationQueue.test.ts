@@ -438,6 +438,72 @@ describe('enqueueNotification - dedupe ids', () => {
     expect(second).toBe(`d1|media_added-item-2-a-1-${bucket()}`);
   });
 
+  it('keys a new device on the session, so two accounts are two jobs', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+    const device = (sessionId: string, serverUserId: string) =>
+      ({
+        type: 'new_device',
+        payload: {
+          serverId: 'srv-1',
+          serverName: 'Basement',
+          serverType: 'plex',
+          serverUserId,
+          sessionId,
+          userName: 'Alice',
+          username: 'alice',
+          identityName: 'Alice',
+          mediaTitle: 'Cars',
+          mediaType: 'movie',
+          deviceName: 'TV',
+          platform: null,
+          product: null,
+          location: null,
+        },
+      }) as const;
+    const source = { kind: 'automation', automationId: 'a-1', automationName: 'One' } as const;
+
+    await mod.enqueueNotification(device('sess-1', 'su-1'), { to: ['d1'], source });
+    const first = bulkEntries()[0]?.opts.jobId;
+    mainQueue().addBulk.mockClear();
+    await mod.enqueueNotification(device('sess-2', 'su-2'), { to: ['d1'], source });
+    const second = bulkEntries()[0]?.opts.jobId;
+
+    expect(first).toBe(`d1|new_device-sess-1-a-1-${bucket()}`);
+    expect(second).toBe(`d1|new_device-sess-2-a-1-${bucket()}`);
+  });
+
+  it('keys a trust move on the account, so two moves in one bucket collapse', async () => {
+    const mod = await loadInitializedQueue();
+    mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));
+    const moved = (previousScore: number, newScore: number) =>
+      ({
+        type: 'trust_score_changed',
+        payload: {
+          serverId: 'srv-1',
+          serverName: 'Basement',
+          serverType: 'plex',
+          serverUserId: 'su-1',
+          userName: 'Alice',
+          username: 'alice',
+          identityName: 'Alice',
+          previousScore,
+          newScore,
+          reason: null,
+        },
+      }) as const;
+    const source = { kind: 'automation', automationId: 'a-1', automationName: 'One' } as const;
+
+    await mod.enqueueNotification(moved(90, 85), { to: ['d1'], source });
+    const first = bulkEntries()[0]?.opts.jobId;
+    mainQueue().addBulk.mockClear();
+    await mod.enqueueNotification(moved(85, 80), { to: ['d1'], source });
+    const second = bulkEntries()[0]?.opts.jobId;
+
+    expect(first).toBe(`d1|trust_score_changed-su-1-a-1-${bucket()}`);
+    expect(second).toBe(first);
+  });
+
   it('keys an install-wide event that carries no server', async () => {
     const mod = await loadInitializedQueue();
     mockGetDestination.mockResolvedValue(destination({ id: 'd1' }));

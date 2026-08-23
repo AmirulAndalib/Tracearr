@@ -13,6 +13,42 @@ const ruleCtx: RenderContext = {
   destination,
   source: { kind: 'rule', title: 'Rule fired', message: 'Too many streams' },
 };
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
 const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
   source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
@@ -122,6 +158,18 @@ describe('webToastType.render', () => {
     );
 
     expect(rendered.toast?.title).toBe('Tracearr Update Available');
+  });
+
+  it('toasts a new device and a trust move with the payload severity', async () => {
+    const device = await webToastType.render(newDevice, {}, automationCtx());
+    expect(device.toast?.title).toBe('New Device Detected');
+    expect(device.toast?.severity).toBe('warning');
+
+    const trust = await webToastType.render(trustChanged, {}, automationCtx());
+    expect(trust.toast?.message).toBe(
+      "Test User's trust score decreased from 90 to 40: Sharing penalty"
+    );
+    expect(trust.toast?.severity).toBe('warning');
   });
 
   it('toasts a media add with the automation behind it and nothing for a system source', async () => {

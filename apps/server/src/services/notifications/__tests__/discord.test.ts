@@ -207,6 +207,42 @@ describe('discordType.deliver', () => {
   });
 });
 
+const newDevice = {
+  type: 'new_device',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    sessionId: 'sess-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    mediaTitle: 'Cars',
+    mediaType: 'movie',
+    deviceName: 'Living Room TV',
+    platform: 'tvOS',
+    product: 'Plex for Apple TV',
+    location: 'Boston, Massachusetts',
+  },
+} as const;
+
+const trustChanged = {
+  type: 'trust_score_changed',
+  payload: {
+    serverId: 'server-1',
+    serverName: 'Basement',
+    serverType: 'plex',
+    serverUserId: 'su-1',
+    userName: 'Test User',
+    username: 'testuser',
+    identityName: 'Test User',
+    previousScore: 90,
+    newScore: 40,
+    reason: 'Sharing penalty',
+  },
+} as const;
+
 const automationCtx = (over: { title?: string; body?: string } = {}): RenderContext => ({
   destination,
   source: { kind: 'automation', automationId: 'a-1', automationName: 'Now playing', ...over },
@@ -228,6 +264,24 @@ describe('discordType.render with an automation source', () => {
 
     expect(embed.title).toBe('Heads up');
     expect(embed.description).toBe('testuser pressed play');
+  });
+
+  it('gives a new device and a trust move their own colours', async () => {
+    const device = await render(newDevice, automationCtx());
+    expect(device.title).toBe('New Device Detected');
+    expect(device.description).toBe(
+      'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
+    );
+    expect(device.color).toBe(0xf39c12);
+
+    const trust = await render(trustChanged, automationCtx());
+    expect(trust.description).toBe(
+      "Test User's trust score decreased from 90 to 40: Sharing penalty"
+    );
+    expect(trust.color).toBe(0x9b59b6);
+
+    // The media pair keeps the teal it had before the builder was shared.
+    expect((await render(mediaUpgraded, automationCtx())).color).toBe(0x1abc9c);
   });
 
   it('builds a media upgrade embed, and an override still wins', async () => {
