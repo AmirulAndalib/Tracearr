@@ -285,6 +285,9 @@ jobs:
         with:
           working-directory: apps/server
           vite-config-path: vitest.config.ts
+          # coverage.include only covers three dirs in apps/server, so the
+          # changed-files table is empty on nearly every PR.
+          file-coverage-mode: none
 
   # E2E tests run Playwright against real servers with a real database
   test-e2e:
