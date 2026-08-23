@@ -10,7 +10,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import sensible from '@fastify/sensible';
@@ -23,6 +23,17 @@ import {
   createGeoRestrictionAutomation,
   createTestRun,
 } from '@tracearr/test-utils/factories';
+// The routes here are the ones that move trust; the announce is spied, never sent.
+const { mockDispatchTrustMoves, mockDispatchTrustChanged } = vi.hoisted(() => ({
+  mockDispatchTrustMoves: vi.fn().mockResolvedValue(undefined),
+  mockDispatchTrustChanged: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../../src/services/automations/events/producers.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  dispatchTrustMoves: mockDispatchTrustMoves,
+  dispatchTrustChanged: mockDispatchTrustChanged,
+}));
+
 import { db } from '../../src/db/client.js';
 import { fullRoutes } from '../../src/routes/users/full.js';
 import { listRoutes } from '../../src/routes/users/list.js';
@@ -1855,5 +1866,104 @@ describe('GET /users orderBy', () => {
     // first just because DESC otherwise treats nulls as the "greatest" value.
     expect(relevantIds(descResponse.json().data)).toEqual([activeSu.id, neverActiveSu.id]);
     expect(relevantIds(ascResponse.json().data)).toEqual([activeSu.id, neverActiveSu.id]);
+  });
+});
+
+describe('every trust move announces itself', () => {
+  beforeEach(() => {
+    mockDispatchTrustChanged.mockClear();
+    mockDispatchTrustMoves.mockClear();
+  });
+
+  /** The list routes under an owner who can see every server. */
+  async function ownerApp(adminId: string) {
+    const app = Fastify({ logger: false });
+    await app.register(sensible);
+    app.decorate('authenticate', async (request: any) => {
+      request.user = { userId: adminId, username: 'owner', role: 'owner', serverIds: [] };
+    });
+    await app.register(listRoutes, { prefix: '/users' });
+    return app;
+  }
+
+  it('announces a PATCH that moves a score, and stays quiet for one that does not', async () => {
+    const admin = await createTestUser({ role: 'owner' });
+    const server = await createTestServer({ type: 'plex' });
+    const person = await createTestUser({ role: 'member' });
+    const su = await createTestServerUser({
+      userId: person.id,
+      serverId: server.id,
+      trustScore: 90,
+    });
+    const app = await ownerApp(admin.id);
+
+    const moved = await app.inject({
+      method: 'PATCH',
+      url: `/users/${su.id}`,
+      payload: { trustScore: 40 },
+    });
+    expect(moved.statusCode).toBe(200);
+    expect(mockDispatchTrustChanged).toHaveBeenCalledTimes(1);
+    expect(mockDispatchTrustChanged).toHaveBeenCalledWith({
+      serverId: server.id,
+      serverUserId: su.id,
+      previous: 90,
+      next: 40,
+      reason: 'changed by an owner',
+    });
+
+    mockDispatchTrustChanged.mockClear();
+    const untouched = await app.inject({
+      method: 'PATCH',
+      url: `/users/${su.id}`,
+      payload: {},
+    });
+    expect(untouched.statusCode).toBe(200);
+    // Nothing wrote a score, so there is no move to announce.
+    expect(mockDispatchTrustChanged).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('announces one move per account the bulk reset put back to 100', async () => {
+    const admin = await createTestUser({ role: 'owner' });
+    const server = await createTestServer({ type: 'plex' });
+    const person = await createTestUser({ role: 'member' });
+    const low = await createTestServerUser({
+      userId: person.id,
+      serverId: server.id,
+      trustScore: 30,
+    });
+    // One account per person per server, so the untouched sibling lives on a second one.
+    const other = await createTestServer({ type: 'jellyfin' });
+    const already = await createTestServerUser({
+      userId: person.id,
+      serverId: other.id,
+      trustScore: 100,
+    });
+    const app = await ownerApp(admin.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/users/bulk/reset-trust',
+      payload: { ids: [low.id, already.id] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockDispatchTrustMoves).toHaveBeenCalledTimes(1);
+    const [moves, reason] = mockDispatchTrustMoves.mock.calls[0] as [
+      Array<{ previous: number; serverUser: { id: string; trustScore: number } }>,
+      string,
+    ];
+    expect(reason).toBe('reset by an owner');
+    // Both rows come back; the producer's previous === next skip is what drops the no-op.
+    expect(moves.map((m) => [m.serverUser.id, m.previous, m.serverUser.trustScore]).sort()).toEqual(
+      [
+        [already.id, 100, 100],
+        [low.id, 30, 100],
+      ].sort()
+    );
+
+    await app.close();
   });
 });

@@ -18,6 +18,7 @@ import type {
   TriggerType,
 } from './types.js';
 import type { MediaQuality, MediaSubject } from '../types.js';
+import type { TrustMove } from '../../userService.js';
 
 /** The active automations when one of them listens for the trigger, else null: no listener, no context read. */
 async function listeningRules(trigger: TriggerType): Promise<EngineAutomation[] | null> {
@@ -142,6 +143,19 @@ export async function dispatchTrustChanged(args: {
       context.inputs
     );
   });
+}
+
+/** Every move a write made, announced after it committed; the skip above drops the no-ops. */
+export async function dispatchTrustMoves(moves: TrustMove[], reason: string): Promise<void> {
+  for (const move of moves) {
+    await dispatchTrustChanged({
+      serverId: move.serverUser.serverId,
+      serverUserId: move.serverUser.id,
+      previous: move.previous,
+      next: move.serverUser.trustScore,
+      reason,
+    });
+  }
 }
 
 /**

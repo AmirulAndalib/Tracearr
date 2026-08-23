@@ -34,7 +34,13 @@ import {
   buildMultiServerCondition,
 } from '../utils/serverFiltering.js';
 import { violationAliasConditions } from '../services/automations/aliasFilter.js';
-import { getServerUserDisplayNames, recomputeIdentityAggregates } from '../services/userService.js';
+import { dispatchTrustMoves } from '../services/automations/events/producers.js';
+import {
+  getServerUserDisplayNames,
+  moveTrust,
+  recomputeIdentityAggregates,
+  type TrustMove,
+} from '../services/userService.js';
 import { resolveAccessibleServerUserIdsForIdentities } from './users/queries.js';
 import {
   buildOrderBy,
@@ -43,6 +49,9 @@ import {
   type SortDirection,
   type SortKey,
 } from '../utils/listQuery.js';
+
+/** What a trust-score notification says moved the score when a dismissal put it back. */
+const DISMISSED_TRUST_REASON = 'a dismissed violation was reversed';
 
 /**
  * Merge the legacy singular `userId` identity filter with the new `userIds`
@@ -803,30 +812,31 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
         .returning({ id: automationRuns.id });
 
       if (stamped.length === 0) {
-        return false;
+        return null;
       }
 
-      // Reverse trust score adjustment (if any was made)
-      if (trustAdjustmentToReverse !== 0) {
-        // Reverse by applying the opposite adjustment
-        await tx
-          .update(serverUsers)
-          .set({
-            trustScore: sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} - ${trustAdjustmentToReverse}))`,
-            updatedAt: new Date(),
-          })
-          .where(eq(serverUsers.id, violation.serverUserId));
-      }
+      // Reverse trust score adjustment (if any was made). The dismissedAt guard has to
+      // stay in this transaction, so the write is moveTrust rather than applyTrustChange.
+      const moves =
+        trustAdjustmentToReverse === 0
+          ? []
+          : await moveTrust(
+              tx,
+              sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} - ${trustAdjustmentToReverse}))`,
+              eq(serverUsers.id, violation.serverUserId)
+            );
 
       // users.totalViolations counts non-dismissed rows, so the rollup must
       // recompute on every dismiss, not only when trust was reversed.
       await recomputeIdentityAggregates(violation.userId, tx);
-      return true;
+      return moves;
     });
 
     if (!dismissed) {
       return reply.notFound('Violation not found');
     }
+
+    await dispatchTrustMoves(dismissed, DISMISSED_TRUST_REASON);
 
     return { success: true };
   });
@@ -965,7 +975,7 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
     // the rows stay so session and inactivity dedup keep blocking re-creation.
     // Reversals derive from the rows THIS request stamped, so a concurrent
     // dismiss racing the same ids cannot reverse trust twice.
-    const dismissedCount = await db.transaction(async (tx) => {
+    const { dismissedCount, moves } = await db.transaction(async (tx) => {
       const stamped = await tx
         .update(automationRuns)
         .set({ dismissedAt: new Date() })
@@ -985,15 +995,16 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
           );
         }
       }
+      const moved: TrustMove[] = [];
       for (const [serverUserId, totalAdjustment] of trustReverseByUser) {
         // Reverse by applying the opposite adjustment
-        await tx
-          .update(serverUsers)
-          .set({
-            trustScore: sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} - ${totalAdjustment}))`,
-            updatedAt: new Date(),
-          })
-          .where(eq(serverUsers.id, serverUserId));
+        moved.push(
+          ...(await moveTrust(
+            tx,
+            sql`LEAST(100, GREATEST(0, ${serverUsers.trustScore} - ${totalAdjustment}))`,
+            eq(serverUsers.id, serverUserId)
+          ))
+        );
       }
 
       // users.totalViolations counts non-dismissed rows, so every affected
@@ -1004,8 +1015,10 @@ export const violationRoutes: FastifyPluginAsync = async (app) => {
         await recomputeIdentityAggregates(identityId, tx);
       }
 
-      return stamped.length;
+      return { dismissedCount: stamped.length, moves: moved };
     });
+
+    await dispatchTrustMoves(moves, DISMISSED_TRUST_REASON);
 
     return { success: true, dismissed: dismissedCount };
   });

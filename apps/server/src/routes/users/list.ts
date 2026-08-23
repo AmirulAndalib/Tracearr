@@ -40,9 +40,14 @@ import {
   type SortDirection,
   type SortKey,
 } from '../../utils/listQuery.js';
-import { dispatchTrustChanged } from '../../services/automations/events/producers.js';
+import {
+  dispatchTrustChanged,
+  dispatchTrustMoves,
+} from '../../services/automations/events/producers.js';
 import {
   applyTrustChange,
+  moveTrust,
+  trustValueSql,
   updateUser,
   recomputeIdentityAggregates,
 } from '../../services/userService.js';
@@ -52,6 +57,9 @@ import { PLAY_COUNT } from '../../constants/index.js';
 
 /** What a trust-score notification says moved the score when a person did it by hand. */
 const OWNER_TRUST_REASON = 'changed by an owner';
+
+/** The same, for the bulk reset that follows a merge or a split. */
+const RESET_TRUST_REASON = 'reset by an owner';
 
 /**
  * Sort keys, all on the identity row so the LIMIT can ride an index on `users`
@@ -722,19 +730,20 @@ export const listRoutes: FastifyPluginAsync = async (app) => {
 
     // Bulk update trust scores to 100, then recompute each affected identity's
     // rollup once in the same transaction.
-    await db.transaction(async (tx) => {
-      await tx
-        .update(serverUsers)
-        .set({
-          trustScore: 100,
-          updatedAt: new Date(),
-        })
-        .where(inArray(serverUsers.id, accountIds));
+    const moves = await db.transaction(async (tx) => {
+      const moved = await moveTrust(
+        tx,
+        trustValueSql({ mode: 'reset' }),
+        inArray(serverUsers.id, accountIds)
+      );
 
       for (const userId of affectedIdentityIds) {
         await recomputeIdentityAggregates(userId, tx);
       }
+      return moved;
     });
+
+    await dispatchTrustMoves(moves, RESET_TRUST_REASON);
 
     return { success: true, updated: accountIds.length };
   });

@@ -34,13 +34,24 @@ vi.mock('../../db/client.js', () => ({
   },
 }));
 
-const { mockGetServerUserDisplayNames, mockRecalculateAggregateTrustScore } = vi.hoisted(() => ({
+const {
+  mockGetServerUserDisplayNames,
+  mockRecalculateAggregateTrustScore,
+  mockDispatchTrustMoves,
+} = vi.hoisted(() => ({
   mockGetServerUserDisplayNames: vi.fn(),
   mockRecalculateAggregateTrustScore: vi.fn(),
+  mockDispatchTrustMoves: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../services/userService.js', () => ({
+// moveTrust stays real: the reversal SQL it builds is what these tests pin.
+vi.mock('../../services/userService.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   getServerUserDisplayNames: mockGetServerUserDisplayNames,
   recomputeIdentityAggregates: mockRecalculateAggregateTrustScore,
+}));
+
+vi.mock('../../services/automations/events/producers.js', () => ({
+  dispatchTrustMoves: mockDispatchTrustMoves,
 }));
 
 // Import the mocked db and the routes
@@ -869,9 +880,19 @@ describe('Violation Routes', () => {
       const deleteMock = vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
       });
+      const moved = {
+        previous: 40,
+        row: { id: serverUserId, serverId, userId, trustScore: 60 },
+      };
+      // The stamp is set().where().returning(); the trust write is set().from().where().returning().
       const setMock = vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ id: violationId }]),
+        }),
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([moved]),
+          }),
         }),
       });
       const updateMock = vi.fn().mockReturnValue({ set: setMock });
@@ -907,6 +928,62 @@ describe('Violation Routes', () => {
       });
       // Verify the identity's overall trust rollup was recomputed for the reversal
       expect(mockRecalculateAggregateTrustScore).toHaveBeenCalledWith(userId, txMock);
+      // The reversal is a trust move like any other, announced once after the commit.
+      expect(mockDispatchTrustMoves).toHaveBeenCalledTimes(1);
+      expect(mockDispatchTrustMoves).toHaveBeenCalledWith(
+        [{ previous: 40, serverUser: moved.row }],
+        'a dismissed violation was reversed'
+      );
+    });
+
+    it('announces nothing when a dismiss reverses no trust', async () => {
+      const ownerUser = createOwnerUser();
+      app = await buildTestApp(ownerUser);
+
+      const violationId = randomUUID();
+      const userId = randomUUID();
+      let selectCallCount = 0;
+      mockDb.select.mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          return createViolationExistsCheckMock([
+            {
+              id: violationId,
+              ruleId: 'rule-1',
+              serverUserId: randomUUID(),
+              serverId: ownerUser.serverIds[0],
+              userId,
+            },
+          ]);
+        }
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([{ id: 'rule-1', actions: { actions: [] } }]),
+            }),
+          }),
+        };
+      });
+
+      const setMock = vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: violationId }]),
+        }),
+      });
+      const txMock = { update: vi.fn().mockReturnValue({ set: setMock }) };
+      mockDb.transaction = vi
+        .fn()
+        .mockImplementation(async (callback: (tx: unknown) => Promise<void>) => callback(txMock));
+
+      const response = await app.inject({
+        method: 'DELETE',
+        url: `/violations/${violationId}`,
+      });
+
+      expect(response.statusCode).toBe(200);
+      // No trust action on the rule, so no write and nothing to announce.
+      expect(setMock).toHaveBeenCalledTimes(1);
+      expect(mockDispatchTrustMoves).toHaveBeenCalledWith([], 'a dismissed violation was reversed');
     });
 
     it('should reject delete for non-owner', async () => {
