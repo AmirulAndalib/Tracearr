@@ -535,8 +535,7 @@ describe('runSystemEventsMigration', () => {
 
     const both = [builtins.pushId, builtins.webToastId].sort();
     expect(sendTo(await seededBySlug('new-device'))).toEqual(both);
-    // 0018 checked the toast column for every row, so a checked toast is not evidence
-    // anyone asked for trust alerts; its other three columns are all off.
+    // 0018's toast column does not gate trust.
     expect(await seededBySlug('trust-score-changed')).toBeNull();
 
     const seeded = await db

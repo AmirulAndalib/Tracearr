@@ -268,7 +268,7 @@ describe('discordType.render with an automation source', () => {
 
   it('gives a new device and a trust move their own colours', async () => {
     const device = await render(newDevice, automationCtx());
-    expect(device.title).toBe('New Device Detected');
+    expect(device.title).toBe('New device');
     expect(device.description).toBe(
       'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
     );
@@ -276,7 +276,7 @@ describe('discordType.render with an automation source', () => {
 
     const trust = await render(trustChanged, automationCtx());
     expect(trust.description).toBe(
-      "Test User's trust score decreased from 90 to 40: Sharing penalty"
+      "Test User's trust score dropped from 90 to 40: Sharing penalty"
     );
     expect(trust.color).toBe(0x9b59b6);
 

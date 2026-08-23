@@ -258,7 +258,7 @@ describe('account events', () => {
     const payload = PayloadBuilders.fromNewDevice(newDevice.payload);
 
     expect(payload.event).toBe('new_device');
-    expect(payload.title).toBe('New Device Detected');
+    expect(payload.title).toBe('New device');
     expect(payload.message).toBe(
       'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
     );
@@ -275,10 +275,8 @@ describe('account events', () => {
     const dropped = PayloadBuilders.fromTrustScoreChanged(trustChanged.payload);
 
     expect(dropped.event).toBe('trust_score_changed');
-    expect(dropped.title).toBe('Trust Score Changed');
-    expect(dropped.message).toBe(
-      "Test User's trust score decreased from 90 to 40: Sharing penalty"
-    );
+    expect(dropped.title).toBe('Trust score changed');
+    expect(dropped.message).toBe("Test User's trust score dropped from 90 to 40: Sharing penalty");
     expect(dropped.severity).toBe('warning');
 
     const rose = PayloadBuilders.fromTrustScoreChanged({
@@ -288,7 +286,7 @@ describe('account events', () => {
       reason: null,
     });
 
-    expect(rose.message).toBe("Test User's trust score increased from 40 to 90");
+    expect(rose.message).toBe("Test User's trust score rose from 40 to 90");
     expect(rose.severity).toBe('low');
   });
 

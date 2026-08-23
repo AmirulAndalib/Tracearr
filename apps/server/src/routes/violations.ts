@@ -51,7 +51,7 @@ import {
 } from '../utils/listQuery.js';
 
 /** What a trust-score notification says moved the score when a dismissal put it back. */
-const DISMISSED_TRUST_REASON = 'a dismissed violation was reversed';
+const DISMISSED_TRUST_REASON = 'a violation was dismissed';
 
 /**
  * Merge the legacy singular `userId` identity filter with the new `userIds`

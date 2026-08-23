@@ -193,8 +193,7 @@ describe('planDestinationsMigration', () => {
       }),
       routing: null,
     });
-    // No routing table is no evidence anyone wanted trust alerts, so the fallback leaves
-    // them off everywhere: a factory-reset install seeds New device and not this one.
+    // A factory-reset install seeds New device and not this one.
     const all = [
       'violation_detected',
       'server_down',

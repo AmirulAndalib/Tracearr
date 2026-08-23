@@ -73,7 +73,7 @@ const TABLE: Array<[string, string, string]> = [
 ];
 
 describe('builtin template envelopes', () => {
-  it('bundles the twenty-one the design names, in its order', () => {
+  it('bundles the twenty-one templates the design names, in its order', () => {
     expect(BUILTIN_ENVELOPES.map((envelope) => envelope.slug)).toEqual(TABLE.map(([slug]) => slug));
   });
 

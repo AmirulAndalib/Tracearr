@@ -932,7 +932,7 @@ describe('Violation Routes', () => {
       expect(mockDispatchTrustMoves).toHaveBeenCalledTimes(1);
       expect(mockDispatchTrustMoves).toHaveBeenCalledWith(
         [{ previous: 40, serverUser: moved.row }],
-        'a dismissed violation was reversed'
+        'a violation was dismissed'
       );
     });
 
@@ -983,7 +983,7 @@ describe('Violation Routes', () => {
       expect(response.statusCode).toBe(200);
       // No trust action on the rule, so no write and nothing to announce.
       expect(setMock).toHaveBeenCalledTimes(1);
-      expect(mockDispatchTrustMoves).toHaveBeenCalledWith([], 'a dismissed violation was reversed');
+      expect(mockDispatchTrustMoves).toHaveBeenCalledWith([], 'a violation was dismissed');
     });
 
     it('should reject delete for non-owner', async () => {

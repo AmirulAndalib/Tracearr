@@ -162,12 +162,12 @@ describe('webToastType.render', () => {
 
   it('toasts a new device and a trust move with the payload severity', async () => {
     const device = await webToastType.render(newDevice, {}, automationCtx());
-    expect(device.toast?.title).toBe('New Device Detected');
+    expect(device.toast?.title).toBe('New device');
     expect(device.toast?.severity).toBe('warning');
 
     const trust = await webToastType.render(trustChanged, {}, automationCtx());
     expect(trust.toast?.message).toBe(
-      "Test User's trust score decreased from 90 to 40: Sharing penalty"
+      "Test User's trust score dropped from 90 to 40: Sharing penalty"
     );
     expect(trust.toast?.severity).toBe('warning');
   });

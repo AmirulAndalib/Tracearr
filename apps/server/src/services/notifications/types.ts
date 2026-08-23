@@ -291,7 +291,7 @@ export const PayloadBuilders = {
     const locationStr = ctx.location ? ` from ${ctx.location}` : '';
     return {
       event: 'new_device',
-      title: 'New Device Detected',
+      title: 'New device',
       message: `${ctx.userName} connected from a new device: ${ctx.deviceName}${locationStr}`,
       severity: 'warning',
       timestamp: new Date().toISOString(),
@@ -304,8 +304,8 @@ export const PayloadBuilders = {
     const reasonStr = ctx.reason ? `: ${ctx.reason}` : '';
     return {
       event: 'trust_score_changed',
-      title: 'Trust Score Changed',
-      message: `${ctx.userName}'s trust score ${dropped ? 'decreased' : 'increased'} from ${String(ctx.previousScore)} to ${String(ctx.newScore)}${reasonStr}`,
+      title: 'Trust score changed',
+      message: `${ctx.userName}'s trust score ${dropped ? 'dropped' : 'rose'} from ${String(ctx.previousScore)} to ${String(ctx.newScore)}${reasonStr}`,
       severity: dropped ? 'warning' : 'low',
       timestamp: new Date().toISOString(),
       context: { type: 'trust_score_changed', ...ctx },

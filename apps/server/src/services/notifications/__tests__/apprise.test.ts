@@ -259,14 +259,14 @@ describe('appriseType.render with an automation source', () => {
 
   it('renders a new device and a trust move from the payload text', async () => {
     const device = await render(newDevice, automationCtx());
-    expect(device.title).toBe('New Device Detected');
+    expect(device.title).toBe('New device');
     expect(device.body).toBe(
       'Test User connected from a new device: Living Room TV from Boston, Massachusetts'
     );
 
     const trust = await render(trustChanged, automationCtx());
-    expect(trust.title).toBe('Trust Score Changed');
-    expect(trust.body).toBe("Test User's trust score decreased from 90 to 40: Sharing penalty");
+    expect(trust.title).toBe('Trust score changed');
+    expect(trust.body).toBe("Test User's trust score dropped from 90 to 40: Sharing penalty");
   });
 
   it('renders a media upgrade, and an override still wins', async () => {

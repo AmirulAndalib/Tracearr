@@ -1423,11 +1423,11 @@
           "synonyms": "inactive, dormant, unused, stale, cleanup"
         },
         "accountNewDevice": {
-          "description": "The first time an account streams from a device Tracearr has not seen before.",
+          "description": "An account streams from a device for the first time.",
           "synonyms": "device, new, unknown, unrecognized, phone, login, sharing"
         },
         "accountTrustChanged": {
-          "description": "An account's trust score is written to a different value, by an automation or by hand.",
+          "description": "An account's trust score changes, whether an automation or an owner moved it.",
           "synonyms": "trust, score, reputation, penalty, adjusted"
         },
         "mediaAdded": {
