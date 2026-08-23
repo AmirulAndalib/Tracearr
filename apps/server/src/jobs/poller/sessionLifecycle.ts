@@ -567,27 +567,9 @@ export async function batchFindActiveSessionsByComposite(
 // ============================================================================
 
 /**
- * Build the session list used for rule evaluation context.
- *
- * Excludes stoppedTwinId (the quality-change twin stopped earlier in the
- * same operation but still present in the caller's cache snapshot) and
- * appends triggeringSession unless a session with that id is already
- * present.
+ * What a device is known by. An empty deviceId falls through to the player name rather than
+ * probing for '', which the insert could never have written: it stores `deviceId || null`.
  */
-export function buildRuleContextSessions(
-  activeSessions: Session[],
-  triggeringSession: Session,
-  stoppedTwinId: string | null | undefined
-): Session[] {
-  const countableSessions = stoppedTwinId
-    ? activeSessions.filter((s) => s.id !== stoppedTwinId)
-    : activeSessions;
-  return countableSessions.some((s) => s.id === triggeringSession.id)
-    ? countableSessions
-    : [...countableSessions, triggeringSession];
-}
-
-/** What a device is known by, matching what evaluateUniqueDevicesInWindow counts; null announces nothing. */
 export function deviceKeyOf(session: {
   deviceId?: string | null;
   playerName?: string | null;

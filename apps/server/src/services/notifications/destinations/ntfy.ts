@@ -156,7 +156,7 @@ function buildTracearrUpdate(
   };
 }
 
-function buildMedia(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
+function buildOwnText(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
   return { ...ownText(payload), priority: 3, tags: ['tracearr'] };
 }
 
@@ -186,7 +186,7 @@ function bodyOf(payload: NotificationPayload): Omit<NtfyMessage, 'topic'> {
     case 'media_upgraded':
     case 'new_device':
     case 'trust_score_changed':
-      return buildMedia(payload);
+      return buildOwnText(payload);
   }
 }
 

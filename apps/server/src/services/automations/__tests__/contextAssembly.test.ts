@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActiveSession, EngineAutomation, Session } from '@tracearr/shared';
 import type { sessions } from '../../../db/schema.js';
+import { createMockSession } from '../../../test/fixtures.js';
 
 const mockGetIdentityServerUserIds = vi.fn();
 vi.mock('../../userService.js', () => ({
@@ -321,5 +322,66 @@ describe('toRuleSession', () => {
     expect(s.lastPausedAt).toEqual(new Date('2026-08-16T10:04:00Z'));
     expect(s.pausedDurationMs).toBe(30000);
     expect(s.ipAddress).toBe('1.2.3.4');
+  });
+});
+
+describe('buildRuleContextSessions', () => {
+  it('excludes the stopped twin from the active session list', async () => {
+    const { buildRuleContextSessions } = await import('../events/contextAssembly.js');
+
+    const twin = createMockSession({ id: 'twin-id' });
+    const other = createMockSession({ id: 'other-id' });
+    const triggering = createMockSession({ id: 'triggering-id' });
+
+    const result = buildRuleContextSessions([twin, other, triggering], triggering, twin.id);
+
+    expect(result.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
+  });
+
+  it('appends the triggering session when not already present', async () => {
+    const { buildRuleContextSessions } = await import('../events/contextAssembly.js');
+
+    const other = createMockSession({ id: 'other-id' });
+    const triggering = createMockSession({ id: 'triggering-id' });
+
+    const result = buildRuleContextSessions([other], triggering, null);
+
+    expect(result.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
+  });
+
+  it('does not duplicate the triggering session when already present', async () => {
+    const { buildRuleContextSessions } = await import('../events/contextAssembly.js');
+
+    const other = createMockSession({ id: 'other-id' });
+    const triggering = createMockSession({ id: 'triggering-id' });
+
+    const result = buildRuleContextSessions([other, triggering], triggering, null);
+
+    expect(result.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
+  });
+
+  it('is a no-op filter when stoppedTwinId is null or undefined', async () => {
+    const { buildRuleContextSessions } = await import('../events/contextAssembly.js');
+
+    const other = createMockSession({ id: 'other-id' });
+    const triggering = createMockSession({ id: 'triggering-id' });
+
+    const resultNull = buildRuleContextSessions([other, triggering], triggering, null);
+    const resultUndefined = buildRuleContextSessions([other, triggering], triggering, undefined);
+
+    expect(resultNull.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
+    expect(resultUndefined.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
+  });
+
+  it('excludes the twin and appends the triggering session in the combined case', async () => {
+    const { buildRuleContextSessions } = await import('../events/contextAssembly.js');
+
+    const twin = createMockSession({ id: 'twin-id' });
+    const other = createMockSession({ id: 'other-id' });
+    const triggering = createMockSession({ id: 'triggering-id' });
+
+    const result = buildRuleContextSessions([twin, other], triggering, twin.id);
+
+    expect(result.map((s) => s.id)).toEqual(['other-id', 'triggering-id']);
   });
 });

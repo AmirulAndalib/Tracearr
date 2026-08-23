@@ -116,7 +116,7 @@ function buildTracearrUpdate(
   return { title: text.title, body: text.message, type: 'info' };
 }
 
-function buildMedia(payload: NotificationPayload): AppriseMessage {
+function buildOwnText(payload: NotificationPayload): AppriseMessage {
   const text = ownText(payload);
   return { title: text.title, body: text.message, type: 'info' };
 }
@@ -143,7 +143,7 @@ function build(payload: NotificationPayload): AppriseMessage {
     case 'media_upgraded':
     case 'new_device':
     case 'trust_score_changed':
-      return buildMedia(payload);
+      return buildOwnText(payload);
   }
 }
 

@@ -132,7 +132,7 @@ function buildTracearrUpdate(
   };
 }
 
-function buildMedia(payload: NotificationPayload): PushoverMessage {
+function buildOwnText(payload: NotificationPayload): PushoverMessage {
   return { ...ownText(payload), priority: '-1' };
 }
 
@@ -158,7 +158,7 @@ function build(payload: NotificationPayload): PushoverMessage {
     case 'media_upgraded':
     case 'new_device':
     case 'trust_score_changed':
-      return buildMedia(payload);
+      return buildOwnText(payload);
   }
 }
 

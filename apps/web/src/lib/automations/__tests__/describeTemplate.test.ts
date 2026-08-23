@@ -250,6 +250,30 @@ describe('template copy', () => {
       'Stream started'
     );
   });
+
+  it('names every bundled template from the catalog rather than its envelope', () => {
+    const shipped = i18n.getResource('en', 'pages', 'automations.templates') as Record<
+      string,
+      { name?: string; description?: string }
+    >;
+    const slugs = Object.keys(shipped);
+
+    expect(slugs).toHaveLength(21);
+    expect(slugs).toContain('new-device');
+    expect(slugs).toContain('trust-score-changed');
+
+    for (const slug of slugs) {
+      expect(templateName(t, { slug, name: 'envelope name' })).not.toBe('envelope name');
+      expect(templateDescription(t, { slug, description: 'envelope text' })).not.toBe(
+        'envelope text'
+      );
+    }
+
+    expect(templateName(t, { slug: 'new-device', name: 'envelope name' })).toBe('New device');
+    expect(templateName(t, { slug: 'trust-score-changed', name: 'envelope name' })).toBe(
+      'Trust score changed'
+    );
+  });
 });
 
 describe('templateInputLabel', () => {

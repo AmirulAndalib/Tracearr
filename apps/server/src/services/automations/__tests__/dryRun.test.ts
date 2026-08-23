@@ -61,6 +61,7 @@ import { triggerCandidates } from '../events/evaluate.js';
 import { DRY_RUN_SESSION_CAP, dryRun, toEngineAutomation } from '../dryRun.js';
 
 const TRIGGER_ID = '11111111-1111-4111-8111-111111111111';
+const SECOND_TRIGGER_ID = '11111111-1111-4111-8111-111111111112';
 const CONDITION_ID = '22222222-2222-4222-8222-222222222222';
 const KILL_ID = '33333333-3333-4333-8333-333333333333';
 const IF_ID = '44444444-4444-4444-8444-444444444444';
@@ -225,6 +226,37 @@ describe('dryRun', () => {
     const { samples } = await dryRun({ definition, sessions: [movie, episode], user: owner });
 
     expect(samples).toEqual([]);
+  });
+
+  it('never replays a live session as a new device, but still samples its other triggers', async () => {
+    const deviceOnly = definitionOf({
+      kind: 'notification',
+      severity: null,
+      triggers: [{ id: TRIGGER_ID, type: 'account.new_device', enabled: true }],
+      conditions: { groups: [] },
+      actions: { actions: [] },
+    });
+
+    // A playing session's own row already matches the probe, so there is nothing to re-test.
+    expect(
+      (await dryRun({ definition: deviceOnly, sessions: [movie], user: owner })).samples
+    ).toEqual([]);
+
+    const alongside = definitionOf({
+      kind: 'notification',
+      severity: null,
+      triggers: [
+        { id: TRIGGER_ID, type: 'account.new_device', enabled: true },
+        { id: SECOND_TRIGGER_ID, type: 'session.started', enabled: true },
+      ],
+      conditions: { groups: [] },
+      actions: { actions: [] },
+    });
+
+    const { samples } = await dryRun({ definition: alongside, sessions: [movie], user: owner });
+
+    expect(samples).toHaveLength(1);
+    expect(samples[0]?.triggers).toEqual(['session.started']);
   });
 
   it('says which trigger it stood in for when the draft has no session.started', async () => {

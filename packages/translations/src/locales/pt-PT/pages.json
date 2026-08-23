@@ -1075,6 +1075,11 @@
         "keywords": "upgrade quality remux 4k resolution replaced notify discord email webhook",
         "name": "Media upgraded"
       },
+      "new-device": {
+        "name": "New device",
+        "description": "Tell a destination the first time an account streams from a device you have not seen.",
+        "keywords": "device new unknown unrecognized phone login sharing notify discord email webhook"
+      },
       "no-4k-transcodes": {
         "description": "Stop a stream that transcodes 4K source video.",
         "keywords": "4k transcode quality cpu bandwidth stop",
@@ -1129,6 +1134,11 @@
         "description": "Tell a destination when a stream transcodes video or audio.",
         "keywords": "transcode convert cpu direct play quality notify discord email webhook",
         "name": "Stream is transcoding"
+      },
+      "trust-score-changed": {
+        "name": "Trust score changed",
+        "description": "Tell a destination when an account's trust score changes.",
+        "keywords": "trust score reputation penalty adjusted notify discord email webhook"
       }
     },
     "title": "Automations",

@@ -184,7 +184,7 @@ describe('planDestinationsMigration', () => {
     expect(plan({ settings: seven({ pushoverUserKey: 'u' }) }).destinations).toEqual([]);
   });
 
-  it('routing null falls back to every event but the stream pair, capped by type capability', () => {
+  it('routing null falls back to every event but the stream pair and trust, capped by capability', () => {
     const result = plan({
       settings: seven({
         discordWebhookUrl: 'https://d/h',
@@ -193,13 +193,14 @@ describe('planDestinationsMigration', () => {
       }),
       routing: null,
     });
+    // No routing table is no evidence anyone wanted trust alerts, so the fallback leaves
+    // them off everywhere: a factory-reset install seeds New device and not this one.
     const all = [
       'violation_detected',
       'server_down',
       'server_up',
       'plugin_update_available',
       'new_device',
-      'trust_score_changed',
     ];
     expect(result.destinations[0]?.events).toEqual(all);
     expect(result.destinations[1]?.events).toEqual(all);
@@ -208,9 +209,7 @@ describe('planDestinationsMigration', () => {
       'server_down',
       'server_up',
       'new_device',
-      'trust_score_changed',
     ]);
-    // The toast mask drops trust alone; 0018 checked that column for every row.
     expect(result.builtinEvents.webToast).toEqual([
       'violation_detected',
       'server_down',
@@ -233,7 +232,6 @@ describe('planDestinationsMigration', () => {
       'violation_detected',
       'stream_started',
       'new_device',
-      'trust_score_changed',
     ]);
     expect(result.builtinEvents.webToast).toEqual(['stream_started', 'server_down', 'new_device']);
   });
@@ -448,7 +446,6 @@ describe('runDestinationsMigration', () => {
       'server_down',
       'server_up',
       'new_device',
-      'trust_score_changed',
     ]);
     expect(builtinPatches[1]?.patch.events).toEqual(['server_down', 'server_up', 'new_device']);
 

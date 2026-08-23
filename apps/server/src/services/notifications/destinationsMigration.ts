@@ -95,7 +95,13 @@ const set = (v: string | null | undefined): v is string => typeof v === 'string'
 function routingFor(routing: RoutingRow[] | null, event: NotificationEventType): RoutingRow {
   const row = routing?.find((r) => r.eventType === event);
   if (row) return row;
-  const on = !(event === 'stream_started' || event === 'stream_stopped');
+  // Trust joins the stream pair: 0004 seeded it off for everyone, so a database with no
+  // routing table at all is no evidence anyone asked for it.
+  const on = !(
+    event === 'stream_started' ||
+    event === 'stream_stopped' ||
+    event === 'trust_score_changed'
+  );
   return {
     eventType: event,
     discordEnabled: on,

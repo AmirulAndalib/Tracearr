@@ -36,6 +36,24 @@ export function setContextAssemblyDeps(next: ContextAssemblyDeps): void {
   deps = next;
 }
 
+/**
+ * The session list a rule evaluates against. Excludes stoppedTwinId (the quality-change twin
+ * stopped earlier in the same operation but still in the caller's cache snapshot) and appends
+ * triggeringSession unless a session with that id is already there.
+ */
+export function buildRuleContextSessions(
+  activeSessions: Session[],
+  triggeringSession: Session,
+  stoppedTwinId: string | null | undefined
+): Session[] {
+  const countableSessions = stoppedTwinId
+    ? activeSessions.filter((s) => s.id !== stoppedTwinId)
+    : activeSessions;
+  return countableSessions.some((s) => s.id === triggeringSession.id)
+    ? countableSessions
+    : [...countableSessions, triggeringSession];
+}
+
 export function toRuleServer(server: EvaluationServer): Server {
   return {
     id: server.id,

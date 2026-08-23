@@ -59,7 +59,7 @@ import {
 } from '../../jobs/poller/database.js';
 import { excludeUncountableSessions } from '../../jobs/poller/utils.js';
 import { gracePeriodSessionIds } from '../../jobs/poller/processor.js';
-import { buildRuleContextSessions } from '../../jobs/poller/sessionLifecycle.js';
+import { buildRuleContextSessions } from './events/contextAssembly.js';
 import { terminateSession } from '../termination.js';
 import { automationsLogger } from '../../utils/logger.js';
 import { evaluateRulesAsync } from './engine.js';

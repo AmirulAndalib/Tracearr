@@ -1,8 +1,8 @@
 import { TIME_MS, TRIGGER_TYPES, type EngineAutomation, type TriggerNode } from '@tracearr/shared';
-import { buildRuleContextSessions } from '../../../jobs/poller/sessionLifecycle.js';
+
 import { ruleAppliesTo } from '../engine.js';
 import { pauseMinutes } from '../wakes/crossings.js';
-import { toRuleServer, toRuleServerUser } from './contextAssembly.js';
+import { buildRuleContextSessions, toRuleServer, toRuleServerUser } from './contextAssembly.js';
 import type { EvaluationContext } from '../types.js';
 import type {
   AccountInactiveForEvent,

@@ -123,7 +123,7 @@ function buildTracearrUpdate(
   };
 }
 
-function buildMedia(payload: NotificationPayload): GotifyMessage {
+function buildOwnText(payload: NotificationPayload): GotifyMessage {
   return { ...ownText(payload), priority: 3 };
 }
 
@@ -149,7 +149,7 @@ function build(payload: NotificationPayload): GotifyMessage {
     case 'media_upgraded':
     case 'new_device':
     case 'trust_score_changed':
-      return buildMedia(payload);
+      return buildOwnText(payload);
   }
 }
 
