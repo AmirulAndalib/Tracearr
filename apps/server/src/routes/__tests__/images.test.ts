@@ -435,7 +435,7 @@ describe('Image Routes', () => {
         data: Buffer.from('x'),
         contentType: 'image/webp',
         cached: true,
-      } as never);
+      });
       await app.inject({
         method: 'GET',
         url: `/images/proxy?server=${validServerId}&url=/p&width=360&height=540&lqip=1`,

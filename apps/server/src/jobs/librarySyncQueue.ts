@@ -25,6 +25,7 @@ import { enqueueMaintenanceJob, maybeEnqueueMaintenanceJob } from './maintenance
 import { enqueueImagePrecache } from './imagePrecacheQueue.js';
 import { resolvePrecachePass } from './precachePassPolicy.js';
 import { VALID_LIBRARY_ITEM_CONDITION } from '../utils/snapshotValidation.js';
+import { scheduleImageCacheSweep } from '../services/imageCacheSweep.js';
 
 // Job data interface
 export interface LibrarySyncJobData {
@@ -273,6 +274,9 @@ export function startLibrarySyncWorker(): void {
           // unmoved watermark hands them to the next pass.
           if (passJobId) await precachePass.commit();
         }
+
+        // Versions that moved in this sync leave their old files behind; the sweep picks them up.
+        scheduleImageCacheSweep('sync');
 
         const duration = Math.round((Date.now() - startTime) / 1000);
         console.log(`[LibrarySync] Job ${job.id} completed in ${duration}s:`, {

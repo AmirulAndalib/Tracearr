@@ -63,7 +63,7 @@ import { statsRoutes } from './routes/stats/index.js';
 import { settingsRoutes } from './routes/settings.js';
 import { importRoutes } from './routes/import.js';
 import { imageRoutes } from './routes/images.js';
-import { stopImageCacheCleanup } from './services/imageProxy.js';
+import { startImageCacheSweepTimer, stopImageCacheSweep } from './services/imageCacheSweep.js';
 import { debugRoutes } from './routes/debug.js';
 import { mobileRoutes } from './routes/mobile.js';
 import { notificationPreferencesRoutes } from './routes/notificationPreferences.js';
@@ -569,7 +569,7 @@ async function buildApp(options: { trustProxy?: boolean } = {}) {
     if (mobileTokenCleanupInterval) {
       clearInterval(mobileTokenCleanupInterval);
     }
-    stopImageCacheCleanup();
+    stopImageCacheSweep();
     await closeAuth();
     if (pubSubRedis) await pubSubRedis.quit();
     if (wsSubscriber) await wsSubscriber.quit();
@@ -934,6 +934,7 @@ async function initializeServices(app: FastifyInstance) {
   try {
     initImagePrecacheQueue(redisUrl);
     await startImagePrecacheWorker();
+    startImageCacheSweepTimer();
     app.log.info('Image precache queue initialized');
   } catch (err) {
     app.log.error({ err }, 'Failed to initialize image precache queue');

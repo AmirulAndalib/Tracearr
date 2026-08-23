@@ -358,6 +358,9 @@ describe('proxyImage cache-miss pipeline', () => {
     } finally {
       vi.useRealTimers();
     }
+    // The background pipeline is still resolving after the race returned;
+    // drain its write so it doesn't leak into a later test.
+    await vi.waitFor(() => expect(vi.mocked(writeFile)).toHaveBeenCalled());
   });
 
   it('without lqip, waits for the real pipeline past the semaphore wait timeout instead of racing the LQIP placeholder', async () => {
