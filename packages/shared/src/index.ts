@@ -79,6 +79,7 @@ export type {
   // Settings
   Settings,
   UnitSystem,
+  ImageCacheStatus,
   // Tailscale
   TailscaleStatus,
   TailscaleExitNode,
@@ -663,6 +664,8 @@ export {
   isValidTimezone,
   // Multi-version media
   LEGACY_VERSION_SENTINEL,
+  // Poster cache
+  POSTER_IMAGE_SIZE,
 } from './constants.js';
 
 // Role helper exports
