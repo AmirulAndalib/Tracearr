@@ -110,6 +110,7 @@ import type {
   MediaWatchersResponse,
   MediaPlatformBreakdownResponse,
   MediaSeasonHeatResponse,
+  ImageCacheStatus,
   ServerResourceDataPoint,
   ServerBandwidthDataPoint,
   BandwidthSample,
@@ -1749,6 +1750,7 @@ class ApiClient {
       this.request<{ token: string }>('/settings/api-key/regenerate', { method: 'POST' }),
     getIpWarning: () =>
       this.request<{ showWarning: boolean; stateHash: string }>('/settings/ip-warning'),
+    getImageCache: () => this.request<ImageCacheStatus>('/settings/image-cache'),
   };
 
   // Notification destinations

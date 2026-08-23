@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router';
 import { UpdateChecksCard } from '@/components/settings/UpdateChecksCard';
+import { ImageCacheCard } from '@/components/settings/ImageCacheCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -586,6 +587,9 @@ export function GeneralSettings() {
 
       {/* Update checks */}
       <UpdateChecksCard />
+
+      {/* Poster cache */}
+      <ImageCacheCard />
 
       {/* API Key */}
       <ApiKeyCard />

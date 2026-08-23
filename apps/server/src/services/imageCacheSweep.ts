@@ -265,16 +265,22 @@ export async function getImageCacheStatus(): Promise<ImageCacheStatus> {
       .from(libraryItems)
       .where(isNotNull(libraryItems.thumbPath)),
   ]);
-  const tally = tallyRaw
-    ? (JSON.parse(tallyRaw) as {
-        bytes: number;
-        files: number;
-        versionedFiles: number;
-        sweptAt: string;
-        freedBytes: number;
-        deletedFiles: number;
-      })
-    : null;
+  interface Tally {
+    bytes: number;
+    files: number;
+    versionedFiles: number;
+    sweptAt: string;
+    freedBytes: number;
+    deletedFiles: number;
+  }
+  let tally: Tally | null = null;
+  if (tallyRaw) {
+    try {
+      tally = JSON.parse(tallyRaw) as Tally;
+    } catch {
+      // a corrupt tally is treated like a missing one; the ?? fallbacks below apply
+    }
+  }
   const postersWithThumb = countRow[0]?.n ?? 0;
   const config = getGuardConfig();
   return {

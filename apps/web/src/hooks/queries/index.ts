@@ -113,7 +113,13 @@ export {
 } from './useServers';
 
 // Settings hooks
-export { useSettings, useUpdateSettings, useApiKey, useRegenerateApiKey } from './useSettings';
+export {
+  useSettings,
+  useUpdateSettings,
+  useApiKey,
+  useRegenerateApiKey,
+  useImageCacheStatus,
+} from './useSettings';
 
 // Destination hooks
 export {

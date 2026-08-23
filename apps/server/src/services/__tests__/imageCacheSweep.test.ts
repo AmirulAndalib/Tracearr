@@ -563,4 +563,28 @@ describe('getImageCacheStatus', () => {
     expect(status.diskLimitedSince).toBeNull();
     expect(status.shortfallBytes).toBe(0);
   });
+
+  it('treats a corrupt tally value like a missing one', async () => {
+    const redis = makeRedisStub();
+    vi.mocked(getRedis).mockReturnValue(redis as never);
+    redis.store.set(REDIS_KEYS.IMAGE_CACHE_TALLY, 'not json{');
+
+    const GB = 1024 ** 3;
+    vi.mocked(statfs).mockResolvedValue({
+      bsize: 4096,
+      bavail: Math.floor((50 * GB) / 4096),
+      blocks: Math.floor((100 * GB) / 4096),
+    } as never);
+
+    mockLibraryItemsCount(0);
+
+    const status = await getImageCacheStatus();
+
+    expect(status.bytes).toBe(0);
+    expect(status.files).toBe(0);
+    expect(status.versionedFiles).toBe(0);
+    expect(status.sweptAt).toBeNull();
+    expect(status.freedBytesLastSweep).toBe(0);
+    expect(status.deletedFilesLastSweep).toBe(0);
+  });
 });
