@@ -412,9 +412,9 @@
       "finished": "",
       "noSummary": "",
       "outcomes": {
-        "completed": "Completed",
+        "completed": "",
         "stopped_by_condition": "",
-        "error": "Error"
+        "error": ""
       },
       "empty": "",
       "emptyDescription": "",
@@ -425,7 +425,7 @@
       "tabs": {
         "all": "",
         "completed": "",
-        "stopped_by_condition": "Stopped",
+        "stopped_by_condition": "",
         "error": ""
       },
       "group": "",
@@ -454,7 +454,7 @@
       "submitting": "",
       "customize": "",
       "doors": {
-        "helper": "Use this now — you can change your answers later, and it keeps up with the ready-made one. In the builder you can change every part, on your own from then on."
+        "helper": ""
       },
       "anyServer": "",
       "serverHelper": "",
@@ -464,7 +464,7 @@
       "destinationsLabel": "",
       "required": "",
       "needs": {
-        "title": "Fill in"
+        "title": ""
       },
       "helper": {
         "killMessage": "",
@@ -508,9 +508,9 @@
       },
       "severityLabel": "Severity",
       "activeLabel": "",
-      "saving": "Saving...",
-      "selectPlaceholder": "Select...",
-      "searchPlaceholder": "Search...",
+      "saving": "",
+      "selectPlaceholder": "",
+      "searchPlaceholder": "",
       "noMatches": "",
       "clearSelection": "",
       "selectedCount": "",
@@ -563,7 +563,7 @@
         "groupSeparator": "",
         "addAnother": "Add another condition",
         "addFirst": "Add a condition",
-        "removeGroup": "Remove group"
+        "removeGroup": ""
       },
       "actions": {
         "add": "Add action",
@@ -645,7 +645,7 @@
         "confirm": ""
       },
       "liveCheck": {
-        "title": "Right now",
+        "title": "",
         "checking": "",
         "empty": "",
         "failed": "",
@@ -839,7 +839,7 @@
     "disable": "",
     "editAutomation": "Edit Automation",
     "effects": {
-      "title": "What this does",
+      "title": "",
       "kill": "",
       "trust": "",
       "message": "",
@@ -869,7 +869,7 @@
       "carries": "",
       "copyCode": "",
       "copyJson": "",
-      "authorLabel": "Made by",
+      "authorLabel": "",
       "authorPlaceholder": "",
       "authorHelper": "",
       "save": "",
@@ -942,7 +942,7 @@
       "user_id": {
         "label": "",
         "description": "",
-        "placeholder": "Select users..."
+        "placeholder": ""
       },
       "trust_score": {
         "label": "",
@@ -972,7 +972,7 @@
       "country": {
         "label": "",
         "description": "",
-        "placeholder": "Select countries..."
+        "placeholder": ""
       },
       "ip_in_range": {
         "label": "",
@@ -982,7 +982,7 @@
       "server_id": {
         "label": "",
         "description": "",
-        "placeholder": "Select servers..."
+        "placeholder": ""
       },
       "media_type": {
         "label": "",
@@ -1059,12 +1059,12 @@
       "description": "",
       "reviewDescription": "",
       "placeholder": "",
-      "formatHint": "A code starts with tracearr1. — or paste the JSON instead.",
+      "formatHint": "",
       "check": "",
       "checking": "",
       "valid": "",
-      "madeBy": "Made by {{author}}",
-      "codeShort": "code {{fingerprint}}",
+      "madeBy": "",
+      "codeShort": "",
       "paused": {
         "label": "",
         "helper": ""
@@ -1098,8 +1098,8 @@
       "builtinMatch": ""
     },
     "kind": {
-      "policy": "Policy",
-      "notification": "Notification"
+      "policy": "",
+      "notification": ""
     },
     "kindColumn": "",
     "name": "Automation Name",
@@ -1180,9 +1180,9 @@
     },
     "provenance": {
       "builtin": "",
-      "imported": "Imported {{date}} · {{name}} {{version}}",
-      "importedBy": "Imported {{date}} by {{author}} · {{name}} {{version}}",
-      "saved": "From {{name}} {{version}}",
+      "imported": "",
+      "importedBy": "",
+      "saved": "",
       "customized": "",
       "customizedFromRemoved": ""
     },
@@ -1193,7 +1193,7 @@
       "account": "",
       "crossServer": ""
     },
-    "searchPlaceholder": "Search automations...",
+    "searchPlaceholder": "",
     "sessionTargets": {
       "triggering": {
         "label": "",
@@ -1253,7 +1253,7 @@
       "review": "",
       "save": "",
       "customize": "Customize",
-      "customizeTitle": "Make it yours?",
+      "customizeTitle": "",
       "customizeConfirm": "",
       "customizeConfirmAction": "Customize it",
       "customizeFirst": "",
