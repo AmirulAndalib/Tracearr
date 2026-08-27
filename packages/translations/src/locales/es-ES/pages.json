@@ -1647,7 +1647,8 @@
     "circles": "Círculos",
     "streams": "flujos",
     "locations": "ubicaciones",
-    "allActivity": "Toda la actividad"
+    "allActivity": "Toda la actividad",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Compatibilidad del dispositivo",

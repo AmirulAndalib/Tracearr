@@ -1647,7 +1647,8 @@
     "circles": "Cirkels",
     "streams": "",
     "locations": "locaties",
-    "allActivity": "Alle activiteiten"
+    "allActivity": "Alle activiteiten",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Compatibiliteit van apparaat",

@@ -1647,7 +1647,8 @@
     "circles": "Kruhy",
     "streams": "proudy",
     "locations": "místa",
-    "allActivity": "Všechny aktivity"
+    "allActivity": "Všechny aktivity",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Kompatibilita zařízení",

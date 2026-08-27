@@ -1647,7 +1647,8 @@
     "circles": "Cercuri",
     "streams": "fluxuri",
     "locations": "locații",
-    "allActivity": "Toată activitatea"
+    "allActivity": "Toată activitatea",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Compatibilitate dispozitiv",

@@ -1647,7 +1647,8 @@
     "circles": "Ympyrät",
     "streams": "purot",
     "locations": "sijainnit",
-    "allActivity": "Kaikki toiminnot"
+    "allActivity": "Kaikki toiminnot",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Laitteen Yhteensopivuus",

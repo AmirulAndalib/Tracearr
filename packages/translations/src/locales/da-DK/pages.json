@@ -1647,7 +1647,8 @@
     "circles": "Cirkler",
     "streams": "Strømme",
     "locations": "placeringer",
-    "allActivity": "Alle aktiviteter"
+    "allActivity": "Alle aktiviteter",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Enhedens Kompatibilitet",

@@ -1647,7 +1647,8 @@
     "circles": "円",
     "streams": "ストリーム",
     "locations": "場所",
-    "allActivity": "すべてのアクティビティ"
+    "allActivity": "すべてのアクティビティ",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "デバイスの互換性",

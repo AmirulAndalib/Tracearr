@@ -1647,7 +1647,8 @@
     "circles": "Круги",
     "streams": "потоки",
     "locations": "места",
-    "allActivity": "Все действия"
+    "allActivity": "Все действия",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Совместимость устройства",

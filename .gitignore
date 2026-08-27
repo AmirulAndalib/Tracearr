@@ -38,10 +38,12 @@ apps/e2e/playwright-report/
 npm-debug.log*
 pnpm-debug.log*
 
-# Database (keep GeoLite2 database committed)
+# Database (keep GeoLite2 database and the built-in basemap committed)
 data/*.mmdb
+data/*.pmtiles
 !data/GeoLite2-City.mmdb
 !data/GeoLite2-ASN.mmdb
+!data/basemap.pmtiles
 
 # Local server data
 apps/server/data/

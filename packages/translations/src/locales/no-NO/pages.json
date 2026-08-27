@@ -1647,7 +1647,8 @@
     "circles": "Sirkler",
     "streams": "strømmer",
     "locations": "steder",
-    "allActivity": "All aktivitet"
+    "allActivity": "All aktivitet",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Enhetens kompatibilitet",

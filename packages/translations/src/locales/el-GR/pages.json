@@ -1647,7 +1647,8 @@
     "circles": "Κύκλοι",
     "streams": "ροές",
     "locations": "τοποθεσίες",
-    "allActivity": "Όλη η δραστηριότητα"
+    "allActivity": "Όλη η δραστηριότητα",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Συμβατότητα Συσκευής",

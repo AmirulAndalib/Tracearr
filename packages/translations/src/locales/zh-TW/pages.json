@@ -1647,7 +1647,8 @@
     "circles": "",
     "streams": "",
     "locations": "",
-    "allActivity": ""
+    "allActivity": "",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "",

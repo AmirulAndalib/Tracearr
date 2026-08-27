@@ -81,6 +81,8 @@ COPY --from=builder /app/apps/server/src/db/migrations ./apps/server/src/db/migr
 # GeoIP database (if exists in build context)
 COPY data/GeoLite2-City.mmdb ./data/GeoLite2-City.mmdb
 COPY data/GeoLite2-ASN.mmdb ./data/GeoLite2-ASN.mmdb
+COPY data/basemap.pmtiles ./data/basemap.pmtiles
+COPY data/BASEMAP_NOTICE.txt ./data/BASEMAP_NOTICE.txt
 
 # Create image cache and backup directories
 RUN mkdir -p /app/data/image-cache /data/backup

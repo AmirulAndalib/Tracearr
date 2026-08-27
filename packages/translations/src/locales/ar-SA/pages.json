@@ -1647,7 +1647,8 @@
     "circles": "دوائر",
     "streams": "تدفق",
     "locations": "المواقع",
-    "allActivity": "جميع الأنشطة"
+    "allActivity": "جميع الأنشطة",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "توافق الجهاز",

@@ -1647,7 +1647,8 @@
     "circles": "Кола",
     "streams": "трансляції",
     "locations": "місцезнаходження",
-    "allActivity": "Уся діяльність"
+    "allActivity": "Уся діяльність",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Сумісність пристроїв",

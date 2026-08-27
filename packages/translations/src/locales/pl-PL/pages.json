@@ -1647,7 +1647,8 @@
     "circles": "Kółka",
     "streams": "strumienie",
     "locations": "lokalizacje",
-    "allActivity": "Wszystkie działania"
+    "allActivity": "Wszystkie działania",
+    "basemapMissing": "Basemap not installed"
   },
   "devices": {
     "title": "Kompatybilność urządzenia",
