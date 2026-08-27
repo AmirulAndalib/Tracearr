@@ -45,6 +45,9 @@ data/*.pmtiles
 !data/GeoLite2-ASN.mmdb
 !data/basemap.pmtiles
 
+# Poster/avatar cache the image proxy writes at runtime
+data/image-cache/
+
 # Local server data
 apps/server/data/
 
