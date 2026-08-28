@@ -271,14 +271,21 @@ export async function getServerUserByExternalId(
     .from(serverUsers)
     .where(and(eq(serverUsers.serverId, serverId), eq(serverUsers.externalId, externalId)))
     .limit(1);
-  if (rows[0]) return rows[0];
+  return rows[0] ?? null;
+}
 
-  // Folded into another account by a same-server merge; the server still
-  // reports the old id, so resolve it instead of reporting a new account.
-  const aliased = await db
-    .select({ serverUser: serverUsers })
+/**
+ * Whether a same-server merge folded this external id into another account.
+ *
+ * Deliberately separate from getServerUserByExternalId: sync uses that one to
+ * decide what to write, and resolving an alias there would overwrite the
+ * surviving account's username, email and plex linkage with the absorbed
+ * account's whenever both still exist on the media server.
+ */
+export async function isAliasedExternalId(serverId: string, externalId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: serverUserExternalAliases.id })
     .from(serverUserExternalAliases)
-    .innerJoin(serverUsers, eq(serverUserExternalAliases.serverUserId, serverUsers.id))
     .where(
       and(
         eq(serverUserExternalAliases.serverId, serverId),
@@ -286,7 +293,7 @@ export async function getServerUserByExternalId(
       )
     )
     .limit(1);
-  return aliased[0]?.serverUser ?? null;
+  return rows.length > 0;
 }
 
 /**
@@ -655,6 +662,12 @@ export async function syncUserFromMediaServer(
       return { serverUser: updated[0]!, user, created: false };
     }
 
+    // Already folded into another account by a same-server merge. Creating it
+    // again is what the alias table exists to prevent.
+    if (await isAliasedExternalId(serverId, mediaUser.id)) {
+      return null;
+    }
+
     // Create new Plex user
     // For shared users: plex.tv ID = local PMS ID, so use mediaUser.id for both
     // For owner (isAdmin): should already exist from OAuth, but handle edge case
@@ -743,6 +756,12 @@ export async function syncUserFromMediaServer(
 
     const user = await requireUserById(existing.userId);
     return { serverUser: updated, user, created: false };
+  }
+
+  // Already folded into another account by a same-server merge. Creating it
+  // again is what the alias table exists to prevent.
+  if (await isAliasedExternalId(serverId, mediaUser.id)) {
+    return null;
   }
 
   // Use transaction to prevent orphaned users if server user creation fails

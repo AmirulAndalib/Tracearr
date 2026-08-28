@@ -30,7 +30,10 @@ import {
   userMergeAudits,
 } from '../../src/db/schema.js';
 import { mergeUsers, splitServerUser } from '../../src/services/mergeService.js';
-import { getServerUserByExternalId } from '../../src/services/userService.js';
+import {
+  getServerUserByExternalId,
+  syncUserFromMediaServer,
+} from '../../src/services/userService.js';
 
 describe('chained merges preserve the audit trail', () => {
   it('repoints an earlier audit onto the final target instead of letting it cascade-delete', async () => {
@@ -314,7 +317,84 @@ describe('a same-server combine keeps the absorbed external id resolvable', () =
     // The next session still reports 1. Without the alias this misses and the
     // duplicate identity comes straight back.
     const resolved = await getServerUserByExternalId(server.id, '1');
-    expect(resolved?.id).toBe(ownerAccount.id);
-    expect(resolved?.userId).toBe(owner.id);
+    expect(resolved).toBeNull();
+
+    const [aliasTarget] = await db
+      .select()
+      .from(serverUsers)
+      .where(eq(serverUsers.id, alias!.serverUserId));
+    expect(aliasTarget?.userId).toBe(owner.id);
+  });
+
+  it('carries the alias forward when the surviving account is itself absorbed', async () => {
+    const admin = await createTestUser({ role: 'owner' });
+    const server = await createTestServer({ type: 'plex' });
+
+    const first = await createTestUser({ role: 'member', username: 'chain-a' });
+    const second = await createTestUser({ role: 'member', username: 'chain-b' });
+    const final = await createTestUser({ role: 'owner', username: 'chain-c' });
+
+    await createTestServerUser({ userId: first.id, serverId: server.id, externalId: 'a' });
+    await createTestServerUser({ userId: second.id, serverId: server.id, externalId: 'b' });
+    const finalAccount = await createTestServerUser({
+      userId: final.id,
+      serverId: server.id,
+      externalId: 'c',
+    });
+
+    await mergeUsers(first.id, second.id, admin.id, { confirmSameServerCombine: true });
+    await mergeUsers(second.id, final.id, admin.id, { confirmSameServerCombine: true });
+
+    // Both folded ids have to end on the last surviving account, or the first
+    // merge's alias dangles at a row the second merge deleted.
+    const aliases = await db
+      .select()
+      .from(serverUserExternalAliases)
+      .where(eq(serverUserExternalAliases.serverId, server.id));
+    expect(aliases.map((a) => a.externalId).sort()).toEqual(['a', 'b']);
+    for (const alias of aliases) {
+      expect(alias.serverUserId).toBe(finalAccount.id);
+    }
+  });
+});
+
+describe('sync does not write an absorbed account over the one that survived it', () => {
+  it('skips a folded external id instead of recreating it or renaming the survivor', async () => {
+    const admin = await createTestUser({ role: 'owner' });
+    const server = await createTestServer({ type: 'jellyfin' });
+
+    const owner = await createTestUser({ role: 'owner', username: 'john' });
+    const spare = await createTestUser({ role: 'member', username: 'john-4k' });
+
+    const survivor = await createTestServerUser({
+      userId: owner.id,
+      serverId: server.id,
+      externalId: 'jf-new',
+      username: 'john',
+    });
+    await createTestServerUser({
+      userId: spare.id,
+      serverId: server.id,
+      externalId: 'jf-old',
+      username: 'john-4k',
+    });
+
+    await mergeUsers(spare.id, owner.id, admin.id, { confirmSameServerCombine: true });
+
+    // Both accounts still exist on the media server, so sync keeps reporting
+    // the absorbed one every tick.
+    const result = await syncUserFromMediaServer(server.id, {
+      id: 'jf-old',
+      username: 'john-4k',
+      isAdmin: false,
+      isDisabled: false,
+    });
+    expect(result).toBeNull();
+
+    const [after] = await db.select().from(serverUsers).where(eq(serverUsers.id, survivor.id));
+    expect(after?.username).toBe('john');
+
+    const accounts = await db.select().from(serverUsers).where(eq(serverUsers.serverId, server.id));
+    expect(accounts).toHaveLength(1);
   });
 });

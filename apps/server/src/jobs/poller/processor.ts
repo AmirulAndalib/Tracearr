@@ -768,6 +768,7 @@ async function processServerSessions(
 
     // External ids a same-server merge folded into another account. Resolving
     // these is what stops the merge from being undone by the next stream.
+    const aliasResolvedExternalIds = new Set<string>();
     const unmatchedExternalIds = sessionExternalIds.filter(
       (externalId) => !serverUserByExternalId.has(externalId)
     );
@@ -802,6 +803,7 @@ async function processServerSessions(
       for (const { aliasExternalId, ...serverUser } of aliased) {
         serverUserByExternalId.set(aliasExternalId, serverUser);
         serverUserById.set(serverUser.id, serverUser);
+        aliasResolvedExternalIds.add(aliasExternalId);
       }
     }
 
@@ -821,10 +823,12 @@ async function processServerSessions(
       const existingServerUser = serverUserByExternalId.get(processed.externalUserId);
 
       if (existingServerUser) {
-        // Check if server user data needs update
+        // An aliased match is a different account on the media server that was
+        // folded into this one, so its name and avatar are not this account's.
         const needsUpdate =
-          existingServerUser.username !== processed.username ||
-          (processed.userThumb && existingServerUser.thumbUrl !== processed.userThumb);
+          !aliasResolvedExternalIds.has(processed.externalUserId) &&
+          (existingServerUser.username !== processed.username ||
+            (processed.userThumb && existingServerUser.thumbUrl !== processed.userThumb));
 
         if (needsUpdate) {
           await db
