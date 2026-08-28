@@ -15,7 +15,14 @@ import { eq, and, sql, inArray, isNull, type SQL } from 'drizzle-orm';
 import type { MediaUser } from './mediaServer/index.js';
 import type { UserRole } from '@tracearr/shared';
 import { db } from '../db/client.js';
-import { users, serverUsers, servers, sessions, automationRuns } from '../db/schema.js';
+import {
+  users,
+  serverUsers,
+  serverUserExternalAliases,
+  servers,
+  sessions,
+  automationRuns,
+} from '../db/schema.js';
 import { NotFoundError } from '../utils/errors.js';
 import { violationAliasConditions } from './automations/aliasFilter.js';
 
@@ -264,7 +271,22 @@ export async function getServerUserByExternalId(
     .from(serverUsers)
     .where(and(eq(serverUsers.serverId, serverId), eq(serverUsers.externalId, externalId)))
     .limit(1);
-  return rows[0] ?? null;
+  if (rows[0]) return rows[0];
+
+  // Folded into another account by a same-server merge; the server still
+  // reports the old id, so resolve it instead of reporting a new account.
+  const aliased = await db
+    .select({ serverUser: serverUsers })
+    .from(serverUserExternalAliases)
+    .innerJoin(serverUsers, eq(serverUserExternalAliases.serverUserId, serverUsers.id))
+    .where(
+      and(
+        eq(serverUserExternalAliases.serverId, serverId),
+        eq(serverUserExternalAliases.externalId, externalId)
+      )
+    )
+    .limit(1);
+  return aliased[0]?.serverUser ?? null;
 }
 
 /**

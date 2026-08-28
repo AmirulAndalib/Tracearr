@@ -19,6 +19,7 @@ import { db } from '../db/client.js';
 import {
   users,
   serverUsers,
+  serverUserExternalAliases,
   servers,
   sessions,
   automationRuns,
@@ -334,6 +335,26 @@ async function combineServerUsers(
       updatedAt: new Date(),
     })
     .where(eq(serverUsers.id, targetServerUserId));
+
+  // Aliases already pointing at the source would cascade away with it.
+  await tx
+    .update(serverUserExternalAliases)
+    .set({ serverUserId: targetServerUserId })
+    .where(eq(serverUserExternalAliases.serverUserId, sourceServerUserId));
+
+  // The media server still reports the source's external id. Claim it for the
+  // surviving row, or the next session recreates the account we just folded.
+  await tx
+    .insert(serverUserExternalAliases)
+    .values({
+      serverId: sourceSu.serverId,
+      externalId: sourceSu.externalId,
+      serverUserId: targetServerUserId,
+    })
+    .onConflictDoUpdate({
+      target: [serverUserExternalAliases.serverId, serverUserExternalAliases.externalId],
+      set: { serverUserId: targetServerUserId },
+    });
 
   await tx.delete(serverUsers).where(eq(serverUsers.id, sourceServerUserId));
 
