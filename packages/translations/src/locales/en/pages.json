@@ -1648,7 +1648,9 @@
     "streams": "streams",
     "locations": "locations",
     "allActivity": "All activity",
-    "basemapMissing": "Basemap not installed"
+    "basemapMissing": "Basemap not installed",
+    "webglUnavailable": "WebGL is disabled in this browser",
+    "webglHint": "The map needs WebGL. Enable it for this site in your browser settings."
   },
   "devices": {
     "title": "Device Compatibility",
