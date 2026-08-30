@@ -789,12 +789,15 @@ export function parseLibraryItem(item: Record<string, unknown>): MediaLibraryIte
   const itemId = parseString(item.Id);
   const imageTags = getNestedObject(item, 'ImageTags');
   const primaryTag = imageTags?.Primary ? parseString(imageTags.Primary) : undefined;
-  // Every track reports its own Primary tag for what is the album cover, so keying
-  // on the item would cache one identical copy per track.
-  const albumId = mappedType === 'track' ? parseOptionalString(item.AlbumId) : undefined;
-  const posterId = albumId ?? itemId;
-  const posterTag = albumId ? parseOptionalString(item.AlbumPrimaryImageTag) : primaryTag;
-  const thumbPath = `/Items/${posterId}/Images/Primary${posterTag ? `?tag=${posterTag}` : ''}`;
+  // Tracks repeat the album cover under their own item id, so point them at the
+  // album to cache it once. Only when the album has its own image: without a tag
+  // it has no Primary resource and the album URL 404s.
+  const albumTag =
+    mappedType === 'track' ? parseOptionalString(item.AlbumPrimaryImageTag) : undefined;
+  const albumId = albumTag ? parseOptionalString(item.AlbumId) : undefined;
+  const thumbPath = albumId
+    ? `/Items/${albumId}/Images/Primary?tag=${albumTag!}`
+    : `/Items/${itemId}/Images/Primary${primaryTag ? `?tag=${primaryTag}` : ''}`;
 
   const result: MediaLibraryItem = {
     ratingKey: itemId,

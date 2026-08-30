@@ -594,12 +594,20 @@ describe('parseLibraryItemsResponse', () => {
     expect(result[1]!.thumbPath).toBe(result[0]!.thumbPath);
   });
 
-  it('rolls a track up to its album even when the album has no image tag', () => {
-    const input = [{ Id: 'track-3', Name: 'Track', Type: 'Audio', AlbumId: 'album-9' }];
+  it('keeps a track on its own image when the album has no image of its own', () => {
+    const input = [
+      {
+        Id: 'track-3',
+        Name: 'Track',
+        Type: 'Audio',
+        ImageTags: { Primary: 'own3' },
+        AlbumId: 'album-9',
+      },
+    ];
 
     const result = parseLibraryItemsResponse(input);
 
-    expect(result[0]!.thumbPath).toBe('/Items/album-9/Images/Primary');
+    expect(result[0]!.thumbPath).toBe('/Items/track-3/Images/Primary?tag=own3');
   });
 
   it('keeps a track on its own image when it reports no album', () => {
