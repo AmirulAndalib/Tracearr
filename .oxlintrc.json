@@ -17,12 +17,18 @@
     "**/.turbo/**",
     "**/coverage/**",
     "**/build/**",
-    "**/.next/**"
+    "**/.next/**",
+    "**/.claude/**",
+    "**/.superpowers/**",
+    "**/.playwright-mcp/**"
   ],
   "rules": {
     "typescript/no-unused-vars": [
       "error",
-      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "typescript/consistent-type-imports": [
       "error",
@@ -32,9 +38,15 @@
         "disallowTypeAnnotations": false
       }
     ],
-    "typescript/no-misused-promises": ["error", { "checksVoidReturn": { "attributes": false } }],
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksVoidReturn": {
+          "attributes": false
+        }
+      }
+    ],
     "typescript/require-await": "off",
-
     "typescript/restrict-template-expressions": "off",
     "typescript/dot-notation": "off",
     "typescript/no-unnecessary-condition": "off",
@@ -44,7 +56,6 @@
     "typescript/no-inferrable-types": "off",
     "typescript/non-nullable-type-assertion-style": "off",
     "typescript/no-unnecessary-type-conversion": "off",
-
     "typescript/no-unsafe-member-access": "warn",
     "typescript/no-unsafe-call": "warn",
     "typescript/no-unsafe-assignment": "warn",
@@ -52,7 +63,6 @@
     "typescript/no-unsafe-return": "warn",
     "typescript/no-explicit-any": "warn",
     "typescript/no-non-null-assertion": "warn",
-
     "typescript/return-await": "warn",
     "typescript/use-unknown-in-catch-callback-variable": "warn",
     "typescript/no-unnecessary-type-parameters": "warn",
@@ -60,10 +70,8 @@
     "typescript/prefer-nullish-coalescing": "off",
     "typescript/no-invalid-void-type": "off",
     "typescript/no-deprecated": "warn",
-
     "unicorn/no-thenable": "off",
     "typescript/require-array-sort-compare": "off",
-
     "react/react-in-jsx-scope": "off"
   },
   "overrides": [
@@ -77,7 +85,12 @@
         "react/purity": "warn",
         "react/immutability": "warn",
         "react/error-boundaries": "warn",
-        "react/no-unstable-nested-components": ["warn", { "allowAsProps": true }]
+        "react/no-unstable-nested-components": [
+          "warn",
+          {
+            "allowAsProps": true
+          }
+        ]
       }
     },
     {
