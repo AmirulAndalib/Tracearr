@@ -38,7 +38,10 @@ import {
   toRuleSession,
 } from '../../services/automations/events/contextAssembly.js';
 import { dispatch } from '../../services/automations/events/dispatcher.js';
-import { dispatchServerHealth } from '../../services/automations/events/producers.js';
+import {
+  dispatchServerHealth,
+  dispatchSessionFirstSeen,
+} from '../../services/automations/events/producers.js';
 import { registerRuleSubscribers } from '../../services/automations/events/subscribers.js';
 import {
   registerPauseWakeSubscriptions,
@@ -1209,6 +1212,12 @@ async function processServerSessions(
             if (pubSubService) {
               await pubSubService.publish('session:started', activeSession);
             }
+            await dispatchSessionFirstSeen({
+              session: activeSession,
+              server: { id: server.id, name: server.name, type: server.type },
+              serverUser: userDetail,
+              at: new Date(createResult.pendingCreated.startedAt),
+            });
             continue;
           }
 
@@ -1565,6 +1574,15 @@ async function processServerSessions(
               newSessions.push(activeSession);
               recordDbWrite(insertedSession.id, Date.now());
               cachedSessionKeys.add(sessionKey);
+
+              // Auto-play-next is a new playback too; it skips the pending phase,
+              // so first sight and confirmation announce at the same moment.
+              await dispatchSessionFirstSeen({
+                session: activeSession,
+                server: { id: server.id, name: server.name, type: server.type },
+                serverUser: userDetail,
+                at: insertedSession.startedAt,
+              });
             }
 
             continue; // Skip normal update path

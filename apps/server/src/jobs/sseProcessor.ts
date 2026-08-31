@@ -28,7 +28,10 @@ import {
   toRuleSession,
 } from '../services/automations/events/contextAssembly.js';
 import { dispatch } from '../services/automations/events/dispatcher.js';
-import { dispatchServerHealthById } from '../services/automations/events/producers.js';
+import {
+  dispatchServerHealthById,
+  dispatchSessionFirstSeen,
+} from '../services/automations/events/producers.js';
 import { registerService, unregisterService } from '../services/serviceTracker.js';
 import { getWatchedThreshold } from '../services/settings.js';
 import { sseManager } from '../services/sseManager.js';
@@ -1182,6 +1185,13 @@ async function createNewSession(
     await pubSubService.publish('session:started', activeSession);
   }
 
+  await dispatchSessionFirstSeen({
+    session: activeSession,
+    server: { id: srv.id, name: srv.name, type: srv.type },
+    serverUser: userDetail,
+    at: new Date(pendingData.startedAt),
+  });
+
   console.log(
     `[SSEProcessor] Created pending session for ${processed.mediaTitle} (awaiting 30s confirmation)`
   );
@@ -1279,6 +1289,15 @@ async function handleMediaChange(
   if (pubSubService) {
     await pubSubService.publish('session:started', activeSession);
   }
+
+  // Auto-play-next is a new playback too; it skips the pending phase, so first
+  // sight and confirmation announce at the same moment.
+  await dispatchSessionFirstSeen({
+    session: activeSession,
+    server: serverRef,
+    serverUser: { ...serverUser, identityServerUserIds },
+    at: insertedSession.startedAt,
+  });
 
   console.log(
     `[SSEProcessor] Media change created session ${insertedSession.id} for ${processed.mediaTitle}`
