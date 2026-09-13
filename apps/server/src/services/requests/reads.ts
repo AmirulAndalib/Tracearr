@@ -81,6 +81,22 @@ interface WatchedLensRow {
   mediaId: string | null;
   mediaType: MediaRequestMediaType;
   lensUserId: string | null;
+  /** The seasons this request asked for; null or empty means the whole show. */
+  seasons: RequestSeason[] | null;
+}
+
+/**
+ * A probe applies one season restriction to every show in the call, so rows
+ * only share a probe when they asked for the same seasons. Movies carry no
+ * seasons and all land in the unrestricted group.
+ */
+function seasonKeyOf(seasons: RequestSeason[] | null): string {
+  if (!seasons || seasons.length === 0) return 'all';
+  return [...new Set(seasons.map((s) => s.seasonNumber))].sort((a, b) => a - b).join(',');
+}
+
+function seasonsFromKey(key: string): number[] | undefined {
+  return key === 'all' ? undefined : key.split(',').map(Number);
 }
 
 interface RequestWatchedLenses {
@@ -113,53 +129,68 @@ async function watchedStatesFor(
   serverIds: string[] | undefined
 ): Promise<Map<string, RequestWatchedLenses>> {
   const out = new Map<string, RequestWatchedLenses>();
-  const withMedia: WatchedLensRow[] = [];
-  const byLens = new Map<string, WatchedLensRow[]>();
+  // key: seasonKey for the anyone grain, `${lensUserId}|${seasonKey}` for the requester grain.
+  const groups = new Map<
+    string,
+    { seasonKey: string; lensUserId: string | null; rows: WatchedLensRow[] }
+  >();
+  const add = (key: string, seasonKey: string, lensUserId: string | null, row: WatchedLensRow) => {
+    const group = groups.get(key) ?? { seasonKey, lensUserId, rows: [] };
+    group.rows.push(row);
+    groups.set(key, group);
+  };
+
   for (const row of rows) {
     out.set(row.id, { anyone: 'unwatched', requester: 'unwatched' });
     if (!row.mediaId) continue;
-    withMedia.push(row);
-    if (!row.lensUserId) continue;
-    const bucket = byLens.get(row.lensUserId) ?? [];
-    bucket.push(row);
-    byLens.set(row.lensUserId, bucket);
+    const seasonKey = seasonKeyOf(row.seasons);
+    add(`anyone|${seasonKey}`, seasonKey, null, row);
+    if (row.lensUserId) add(`${row.lensUserId}|${seasonKey}`, seasonKey, row.lensUserId, row);
   }
 
-  if (withMedia.length === 0) return out;
+  if (groups.size === 0) return out;
 
-  const buckets = [...byLens];
-  // The episode denominator varies by neither grain nor requester, so it is one
-  // query for every probe rather than one per bucket.
-  const episodeCounts = await fetchEpisodeCounts(mediaIdsOf(withMedia, 'show'), serverIds);
+  // The denominator changes with the season restriction, so it is one query per
+  // distinct season list rather than one for the whole page.
+  const showsBySeasonKey = new Map<string, Set<string>>();
+  for (const group of groups.values()) {
+    const shows = showsBySeasonKey.get(group.seasonKey) ?? new Set<string>();
+    for (const id of mediaIdsOf(group.rows, 'show')) shows.add(id);
+    showsBySeasonKey.set(group.seasonKey, shows);
+  }
+  const countsBySeasonKey = new Map<string, Map<string, number>>(
+    await mapWithConcurrency(
+      [...showsBySeasonKey],
+      WATCHED_PROBE_CONCURRENCY,
+      async ([seasonKey, shows]): Promise<[string, Map<string, number>]> => [
+        seasonKey,
+        await fetchEpisodeCounts([...shows], serverIds, seasonsFromKey(seasonKey)),
+      ]
+    )
+  );
 
-  const [anyoneStates, probed] = await Promise.all([
-    resolveWatchedStates({
-      movieIds: mediaIdsOf(withMedia, 'movie'),
-      showIds: mediaIdsOf(withMedia, 'show'),
-      serverIds,
-      lensUserId: null,
-      episodeCounts,
-    }),
-    mapWithConcurrency(buckets, WATCHED_PROBE_CONCURRENCY, async ([lensUserId, bucket]) => ({
-      bucket,
+  const probed = await mapWithConcurrency(
+    [...groups.entries()],
+    WATCHED_PROBE_CONCURRENCY,
+    async ([key, group]) => ({
+      key,
+      group,
       states: await resolveWatchedStates({
-        movieIds: mediaIdsOf(bucket, 'movie'),
-        showIds: mediaIdsOf(bucket, 'show'),
+        movieIds: mediaIdsOf(group.rows, 'movie'),
+        showIds: mediaIdsOf(group.rows, 'show'),
         serverIds,
-        lensUserId,
-        episodeCounts,
+        lensUserId: group.lensUserId,
+        episodeCounts: countsBySeasonKey.get(group.seasonKey) ?? new Map<string, number>(),
+        seasons: seasonsFromKey(group.seasonKey),
       }),
-    })),
-  ]);
+    })
+  );
 
-  for (const row of withMedia) {
-    const entry = out.get(row.id);
-    if (entry && row.mediaId) entry.anyone = anyoneStates.get(row.mediaId) ?? 'unwatched';
-  }
-  for (const { bucket, states } of probed) {
-    for (const row of bucket) {
+  for (const { key, group, states } of probed) {
+    const grain = key.startsWith('anyone|') ? 'anyone' : 'requester';
+    for (const row of group.rows) {
       const entry = out.get(row.id);
-      if (entry && row.mediaId) entry.requester = states.get(row.mediaId) ?? 'unwatched';
+      if (entry && row.mediaId) entry[grain] = states.get(row.mediaId) ?? 'unwatched';
     }
   }
   return out;
@@ -180,6 +211,7 @@ function toLensRow(row: RequestBaseRow): WatchedLensRow {
     mediaId: row.media_id,
     mediaType: row.media_type,
     lensUserId: row.lens_user_id,
+    seasons: row.seasons,
   };
 }
 
@@ -326,7 +358,7 @@ export async function listUserRequests(args: ListUserRequestsArgs): Promise<User
       WHERE ${scoped}
     `),
     db.execute(sql`
-      SELECT mr.id, mr.media_id, mr.media_type, su.user_id AS lens_user_id
+      SELECT mr.id, mr.media_id, mr.media_type, mr.seasons, su.user_id AS lens_user_id
       FROM media_requests mr
       JOIN server_users su ON su.id = mr.server_user_id
       WHERE ${scoped} AND mr.status = 'completed'
@@ -342,12 +374,14 @@ export async function listUserRequests(args: ListUserRequestsArgs): Promise<User
       media_id: string | null;
       media_type: MediaRequestMediaType;
       lens_user_id: string | null;
+      seasons: RequestSeason[] | null;
     }[]
   ).map((row) => ({
     id: row.id,
     mediaId: row.media_id,
     mediaType: row.media_type,
     lensUserId: row.lens_user_id,
+    seasons: row.seasons,
   }));
 
   const pageLensRows = rows.map(toLensRow);

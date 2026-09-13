@@ -147,10 +147,35 @@ describe('listMediaRequests', () => {
 
     await listMediaRequests({ scope: showScope(), serverIds: [SERVER_ID] });
 
+    // Both rows ask for the same season, so they share one season-restricted denominator.
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledTimes(1);
-    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID, otherShowId], [SERVER_ID]);
+    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith(
+      [SHOW_ID, otherShowId],
+      [SERVER_ID],
+      [2]
+    );
     // One probe per requester identity, plus the single anyone-grain probe.
     expect(watched.resolveWatchedStates).toHaveBeenCalledTimes(3);
+  });
+
+  it('never shares a probe between requests that asked for different seasons', async () => {
+    mockDb.execute.mockResolvedValue({
+      rows: [
+        mediaRow(),
+        mediaRow({ id: 'req-s5', seasons: [{ seasonNumber: 5, status: 'completed' }] }),
+      ],
+    });
+
+    await listMediaRequests({ scope: showScope(), serverIds: [SERVER_ID] });
+
+    // Two season lists, one requester: a denominator and an anyone probe each,
+    // plus one requester probe each.
+    expect(watched.fetchEpisodeCounts).toHaveBeenCalledTimes(2);
+    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID], [2]);
+    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID], [5]);
+    expect(watched.resolveWatchedStates).toHaveBeenCalledWith(
+      expect.objectContaining({ seasons: [5] })
+    );
   });
 
   it('lenses a matched requester and computes the wait', async () => {
@@ -305,7 +330,7 @@ describe('listUserRequests', () => {
       pageSize: 5,
     });
 
-    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID]);
+    expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID], [2]);
     expect(watched.resolveWatchedStates).toHaveBeenCalledWith(
       expect.objectContaining({ serverIds: [SERVER_ID] })
     );
