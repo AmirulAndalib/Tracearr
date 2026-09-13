@@ -50,6 +50,12 @@ import type {
   CreateDestinationInput,
   UpdateDestinationInput,
   RequestService,
+  RequestsAnalyticsResponse,
+  RequestersQuery,
+  RequestersResponse,
+  RequestsStatus,
+  RequestsUnplayedQuery,
+  RequestsUnplayedResponse,
   RequestServiceProbeResult,
   MediaRequestEntry,
   UserRequestsResponse,
@@ -1857,6 +1863,26 @@ class ApiClient {
     remove: (id: string) => this.request<void>(`/request-services/${id}`, { method: 'DELETE' }),
     sync: (id: string) =>
       this.request<{ jobId: string }>(`/request-services/${id}/sync`, { method: 'POST' }),
+  };
+
+  requests = {
+    status: () => this.request<RequestsStatus>('/requests/status'),
+    analytics: (serverIds?: string[]) => {
+      const query = listSearchParams({ serverIds });
+      return this.request<RequestsAnalyticsResponse>(
+        `/requests/analytics${query ? `?${query}` : ''}`
+      );
+    },
+    unplayed: (params: Partial<RequestsUnplayedQuery> & { serverIds?: string[] }) => {
+      const query = listSearchParams(params);
+      return this.request<RequestsUnplayedResponse>(
+        `/requests/unplayed${query ? `?${query}` : ''}`
+      );
+    },
+    requesters: (params: Partial<RequestersQuery> & { serverIds?: string[] }) => {
+      const query = listSearchParams(params);
+      return this.request<RequestersResponse>(`/requests/requesters${query ? `?${query}` : ''}`);
+    },
   };
 
   // Newsletters
