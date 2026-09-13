@@ -83,6 +83,13 @@ interface WatchedLensRow {
   lensUserId: string | null;
 }
 
+interface RequestWatchedLenses {
+  anyone: WatchedState;
+  requester: WatchedState;
+}
+
+const UNWATCHED_LENSES: RequestWatchedLenses = { anyone: 'unwatched', requester: 'unwatched' };
+
 function mediaIdsOf(rows: WatchedLensRow[], kind: MediaRequestMediaType): string[] {
   return [
     ...new Set(
@@ -92,43 +99,48 @@ function mediaIdsOf(rows: WatchedLensRow[], kind: MediaRequestMediaType): string
 }
 
 /**
- * One probe per requester identity, over the distinct media in that group.
- * A request with no matched media or no matched requester has nothing to lens
- * and stays unwatched.
+ * Both grains a request row needs: did anyone watch the title, and did the
+ * person who asked for it watch it. They are different questions and the badge
+ * shows them as different tones, so a single probe cannot serve both.
+ *
+ * The anyone grain is one probe over every matched title. The requester grain
+ * is one probe per requester identity, over the distinct media in that group. A
+ * request with no matched media has nothing to lens and stays unwatched on both
+ * grains; one with media but no matched requester still gets the anyone grain.
  */
 async function watchedStatesFor(
   rows: WatchedLensRow[],
   serverIds: string[] | undefined
-): Promise<Map<string, WatchedState>> {
-  const out = new Map<string, WatchedState>();
+): Promise<Map<string, RequestWatchedLenses>> {
+  const out = new Map<string, RequestWatchedLenses>();
+  const withMedia: WatchedLensRow[] = [];
   const byLens = new Map<string, WatchedLensRow[]>();
   for (const row of rows) {
-    if (!row.mediaId || !row.lensUserId) {
-      out.set(row.id, 'unwatched');
-      continue;
-    }
+    out.set(row.id, { anyone: 'unwatched', requester: 'unwatched' });
+    if (!row.mediaId) continue;
+    withMedia.push(row);
+    if (!row.lensUserId) continue;
     const bucket = byLens.get(row.lensUserId) ?? [];
     bucket.push(row);
     byLens.set(row.lensUserId, bucket);
   }
 
-  if (byLens.size === 0) return out;
+  if (withMedia.length === 0) return out;
 
   const buckets = [...byLens];
-  // The episode denominator does not vary by requester, so it is one query for
-  // every lens rather than one per bucket.
-  const episodeCounts = await fetchEpisodeCounts(
-    mediaIdsOf(
-      buckets.flatMap(([, bucket]) => bucket),
-      'show'
-    ),
-    serverIds
-  );
+  // The episode denominator varies by neither grain nor requester, so it is one
+  // query for every probe rather than one per bucket.
+  const episodeCounts = await fetchEpisodeCounts(mediaIdsOf(withMedia, 'show'), serverIds);
 
-  const probed = await mapWithConcurrency(
-    buckets,
-    WATCHED_PROBE_CONCURRENCY,
-    async ([lensUserId, bucket]) => ({
+  const [anyoneStates, probed] = await Promise.all([
+    resolveWatchedStates({
+      movieIds: mediaIdsOf(withMedia, 'movie'),
+      showIds: mediaIdsOf(withMedia, 'show'),
+      serverIds,
+      lensUserId: null,
+      episodeCounts,
+    }),
+    mapWithConcurrency(buckets, WATCHED_PROBE_CONCURRENCY, async ([lensUserId, bucket]) => ({
       bucket,
       states: await resolveWatchedStates({
         movieIds: mediaIdsOf(bucket, 'movie'),
@@ -137,12 +149,17 @@ async function watchedStatesFor(
         lensUserId,
         episodeCounts,
       }),
-    })
-  );
+    })),
+  ]);
 
+  for (const row of withMedia) {
+    const entry = out.get(row.id);
+    if (entry && row.mediaId) entry.anyone = anyoneStates.get(row.mediaId) ?? 'unwatched';
+  }
   for (const { bucket, states } of probed) {
     for (const row of bucket) {
-      out.set(row.id, (row.mediaId ? states.get(row.mediaId) : undefined) ?? 'unwatched');
+      const entry = out.get(row.id);
+      if (entry && row.mediaId) entry.requester = states.get(row.mediaId) ?? 'unwatched';
     }
   }
   return out;
@@ -166,7 +183,7 @@ function toLensRow(row: RequestBaseRow): WatchedLensRow {
   };
 }
 
-function baseEntry(row: RequestBaseRow, watchedState: WatchedState) {
+function baseEntry(row: RequestBaseRow, lenses: RequestWatchedLenses) {
   return {
     id: row.id,
     serverId: row.server_id,
@@ -178,7 +195,8 @@ function baseEntry(row: RequestBaseRow, watchedState: WatchedState) {
     seasons: row.seasons,
     is4k: row.is_4k,
     isAutoRequest: row.is_auto_request,
-    watchedState,
+    watchedState: lenses.anyone,
+    watchedStateRequester: lenses.requester,
   };
 }
 
@@ -234,7 +252,7 @@ export async function listMediaRequests(args: ListMediaRequestsArgs): Promise<Me
   const states = await watchedStatesFor(rows.map(toLensRow), serverIds);
 
   return rows.map((row) => ({
-    ...baseEntry(row, states.get(row.id) ?? 'unwatched'),
+    ...baseEntry(row, states.get(row.id) ?? UNWATCHED_LENSES),
     requester: row.server_user_id
       ? {
           serverUserId: row.server_user_id,
@@ -346,12 +364,12 @@ export async function listUserRequests(args: ListUserRequestsArgs): Promise<User
     total: summaryRow?.total ?? 0,
     approvalRate: decided > 0 ? (summaryRow?.approved_or_completed ?? 0) / decided : null,
     completed: summaryRow?.completed ?? 0,
-    neverWatched: completed.filter((row) => states.get(row.id) === 'unwatched').length,
+    neverWatched: completed.filter((row) => states.get(row.id)?.requester !== 'watched').length,
     medianWaitMs: medianWaitMs == null ? null : Number(medianWaitMs),
   };
 
   const data: UserRequestEntry[] = rows.map((row) => ({
-    ...baseEntry(row, states.get(row.id) ?? 'unwatched'),
+    ...baseEntry(row, states.get(row.id) ?? UNWATCHED_LENSES),
     media: {
       mediaId: row.media_id,
       title: row.title,

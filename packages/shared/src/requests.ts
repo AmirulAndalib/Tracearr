@@ -80,7 +80,10 @@ interface RequestEntryBase {
   seasons: RequestSeason[] | null;
   is4k: boolean;
   isAutoRequest: boolean;
+  /** Anyone grain: has any account on the scoped servers watched the title. */
   watchedState: WatchedState;
+  /** Has the person who asked for it watched it. Almost never the viewer. */
+  watchedStateRequester: WatchedState;
 }
 
 export interface MediaRequestEntry extends RequestEntryBase {

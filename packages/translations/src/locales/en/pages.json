@@ -2200,6 +2200,10 @@
       },
       "empty": "No requests yet"
     },
-    "unattributed": "Not on this server"
+    "unattributed": "Not on this server",
+    "watched": {
+      "byRequester": "Watched by the requester",
+      "byOthers": "Watched by someone else"
+    }
   }
 }

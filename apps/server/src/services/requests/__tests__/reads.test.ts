@@ -94,7 +94,7 @@ describe('listMediaRequests', () => {
     expect(renderSql(mockDb.execute.mock.calls[0]![0] as SQL).params).toContain(SERVER_ID);
   });
 
-  it('leaves an unmatched requester unwatched without probing', async () => {
+  it('still reports the anyone grain for an unmatched requester, but never a requester grain', async () => {
     mockDb.execute.mockResolvedValue({
       rows: [
         mediaRow({
@@ -109,10 +109,14 @@ describe('listMediaRequests', () => {
       ],
     });
 
+    watched.resolveWatchedStates.mockResolvedValue(new Map([[SHOW_ID, 'watched']]));
+
     const entries = await listMediaRequests({ scope: showScope(), serverIds: undefined });
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]?.watchedState).toBe('unwatched');
+    // Nobody to lens, but the title itself can still have been watched.
+    expect(entries[0]?.watchedState).toBe('watched');
+    expect(entries[0]?.watchedStateRequester).toBe('unwatched');
     expect(entries[0]?.requester).toEqual({
       serverUserId: null,
       userId: null,
@@ -121,8 +125,10 @@ describe('listMediaRequests', () => {
       identityName: null,
       thumb: null,
     });
-    expect(watched.resolveWatchedStates).not.toHaveBeenCalled();
-    expect(watched.fetchEpisodeCounts).not.toHaveBeenCalled();
+    expect(watched.resolveWatchedStates).toHaveBeenCalledTimes(1);
+    expect(watched.resolveWatchedStates).toHaveBeenCalledWith(
+      expect.objectContaining({ lensUserId: null })
+    );
   });
 
   it('asks for the episode denominator once for every requester', async () => {
@@ -143,7 +149,8 @@ describe('listMediaRequests', () => {
 
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledTimes(1);
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID, otherShowId], [SERVER_ID]);
-    expect(watched.resolveWatchedStates).toHaveBeenCalledTimes(2);
+    // One probe per requester identity, plus the single anyone-grain probe.
+    expect(watched.resolveWatchedStates).toHaveBeenCalledTimes(3);
   });
 
   it('lenses a matched requester and computes the wait', async () => {
