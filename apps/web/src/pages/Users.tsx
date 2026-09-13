@@ -545,12 +545,14 @@ export function Users() {
                   />
                 </DataTableViewport>
                 <DataTablePager
+                  variant="footer"
                   {...pager}
                   labels={{
                     navigation: t('common:table.pagination'),
                     status: t('common:table.pageOf', { page: pager.page, total: pager.pageCount }),
                     previous: t('common:actions.previous'),
                     next: t('common:actions.next'),
+                    goToPage: t('common:table.goToPage'),
                   }}
                 />
               </DataTableRoot>
