@@ -23,6 +23,7 @@ export type {
   ServerUserSplitResult,
   MergeSuggestionIdentity,
   MergeSuggestion,
+  DismissedMergeSuggestion,
   // Session
   SessionState,
   MediaType,
@@ -447,6 +448,8 @@ export {
   identityScopedPaginationSchema,
   mergeUsersBodySchema,
   mergeUserParamSchema,
+  mergeSuggestionDismissalSchema,
+  mergeSuggestionPairParamSchema,
   splitServerUserParamSchema,
   USER_SORT_FIELDS,
   userRosterFilterSchema,
@@ -635,6 +638,9 @@ export type {
   EmailBrandingSettings,
   NewsletterSendHtml,
 } from './newsletters.js';
+
+// User merge
+export { rankMergeTarget, type MergeRankInput } from './merge.js';
 
 export { isEmailAddress, usernameAsEmail } from './emailAddress.js';
 
