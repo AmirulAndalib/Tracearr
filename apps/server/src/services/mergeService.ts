@@ -606,12 +606,19 @@ export async function splitServerUser(
       .orderBy(asc(userMergeAudits.createdAt))
       .limit(1);
 
+    const [accountServer] = await tx
+      .select({ type: servers.type })
+      .from(servers)
+      .where(eq(servers.id, serverUser.serverId))
+      .limit(1);
+
     const identity = audit
       ? audit.sourceUserSnapshot
       : {
           username: serverUser.username,
           name: null as string | null,
-          email: serverUser.email,
+          // A Jellyfin or Emby account's email is its username, never an identity email.
+          email: accountServer?.type === 'plex' ? serverUser.email : null,
           thumbnail: serverUser.thumbUrl,
           role: 'member',
           contactEmail: null,

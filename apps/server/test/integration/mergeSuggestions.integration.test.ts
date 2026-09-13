@@ -21,7 +21,10 @@ import {
   mergeUsers,
   restoreMergeSuggestion,
 } from '../../src/services/mergeService.js';
-import { recomputeIdentityAggregates } from '../../src/services/userService.js';
+import {
+  recomputeIdentityAggregates,
+  syncUserFromMediaServer,
+} from '../../src/services/userService.js';
 
 describe('getMergeSuggestions', () => {
   it('suggests identities whose server accounts share a normalized email', async () => {
@@ -93,6 +96,33 @@ describe('getMergeSuggestions', () => {
         },
       ],
     });
+  });
+
+  it('pairs a Plex owner with an Emby account whose username is their email, keeping the owner', async () => {
+    const plex = await createTestServer({ type: 'plex' });
+    const emby = await createTestServer({ type: 'emby' });
+    const owner = await createTestUser({ role: 'owner' });
+    await createTestServerUser({
+      userId: owner.id,
+      serverId: plex.id,
+      username: 'Gallapagos',
+      email: 'owner-pair@example.com',
+    });
+    const synced = await syncUserFromMediaServer(emby.id, {
+      id: `emby-${randomUUID()}`,
+      username: 'Owner-Pair@Example.com',
+      isAdmin: true,
+    });
+
+    const match = (await getMergeSuggestions()).find(
+      (s) => s.matchValue === 'owner-pair@example.com'
+    );
+
+    expect(synced?.user.email).toBeNull();
+    expect(match?.matchType).toBe('email');
+    expect(match?.users.map((u) => u.userId).sort()).toEqual([owner.id, synced!.user.id].sort());
+    expect(match?.requiredTargetUserId).toBe(owner.id);
+    expect(match?.suggestedTargetUserId).toBe(owner.id);
   });
 
   it('suggests exact-username matches and forces a login-capable side as target', async () => {

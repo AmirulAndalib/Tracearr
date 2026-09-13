@@ -609,7 +609,7 @@ describe('splitServerUser', () => {
   it('falls back to server user fields when no audit record covers the server user', async () => {
     const admin = await createTestUser({ role: 'owner' });
     const serverA = await createTestServer({ type: 'plex' });
-    const serverB = await createTestServer({ type: 'jellyfin' });
+    const serverB = await createTestServer({ type: 'plex' });
     const identity = await createTestUser({ role: 'member' });
     await createTestServerUser({ userId: identity.id, serverId: serverA.id });
     const su = await createTestServerUser({
@@ -625,6 +625,26 @@ describe('splitServerUser', () => {
     expect(restored?.username).toBe('never-merged');
     expect(restored?.email).toBe('never-merged@example.com');
     expect(restored?.role).toBe('member');
+  });
+
+  it('does not restore a Jellyfin or Emby account email, which is its username, as the identity email', async () => {
+    const admin = await createTestUser({ role: 'owner' });
+    const plex = await createTestServer({ type: 'plex' });
+    const emby = await createTestServer({ type: 'emby' });
+    const identity = await createTestUser({ role: 'member' });
+    await createTestServerUser({ userId: identity.id, serverId: plex.id });
+    const su = await createTestServerUser({
+      userId: identity.id,
+      serverId: emby.id,
+      username: 'split-leak@example.com',
+      email: 'split-leak@example.com',
+    });
+
+    const result = await splitServerUser(su.id, admin.id);
+
+    const [restored] = await db.select().from(users).where(eq(users.id, result.newUserId));
+    expect(restored?.username).toBe('split-leak@example.com');
+    expect(restored?.email).toBeNull();
   });
 
   it('refuses to split the only server account of an identity', async () => {
