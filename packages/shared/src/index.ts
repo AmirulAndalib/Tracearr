@@ -636,6 +636,8 @@ export type {
   NewsletterSendHtml,
 } from './newsletters.js';
 
+export { isEmailAddress, usernameAsEmail } from './emailAddress.js';
+
 // Rich text for newsletter intro and outro
 export {
   EMAIL_RICH_TEXT_MAX_CHARS,

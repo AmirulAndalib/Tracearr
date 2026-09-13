@@ -67,6 +67,7 @@ import type {
   UpdateNewsletterInput,
   NewsletterPreview,
   NewsletterPreviewDraftInput,
+  NewsletterRecipientsDraftInput,
   NewsletterRecipientsView,
   NewsletterVariantsView,
   NewsletterSendsPage,
@@ -1905,8 +1906,11 @@ class ApiClient {
         body: JSON.stringify(body),
       }),
     variants: (id: string) => this.request<NewsletterVariantsView>(`/newsletters/${id}/variants`),
-    recipients: (id: string) =>
-      this.request<NewsletterRecipientsView>(`/newsletters/${id}/recipients`),
+    recipients: (body: NewsletterRecipientsDraftInput) =>
+      this.request<NewsletterRecipientsView>('/newsletters/recipients', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     test: (id: string, address: string, variantKey?: string) =>
       this.request<{ queued: boolean; jobId: string }>(`/newsletters/${id}/test`, {
         method: 'POST',
