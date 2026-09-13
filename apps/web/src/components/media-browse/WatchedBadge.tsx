@@ -6,14 +6,12 @@ import { cn } from '@/lib/utils';
 interface WatchedBadgeProps {
   /** Anyone-grain: has any user watched this. */
   watchedState: WatchedState;
-  /** The grain that earns the solid "by them" tone. The catalog passes the
-   * signed-in user's own state; the requests tables pass the requester's,
-   * since the viewer is almost never the person who asked. Omitted on shelf
-   * cards (all-users aggregate, no per-viewer state), which falls back to the
-   * single-tone "someone watched this" rendering below. */
+  /** The grain that earns the solid tone: the viewer's own on the catalog, the
+   * requester's on the requests tables. Omitted on shelf cards (all-users
+   * aggregate, no per-viewer state), which falls back to the single-tone
+   * "someone watched this" rendering below. */
   watchedStateSelf?: WatchedState;
-  /** Accessible name for the watched badge. Defaults to the viewer wording,
-   * which only reads correctly when watchedStateSelf is the viewer's own. */
+  /** Overrides the accessible name, which otherwise assumes the viewer grain. */
   label?: string;
   className?: string;
 }

@@ -80,9 +80,9 @@ interface RequestEntryBase {
   seasons: RequestSeason[] | null;
   is4k: boolean;
   isAutoRequest: boolean;
-  /** Anyone grain: has any account on the scoped servers watched the title. */
+  /** Has any account on the scoped servers watched the title. */
   watchedState: WatchedState;
-  /** Has the person who asked for it watched it. Almost never the viewer. */
+  /** Has the requester watched it, over the seasons they asked for. */
   watchedStateRequester: WatchedState;
 }
 

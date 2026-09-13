@@ -1,16 +1,3 @@
-/**
- * A show request's watched state, scoped to the seasons that were asked for.
- *
- * The probe batches shows into one call and applies one season restriction to
- * the whole call, so this pins both halves of the restriction: the numerator
- * only counts episodes of the requested seasons, and the denominator only
- * counts episodes of the requested seasons. Without the second half, finishing
- * exactly the season you asked for on a multi-season show can never read as
- * watched.
- *
- * Run with: pnpm --filter @tracearr/server test:integration -- requestSeasonWatched
- */
-
 import { beforeAll, describe, it, expect } from 'vitest';
 import { sql } from 'drizzle-orm';
 import {
@@ -60,7 +47,6 @@ describe('a show request is watched only when the requested seasons are', () => 
       ratingKey: 'ss-show',
     });
 
-    // Two seasons, two episodes each. The requester finishes season 1 only.
     const episodes: { id: string; season: number; number: number; key: string }[] = [];
     for (const season of [1, 2]) {
       for (const number of [1, 2]) {
@@ -140,10 +126,7 @@ describe('a show request is watched only when the requested seasons are', () => 
     const entries = await listMediaRequests({ scope, serverIds: [server.id] });
     const bySeason = new Map(entries.map((e) => [e.seasons?.[0]?.seasonNumber ?? -1, e] as const));
 
-    // Season 1 was asked for and finished. Against the whole series this would
-    // be 2 of 4 episodes and read partial.
     expect(bySeason.get(1)?.watchedStateRequester).toBe('watched');
-    // Season 2 was asked for and never touched, even though season 1 was.
     expect(bySeason.get(2)?.watchedStateRequester).toBe('unwatched');
   });
 });

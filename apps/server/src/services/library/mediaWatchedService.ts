@@ -19,15 +19,12 @@ export interface WatchedProbeArgs {
   /** showId -> known episode count, supplied by the caller. */
   episodeCounts: Map<string, number>;
   /**
-   * Restrict shows to these season numbers, numerator and denominator alike, so
-   * "watched" means the seasons that were asked for rather than the whole run.
-   * Undefined or empty means every season. Movies ignore it. The caller must
-   * pass an episodeCounts map built with the same restriction.
+   * Season numbers to restrict shows to; undefined or empty means every season.
+   * episodeCounts must be built with the same restriction.
    */
   seasons?: number[];
 }
 
-/** Narrows an episode's library rows to the requested seasons; empty means all. */
 function seasonFragment(seasons: number[] | undefined): SQL {
   if (!seasons || seasons.length === 0) return sql``;
   return sql`AND li.parent_index = ANY(${sql.param(seasons)}::int[])`;
@@ -160,9 +157,8 @@ async function fetchShowWatchedRows(
   const serverFragment = buildMultiServerFragment(serverIds, 'p.server_id');
   const serverFragmentLi = buildMultiServerFragment(serverIds, 'li.server_id');
   const seasonFilter = seasonFragment(seasons);
-  // hasPlays sums every episode of the show, which would leak a watched season 1
-  // into a season 2 request and read as partial. Only narrow it when a
-  // restriction was asked for, so the unrestricted path is unchanged.
+  // Unfiltered, SUM(plays) spans the whole show and a watched season 1 reads as
+  // a partial season 2.
   const playsFilter =
     !seasons || seasons.length === 0
       ? sql``

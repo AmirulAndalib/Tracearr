@@ -114,7 +114,6 @@ describe('listMediaRequests', () => {
     const entries = await listMediaRequests({ scope: showScope(), serverIds: undefined });
 
     expect(entries).toHaveLength(1);
-    // Nobody to lens, but the title itself can still have been watched.
     expect(entries[0]?.watchedState).toBe('watched');
     expect(entries[0]?.watchedStateRequester).toBe('unwatched');
     expect(entries[0]?.requester).toEqual({
@@ -147,14 +146,12 @@ describe('listMediaRequests', () => {
 
     await listMediaRequests({ scope: showScope(), serverIds: [SERVER_ID] });
 
-    // Both rows ask for the same season, so they share one season-restricted denominator.
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledTimes(1);
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith(
       [SHOW_ID, otherShowId],
       [SERVER_ID],
       [2]
     );
-    // One probe per requester identity, plus the single anyone-grain probe.
     expect(watched.resolveWatchedStates).toHaveBeenCalledTimes(3);
   });
 
@@ -168,8 +165,6 @@ describe('listMediaRequests', () => {
 
     await listMediaRequests({ scope: showScope(), serverIds: [SERVER_ID] });
 
-    // Two season lists, one requester: a denominator and an anyone probe each,
-    // plus one requester probe each.
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledTimes(2);
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID], [2]);
     expect(watched.fetchEpisodeCounts).toHaveBeenCalledWith([SHOW_ID], [SERVER_ID], [5]);

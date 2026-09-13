@@ -1,10 +1,6 @@
 /**
  * Read queries behind the two request surfaces: a media item's requesters and
  * one identity's request history. Neither talks to Seerr.
- *
- * `watchedState` reuses the library's own probe so a request row and the
- * poster badge above it never disagree. The probe is identity-grained, so the
- * rows are grouped by requester identity and probed once per group.
  */
 
 import { sql } from 'drizzle-orm';
@@ -15,21 +11,21 @@ import type {
   RequestSeason,
   UserRequestEntry,
   UserRequestsResponse,
-  WatchedState,
 } from '@tracearr/shared';
 import { db } from '../../db/client.js';
-import { mapWithConcurrency } from '../../utils/concurrency.js';
 import { buildMultiServerFragment } from '../../utils/serverFiltering.js';
 import { uuidArraySql } from '../../utils/sqlArrays.js';
-import { fetchEpisodeCounts, resolveWatchedStates } from '../library/mediaWatchedService.js';
+import {
+  UNWATCHED_LENSES,
+  watchedStatesFor,
+  type RequestWatchedLenses,
+  type WatchedLensRow,
+} from './watchedLenses.js';
 import type { MediaScope } from '../library/mediaDetailService.js';
 import type { SQL } from 'drizzle-orm';
 
 /** Bounds the never-watched scan so a heavy requester cannot turn a page into a full-history probe. */
 const NEVER_WATCHED_SCAN_LIMIT = 500;
-
-/** Bounds the per-requester probes so a title with many requesters cannot fan out one query per identity at once. */
-const WATCHED_PROBE_CONCURRENCY = 4;
 
 const EMPTY_SUMMARY: UserRequestsResponse['summary'] = {
   total: 0,
@@ -74,126 +70,6 @@ interface UserSummarySqlRow {
   approved_or_completed: number;
   decided: number;
   median_wait_ms: number | null;
-}
-
-interface WatchedLensRow {
-  id: string;
-  mediaId: string | null;
-  mediaType: MediaRequestMediaType;
-  lensUserId: string | null;
-  /** The seasons this request asked for; null or empty means the whole show. */
-  seasons: RequestSeason[] | null;
-}
-
-/**
- * A probe applies one season restriction to every show in the call, so rows
- * only share a probe when they asked for the same seasons. Movies carry no
- * seasons and all land in the unrestricted group.
- */
-function seasonKeyOf(seasons: RequestSeason[] | null): string {
-  if (!seasons || seasons.length === 0) return 'all';
-  return [...new Set(seasons.map((s) => s.seasonNumber))].sort((a, b) => a - b).join(',');
-}
-
-function seasonsFromKey(key: string): number[] | undefined {
-  return key === 'all' ? undefined : key.split(',').map(Number);
-}
-
-interface RequestWatchedLenses {
-  anyone: WatchedState;
-  requester: WatchedState;
-}
-
-const UNWATCHED_LENSES: RequestWatchedLenses = { anyone: 'unwatched', requester: 'unwatched' };
-
-function mediaIdsOf(rows: WatchedLensRow[], kind: MediaRequestMediaType): string[] {
-  return [
-    ...new Set(
-      rows.filter((r) => r.mediaType === kind).flatMap((r) => (r.mediaId ? [r.mediaId] : []))
-    ),
-  ];
-}
-
-/**
- * Both grains a request row needs: did anyone watch the title, and did the
- * person who asked for it watch it. They are different questions and the badge
- * shows them as different tones, so a single probe cannot serve both.
- *
- * The anyone grain is one probe over every matched title. The requester grain
- * is one probe per requester identity, over the distinct media in that group. A
- * request with no matched media has nothing to lens and stays unwatched on both
- * grains; one with media but no matched requester still gets the anyone grain.
- */
-async function watchedStatesFor(
-  rows: WatchedLensRow[],
-  serverIds: string[] | undefined
-): Promise<Map<string, RequestWatchedLenses>> {
-  const out = new Map<string, RequestWatchedLenses>();
-  // key: seasonKey for the anyone grain, `${lensUserId}|${seasonKey}` for the requester grain.
-  const groups = new Map<
-    string,
-    { seasonKey: string; lensUserId: string | null; rows: WatchedLensRow[] }
-  >();
-  const add = (key: string, seasonKey: string, lensUserId: string | null, row: WatchedLensRow) => {
-    const group = groups.get(key) ?? { seasonKey, lensUserId, rows: [] };
-    group.rows.push(row);
-    groups.set(key, group);
-  };
-
-  for (const row of rows) {
-    out.set(row.id, { anyone: 'unwatched', requester: 'unwatched' });
-    if (!row.mediaId) continue;
-    const seasonKey = seasonKeyOf(row.seasons);
-    add(`anyone|${seasonKey}`, seasonKey, null, row);
-    if (row.lensUserId) add(`${row.lensUserId}|${seasonKey}`, seasonKey, row.lensUserId, row);
-  }
-
-  if (groups.size === 0) return out;
-
-  // The denominator changes with the season restriction, so it is one query per
-  // distinct season list rather than one for the whole page.
-  const showsBySeasonKey = new Map<string, Set<string>>();
-  for (const group of groups.values()) {
-    const shows = showsBySeasonKey.get(group.seasonKey) ?? new Set<string>();
-    for (const id of mediaIdsOf(group.rows, 'show')) shows.add(id);
-    showsBySeasonKey.set(group.seasonKey, shows);
-  }
-  const countsBySeasonKey = new Map<string, Map<string, number>>(
-    await mapWithConcurrency(
-      [...showsBySeasonKey],
-      WATCHED_PROBE_CONCURRENCY,
-      async ([seasonKey, shows]): Promise<[string, Map<string, number>]> => [
-        seasonKey,
-        await fetchEpisodeCounts([...shows], serverIds, seasonsFromKey(seasonKey)),
-      ]
-    )
-  );
-
-  const probed = await mapWithConcurrency(
-    [...groups.entries()],
-    WATCHED_PROBE_CONCURRENCY,
-    async ([key, group]) => ({
-      key,
-      group,
-      states: await resolveWatchedStates({
-        movieIds: mediaIdsOf(group.rows, 'movie'),
-        showIds: mediaIdsOf(group.rows, 'show'),
-        serverIds,
-        lensUserId: group.lensUserId,
-        episodeCounts: countsBySeasonKey.get(group.seasonKey) ?? new Map<string, number>(),
-        seasons: seasonsFromKey(group.seasonKey),
-      }),
-    })
-  );
-
-  for (const { key, group, states } of probed) {
-    const grain = key.startsWith('anyone|') ? 'anyone' : 'requester';
-    for (const row of group.rows) {
-      const entry = out.get(row.id);
-      if (entry && row.mediaId) entry[grain] = states.get(row.mediaId) ?? 'unwatched';
-    }
-  }
-  return out;
 }
 
 /** node-postgres hands raw-query timestamps back as strings, the same coercion the v2 history rows do. */

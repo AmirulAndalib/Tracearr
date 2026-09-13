@@ -218,7 +218,6 @@ interface SeedSessionOptions {
   mediaType?: 'movie' | 'episode';
   durationMs: number;
   startedAt?: Date;
-  /** Defaults to the 2-minute rule; set explicitly for a short-but-finished resume. */
   watched?: boolean;
 }
 
@@ -762,10 +761,7 @@ describe('shelves command center endpoint against a real database', () => {
     const { statusCode, body } = await fetchShelves(app, '?period=day');
     expect(statusCode).toBe(200);
     const deadIds = body.deadWeight.map((r) => r.mediaId);
-    // Row exists in the aggregate but records no play, so the badge calls it
-    // unwatched and this list must agree.
     expect(deadIds).toContain(abandoned);
-    // any_watched carries the finish even though plays is 0.
     expect(deadIds).not.toContain(shortFinish);
   });
 

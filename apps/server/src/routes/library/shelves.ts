@@ -273,11 +273,9 @@ interface DeadWeightCandidate {
  * ALL never-watched canonical titles of one type (no LIMIT - the caller needs
  * an exact all-time count/size total, not just the display page), alias-aware
  * (a merged loser's plays exclude the canonical row) and, for shows,
- * episode-aware. The play test is the aggregate's measures, not row existence:
- * user_media_plays_daily admits every session with a media_id, so an abandoned
- * ten-second open materialises a row with plays = 0 and any_watched = false.
- * Matching resolveWatchedStates here keeps this list and the watched badges
- * from disagreeing about the same title. No poster/servers lookup here - that's deferred to the
+ * episode-aware. user_media_plays_daily admits every session with a media_id,
+ * so the play test is the measures rather than row existence. No poster/servers
+ * lookup here - that's deferred to the
  * detail query for only the top DEAD_WEIGHT_LIMIT candidates, so this stays
  * one correlated subquery (file size) per row instead of three.
  */
