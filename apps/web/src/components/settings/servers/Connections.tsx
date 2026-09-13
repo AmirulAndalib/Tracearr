@@ -32,7 +32,7 @@ import {
 } from '@/components/settings/servers/AddServerDialog';
 import { EditServerDialog } from '@/components/settings/servers/EditServerDialog';
 import { ServerRow } from '@/components/settings/servers/ServerRow';
-import { api, tokenStorage } from '@/lib/api';
+import { api } from '@/lib/api';
 import type { PlexDiscoveredServer } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useSocket } from '@/hooks/useSocket';
@@ -199,17 +199,13 @@ export function Connections() {
         serverType === 'jellyfin'
           ? api.auth.connectJellyfinWithApiKey
           : api.auth.connectEmbyWithApiKey;
-      const result = await connectFn({
+      await connectFn({
         serverUrl,
         serverName,
         apiKey,
         ...(publicUrl.trim() ? { publicUrl: publicUrl.trim() } : {}),
       });
-
-      if (result.accessToken && result.refreshToken) {
-        tokenStorage.setTokens(result.accessToken, result.refreshToken);
-        await refetchUser();
-      }
+      await refetchUser();
       await refetch();
       setShowAddDialog(false);
       resetAddForm();

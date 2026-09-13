@@ -1,6 +1,5 @@
 import type {
   Server,
-  User,
   UserRole,
   ServerUserWithIdentity,
   ServerUserDetail,
@@ -649,11 +648,7 @@ class ApiClient {
       apiKey: string;
       publicUrl?: string;
     }) =>
-      this.request<{
-        accessToken: string;
-        refreshToken: string;
-        user: User;
-      }>('/auth/jellyfin/connect-api-key', {
+      this.request<{ serverId: string }>('/auth/jellyfin/connect-api-key', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
@@ -665,11 +660,7 @@ class ApiClient {
       apiKey: string;
       publicUrl?: string;
     }) =>
-      this.request<{
-        accessToken: string;
-        refreshToken: string;
-        user: User;
-      }>('/auth/emby/connect-api-key', {
+      this.request<{ serverId: string }>('/auth/emby/connect-api-key', {
         method: 'POST',
         body: JSON.stringify(data),
       }),

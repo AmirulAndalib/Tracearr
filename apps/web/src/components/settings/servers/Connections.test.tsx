@@ -57,7 +57,6 @@ vi.mock('@/lib/api', () => ({
       connectEmbyWithApiKey: vi.fn(),
     },
   },
-  tokenStorage: { setTokens: vi.fn() },
 }));
 
 vi.mock('@/components/settings/servers/AddServerDialog', () => ({
