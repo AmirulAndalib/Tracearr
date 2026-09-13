@@ -158,7 +158,7 @@
     "content": "Contingut",
     "created": "Creat",
     "data": "Dades",
-    "date": "Data",
+    "date": "",
     "days": "dies",
     "device": "Dispositiu",
     "deviceId": "ID del dispositiu",
@@ -300,6 +300,7 @@
     "success": "Realitzat amb èxit"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Selecciona-ho tot a la pàgina",

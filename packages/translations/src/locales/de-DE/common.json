@@ -164,7 +164,7 @@
     "deviceId": "Geräte ID",
     "disabled": "Deaktiviert",
     "duration": "Dauer",
-    "filters": "Filter",
+    "filters": "",
     "ipAddress": "IP-Adresse",
     "items": "Artikel",
     "joined": "Beigetreten",
@@ -300,6 +300,7 @@
     "success": "Erfolgreich"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Seite komplett auswählen",

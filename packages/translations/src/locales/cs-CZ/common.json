@@ -300,6 +300,7 @@
     "success": "Úspěšně"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Vybrat vše na stránce",

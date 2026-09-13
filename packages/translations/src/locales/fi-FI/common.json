@@ -300,6 +300,7 @@
     "success": "Onnistui"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Valitse kaikki sivulla",

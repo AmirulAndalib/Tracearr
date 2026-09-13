@@ -217,7 +217,7 @@
     "photo": "사진",
     "track": "트랙",
     "track_plural": "트랙",
-    "tv": "TV",
+    "tv": "",
     "tvShows": "TV 프로그램"
   },
   "messages": {
@@ -268,9 +268,9 @@
     "some": "서버 {{count}}개 중 {{total}}개"
   },
   "servers": {
-    "emby": "Emby",
-    "jellyfin": "Jellyfin",
-    "plex": "Plex"
+    "emby": "",
+    "jellyfin": "",
+    "plex": ""
   },
   "severity": {
     "high": "높음",
@@ -300,6 +300,7 @@
     "success": "성공"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "{{page}}페이지 중 {{total}}페이지",
     "pagination": "페이지 이동",
     "selectAllOnPage": "이 페이지의 항목 모두 선택",
@@ -326,10 +327,10 @@
     "untrusted": "신뢰하지 않음"
   },
   "units": {
-    "km": "km",
-    "kmh": "km/h",
-    "mi": "mi",
-    "mph": "mph"
+    "km": "",
+    "kmh": "",
+    "mi": "",
+    "mph": ""
   },
   "validation": {
     "invalidEmail": "올바른 이메일 주소를 입력하세요",

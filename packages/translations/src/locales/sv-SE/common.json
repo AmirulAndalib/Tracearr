@@ -164,7 +164,7 @@
     "deviceId": "",
     "disabled": "Inaktiverad",
     "duration": "Varaktighet",
-    "filters": "Filter",
+    "filters": "",
     "ipAddress": "IP-adress",
     "items": "Objekt",
     "joined": "Gick med",
@@ -300,6 +300,7 @@
     "success": "Klart"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Välj alla på sidan",

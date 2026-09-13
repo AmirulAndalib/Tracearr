@@ -44,7 +44,7 @@
     "signOut": "Logg ut",
     "signUp": "Registrer deg",
     "sort": "Sorter",
-    "submit": "Send",
+    "submit": "",
     "sync": "Synkronisering",
     "terminate": "Avslutt",
     "test": "Prøve",
@@ -300,6 +300,7 @@
     "success": "Vellykket"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Velg alle på siden",

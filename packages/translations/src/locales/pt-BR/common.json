@@ -158,7 +158,7 @@
     "content": "Conteúdo",
     "created": "",
     "data": "Dado",
-    "date": "Data",
+    "date": "",
     "days": "",
     "device": "Dispositivo",
     "deviceId": "",
@@ -300,6 +300,7 @@
     "success": "Sucesso"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "",

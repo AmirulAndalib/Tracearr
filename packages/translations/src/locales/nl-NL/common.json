@@ -223,7 +223,7 @@
   "messages": {
     "noChangesDetected": "Geen wijzigingen gevonden"
   },
-  "or": "of",
+  "or": "",
   "periods": {
     "byDay": "Per dag",
     "byHour": "Per uur",
@@ -300,6 +300,7 @@
     "success": "Geslaagd"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "Pagina {{page}} van {{total}}",
     "pagination": "Paginering",
     "selectAllOnPage": "Alles selecteren op pagina",

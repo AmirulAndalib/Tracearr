@@ -300,6 +300,7 @@
     "success": "Успешно"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Выбрать все на странице",

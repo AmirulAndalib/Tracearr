@@ -300,6 +300,7 @@
     "success": "成功"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "选择页面上的所有内容",

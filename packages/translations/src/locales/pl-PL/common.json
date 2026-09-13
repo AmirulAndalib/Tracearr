@@ -158,7 +158,7 @@
     "content": "Zawartość",
     "created": "",
     "data": "Dane",
-    "date": "Data",
+    "date": "",
     "days": "dni",
     "device": "Urządzenie",
     "deviceId": "",
@@ -300,6 +300,7 @@
     "success": "Powodzenie"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Wybierz wszystko na stronie",

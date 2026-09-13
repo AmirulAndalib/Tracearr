@@ -300,6 +300,7 @@
     "success": "Succes"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Vælg alle på siden",

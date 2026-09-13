@@ -102,7 +102,7 @@
     "hour_one": "{{count}} oră",
     "hour_other": "{{count}} ore",
     "minute_one": "{{count}} minut",
-    "minute_other": "{{count}} minute",
+    "minute_other": "",
     "second_one": "{{count}} secundă",
     "second_other": "{{count}} secunde"
   },
@@ -157,8 +157,8 @@
     "bandwidth": "Lățimea benzii",
     "content": "Conținut",
     "created": "",
-    "data": "Date",
-    "date": "Data",
+    "data": "",
+    "date": "",
     "days": "zile",
     "device": "Dispozitiv",
     "deviceId": "",
@@ -300,6 +300,7 @@
     "success": "Succes"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Selectaţi toate pe pagină",

@@ -1834,6 +1834,116 @@
     "authComplete": "Authentication complete",
     "windowWillClose": "This window will close automatically..."
   },
+  "requests": {
+    "columns": {
+      "requested": "",
+      "requester": "",
+      "seasons": "",
+      "status": "",
+      "title": "",
+      "wait": "",
+      "watched": ""
+    },
+    "flags": {
+      "auto": "",
+      "fourK": ""
+    },
+    "followThrough": {
+      "asked": "",
+      "description": "",
+      "emptyDescription": "",
+      "emptyTitle": "",
+      "failedToLoad": "",
+      "landed": "",
+      "medianWait": "",
+      "person": "",
+      "title": "",
+      "watched": "",
+      "watchedByOthers": ""
+    },
+    "funnel": {
+      "description": "",
+      "empty": "",
+      "landed": "",
+      "requested": "",
+      "share": "",
+      "title": "",
+      "watched": ""
+    },
+    "hero": {
+      "line": ""
+    },
+    "mediaPanel": {
+      "empty": "",
+      "loadError": "",
+      "title": ""
+    },
+    "outcomes": {
+      "failedToLoad": "",
+      "onDisk": "",
+      "requested": "",
+      "requester": "",
+      "title": "",
+      "untitled": "",
+      "wait": ""
+    },
+    "page": {
+      "description": "",
+      "failedToLoad": "",
+      "kpi": {
+        "landedOf": "",
+        "neverPlayed": "",
+        "ofLanded": "",
+        "onDisk": "",
+        "requested": "",
+        "watched": ""
+      },
+      "linkSeerr": "",
+      "notConfigured": "",
+      "notConfiguredDescription": "",
+      "title": ""
+    },
+    "seasons": {
+      "all": "",
+      "item": ""
+    },
+    "status": {
+      "approved": "",
+      "completed": "",
+      "declined": "",
+      "deleted": "",
+      "failed": "",
+      "pending": ""
+    },
+    "unattributed": "",
+    "unplayed": {
+      "description": "",
+      "emptyDescription": "",
+      "emptyTitle": "",
+      "title": ""
+    },
+    "userCard": {
+      "empty": "",
+      "loadError": "",
+      "showLess": "",
+      "summary": {
+        "approvalRate": "",
+        "medianWait": "",
+        "neverWatched": "",
+        "requests": ""
+      },
+      "title": "",
+      "viewAll": ""
+    },
+    "wait": {
+      "declined": "",
+      "pending": ""
+    },
+    "watched": {
+      "byOthers": "",
+      "byRequester": ""
+    }
+  },
   "settings": {
     "destinations": {
       "add": "Add destination",
@@ -1866,6 +1976,7 @@
         "url": "URL",
         "userKey": "User key",
         "username": "Username",
+        "verifyCertificate": "",
         "webhookUrl": "Webhook URL"
       },
       "groups": {
@@ -1893,8 +2004,12 @@
         "smtpSesPassword": "",
         "smtpSesUsername": "",
         "smtpTo": "Comma-separated addresses that receive alerts from this destination",
-        "smtpUsernameOptional": "Leave blank when the server needs no login"
+        "smtpUsernameOptional": "Leave blank when the server needs no login",
+        "smtpVerifyCertificate": ""
       },
+      "newsletterAlertsNote": "",
+      "newsletterDescription": "",
+      "newsletterTitle": "",
       "newslettersOnly": "",
       "noAlertRecipients": "",
       "options": {
@@ -2064,22 +2179,38 @@
     "filterHasAccessTo": "Has access to",
     "filterHasAccessToHint": "Shows people with an active account on every server selected.",
     "filterHasAccessToPlaceholder": "Any server",
-    "mergeConfirm": "Merge",
-    "mergeDialogDescription": "Every server account, session, and violation from the duplicate moves to the primary. The duplicate identity is deleted.",
-    "mergeDialogTitle": "Merge users",
-    "mergePickPrimary": "Choose the primary identity",
-    "mergePrimaryBadge": "Primary",
-    "mergePrimaryForced": "This account can log in, so it must stay the primary.",
+    "mergeCarriesOver": "",
+    "mergeConfirmInto": "",
+    "mergeDeleted": "",
+    "mergeFoldIn": "",
+    "mergeIrreversibleAcknowledge": "",
+    "mergeIrreversibleBody": "",
+    "mergeIrreversibleTitle": "",
+    "mergeKeep": "",
+    "mergeLastActive": "",
+    "mergeMoreServers": "",
+    "mergeMovesNoCount": "",
+    "mergeMoves_one": "",
+    "mergeMoves_other": "",
+    "mergeNeverActive": "",
+    "mergeReasonEmail": "",
+    "mergeReasonEmailUsername": "",
+    "mergeReasonUsername": "",
+    "mergeRequired": "",
+    "mergeRulesKept": "",
     "mergeSameIdentity": "These accounts already belong to the same user",
-    "mergeSameServerAcknowledge": "I understand the same-server history combine cannot be undone",
-    "mergeSameServerDialogDescription": "This merge permanently combines both accounts on the same server. It cannot be undone.",
-    "mergeSameServerFallbackName": "this server",
-    "mergeSameServerWarning": "Both identities already have an account on the same server. Merging will permanently combine their session history, violations, and trust score into a single account on that server. This cannot be undone, and splitting the account afterward will not restore the original two accounts.",
-    "mergeSameServerWarningTitle": "This action is irreversible",
     "mergeSelectAllActive": "Clear the select-all selection and pick exactly two users to merge",
     "mergeSelectTwo": "Select exactly two users to merge",
     "mergeServerAccountRemoved": "Removed",
+    "mergeServerLabel": "",
+    "mergeServerUnknown": "",
+    "mergeSessions_one": "",
+    "mergeSessions_other": "",
+    "mergeSwap": "",
+    "mergeTitleBulk": "",
+    "mergeTitleSuggestion": "",
     "mergeUsers": "Merge users",
+    "mergeWhatHappens": "",
     "noUsersFound": "No users found.",
     "resetTrustScore": "Reset Trust Score",
     "resetTrustScoreConfirm": "Are you sure you want to reset the trust score to 100? This action cannot be undone.",
@@ -2089,11 +2220,29 @@
     "selectAllUsers": "Select all {{count}} users",
     "serversColumn": "Servers",
     "showRemoved": "Show removed",
-    "suggestionsDescription": "These identities look like the same person across servers. Review and merge them if they match.",
+    "suggestionsCount_one": "",
+    "suggestionsCount_other": "",
+    "suggestionsDismissed": "",
+    "suggestionsDismissedAt": "",
+    "suggestionsDismissedPair": "",
+    "suggestionsEmpty": "",
     "suggestionsError": "Could not load merge suggestions",
     "suggestionsMatchEmail": "Same email",
+    "suggestionsMatchEmailUsername": "",
     "suggestionsMatchUsername": "Same username",
+    "suggestionsNotSame": "",
+    "suggestionsPairEmail": "",
+    "suggestionsPairEmailMore_one": "",
+    "suggestionsPairEmailMore_other": "",
+    "suggestionsPairEmailUsername": "",
+    "suggestionsPairEmailUsernameMore_one": "",
+    "suggestionsPairEmailUsernameMore_other": "",
+    "suggestionsPairUsername": "",
+    "suggestionsPairUsernameMore_one": "",
+    "suggestionsPairUsernameMore_other": "",
+    "suggestionsRestore": "",
     "suggestionsReview": "Review",
+    "suggestionsSheetDescription": "",
     "suggestionsTitle": "Possible duplicate users",
     "title": "Users"
   },

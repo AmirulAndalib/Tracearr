@@ -300,6 +300,7 @@
     "success": "Success"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "Page {{page}} of {{total}}",
     "pagination": "Pagination",
     "selectAllOnPage": "Select all on page",

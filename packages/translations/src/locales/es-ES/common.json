@@ -300,6 +300,7 @@
     "success": "Éxito"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "Seleccionar todos en la página",

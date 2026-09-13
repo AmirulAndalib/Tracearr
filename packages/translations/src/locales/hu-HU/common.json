@@ -300,6 +300,7 @@
     "success": "Siker"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "",

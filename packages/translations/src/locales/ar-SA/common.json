@@ -300,6 +300,7 @@
     "success": "نجاح"
   },
   "table": {
+    "goToPage": "",
     "pageOf": "",
     "pagination": "",
     "selectAllOnPage": "حدد الكل في الصفحة",
