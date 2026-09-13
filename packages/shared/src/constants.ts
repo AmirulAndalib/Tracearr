@@ -174,6 +174,9 @@ export const REDIS_KEYS = {
   get LIBRARY_SHELVES() {
     return `${_redisPrefix}tracearr:library:shelves`;
   },
+  get REQUESTS_ANALYTICS() {
+    return `${_redisPrefix}tracearr:requests:analytics`;
+  },
   get LIBRARY_GENRES() {
     return `${_redisPrefix}tracearr:library:genres`;
   },
@@ -317,6 +320,7 @@ export const CACHE_TTL = {
   LIBRARY_CODECS: 300, // 5 minutes
   LIBRARY_RESOLUTION: 300, // 5 minutes
   LIBRARY_SHELVES: 300, // 5 minutes
+  REQUESTS_ANALYTICS: 300, // 5 minutes - the request sync runs far less often
   LIBRARY_GENRES: 3600, // 1 hour
   LIBRARY_CATALOG_LETTERS: 300, // 5 minutes, matches LIBRARY_SHELVES freshness
   LIBRARY_LIBRARIES: 300, // 5 minutes - library list changes only on sync
