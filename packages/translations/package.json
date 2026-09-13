@@ -25,9 +25,7 @@
   },
   "files": [
     "dist",
-    "src",
-    "!src/locales/_template",
-    "!dist/locales/_template"
+    "src"
   ],
   "publishConfig": {
     "access": "public"
