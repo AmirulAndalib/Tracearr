@@ -120,6 +120,7 @@ import type {
   // Cross-server user merging types
   UserMergeResult,
   MergeSuggestion,
+  DismissedMergeSuggestion,
   ServerUserSplitResult,
   UserSortField,
   UserRosterFilters,
@@ -832,6 +833,21 @@ class ApiClient {
       const response = await this.request<{ data: MergeSuggestion[] }>('/users/merge-suggestions');
       return response.data;
     },
+    dismissedMergeSuggestions: async () => {
+      const response = await this.request<{ data: DismissedMergeSuggestion[] }>(
+        '/users/merge-suggestions/dismissed'
+      );
+      return response.data;
+    },
+    dismissMergeSuggestion: (userIds: [string, string]) =>
+      this.request<void>('/users/merge-suggestions/dismissals', {
+        method: 'POST',
+        body: JSON.stringify({ userIds }),
+      }),
+    restoreMergeSuggestion: (userA: string, userB: string) =>
+      this.request<void>(`/users/merge-suggestions/dismissals/${userA}/${userB}`, {
+        method: 'DELETE',
+      }),
     requests: (id: string, opts: { scope?: 'identity'; page: number; pageSize: number }) => {
       const searchParams = new URLSearchParams();
       if (opts.scope) searchParams.set('scope', opts.scope);

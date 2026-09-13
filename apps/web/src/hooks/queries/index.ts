@@ -55,6 +55,9 @@ export {
   useUserTerminations,
   useBulkResetTrust,
   useMergeSuggestions,
+  useDismissedMergeSuggestions,
+  useDismissMergeSuggestion,
+  useRestoreMergeSuggestion,
   useMergeUsers,
   useSplitServerUser,
 } from './useUsers';
