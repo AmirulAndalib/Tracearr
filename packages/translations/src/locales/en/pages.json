@@ -1624,7 +1624,7 @@
         "smtpPreset": "Fills the host, port and security for common providers. Amazon SES and Mailgun EU need the region edited into the host.",
         "smtpVerifyCertificate": "Checks the mail server's TLS certificate against a trusted authority. Turn it off only for a server with a self-signed certificate, such as a local bridge: anyone on the path between Tracearr and the mail server can then intercept the connection.",
         "smtpUsernameOptional": "Leave blank when the server needs no login",
-        "smtpTo": "Alerts sent to this destination go to these addresses. Newsletters ignore this list and pick their own recipients, so you can leave it blank.",
+        "smtpTo": "Alerts go out as one email with every address here in To. Leave it blank if this server only sends newsletters.",
         "smtpRate": "Per Tracearr instance; stay under your provider's limit",
         "smtpMessageStream": "Postmark only: the stream ID to send through, for example broadcast. Leave blank elsewhere.",
         "smtpGmailUsername": "Your full Gmail address. Gmail sends from this address whatever the sender address says, and personal accounts stop near 500 recipients a day.",
@@ -1642,6 +1642,9 @@
         "smtpPostmarkUsername": "Your Server API token.",
         "smtpPostmarkPassword": "The same Server API token, or a stream token's secret."
       },
+      "newsletterAlertsNote": "Newsletter recipients are set on the newsletter itself. To send alerts through this server too, edit it later under Destinations.",
+      "newsletterDescription": "Tracearr sends newsletters through this SMTP server.",
+      "newsletterTitle": "Add email server",
       "newslettersOnly": "Newsletters only",
       "noAlertRecipients": "No alert recipients",
       "options": {

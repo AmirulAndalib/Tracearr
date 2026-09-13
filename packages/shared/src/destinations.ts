@@ -370,9 +370,7 @@ export const DESTINATION_TYPES = {
         email('fromAddress', 'fromAddress', true, 'tracearr@example.com'),
         email('replyTo', 'replyTo', false),
       ]),
-      ...grouped('alerts', [
-        emails('to', 'to', false, 'you@example.com, admin@example.com', 'smtpTo'),
-      ]),
+      ...grouped('alerts', [emails('to', 'to', false, 'you@example.com', 'smtpTo')]),
     ],
   },
   push: {
