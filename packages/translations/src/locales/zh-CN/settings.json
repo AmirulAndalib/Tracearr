@@ -882,6 +882,7 @@
     "apiKeyHelp": "在 API 密钥或高级设置下您的媒体服务器的仪表盘中找到。",
     "apiKeyHelpEmby": "在 Emby Server -> API 密钥中查找这个内容",
     "apiKeyHelpJellyfin": "在 Jellyfin 仪表盘查找这个看板 → API 密钥",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "输入您的 API 密钥",
     "checkingConnection": "检查连接中…",
     "chooseAccount": "选择一个帐户...",

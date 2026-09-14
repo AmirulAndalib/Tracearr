@@ -33,6 +33,7 @@ export interface ServerPatch {
   clientIdentifier?: string;
   color?: string | null;
   publicUrl?: string | null;
+  apiKey?: string;
 }
 
 export function EditServerDialog({
@@ -52,6 +53,7 @@ export function EditServerDialog({
   const [editName, setEditName] = useState('');
   const [manualUrl, setManualUrl] = useState('');
   const [manualPublicUrl, setManualPublicUrl] = useState('');
+  const [editApiKey, setEditApiKey] = useState('');
   const [editColor, setEditColor] = useState<string>(SERVER_COLOR_OPTIONS[3]?.hex ?? '#3B82F6');
   const [seededServer, setSeededServer] = useState<Server | null>(null);
   const isPlexServer = server?.type === 'plex';
@@ -69,6 +71,7 @@ export function EditServerDialog({
       setEditName(server.name);
       setManualUrl(server.url);
       setManualPublicUrl(server.publicUrl ?? '');
+      setEditApiKey('');
       const otherColors = servers.filter((s) => s.id !== server.id).map((s) => s.color);
       setEditColor(server.color ?? pickServerColor(server.type, otherColors));
     }
@@ -79,8 +82,9 @@ export function EditServerDialog({
   const hasPublicUrlChange =
     server && !isPlexServer ? manualPublicUrl.trim() !== (server.publicUrl ?? '') : false;
   const hasColorChange = server ? editColor !== (server.color ?? '') : false;
+  const hasApiKeyChange = server && !isPlexServer ? editApiKey.trim().length > 0 : false;
   const canSave =
-    (hasNameChange || hasUrlChange || hasPublicUrlChange || hasColorChange) &&
+    (hasNameChange || hasUrlChange || hasPublicUrlChange || hasColorChange || hasApiKeyChange) &&
     editName.trim().length > 0;
 
   if (!server) return null;
@@ -168,6 +172,22 @@ export function EditServerDialog({
                 />
                 <FieldDescription>{t('servers.publicUrlHint')}</FieldDescription>
               </Field>
+              <Field>
+                <FieldLabel htmlFor="edit-api-key">{t('common:labels.apiKey')}</FieldLabel>
+                <Input
+                  id="edit-api-key"
+                  type="password"
+                  autoComplete="off"
+                  value={editApiKey}
+                  onChange={(e) => setEditApiKey(e.target.value)}
+                  placeholder={t('servers.apiKeyKeepCurrent')}
+                />
+                <FieldDescription>
+                  {server.type === 'jellyfin'
+                    ? t('servers.apiKeyHelpJellyfin')
+                    : t('servers.apiKeyHelpEmby')}
+                </FieldDescription>
+              </Field>
             </>
           )}
 
@@ -196,6 +216,7 @@ export function EditServerDialog({
                 url: hasUrlChange ? manualUrl.trim() : undefined,
                 color: hasColorChange ? editColor : undefined,
                 publicUrl: hasPublicUrlChange ? manualPublicUrl.trim() || null : undefined,
+                apiKey: hasApiKeyChange ? editApiKey.trim() : undefined,
               });
             }}
           >

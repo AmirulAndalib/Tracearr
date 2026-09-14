@@ -70,6 +70,7 @@ export function useUpdateServer() {
       clientIdentifier,
       color,
       publicUrl,
+      apiKey,
     }: {
       id: string;
       name?: string;
@@ -77,7 +78,8 @@ export function useUpdateServer() {
       clientIdentifier?: string;
       color?: string | null;
       publicUrl?: string | null;
-    }) => api.servers.update(id, { name, url, clientIdentifier, color, publicUrl }),
+      apiKey?: string;
+    }) => api.servers.update(id, { name, url, clientIdentifier, color, publicUrl, apiKey }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['servers', 'list'] });
       void queryClient.invalidateQueries({ queryKey: ['plex', 'server-connections'] });

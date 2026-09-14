@@ -882,6 +882,7 @@
     "apiKeyHelp": "API キーまたは詳細設定のメディアサーバーのダッシュボードで見つかります。",
     "apiKeyHelpEmby": "Emby Server → API キーで検索",
     "apiKeyHelpJellyfin": "Jellyfinダッシュボードで検索 → APIキー",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "API キーを入力してください",
     "checkingConnection": "",
     "chooseAccount": "アカウントを選択...",

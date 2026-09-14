@@ -882,6 +882,7 @@
     "apiKeyHelp": "موجود في لوحة تحكم خادم الوسائط الخاصة بك تحت مفاتيح API أو الإعدادات المتقدمة.",
     "apiKeyHelpEmby": "العثور على هذا في خادم Emby → API مفاتيح",
     "apiKeyHelpJellyfin": "ابحث عن هذا في لوحة تحكم جليفين → مفاتيح API",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "أدخل مفتاح API الخاص بك",
     "checkingConnection": "",
     "chooseAccount": "اختر حساب...",

@@ -882,6 +882,7 @@
     "apiKeyHelp": "미디어 서버 대시보드의 API 키 또는 고급 설정에서 찾을 수 있습니다.",
     "apiKeyHelpEmby": "Emby 서버 > API 키에서 찾을 수 있습니다",
     "apiKeyHelpJellyfin": "Jellyfin 대시보드 > API 키에서 찾을 수 있습니다",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "API 키 입력",
     "checkingConnection": "연결 확인 중…",
     "chooseAccount": "계정 선택...",

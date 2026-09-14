@@ -882,6 +882,7 @@
     "apiKeyHelp": "Найдена в панели управления вашего медиа-сервера под API Keys или Расширенные настройки.",
     "apiKeyHelpEmby": "Найти это в Emby Server → API Keys",
     "apiKeyHelpJellyfin": "Найти это в панели управления Jellyfin → API Keys",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Введите ваш API ключ",
     "checkingConnection": "",
     "chooseAccount": "Выберите аккаунт...",

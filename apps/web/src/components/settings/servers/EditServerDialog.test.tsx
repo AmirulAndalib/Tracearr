@@ -123,6 +123,27 @@ describe('EditServerDialog', () => {
     expect(onUpdate).toHaveBeenLastCalledWith({ publicUrl: null });
   });
 
+  it('sends a new API key trimmed and never prefills the saved one', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <EditServerDialog
+        server={server({ type: 'emby' })}
+        servers={[server()]}
+        onClose={vi.fn()}
+        onUpdate={onUpdate}
+        isUpdating={false}
+      />
+    );
+
+    const field = screen.getByLabelText('common:labels.apiKey');
+    expect(field).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'common:actions.update' })).toBeDisabled();
+
+    await userEvent.type(field, ' new-key ');
+    await userEvent.click(screen.getByRole('button', { name: 'common:actions.update' }));
+    expect(onUpdate).toHaveBeenCalledWith({ apiKey: 'new-key' });
+  });
+
   it('keeps the save button disabled until something changes', () => {
     render(
       <EditServerDialog
@@ -199,5 +220,6 @@ describe('EditServerDialog', () => {
       'http://plex.local:32400'
     );
     expect(screen.queryByLabelText('servers.publicUrl')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('common:labels.apiKey')).not.toBeInTheDocument();
   });
 });

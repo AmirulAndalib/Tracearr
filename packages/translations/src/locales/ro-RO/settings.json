@@ -882,6 +882,7 @@
     "apiKeyHelp": "Găsit în tabloul de bord al serverului media sub chei API sau setări avansate.",
     "apiKeyHelpEmby": "Găseşte acest lucru în Emby Server → Chei API",
     "apiKeyHelpJellyfin": "Găsiţi acest lucru în Panoul de control Jellyfin → Chei API",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Introduceți cheia API",
     "checkingConnection": "",
     "chooseAccount": "Alege un cont...",

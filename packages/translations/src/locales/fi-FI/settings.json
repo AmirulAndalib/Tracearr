@@ -882,6 +882,7 @@
     "apiKeyHelp": "Löydetty mediapalvelimen hallintapaneelista API-avaimista tai Edistyneistä asetuksista.",
     "apiKeyHelpEmby": "Etsi tämä Emby Server → API Avaimet",
     "apiKeyHelpJellyfin": "Etsi tämä sivulta Jellyfin-kojelauta → API-avaimet",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Syötä API-avain",
     "checkingConnection": "",
     "chooseAccount": "Valitse käyttäjätunnus...",

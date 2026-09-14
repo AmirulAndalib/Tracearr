@@ -882,6 +882,7 @@
     "apiKeyHelp": "Trouvé dans le tableau de bord de votre serveur multimédia sous Clés API ou Paramètres avancés.",
     "apiKeyHelpEmby": "Trouvez ceci dans Emby Server → Clés API",
     "apiKeyHelpJellyfin": "Trouvez ceci dans le tableau de bord Jellyfin → Clés API",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Entrez votre clé API",
     "checkingConnection": "Vérification de la connexion…",
     "chooseAccount": "Choisissez un compte...",

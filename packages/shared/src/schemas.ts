@@ -204,14 +204,16 @@ export const updateServerSchema = z
       .optional()
       .nullable(),
     publicUrl: publicUrlSchema.optional(),
+    apiKey: z.string().trim().min(1).optional(),
   })
   .refine(
     (data) =>
       data.name !== undefined ||
       data.url !== undefined ||
       data.color !== undefined ||
-      data.publicUrl !== undefined,
-    { message: 'At least one of name, url, color, or publicUrl is required' }
+      data.publicUrl !== undefined ||
+      data.apiKey !== undefined,
+    { message: 'At least one of name, url, color, publicUrl, or apiKey is required' }
   );
 
 // ============================================================================

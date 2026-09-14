@@ -882,6 +882,7 @@
     "apiKeyHelp": "Fundet i din medieservers dashboard under API-nøgler eller Avancerede indstillinger.",
     "apiKeyHelpEmby": "Find dette i Emby Server → API-nøgler",
     "apiKeyHelpJellyfin": "Find dette i Jellyfin Kontrolpanel → API-nøgler",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Indtast din API-nøgle",
     "checkingConnection": "",
     "chooseAccount": "Vælg en konto...",

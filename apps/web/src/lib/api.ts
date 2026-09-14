@@ -687,6 +687,7 @@ class ApiClient {
         clientIdentifier?: string;
         color?: string | null;
         publicUrl?: string | null;
+        apiKey?: string;
       }
     ) =>
       this.request<Server>(`/servers/${id}`, {

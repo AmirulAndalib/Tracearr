@@ -882,6 +882,7 @@
     "apiKeyHelp": "Gevonden in het dashboard van uw mediaserver onder API-sleutels of geavanceerde instellingen.",
     "apiKeyHelpEmby": "Vind dit in Emby Server → API Keys",
     "apiKeyHelpJellyfin": "Vind dit in Jellyfin Dashboard → API Keys",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Voer uw API-sleutel in",
     "checkingConnection": "Connectie controleren…",
     "chooseAccount": "Kies een account...",

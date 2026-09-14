@@ -882,6 +882,7 @@
     "apiKeyHelp": "Encontrado no painel do seu servidor de mídia sob chaves de API ou configurações avançadas.",
     "apiKeyHelpEmby": "Encontre isso no Servidor Emby → Chaves API",
     "apiKeyHelpJellyfin": "Encontre isto no Painel de Jellyfin → Chaves API",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Digite sua chave da API",
     "checkingConnection": "",
     "chooseAccount": "Escolha uma conta...",

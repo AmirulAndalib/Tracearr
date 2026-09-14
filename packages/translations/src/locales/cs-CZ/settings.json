@@ -882,6 +882,7 @@
     "apiKeyHelp": "Nalezeno v dashboardu vašeho mediálního serveru pod API klíčem nebo pokročilým nastavením.",
     "apiKeyHelpEmby": "Najdi to v Emby Server → API klíče",
     "apiKeyHelpJellyfin": "Najít to v Jellyfin Dashboard → API klíče",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Zadejte svůj API klíč",
     "checkingConnection": "",
     "chooseAccount": "Vyberte účet...",

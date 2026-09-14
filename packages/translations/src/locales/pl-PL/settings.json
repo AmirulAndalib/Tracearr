@@ -882,6 +882,7 @@
     "apiKeyHelp": "Znaleziono w panelu ustawień twojego serwera multimedialnego pod kluczami API lub ustawieniami zaawansowanymi.",
     "apiKeyHelpEmby": "Znajdź to na serwerze Emby → Klucze API",
     "apiKeyHelpJellyfin": "Znajdź to w Panelu Jellyfin → Klucze API",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Wprowadź swój klucz API",
     "checkingConnection": "",
     "chooseAccount": "Wybierz konto...",

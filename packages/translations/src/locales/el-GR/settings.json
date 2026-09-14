@@ -882,6 +882,7 @@
     "apiKeyHelp": "Βρέθηκε στον πίνακα εργαλείων του διακομιστή πολυμέσων σας κάτω από τα κλειδιά API ή τις ρυθμίσεις για προχωρημένους.",
     "apiKeyHelpEmby": "Βρείτε αυτό σε διακομιστή Emby → Κλειδιά API",
     "apiKeyHelpJellyfin": "Βρείτε αυτό σε Jellyfin Dashboard → API Keys",
+    "apiKeyKeepCurrent": "",
     "apiKeyPlaceholder": "Εισάγετε το κλειδί API σας",
     "checkingConnection": "",
     "chooseAccount": "Επιλέξτε λογαριασμό...",

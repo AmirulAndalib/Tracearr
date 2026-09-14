@@ -22,6 +22,7 @@ import { sseManager } from '../services/sseManager.js';
 import { getCacheService } from '../services/cache.js';
 import { enqueueLibrarySync } from '../jobs/librarySyncQueue.js';
 import { publishServersChanged } from '../jobs/poller/database.js';
+import { readServerIdentity } from '../services/serverIdentity.js';
 import { buildServerAccessCondition } from '../utils/serverFiltering.js';
 
 export const serverRoutes: FastifyPluginAsync = async (app) => {
@@ -225,9 +226,9 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
   });
 
   /**
-   * PATCH /servers/:id - Update server name and/or URL
-   * Accepts optional name and/or url; at least one is required.
-   * When url is provided, verifies the new URL is reachable with existing token before updating.
+   * PATCH /servers/:id - Update a server's name, URL, color, public address or API key
+   * At least one is required. A URL or API key change is verified against the server, and
+   * refused when it reaches a different server than the one the row belongs to.
    *
    * For Plex servers with clientIdentifier:
    * - Validates that the clientIdentifier matches the server's machineIdentifier
@@ -251,6 +252,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       clientIdentifier,
       color: newColor,
       publicUrl: newPublicUrl,
+      apiKey: newApiKey,
     } = body.data;
     const newUrl = bodyUrl !== undefined ? bodyUrl.replace(/\/$/, '') : undefined;
     const authUser = request.user;
@@ -272,13 +274,18 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       return reply.badRequest(PUBLIC_URL_PLEX_MESSAGE);
     }
 
+    if (server.type === 'plex' && newApiKey !== undefined) {
+      return reply.badRequest('Plex servers sign in through plex.tv and have no API key to change');
+    }
+
     const same = <T>(next: T | undefined, current: T): boolean =>
       next === undefined || next === current;
     if (
       same(newName, server.name) &&
       same(newUrl, server.url) &&
       same(newColor, server.color) &&
-      same(newPublicUrl, server.publicUrl)
+      same(newPublicUrl, server.publicUrl) &&
+      same(newApiKey, server.token)
     ) {
       return {
         id: server.id,
@@ -292,8 +299,14 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       };
     }
 
-    // Only verify when the URL is actually changing
-    if (newUrl !== undefined && server.url !== newUrl) {
+    const urlChanging = newUrl !== undefined && server.url !== newUrl;
+    const keyChanging = newApiKey !== undefined && server.token !== newApiKey;
+    const targetUrl = newUrl ?? server.url;
+    const token = newApiKey ?? server.token;
+
+    let backfilledIdentity: string | undefined;
+
+    if (urlChanging || keyChanging) {
       // For Plex servers: Validate machineIdentifier if provided
       if (server.type === 'plex' && clientIdentifier) {
         if (server.machineIdentifier && server.machineIdentifier !== clientIdentifier) {
@@ -304,10 +317,9 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
-      // Verify the new URL works with the existing token
       try {
         if (server.type === 'plex') {
-          const adminCheck = await PlexClient.verifyServerAdmin(server.token, newUrl);
+          const adminCheck = await PlexClient.verifyServerAdmin(token, targetUrl);
           if (!adminCheck.success) {
             if (adminCheck.code === PlexClient.AdminVerifyError.CONNECTION_FAILED) {
               return reply.serviceUnavailable(adminCheck.message);
@@ -315,7 +327,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
             return reply.forbidden(adminCheck.message);
           }
         } else if (server.type === 'jellyfin') {
-          const adminCheck = await JellyfinClient.verifyServerAdmin(server.token, newUrl);
+          const adminCheck = await JellyfinClient.verifyServerAdmin(token, targetUrl);
           if (!adminCheck.success) {
             if (adminCheck.code === JellyfinClient.AdminVerifyError.CONNECTION_FAILED) {
               return reply.serviceUnavailable(adminCheck.message);
@@ -326,7 +338,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
             return reply.forbidden(adminCheck.message);
           }
         } else if (server.type === 'emby') {
-          const adminCheck = await EmbyClient.verifyServerAdmin(server.token, newUrl);
+          const adminCheck = await EmbyClient.verifyServerAdmin(token, targetUrl);
           if (!adminCheck.success) {
             if (adminCheck.code === EmbyClient.AdminVerifyError.CONNECTION_FAILED) {
               return reply.serviceUnavailable(adminCheck.message);
@@ -338,11 +350,41 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
           }
         }
       } catch (error) {
-        app.log.error({ err: error, serverId: id, newUrl }, 'Failed to verify new server URL');
+        app.log.error({ err: error, serverId: id, url: targetUrl }, 'Failed to verify server');
         return reply.badRequest(
-          'Failed to connect to server at new URL. Please verify the URL is correct.'
+          'Failed to connect to the server. Please verify the URL and API key are correct.'
         );
       }
+
+      const expectedIdentity =
+        server.machineIdentifier ?? (await readServerIdentity(server).catch(() => null));
+      if (!expectedIdentity) {
+        return reply.badRequest(
+          'Tracearr has no record of which server this is and cannot reach it with the saved address and key, so it cannot confirm the change points at the same server.'
+        );
+      }
+
+      const reachedIdentity = await readServerIdentity({
+        id,
+        type: server.type,
+        url: targetUrl,
+        token,
+      }).catch((error: unknown) => {
+        app.log.error(
+          { err: error, serverId: id, url: targetUrl },
+          'Failed to read server identity'
+        );
+        return null;
+      });
+      if (reachedIdentity === null) {
+        return reply.badRequest('Could not read which server answers at that address.');
+      }
+      if (reachedIdentity !== expectedIdentity) {
+        return reply.badRequest(
+          'That address or API key reaches a different server. A server can only be pointed at itself.'
+        );
+      }
+      if (!server.machineIdentifier) backfilledIdentity = expectedIdentity;
     }
 
     const updatePayload: {
@@ -350,12 +392,16 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       url?: string;
       color?: string | null;
       publicUrl?: string | null;
+      token?: string;
+      machineIdentifier?: string;
       updatedAt: Date;
     } = { updatedAt: new Date() };
+    if (backfilledIdentity !== undefined) updatePayload.machineIdentifier = backfilledIdentity;
     if (newName !== undefined) updatePayload.name = newName;
     if (newUrl !== undefined) updatePayload.url = newUrl;
     if (newColor !== undefined) updatePayload.color = newColor;
     if (newPublicUrl !== undefined) updatePayload.publicUrl = newPublicUrl;
+    if (newApiKey !== undefined) updatePayload.token = newApiKey;
 
     const updated = await db
       .update(servers)
@@ -388,6 +434,14 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         .catch((error: unknown) => {
           app.log.error({ err: error, serverId: id }, 'SSE refresh failed after URL update');
         });
+    }
+    if (keyChanging) {
+      app.log.info({ serverId: id }, 'Server API key updated');
+      if (newUrl === undefined) {
+        sseManager.refresh().catch((error: unknown) => {
+          app.log.error({ err: error, serverId: id }, 'SSE refresh failed after API key update');
+        });
+      }
     }
     if (newName !== undefined) {
       app.log.info({ serverId: id, oldName: server.name, newName }, 'Server name updated');
