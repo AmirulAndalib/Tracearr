@@ -450,7 +450,33 @@
     "stableRelease": "안정 릴리스",
     "betaUpdate": "베타 업데이트",
     "newVersion": "새 버전",
-    "versionAvailable": "{{version}} 사용 가능"
+    "versionAvailable": "{{version}} 사용 가능",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}}에 연결할 수 없습니다",

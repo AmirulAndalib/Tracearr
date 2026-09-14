@@ -450,7 +450,33 @@
     "stableRelease": "安定版",
     "betaUpdate": "ベータ版の更新",
     "newVersion": "新しいバージョン",
-    "versionAvailable": "{{version}} が利用可能です"
+    "versionAvailable": "{{version}} が利用可能です",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}} に到達できません",

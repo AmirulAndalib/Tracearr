@@ -450,7 +450,33 @@
     "stableRelease": "Stabiele versie",
     "betaUpdate": "Bèta-update",
     "newVersion": "Nieuwe versie",
-    "versionAvailable": "{{version}} beschikbaar"
+    "versionAvailable": "{{version}} beschikbaar",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}} is onbereikbaar",

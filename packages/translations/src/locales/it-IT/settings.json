@@ -450,7 +450,33 @@
     "stableRelease": "Rilascio Stabile",
     "betaUpdate": "Aggiornamento Beta",
     "newVersion": "Nuova Versione",
-    "versionAvailable": "{{version}} disponibile"
+    "versionAvailable": "{{version}} disponibile",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}} è irraggiungibile",

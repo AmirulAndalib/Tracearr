@@ -450,7 +450,33 @@
     "stableRelease": "Stabil utgåva",
     "betaUpdate": "Beta Uppdatering",
     "newVersion": "Ny version",
-    "versionAvailable": "{{version}} tillgängligt"
+    "versionAvailable": "{{version}} tillgängligt",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}} kan inte nås",

@@ -5,15 +5,13 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { VersionInfo } from '@tracearr/shared';
+import { isNewerVersion, isPrerelease, type VersionInfo } from '@tracearr/shared';
 import {
   getCurrentVersion,
   getCurrentTag,
   getCurrentCommit,
   getBuildDate,
   getCachedLatestVersion,
-  isNewerVersion,
-  isPrerelease,
   forceVersionCheck,
 } from '../jobs/versionCheckQueue.js';
 
@@ -54,6 +52,9 @@ export const versionRoutes: FastifyPluginAsync = async (app) => {
             isPrerelease: latestData.isPrerelease,
             releaseName: latestData.releaseName,
             releaseNotes: latestData.releaseNotes,
+            upgradeWarnings: latestData.upgradeWarnings.filter((w) =>
+              isNewerVersion(w.version, currentVersion)
+            ),
           }
         : null,
       updateAvailable,

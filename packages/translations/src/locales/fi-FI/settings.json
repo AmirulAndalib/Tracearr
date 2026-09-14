@@ -450,7 +450,33 @@
     "stableRelease": "Vakaa Versio",
     "betaUpdate": "Beta Päivitys",
     "newVersion": "Uusi Versio",
-    "versionAvailable": "{{version}} saatavilla"
+    "versionAvailable": "{{version}} saatavilla",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "{{serverName}} ei ole tavoitettavissa",

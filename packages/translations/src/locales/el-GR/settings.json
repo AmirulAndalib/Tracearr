@@ -450,7 +450,33 @@
     "stableRelease": "Σταθερή Έκδοση",
     "betaUpdate": "Ενημέρωση Beta",
     "newVersion": "Νέα Έκδοση",
-    "versionAvailable": "{{version}} διαθέσιμο"
+    "versionAvailable": "{{version}} διαθέσιμο",
+    "beforeUpdating": ""
+  },
+  "whatsNew": {
+    "title": "",
+    "installed": "",
+    "installedSince": "",
+    "reopenDescription": "",
+    "openNotes": "",
+    "gotIt": "",
+    "allReleases": "",
+    "since": "",
+    "earlier": "",
+    "installedBadge": "",
+    "latestBadge": "",
+    "changeCount_one": "",
+    "changeCount_other": "",
+    "series": "",
+    "docs": "",
+    "empty": "",
+    "types": {
+      "new": "",
+      "improved": "",
+      "fix": "",
+      "security": "",
+      "note": ""
+    }
   },
   "serverHealth": {
     "unreachable": "Το {{serverName}} δεν είναι προσβάσιμο",

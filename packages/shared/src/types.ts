@@ -11,6 +11,7 @@ import type {
   TriggerNode,
 } from './automations/index.js';
 import type { NotificationToast } from './destinations.js';
+import type { UpgradeWarning } from './releaseNotes.js';
 import type { statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
 
@@ -1971,6 +1972,7 @@ export interface VersionInfo {
     isPrerelease: boolean; // Whether this update is a prerelease
     releaseName: string | null; // Release title from GitHub
     releaseNotes: string | null; // Release body/notes from GitHub (markdown)
+    upgradeWarnings: UpgradeWarning[]; // Warnings from every release between current and latest, newest first
   } | null;
   // Update status
   updateAvailable: boolean;
