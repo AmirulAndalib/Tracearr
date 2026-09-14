@@ -143,7 +143,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
             return reply.serviceUnavailable(adminCheck.message);
           }
           if (adminCheck.code === JellyfinClient.AdminVerifyError.INVALID_KEY) {
-            return reply.unauthorized(adminCheck.message);
+            return reply.badRequest(adminCheck.message);
           }
           return reply.forbidden(adminCheck.message);
         }
@@ -154,7 +154,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
             return reply.serviceUnavailable(adminCheck.message);
           }
           if (adminCheck.code === EmbyClient.AdminVerifyError.INVALID_KEY) {
-            return reply.unauthorized(adminCheck.message);
+            return reply.badRequest(adminCheck.message);
           }
           return reply.forbidden(adminCheck.message);
         }
@@ -333,7 +333,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
               return reply.serviceUnavailable(adminCheck.message);
             }
             if (adminCheck.code === JellyfinClient.AdminVerifyError.INVALID_KEY) {
-              return reply.unauthorized(adminCheck.message);
+              return reply.badRequest(adminCheck.message);
             }
             return reply.forbidden(adminCheck.message);
           }
@@ -344,7 +344,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
               return reply.serviceUnavailable(adminCheck.message);
             }
             if (adminCheck.code === EmbyClient.AdminVerifyError.INVALID_KEY) {
-              return reply.unauthorized(adminCheck.message);
+              return reply.badRequest(adminCheck.message);
             }
             return reply.forbidden(adminCheck.message);
           }

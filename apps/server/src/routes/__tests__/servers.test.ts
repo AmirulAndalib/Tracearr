@@ -613,7 +613,7 @@ describe('Server Routes', () => {
       expect(response.json().message).toContain('admin');
     });
 
-    it('returns 401 when Jellyfin rejects the API key', async () => {
+    it('returns 400 when Jellyfin rejects the API key', async () => {
       app = await buildTestApp(ownerUser);
 
       mockDbSelectLimit([]);
@@ -634,7 +634,7 @@ describe('Server Routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(400);
       expect(response.json().message).toContain('rejected');
     });
 
@@ -663,7 +663,7 @@ describe('Server Routes', () => {
       expect(response.json().message).toContain('Cannot reach');
     });
 
-    it('returns 401 when Emby rejects the API key', async () => {
+    it('returns 400 when Emby rejects the API key', async () => {
       app = await buildTestApp(ownerUser);
 
       mockDbSelectLimit([]);
@@ -684,7 +684,7 @@ describe('Server Routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(401);
+      expect(response.statusCode).toBe(400);
       expect(response.json().message).toContain('rejected');
     });
 
@@ -941,7 +941,7 @@ describe('Server Routes', () => {
         url: `/servers/${emby.id}`,
         payload: { apiKey: 'bad-key' },
       });
-      expect(refused.statusCode).toBe(401);
+      expect(refused.statusCode).toBe(400);
       expect(db.update).not.toHaveBeenCalled();
 
       mockDbSelectLimit([mockServer]);
