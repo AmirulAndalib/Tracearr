@@ -10,7 +10,9 @@ ARG APP_TAG=
 ARG APP_COMMIT=
 ARG APP_BUILD_DATE=
 
-RUN corepack enable && corepack prepare pnpm@12.3.4 --activate
+# pnpm's install script is what puts its native binary in place. corepack never runs it,
+# and npm 12 blocks it unless allowed, so both leave pnpm's shebang-less fallback shim instead.
+RUN npm install -g --allow-scripts=pnpm pnpm@12.3.4
 
 WORKDIR /app
 
@@ -52,8 +54,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Node.js 24
 RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs \
-    && corepack enable \
-    && corepack prepare pnpm@12.3.4 --activate \
+    && npm install -g --allow-scripts=pnpm pnpm@12.3.4 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PostgreSQL 15 + TimescaleDB
