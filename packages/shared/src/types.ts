@@ -12,6 +12,7 @@ import type {
 } from './automations/index.js';
 import type { NotificationToast } from './destinations.js';
 import type { UpgradeWarning } from './releaseNotes.js';
+import type { ResolutionBucket } from './resolution.js';
 import type { statPeriodSchema } from './schemas.js';
 import type { z } from 'zod';
 
@@ -2167,6 +2168,9 @@ export interface BandwidthSummary {
 // Library Statistics Types
 // =============================================================================
 
+/** Titles per resolution bucket. Buckets overlap: a 4K+1080p title counts in both. */
+export type ResolutionCounts = Record<ResolutionBucket, number>;
+
 // Library Stats Response (GET /library/stats)
 export interface LibraryStatsResponse {
   totalItems: number;
@@ -2174,12 +2178,7 @@ export interface LibraryStatsResponse {
   movieCount: number;
   episodeCount: number;
   showCount: number;
-  qualityBreakdown: {
-    count4k: number;
-    count1080p: number;
-    count720p: number;
-    countSd: number;
-  };
+  qualityBreakdown: ResolutionCounts;
   asOf: string | null;
 }
 
@@ -2203,14 +2202,7 @@ export interface LibraryGrowthResponse {
 export interface QualityDataPoint {
   day: string;
   totalItems: number;
-  count4k: number;
-  count1080p: number;
-  count720p: number;
-  countSd: number;
-  pct4k: number;
-  pct1080p: number;
-  pct720p: number;
-  pctSd: number;
+  counts: ResolutionCounts;
   hevcCount: number;
   h264Count: number;
   av1Count: number;
@@ -2974,21 +2966,10 @@ export interface LibraryCodecsResponse {
 // Library Resolution Types
 // ============================================================================
 
-/** Single resolution entry with count and percentage */
-export interface ResolutionEntry {
-  resolution: string;
-  count: number;
-  percentage: number;
-}
-
 /** Resolution breakdown for a media type */
 export interface ResolutionBreakdown {
-  count4k: number;
-  count1080p: number;
-  count720p: number;
-  countSd: number;
+  counts: ResolutionCounts;
   total: number;
-  entries: ResolutionEntry[];
 }
 
 /** Response from /library/resolution endpoint */
