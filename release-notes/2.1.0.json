@@ -15,6 +15,10 @@
   ],
   "changes": [
     {
+      "type": "new",
+      "text": "Jellyfin and Emby streams show transcode progress and hardware acceleration details, like Plex"
+    },
+    {
       "type": "improved",
       "text": "posters are resized by the media server, cutting a typical fetch from hundreds of KB to dozens"
     },
@@ -28,10 +32,6 @@
     },
     {
       "type": "improved",
-      "text": "five unused sessions indexes dropped, so every session write maintains fewer"
-    },
-    {
-      "type": "improved",
       "text": "the full library scan runs at most once every 3.5 days per library"
     },
     {
@@ -41,16 +41,15 @@
     { "type": "fix", "text": "open on server opens the item instead of the server root" },
     {
       "type": "fix",
+      "text": "the admin recovery CLI finds owners with legacy mixed-case usernames"
+    },
+    {
+      "type": "fix",
       "text": "Plex metadata refreshes no longer trigger a library sync every 30 seconds"
     },
     {
       "type": "fix",
       "text": "dominant color lookups are indexed, so poster cache warming no longer crawls"
-    },
-    { "type": "security", "text": "cleared four dependency advisories" },
-    {
-      "type": "note",
-      "text": "public API v2 history rows carry `server_user_id` next to the identity id"
     },
     {
       "type": "note",

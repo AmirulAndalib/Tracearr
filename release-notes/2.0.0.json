@@ -29,16 +29,22 @@
     },
     {
       "type": "improved",
+      "text": "mobile navigation uses native tabs that stay put on detail screens, and a server sheet replaces the drawer"
+    },
+    { "type": "improved", "text": "mobile controls work with screen readers" },
+    {
+      "type": "improved",
       "text": "upgrades show migration progress, and a bad migration can't boot-loop the server"
     },
     { "type": "improved", "text": "first sync is much faster" },
     { "type": "fix", "text": "closed a silent gap in sharing detection on polled servers" },
     { "type": "fix", "text": "stale content and ROI stop double counting merged titles" },
+    { "type": "fix", "text": "servers reached over Tailscale connect again on iOS" },
+    { "type": "fix", "text": "the mobile stream map follows the dark theme on both platforms" },
     { "type": "note", "text": "counts may shift after upgrade as versions and identities settle" },
     {
       "type": "note",
       "text": "overall trust scores show a person's worst account, and violation totals count again"
-    },
-    { "type": "note", "text": "OpenAPI specs publish as release assets" }
+    }
   ]
 }

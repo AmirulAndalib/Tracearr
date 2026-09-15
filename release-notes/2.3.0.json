@@ -37,13 +37,35 @@
     },
     {
       "type": "new",
+      "text": "a newsletter across several servers only lists the ones each member has an account on",
+      "docs": "https://docs.tracearr.com/configuration/email/recipients#one-email-per-set-of-servers"
+    },
+    {
+      "type": "new",
+      "text": "newsletters take a sender name, a rich-text intro and outro, and an opt-in Tracearr footer link"
+    },
+    {
+      "type": "new",
+      "text": "a digest trims itself under Gmail's 102 KB clip, and each trimmed section says how many it left out"
+    },
+    {
+      "type": "new",
+      "text": "newsletter posters can be attached, hosted from your external URL, or left out",
+      "docs": "https://docs.tracearr.com/configuration/email/newsletters#poster-images"
+    },
+    {
+      "type": "new",
+      "text": "a contact email on the user page, edited next to the name, is where that person's newsletters go",
+      "docs": "https://docs.tracearr.com/configuration/email/recipients#setting-a-contact-email"
+    },
+    {
+      "type": "new",
       "text": "SMTP email destination with presets for Postmark, Resend, SES, Mailgun, SendGrid, Brevo and Gmail",
       "docs": "https://docs.tracearr.com/configuration/email"
     },
-    { "type": "new", "text": "a what's new dialog opens once on your first visit after an update" },
     {
       "type": "new",
-      "text": "clicking the version in the sidebar reopens the release notes for what you're running"
+      "text": "a what's new dialog opens once after an update, and clicking the sidebar version reopens it"
     },
     {
       "type": "new",
@@ -80,12 +102,8 @@
     },
     {
       "type": "new",
-      "text": "`newsletter.sent` and `newsletter.failed` triggers, plus a Newsletter failed template",
+      "text": "triggers for when a newsletter is sent or a send fails, plus a Newsletter failed template",
       "docs": "https://docs.tracearr.com/configuration/automations#newsletters"
-    },
-    {
-      "type": "new",
-      "text": "`GET /api/v2/public/watched-media` matches an external library by tmdb, tvdb or imdb id"
     },
     {
       "type": "new",
@@ -104,29 +122,10 @@
       "type": "improved",
       "text": "a merge carries over contact email, newsletter exclusions and Seerr requests"
     },
-    { "type": "improved", "text": "users resync every 12 hours with library sync" },
     {
       "type": "improved",
       "text": "Jellyfin and Emby usernames that are email addresses count as the account email"
     },
-    {
-      "type": "improved",
-      "text": "the stream starts trigger says it fires at confirmation, not on play"
-    },
-    {
-      "type": "improved",
-      "text": "destinations, backup history and job history are rows with one actions menu"
-    },
-    { "type": "improved", "text": "tabs and toggle groups share one selected style" },
-    {
-      "type": "improved",
-      "text": "table pagers show numbered pages and sit in a footer under the table"
-    },
-    {
-      "type": "improved",
-      "text": "Jellyfin and Emby track posters use the album cover, so each cover caches once"
-    },
-    { "type": "improved", "text": "fresh translations from Crowdin" },
     {
       "type": "fix",
       "text": "Jellyfin 12 movies in a collection no longer drop out of the library"
@@ -145,6 +144,10 @@
       "text": "Jellyfin 12 music artists no longer land under video libraries and stall snapshots"
     },
     { "type": "fix", "text": "Most popular ranks read 1 to 20 again" },
+    {
+      "type": "fix",
+      "text": "Dead Weight no longer skips titles someone opened but never watched"
+    },
     {
       "type": "fix",
       "text": "a rejected Jellyfin or Emby API key shows an error instead of the login page"
@@ -168,22 +171,14 @@
       "text": "Tautulli import skips a page that won't fetch instead of failing the run"
     },
     { "type": "fix", "text": "library sync survives a bad library name" },
-    { "type": "fix", "text": "web assets serve on Windows" },
     {
       "type": "fix",
       "text": "the Browse grid fills the window and refits when a banner comes or goes"
     },
-    { "type": "fix", "text": "border colours render again, and toggles sit on whole pixels" },
-    { "type": "fix", "text": "the partial watched ring on posters draws round in Firefox" },
     {
       "type": "security",
       "text": "connecting a Jellyfin or Emby server no longer hands a login token to the browser"
     },
-    {
-      "type": "security",
-      "text": "the old `/api/v1/servers/:id/image/*` route is gone; it took the token in the query string"
-    },
-    { "type": "note", "text": "migrations 0097 to 0104, nothing destructive" },
     {
       "type": "note",
       "text": "the first library sync after updating is a full scan on every server"

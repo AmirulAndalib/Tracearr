@@ -25,6 +25,10 @@
     { "type": "fix", "text": "sessions no longer duplicate when SSE and reconciliation race" },
     { "type": "fix", "text": "the poller no longer overloads under heavy concurrent streams" },
     { "type": "fix", "text": "user sorting works again" },
+    {
+      "type": "fix",
+      "text": "the mobile app recovers requests that stalled while it was in the background"
+    },
     { "type": "fix", "text": "login reconnects after a database restore" },
     { "type": "fix", "text": "specials keep their season zero" },
     {

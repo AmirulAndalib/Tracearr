@@ -26,6 +26,7 @@
       "text": "a plays vs. sessions chart shows how much interrupts inflate session counts"
     },
     { "type": "new", "text": "top content by plays and top shows by binge score" },
+    { "type": "new", "text": "completion rate shows how much of what gets started is finished" },
     {
       "type": "new",
       "text": "`groupByDevice` option cuts device velocity false positives for VPN users"
@@ -36,6 +37,10 @@
     },
     { "type": "improved", "text": "Jellystat import limit raised to 500MB" },
     { "type": "fix", "text": "Emby user sync runs again" },
+    {
+      "type": "fix",
+      "text": "Android no longer asks you to log in again after restoring an app backup"
+    },
     {
       "type": "fix",
       "text": "geo rules match country name variations like USA, United States, and US"

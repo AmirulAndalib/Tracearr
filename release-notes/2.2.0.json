@@ -18,14 +18,23 @@
       "body": "Media added and media upgraded fire off library sync, ~30 s with Plex or the SSE plugin and next sync otherwise. Conditions on type, library, resolution, HDR, codec, audio, and file size. A library's first sync stays quiet."
     },
     {
-      "title": "Activity",
-      "body": "Opens on what actually ran (Ran, No match, Failed) with who, where, and what happened. Near misses fold under the table, and any run replays into the builder."
+      "title": "Notifications",
+      "body": "Settings → Notifications is a list of destinations: Discord, a JSON webhook, ntfy, Gotify, Apprise, Pushover, mobile push and browser toasts. Add more than one of a kind and pick events for each. Existing Discord, webhook, ntfy and Pushover settings move over on first boot, and webhook URLs and tokens are encrypted in the database.",
+      "docs": "https://docs.tracearr.com/configuration/destinations"
     }
   ],
   "changes": [
     {
       "type": "new",
+      "text": "Activity opens on what automations ran, missed or failed, and any run replays into the builder"
+    },
+    {
+      "type": "new",
       "text": "twenty-one ready-made automations in a gallery, pick one and fill in the blanks"
+    },
+    {
+      "type": "new",
+      "text": "a linked Plex account can be reauthorized from Settings when its token stops working"
     },
     {
       "type": "new",
@@ -40,6 +49,10 @@
       "text": "poster cache keeps one copy per poster and stops evicting unchanged ones"
     },
     {
+      "type": "improved",
+      "text": "a failed notification retries three times before it parks in a dead-letter queue"
+    },
+    {
       "type": "fix",
       "text": "maps run fully local with GPU acceleration, replacing the provider that changed its licensing",
       "refs": ["#1091"]
@@ -50,9 +63,15 @@
     },
     { "type": "fix", "text": "deleting a destination used inside an if branch is refused" },
     { "type": "fix", "text": "episode and track notifications name the show or artist" },
+    { "type": "fix", "text": "rule push notifications carry the poster and user avatar again" },
+    { "type": "fix", "text": "v2 rule violations reach mobile push again" },
+    {
+      "type": "security",
+      "text": "destination secrets are encrypted at rest with a key from `JWT_SECRET`, or `ENCRYPTION_KEY` if set"
+    },
     {
       "type": "note",
-      "text": "`rule.type` is null on /api/v1/violations and the public API, as since 2.0"
+      "text": "existing Discord, webhook, ntfy and Pushover settings move into destinations on first boot"
     }
   ]
 }
