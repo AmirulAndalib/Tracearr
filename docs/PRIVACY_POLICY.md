@@ -161,7 +161,7 @@ Your self-hosted Tracearr backend may have its own data practices depending on h
 
 Tracearr is not directed at children under the age of 13, and we do not knowingly collect personal information from children under 13. The app is designed for server administrators and media library managers.
 
-If you believe a child under 13 has provided information through the app, please contact us at privacy@tracearr.dev, though we note again that we do not collect or store user data.
+If you believe a child under 13 has provided information through the app, please contact us at contact@tracearr.com, though we note again that we do not collect or store user data.
 
 ## Your Rights and Choices
 
@@ -253,7 +253,7 @@ While we implement reasonable security measures in the app's design, we cannot g
 - You are responsible for protecting your authentication credentials
 - You should use strong passwords and enable two-factor authentication if supported
 
-If you discover a security vulnerability in the Tracearr app, please report it to privacy@tracearr.dev.
+If you discover a security vulnerability in the Tracearr app, please report it to security@tracearr.com.
 
 ## Open Source Transparency
 
@@ -268,7 +268,7 @@ Tracearr is committed to transparency. You can:
 
 If you have questions, concerns, or requests regarding this Privacy Policy or Tracearr's privacy practices:
 
-**Email**: privacy@tracearr.dev
+**Email**: contact@tracearr.com
 
 **Response Time**: We aim to respond to privacy inquiries within 30 days.
 
@@ -288,4 +288,4 @@ By using Tracearr, you acknowledge that:
 
 **Last Updated**: December 2025
 
-This privacy policy is designed to be transparent and comprehensive. If you have suggestions for improving clarity or addressing additional privacy concerns, please contact us at privacy@tracearr.dev.
+This privacy policy is designed to be transparent and comprehensive. If you have suggestions for improving clarity or addressing additional privacy concerns, please contact us at contact@tracearr.com.
