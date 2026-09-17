@@ -77,6 +77,10 @@
       "text": "pairing the mobile app shows Tracearr as the instance name instead of the first media server's name"
     },
     {
+      "type": "fix",
+      "text": "templates that use a newsletter or first-seen trigger, or 1440p/8K values, state the server version they need"
+    },
+    {
       "type": "note",
       "text": "after upgrading, stats rebuild in the background and show only the last 7 days until that finishes"
     },

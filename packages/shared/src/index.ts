@@ -408,6 +408,7 @@ export {
   TEMPLATE_GROUPS,
   TEMPLATE_SCHEMA_VERSION,
   TEMPLATE_MIN_SERVER_VERSION,
+  templateMinServerVersion,
   templateEnvelopeSchema,
   materializeTemplate,
   slotValueFor,
