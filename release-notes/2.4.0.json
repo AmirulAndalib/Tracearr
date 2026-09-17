@@ -70,6 +70,10 @@
     },
     {
       "type": "fix",
+      "text": "the Map page zooms to where plays are instead of stretching to one far-off play, and fills the window on desktop"
+    },
+    {
+      "type": "fix",
       "text": "plays that were linked to a whole show, season, artist or album instead of the item played are unlinked"
     },
     {
