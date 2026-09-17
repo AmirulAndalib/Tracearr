@@ -43,6 +43,18 @@
       "text": "Jellystat import says when plugin plays need the Playback Reporting Plugin Data table to link"
     },
     {
+      "type": "fix",
+      "text": "acknowledging violations in bulk leaves ones already acknowledged alone and counts only the rest"
+    },
+    {
+      "type": "fix",
+      "text": "pairing the mobile app shows Tracearr as the instance name instead of the first media server's name"
+    },
+    {
+      "type": "improved",
+      "text": "the iOS home screen widget is refreshed when a stream starts or stops, at most every 20 minutes"
+    },
+    {
       "type": "note",
       "text": "the first library sync after upgrading rescans every Plex library in full once"
     }
