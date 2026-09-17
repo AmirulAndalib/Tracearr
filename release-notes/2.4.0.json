@@ -66,6 +66,10 @@
     },
     {
       "type": "fix",
+      "text": "large Jellystat backups use far less memory to import and no longer sit in Redis while they wait"
+    },
+    {
+      "type": "fix",
       "text": "plays that were linked to a whole show, season, artist or album instead of the item played are unlinked"
     },
     {
