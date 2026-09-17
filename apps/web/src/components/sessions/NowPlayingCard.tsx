@@ -21,13 +21,17 @@ import { Progress } from '@/components/ui/progress';
 import { cn, formatLocationCompact, getMediaDisplay } from '@/lib/utils';
 import { imageProxyUrl } from '@/lib/api';
 import { formatDuration } from '@/lib/formatters';
-import { PLAYBACK_DECISION_LABEL_KEYS, playbackDecision } from '@/lib/playbackDecision';
 import { useEstimatedProgress } from '@/hooks/useEstimatedProgress';
 import { useAuth } from '@/hooks/useAuth';
 import { useServer } from '@/hooks/useServer';
 import { ServerColorAccent } from '@/components/server';
 import { TerminateSessionDialog } from './TerminateSessionDialog';
-import { POSTER_IMAGE_SIZE, type ActiveSession } from '@tracearr/shared';
+import {
+  PLAYBACK_DECISION_LABEL_KEYS,
+  POSTER_IMAGE_SIZE,
+  playbackDecision,
+  type ActiveSession,
+} from '@tracearr/shared';
 
 interface NowPlayingCardProps {
   session: ActiveSession;

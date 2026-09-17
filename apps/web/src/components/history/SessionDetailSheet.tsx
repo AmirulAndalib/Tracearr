@@ -42,11 +42,14 @@ import {
 import { cn, getCountryName, getMediaDisplay } from '@/lib/utils';
 import { imageProxyUrl } from '@/lib/api';
 import { formatDuration } from '@/lib/formatters';
-import { PLAYBACK_DECISION_LABEL_KEYS, playbackDecision } from '@/lib/playbackDecision';
 import { getAvatarUrl } from '@/components/users/utils';
 import { StreamDetailsPanel } from './StreamDetailsPanel';
 
-import { POSTER_IMAGE_SIZE } from '@tracearr/shared';
+import {
+  PLAYBACK_DECISION_LABEL_KEYS,
+  POSTER_IMAGE_SIZE,
+  playbackDecision,
+} from '@tracearr/shared';
 import type {
   SessionWithDetails,
   ActiveSession,

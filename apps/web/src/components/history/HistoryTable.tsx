@@ -32,10 +32,16 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatLocationCompact, getCountryName, getMediaDisplay } from '@/lib/utils';
-import { PLAYBACK_DECISION_LABEL_KEYS, playbackDecision } from '@/lib/playbackDecision';
 import { formatDuration } from '@/lib/formatters';
 import { getAvatarUrl } from '@/components/users/utils';
-import type { SessionWithDetails, SessionState, MediaType, EngagementTier } from '@tracearr/shared';
+import {
+  PLAYBACK_DECISION_LABEL_KEYS,
+  playbackDecision,
+  type SessionWithDetails,
+  type SessionState,
+  type MediaType,
+  type EngagementTier,
+} from '@tracearr/shared';
 import type { ColumnVisibility } from './HistoryFilters';
 import { ServerColumnCell } from '@/components/server';
 import { useServerColorMap } from '@/hooks/useServerColorMap';

@@ -857,6 +857,22 @@ export {
   type DynamicRangeToken,
 } from './dynamicRange.js';
 
+// Playback decision (Direct Play, Direct Stream, Transcode)
+export {
+  PLAYBACK_DECISION_LABEL_KEYS,
+  playbackDecision,
+  type PlaybackDecision,
+  type PlaybackDecisionInput,
+} from './playbackDecision.js';
+
+// Trust score levels
+export {
+  TRUST_LEVEL_THRESHOLDS,
+  TRUST_LEVEL_LABEL_KEYS,
+  trustLevel,
+  type TrustLevel,
+} from './trustLevel.js';
+
 // Server-scope selection (cache-key and query-param builders)
 export {
   ALL_SERVERS,
