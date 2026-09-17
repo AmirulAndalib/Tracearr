@@ -41,8 +41,13 @@ import {
   hasStampableSessionsBefore,
 } from '../jobs/sessionIdentityBackfill.js';
 import { maybeEnqueueMaintenanceJob } from '../jobs/maintenanceQueue.js';
+import {
+  AUTO_LINK_WINDOW_MS,
+  listPlexServers,
+  MAX_AUTO_LINK_ATTEMPTS,
+} from '../jobs/importedHistoryLinking.js';
 import { getSessionsCompressionHorizon, refreshAggregates } from '../db/timescale.js';
-import type { LibrarySyncProgress } from '@tracearr/shared';
+import type { LibrarySyncProgress, ServerType } from '@tracearr/shared';
 import { REDIS_KEYS, RESOLUTION_TIERS, LEGACY_VERSION_SENTINEL } from '@tracearr/shared';
 import {
   bucketMembershipColumns,
@@ -52,6 +57,11 @@ import {
 } from '../utils/resolutionBuckets.js';
 import { getHeavyOpsStatus } from '../jobs/heavyOpsLock.js';
 import { sanitizeText, scrubStringFields } from '../utils/sanitizeText.js';
+import {
+  getImportedHistoryLinkState,
+  getSettings,
+  setImportedHistoryLinkState,
+} from './settings.js';
 import type { Redis } from 'ioredis';
 
 // Constants for batching and rate limiting.
@@ -124,11 +134,14 @@ const COUNT_MISMATCH_RATIO = 0.01;
 const MUSIC_LIBRARY_TYPES = new Set(['music', 'artist']);
 
 /**
- * Bump when the listing query changes shape. A library stamped with an older
- * version gets one forced full scan, so items the old query left out come back
- * without anyone running a manual sync.
+ * Bump a server type's version when its listing query changes shape. A library
+ * stamped with an older version gets one forced full scan, so items the old
+ * query left out come back without anyone running a manual sync. Plex is at 2
+ * because its listing started storing plex_guid.
  */
-const LIBRARY_SCAN_VERSION = 1;
+function libraryScanVersionFor(serverType: ServerType): number {
+  return serverType === 'plex' ? 2 : 1;
+}
 
 // Auto-handoff throttles for the compressed-history identity backfill. The
 // probe decompress-scans all compressed history when it comes back false (the
@@ -151,6 +164,69 @@ let lastAutoBackfillEnqueueAt = 0;
 export function _resetAutoBackfillThrottleForTests(): void {
   lastAutoBackfillProbeAt = 0;
   lastAutoBackfillEnqueueAt = 0;
+}
+
+// The imported history link hand-off keeps its own throttle state on the same
+// intervals, so enqueueing it never holds back the identity backfill above.
+let lastLinkProbeAt = 0;
+let lastLinkEnqueueAt = 0;
+
+export function _resetImportedHistoryLinkThrottleForTests(): void {
+  lastLinkProbeAt = 0;
+  lastLinkEnqueueAt = 0;
+}
+
+/**
+ * Hand imported Plex history linking to the maintenance queue after a Plex
+ * library sync, until the job reports done, runs out of automatic attempts, or
+ * 14 days pass since linking was last re-armed.
+ * While any Plex server has a library sync pending the job would skip it, so
+ * the hand-off waits for a later sync without spending its throttle, as it
+ * does when the maintenance queue refuses the job.
+ */
+export async function maybeEnqueueImportedHistoryLink(
+  addedItems: boolean,
+  hasPendingLibrarySync: (serverId: string) => Promise<boolean>
+): Promise<void> {
+  const link = await getImportedHistoryLinkState();
+  if (link.state === 'done') {
+    return;
+  }
+
+  const plexServers = await listPlexServers();
+  const tautulli = await getSettings(['tautulliUrl', 'tautulliApiKey']);
+  if (!tautulli.tautulliUrl || !tautulli.tautulliApiKey) {
+    if (plexServers.every((server) => link.providerPassDoneServers.includes(server.id))) {
+      await setImportedHistoryLinkState(link.generation, {
+        ...link,
+        state: 'done',
+        autoAttempts: 0,
+      });
+      return;
+    }
+  }
+
+  if (
+    link.autoAttempts >= MAX_AUTO_LINK_ATTEMPTS ||
+    Date.now() - Date.parse(link.armedAt) > AUTO_LINK_WINDOW_MS
+  ) {
+    return;
+  }
+
+  const now = Date.now();
+  const allowed =
+    now - lastLinkEnqueueAt >= AUTO_BACKFILL_ENQUEUE_INTERVAL_MS &&
+    (addedItems || now - lastLinkProbeAt >= AUTO_BACKFILL_PROBE_INTERVAL_MS);
+  if (!allowed) return;
+  for (const server of plexServers) {
+    if (await hasPendingLibrarySync(server.id)) return;
+  }
+  const enqueued = await maybeEnqueueMaintenanceJob('link_imported_history', 'system', {
+    trigger: 'auto',
+  });
+  if (!enqueued) return;
+  lastLinkProbeAt = now;
+  lastLinkEnqueueAt = now;
 }
 
 // Reconcile throttle: same module-level pattern as the backfill probe above.
@@ -234,6 +310,7 @@ function delay(ms: number): Promise<void> {
 interface LibrarySyncArgs {
   serverId: string;
   serverName: string;
+  serverType: ServerType;
   libraryId: string;
   libraryName: string;
   libraryType: string;
@@ -395,6 +472,7 @@ export class LibrarySyncService {
       const result = await this.syncLibrary({
         serverId,
         serverName: server.name,
+        serverType: server.type,
         libraryId: library.id,
         libraryName: library.name,
         libraryType: library.type,
@@ -569,6 +647,7 @@ export class LibrarySyncService {
     const {
       serverId,
       serverName,
+      serverType,
       libraryId,
       libraryName,
       libraryType,
@@ -624,7 +703,7 @@ export class LibrarySyncService {
     const fullScanDue =
       syncState.lastFullScanAt !== null &&
       Date.now() - syncState.lastFullScanAt.getTime() >= FULL_SCAN_MAX_AGE_MS;
-    const scanQueryChanged = syncState.scanVersion !== LIBRARY_SCAN_VERSION;
+    const scanQueryChanged = syncState.scanVersion !== libraryScanVersionFor(serverType);
     const forceFullScan =
       triggeredBy === 'manual' || fullScanDue || overcountMismatch || scanQueryChanged;
 
@@ -749,6 +828,7 @@ export class LibrarySyncService {
           await this.saveSyncState(
             serverId,
             libraryId,
+            serverType,
             totalCount,
             syncState.lastFullScanAt ?? new Date()
           );
@@ -831,6 +911,7 @@ export class LibrarySyncService {
         await this.saveSyncState(
           serverId,
           libraryId,
+          serverType,
           totalCount,
           syncState.lastFullScanAt ?? new Date()
         );
@@ -1210,7 +1291,14 @@ export class LibrarySyncService {
         triggeredBy,
         syncState.acceptedShortfall
       );
-      await this.saveSyncState(serverId, libraryId, totalCount, new Date(), acceptedShortfall);
+      await this.saveSyncState(
+        serverId,
+        libraryId,
+        serverType,
+        totalCount,
+        new Date(),
+        acceptedShortfall
+      );
       return {
         serverId,
         libraryId,
@@ -1243,7 +1331,14 @@ export class LibrarySyncService {
       triggeredBy,
       syncState.acceptedShortfall
     );
-    await this.saveSyncState(serverId, libraryId, totalCount, new Date(), acceptedShortfall);
+    await this.saveSyncState(
+      serverId,
+      libraryId,
+      serverType,
+      totalCount,
+      new Date(),
+      acceptedShortfall
+    );
 
     return {
       serverId,
@@ -1308,6 +1403,7 @@ export class LibrarySyncService {
   private async saveSyncState(
     serverId: string,
     libraryId: string,
+    serverType: ServerType,
     itemCount: number,
     lastFullScanAt: Date,
     acceptedShortfall?: number
@@ -1337,7 +1433,7 @@ export class LibrarySyncService {
       ),
       redisClient.set(
         REDIS_KEYS.LIBRARY_SYNC_SCAN_VERSION(serverId, libraryId),
-        String(LIBRARY_SCAN_VERSION),
+        String(libraryScanVersionFor(serverType)),
         'EX',
         SYNC_STATE_TTL
       ),
@@ -1541,6 +1637,7 @@ export class LibrarySyncService {
               imdbId: item.imdbId ?? null,
               tmdbId: item.tmdbId ?? null,
               tvdbId: item.tvdbId ?? null,
+              plexGuid: item.plexGuid ?? null,
               videoResolution: item.videoResolution ?? null,
               videoCodec: item.videoCodec ?? null,
               videoDynamicRange: item.videoDynamicRange ?? null,
@@ -1577,6 +1674,7 @@ export class LibrarySyncService {
             imdbId: sql`excluded.imdb_id`,
             tmdbId: sql`excluded.tmdb_id`,
             tvdbId: sql`excluded.tvdb_id`,
+            plexGuid: sql`excluded.plex_guid`,
             videoResolution: sql`excluded.video_resolution`,
             videoCodec: sql`excluded.video_codec`,
             videoDynamicRange: sql`excluded.video_dynamic_range`,
@@ -1620,6 +1718,7 @@ export class LibrarySyncService {
             ${libraryItems.imdbId} IS DISTINCT FROM excluded.imdb_id OR
             ${libraryItems.tmdbId} IS DISTINCT FROM excluded.tmdb_id OR
             ${libraryItems.tvdbId} IS DISTINCT FROM excluded.tvdb_id OR
+            ${libraryItems.plexGuid} IS DISTINCT FROM excluded.plex_guid OR
             ${libraryItems.videoResolution} IS DISTINCT FROM excluded.video_resolution OR
             ${libraryItems.videoCodec} IS DISTINCT FROM excluded.video_codec OR
             ${libraryItems.videoDynamicRange} IS DISTINCT FROM excluded.video_dynamic_range OR

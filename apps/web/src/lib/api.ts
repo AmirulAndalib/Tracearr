@@ -2141,6 +2141,7 @@ class ApiClient {
             type: 'boolean';
             default: boolean;
           }>;
+          destructive?: boolean;
         }>;
       }>('/maintenance/jobs'),
     startJob: (type: string, options?: { fullRefresh?: boolean }) =>
@@ -2211,6 +2212,7 @@ class ApiClient {
             durationMs: number;
             message: string;
           };
+          trigger: 'manual' | 'auto';
         }>;
       }>('/maintenance/history'),
     getSnapshots: (params?: { suspicious?: boolean; date?: string; libraryId?: string }) => {

@@ -89,8 +89,12 @@ vi.mock('../../services/sseManager.js', () => ({
   },
 }));
 
-// Import mocked modules
+vi.mock('../../services/settings.js', () => ({
+  rearmImportedHistoryLink: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { db } from '../../db/client.js';
+import { rearmImportedHistoryLink } from '../../services/settings.js';
 import { PlexClient, JellyfinClient, EmbyClient } from '../../services/mediaServer/index.js';
 import { getServerLiveStats, getServerResourceStats } from '../../services/serverLiveStats.js';
 import { syncServer } from '../../services/sync.js';
@@ -392,6 +396,7 @@ describe('Server Routes', () => {
       const body = response.json();
       expect(body.name).toBe('New Plex');
       expect(body.type).toBe('plex');
+      expect(rearmImportedHistoryLink).toHaveBeenCalledWith({ keepProviderPass: false });
     });
 
     it('creates a new Jellyfin server for owner', async () => {
