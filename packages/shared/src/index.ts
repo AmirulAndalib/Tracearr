@@ -508,6 +508,10 @@ export {
   jellystatTranscodingInfoSchema,
   jellystatPlaybackActivitySchema,
   jellystatBackupSchema,
+  jellystatBackupLineSchema,
+  jellystatLibraryItemSchema,
+  jellystatLibraryEpisodeSchema,
+  jellystatPluginRowSchema,
   jellystatImportBodySchema,
   importJobStatusSchema,
   // Playback Reporting import
@@ -699,6 +703,10 @@ export type {
   JellystatTranscodingInfo,
   JellystatPlaybackActivity,
   JellystatBackup,
+  JellystatBackupLine,
+  JellystatLibraryItem,
+  JellystatLibraryEpisode,
+  JellystatPluginRow,
   JellystatImportBody,
   ImportJobStatus,
   // Engagement tracking
