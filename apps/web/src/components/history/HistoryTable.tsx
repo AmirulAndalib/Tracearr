@@ -31,7 +31,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn, formatLocationCompact, getCountryName, getMediaDisplay } from '@/lib/utils';
+import {
+  cn,
+  formatLocationCompact,
+  getCountryName,
+  getMediaDisplay,
+  getSessionProgress,
+} from '@/lib/utils';
 import { formatDuration } from '@/lib/formatters';
 import { getAvatarUrl } from '@/components/users/utils';
 import {
@@ -91,8 +97,8 @@ const ENGAGEMENT_TIER_CONFIG: Record<
   },
 };
 
-function getEngagementTier(progress: number, hasDuration: boolean): EngagementTier {
-  if (!hasDuration) return 'unknown';
+function getEngagementTier(progress: number | null): EngagementTier {
+  if (progress === null) return 'unknown';
   if (progress >= 200) return 'rewatched';
   if (progress >= 85) return 'watched';
   if (progress >= 50) return 'engaged';
@@ -103,13 +109,11 @@ function getEngagementTier(progress: number, hasDuration: boolean): EngagementTi
 function EngagementTierBadge({
   progress,
   state,
-  hasDuration,
 }: {
-  progress: number;
+  progress: number | null;
   state: SessionState;
-  hasDuration: boolean;
 }) {
-  const tier = getEngagementTier(progress, hasDuration);
+  const tier = getEngagementTier(progress);
   if (tier === 'unknown' || state !== 'stopped') return null;
 
   const config = ENGAGEMENT_TIER_CONFIG[tier];
@@ -193,14 +197,6 @@ function MediaTypeIcon({ type }: { type: MediaType }) {
   );
 }
 
-// Calculate progress percentage (playback position)
-// Uses progressMs (where in the video) not durationMs (how long watched)
-function getProgress(session: SessionWithDetails): number {
-  if (!session.totalDurationMs || session.totalDurationMs === 0) return 0;
-  const progress = session.progressMs ?? 0;
-  return Math.min(100, Math.round((progress / session.totalDurationMs) * 100));
-}
-
 interface HistoryTableRowProps {
   session: SessionWithDetails;
   onClick?: () => void;
@@ -218,7 +214,7 @@ export const HistoryTableRow = memo(
       ref
     ) => {
       const { title: primary, subtitle: secondary } = getMediaDisplay(session);
-      const progress = getProgress(session);
+      const progress = getSessionProgress(session);
       const colorMap = useServerColorMap();
       const { t } = useTranslation();
       const serverColor = isMultiServer ? (colorMap.get(session.serverId) ?? null) : null;
@@ -291,11 +287,7 @@ export const HistoryTableRow = memo(
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{primary}</span>
-                    <EngagementTierBadge
-                      progress={progress}
-                      state={session.state}
-                      hasDuration={!!session.totalDurationMs}
-                    />
+                    <EngagementTierBadge progress={progress} state={session.state} />
                   </div>
                   {secondary && (
                     <div className="text-muted-foreground truncate text-xs">{secondary}</div>
@@ -448,18 +440,20 @@ export const HistoryTableRow = memo(
           {/* Progress */}
           {columnVisibility.progress && (
             <TableCell className={COLUMN_WIDTHS.progress}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    <Progress value={progress} className="h-1.5 w-12" />
-                    <span className="text-muted-foreground text-xs">{progress}%</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {progress}% complete
-                  {session.watched && ' (watched)'}
-                </TooltipContent>
-              </Tooltip>
+              {progress !== null && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <Progress value={progress} className="h-1.5 w-12" />
+                      <span className="text-muted-foreground text-xs">{progress}%</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {progress}% complete
+                    {session.watched && ' (watched)'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </TableCell>
           )}
         </TableRow>

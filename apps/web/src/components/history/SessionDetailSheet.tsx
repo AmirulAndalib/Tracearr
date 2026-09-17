@@ -39,7 +39,7 @@ import {
   ChevronRight,
   Clapperboard,
 } from 'lucide-react';
-import { cn, getCountryName, getMediaDisplay } from '@/lib/utils';
+import { cn, getCountryName, getMediaDisplay, getSessionProgress } from '@/lib/utils';
 import { imageProxyUrl } from '@/lib/api';
 import { formatDuration } from '@/lib/formatters';
 import { getAvatarUrl } from '@/components/users/utils';
@@ -113,14 +113,6 @@ function getWatchTime(session: SessionWithDetails | ActiveSession): number | nul
   }
 
   return null;
-}
-
-// Get progress percentage (playback position)
-// Uses progressMs (where in the video) not durationMs (how long watched)
-function getProgress(session: SessionWithDetails): number | null {
-  if (!session.totalDurationMs) return null;
-  const progress = session.progressMs ?? 0;
-  return Math.min(100, Math.round((progress / session.totalDurationMs) * 100));
 }
 
 const LazyMiniMap = lazy(() =>
@@ -236,7 +228,7 @@ function SessionContent({ session }: { session: SessionWithDetails | ActiveSessi
   const mediaConfig = MEDIA_CONFIG[session.mediaType];
   const MediaIcon = mediaConfig.icon;
   const { title: primary, subtitle: secondary } = getMediaDisplay(session);
-  const progress = getProgress(session);
+  const progress = getSessionProgress(session);
   const hasLocation = session.geoLat !== null && session.geoLon !== null;
   const geoCountryName = getCountryName(session.geoCountry);
   const geoCoordinates =
