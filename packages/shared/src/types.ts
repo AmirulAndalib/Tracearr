@@ -2703,6 +2703,9 @@ export interface MediaDetailResponse {
   availability: MediaAvailabilityEntry[];
   seasonCount: number | null;
   episodeCount: number | null;
+  posterUrl: string | null;
+  posterVersion: string | null;
+  dominantColor: string | null;
 }
 
 export interface MediaChildEntry {
