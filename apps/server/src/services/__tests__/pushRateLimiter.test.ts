@@ -12,7 +12,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Redis } from 'ioredis';
-import { REDIS_KEYS } from '@tracearr/shared';
+import { CACHE_TTL, REDIS_KEYS } from '@tracearr/shared';
 import {
   PushRateLimiter,
   initPushRateLimiter,
@@ -282,7 +282,7 @@ describe('PushRateLimiter', () => {
         REDIS_KEYS.PUSH_SESSIONS_SYNC('session-1'),
         '1',
         'EX',
-        600,
+        CACHE_TTL.PUSH_SESSIONS_SYNC,
         'NX'
       );
       await vi.runAllTimersAsync();
@@ -302,7 +302,7 @@ describe('PushRateLimiter', () => {
         REDIS_KEYS.PUSH_SESSIONS_SYNC_PENDING('session-1'),
         '1',
         'PX',
-        6 * 60 * 1000,
+        CACHE_TTL.PUSH_SESSIONS_SYNC * 1000 - 4 * 60 * 1000,
         'NX'
       );
       await vi.runAllTimersAsync();
@@ -315,7 +315,7 @@ describe('PushRateLimiter', () => {
       vi.advanceTimersByTime(60 * 1000);
       await rateLimiter.claimSessionsSync('session-1', sendTrailing);
 
-      await vi.advanceTimersByTimeAsync(9 * 60 * 1000 - 1);
+      await vi.advanceTimersByTimeAsync(CACHE_TTL.PUSH_SESSIONS_SYNC * 1000 - 60 * 1000 - 1);
       expect(sendTrailing).not.toHaveBeenCalled();
 
       await vi.advanceTimersByTimeAsync(1);

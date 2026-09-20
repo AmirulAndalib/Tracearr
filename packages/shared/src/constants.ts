@@ -335,9 +335,10 @@ export const CACHE_TTL = {
   LIBRARY_LIBRARIES: 300, // 5 minutes - library list changes only on sync
   LIBRARY_MEDIA_DETAIL: 60, // 1 minute, matches PUBLIC_MEDIA_STATS freshness
   MOBILE_LAST_SEEN: 300, // 5 minutes - throttle for device activity updates
-  // 10 minutes: Apple asks for no more than two or three background pushes an
-  // hour and may throttle past that, so a busy hour of six sends can lose some
-  PUSH_SESSIONS_SYNC: 600,
+  // 20 minutes: Apple asks for no more than two or three background pushes an
+  // hour, drops the rest, and each one that lands also spends one of the 40 to
+  // 70 daily widget reloads, so three an hour is the fastest that stays honest
+  PUSH_SESSIONS_SYNC: 1200,
   // Filter options (dropdown values change infrequently)
   FILTER_OPTIONS: 120, // 2 minutes
   PLEX_GEOIP: 86400,
