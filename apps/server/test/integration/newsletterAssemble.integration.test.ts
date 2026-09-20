@@ -5,12 +5,14 @@
  * Run with: pnpm --filter @tracearr/server test:integration -- newsletterAssemble
  */
 import { randomUUID } from 'node:crypto';
+import { sql } from 'drizzle-orm';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_NEWSLETTER_SECTIONS } from '@tracearr/shared';
 import { seedBasicOwner } from '@tracearr/test-utils';
 import { db } from '../../src/db/client.js';
 import { libraryItems, servers } from '../../src/db/schema.js';
 import {
+  WINDOW_TYPE_ROW_LIMIT,
   assembleDigest,
   loadItemRows,
   loadWindowItems,
@@ -143,6 +145,34 @@ describe('loadWindowItems', () => {
       window
     );
     expect(none).toEqual([]);
+  });
+
+  it('caps each media type on its own, so newer episodes cannot crowd out the movies', async () => {
+    const episodes = WINDOW_TYPE_ROW_LIMIT + 1;
+    // Every episode is stamped after the newest movie, so a single window-wide
+    // cap would hand back episodes only and the movies section would render empty.
+    const episodeBase = new Date('2026-08-31T01:00:00Z');
+    await db.execute(sql`
+      INSERT INTO library_items (server_id, library_id, rating_key, title, media_type,
+                                 created_at, first_seen_at)
+      SELECT ${serverId}::uuid, '1', 'ep-' || g, 'Episode ' || g, 'episode',
+             ${episodeBase}::timestamptz + make_interval(secs => g),
+             ${episodeBase}::timestamptz + make_interval(secs => g)
+      FROM generate_series(1, ${episodes}::int) AS g
+    `);
+
+    const rows = await loadWindowItems(
+      { serverIds: [], libraries: [] },
+      { start: START, end: END }
+    );
+
+    expect(rows.filter((r) => r.mediaType === 'movie').map((r) => r.ratingKey)).toEqual([
+      'a',
+      'b',
+      'd',
+    ]);
+    expect(rows.filter((r) => r.mediaType === 'episode')).toHaveLength(WINDOW_TYPE_ROW_LIMIT);
+    expect(rows.map((r) => r.mediaType).indexOf('movie')).toBe(WINDOW_TYPE_ROW_LIMIT);
   });
 });
 
