@@ -242,6 +242,7 @@ export type {
   CatalogLettersResponse,
   ShelfRow,
   RecentlyAddedShelfRow,
+  RecentlyUpdatedShelfRow,
   MostPopularShelfRow,
   DeadWeightRow,
   ShelvesKpiWatchedInPeriod,

@@ -105,6 +105,101 @@ describe('loadWindowItems', () => {
     expect(rows.map((r) => r.ratingKey)).toEqual(['a', 'b', 'd']);
   });
 
+  it('drops a copy that replaces one this server just lost, and keeps a long-ago reacquisition', async () => {
+    const replaced = randomUUID();
+    const reacquired = randomUUID();
+    const hourBefore = new Date(inside.getTime() - 60 * 60 * 1000);
+    const longBefore = new Date(inside.getTime() - 30 * 24 * 60 * 60 * 1000);
+    await db.insert(libraryItems).values([
+      {
+        serverId,
+        libraryId: '1',
+        ratingKey: 'upgrade-old',
+        title: 'Upgraded',
+        mediaType: 'movie',
+        mediaId: replaced,
+        createdAt: before,
+        firstSeenAt: before,
+        removedAt: hourBefore,
+      },
+      {
+        serverId,
+        libraryId: '1',
+        ratingKey: 'upgrade-new',
+        title: 'Upgraded',
+        mediaType: 'movie',
+        mediaId: replaced,
+        createdAt: inside,
+        firstSeenAt: inside,
+      },
+      {
+        serverId,
+        libraryId: '1',
+        ratingKey: 'gone-old',
+        title: 'Reacquired',
+        mediaType: 'movie',
+        mediaId: reacquired,
+        createdAt: before,
+        firstSeenAt: before,
+        removedAt: longBefore,
+      },
+      {
+        serverId,
+        libraryId: '1',
+        ratingKey: 'gone-new',
+        title: 'Reacquired',
+        mediaType: 'movie',
+        mediaId: reacquired,
+        createdAt: inside,
+        firstSeenAt: inside,
+      },
+    ]);
+
+    const keys = (
+      await loadWindowItems({ serverIds: [], libraries: [] }, { start: START, end: END })
+    ).map((r) => r.ratingKey);
+
+    expect(keys).not.toContain('upgrade-new');
+    expect(keys).toContain('gone-new');
+  });
+
+  it('counts a title arriving on a second server as new there, however long the first has had it', async () => {
+    const heat = randomUUID();
+    const [attic] = await db
+      .insert(servers)
+      .values({ name: 'Attic', type: 'plex', url: 'http://attic:32400', token: 'tok' })
+      .returning({ id: servers.id });
+    await db.insert(libraryItems).values([
+      {
+        serverId,
+        libraryId: '1',
+        ratingKey: 'heat-first',
+        title: 'Heat',
+        mediaType: 'movie',
+        mediaId: heat,
+        createdAt: before,
+        firstSeenAt: before,
+        removedAt: new Date(inside.getTime() - 60 * 60 * 1000),
+      },
+      {
+        serverId: attic!.id,
+        libraryId: '1',
+        ratingKey: 'heat-second',
+        title: 'Heat',
+        mediaType: 'movie',
+        mediaId: heat,
+        createdAt: inside,
+        firstSeenAt: inside,
+      },
+    ]);
+
+    const keys = (
+      await loadWindowItems({ serverIds: [], libraries: [] }, { start: START, end: END })
+    ).map((r) => r.ratingKey);
+
+    expect(keys).toContain('heat-second');
+  });
+
   it('pairs a library with its server, so the same section id on another server stays out', async () => {
     const [other] = await db
       .insert(servers)

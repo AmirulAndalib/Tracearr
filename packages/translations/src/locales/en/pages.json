@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "Recently Added Movies",
         "recentlyAddedShows": "Recently Added Shows",
+        "recentlyUpdated": "Recently Updated",
         "mostPopularMovies": "Most Popular Movies",
         "mostPopularShows": "Most Popular Shows",
         "emptyRecentlyAdded": "Nothing added in this period",
+        "emptyRecentlyUpdated": "Nothing replaced in this period",
         "emptyMostPopular": "No plays in this period",
         "captionRecentlyAdded": "deduped across servers",
+        "captionRecentlyUpdated": "a better copy replaced the one here",
         "captionMostPopular": {
           "day": "today",
           "week": "last 7 days",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "{{count}} new episode",
         "newEpisodes_other": "{{count}} new episodes",
+        "replacedEpisodes_one": "{{count}} episode replaced",
+        "replacedEpisodes_other": "{{count}} episodes replaced",
         "addedAgo": "added {{date}}",
         "addedCompactAgo": "added {{age}} ago",
         "newEpisodesChip": "{{count}} new"

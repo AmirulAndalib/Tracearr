@@ -490,6 +490,49 @@ describe('shelves command center endpoint against a real database', () => {
     for (const row of body.mostPopularShows) expect(row.mediaType).toBe('show');
   });
 
+  it('moves a movie whose copy replaced one this server lost from recentlyAdded to recentlyUpdated', async () => {
+    const server = await createTestServer({ type: 'plex' });
+    const { app } = await buildApp(ownerFor());
+    const now = new Date();
+
+    const upgraded = await seedMovie({
+      serverId: server.id,
+      ratingKey: 'upgrade-old',
+      title: 'Upgraded Movie',
+      year: 2015,
+      tmdbId: 903_001,
+      addedAt: new Date(now.getTime() - 200 * DAY_MS),
+    });
+    await db.execute(sql`
+      UPDATE library_items SET removed_at = ${new Date(now.getTime() - 60_000).toISOString()}::timestamptz,
+        first_seen_at = ${new Date(now.getTime() - 200 * DAY_MS).toISOString()}::timestamptz
+      WHERE rating_key = 'upgrade-old'
+    `);
+    await seedMovie({
+      serverId: server.id,
+      ratingKey: 'upgrade-new',
+      title: 'Upgraded Movie',
+      year: 2015,
+      tmdbId: 903_001,
+      addedAt: now,
+    });
+
+    const fresh = await seedMovie({
+      serverId: server.id,
+      ratingKey: 'brand-new',
+      title: 'Brand New Movie',
+      year: 2015,
+      tmdbId: 903_002,
+      addedAt: now,
+    });
+
+    const { body } = await fetchShelves(app);
+
+    expect(body.recentlyAddedMovies.map((r) => r.mediaId)).toEqual([fresh]);
+    expect(body.recentlyUpdated.map((r) => r.mediaId)).toEqual([upgraded]);
+    expect(body.recentlyUpdated[0]?.replacedEpisodes).toBeNull();
+  });
+
   it('recentlyAddedShows.newEpisodes counts distinct episodes added within the period, not every active episode copy', async () => {
     const serverA = await createTestServer({ type: 'plex' });
     const serverB = await createTestServer({ type: 'jellyfin' });
@@ -811,7 +854,7 @@ describe('shelves command center endpoint against a real database', () => {
     expect(body.recentlyAddedMovies.map((r) => r.title)).toContain('V1 Cache Movie');
 
     const versionedKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'month',
       undefined,
@@ -835,21 +878,21 @@ describe('shelves command center endpoint against a real database', () => {
     });
 
     const weekKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'week',
       undefined,
       'auto:dw1'
     );
     const weekKeyDw0 = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'week',
       undefined,
       'auto:dw0'
     );
     const yearKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'year',
       undefined,
@@ -1489,7 +1532,7 @@ describe('shelves preferred poster source', () => {
     expect(autoRow.posterUrl).toContain(`v=${autoRow.posterVersion}`);
 
     const autoKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'year',
       undefined,
@@ -1502,7 +1545,7 @@ describe('shelves preferred poster source', () => {
     // back server B's already-cached poster.
     await setSetting('preferredPosterServerId', serverA.id);
     const preferredKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v7`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
       'all',
       'year',
       undefined,
@@ -1528,7 +1571,7 @@ describe('shelves cache invalidation on library sync', () => {
 
   it('a sync invalidates the versioned cached shelves key', async () => {
     initLibrarySyncQueue(process.env.REDIS_URL ?? 'redis://localhost:6380');
-    const key = buildLibraryCacheKey(`${REDIS_KEYS.LIBRARY_SHELVES}:v7`, 'all', 'month');
+    const key = buildLibraryCacheKey(`${REDIS_KEYS.LIBRARY_SHELVES}:v8`, 'all', 'month');
     const { getRedis } = await import('../../src/lib/redisShared.js');
     const redis = getRedis();
     await redis.set(key, JSON.stringify({ marker: true }));

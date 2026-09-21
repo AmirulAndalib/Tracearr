@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "최근 추가된 영화",
         "recentlyAddedShows": "최근 추가된 프로그램",
+        "recentlyUpdated": "",
         "mostPopularMovies": "가장 인기 있는 영화",
         "mostPopularShows": "가장 인기 있는 프로그램",
         "emptyRecentlyAdded": "서버 전체에서 중복 제거",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "서버 전체에서 중복 제거",
         "captionRecentlyAdded": "서버 전체에서 중복 제거",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "오늘",
           "week": "지난 7일",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "새 에피소드 {{count}}개",
         "newEpisodes_other": "새 에피소드 {{count}}개",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "{{date}} 추가됨",
         "addedCompactAgo": "{{age}} 전에 추가됨",
         "newEpisodesChip": "{{count}} 신규"

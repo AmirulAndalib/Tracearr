@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "Recent toegevoegde films",
         "recentlyAddedShows": "Recent toegevoegde Shows",
+        "recentlyUpdated": "",
         "mostPopularMovies": "Meest Populaire Films",
         "mostPopularShows": "Meest Populaire Series",
         "emptyRecentlyAdded": "Niks toegevoegd in deze periode",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "Geen afspeelmomenten in deze periode",
         "captionRecentlyAdded": "gededupliceerd over servers",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "vandaag",
           "week": "laatste 7 dagen",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "{{count}} nieuwe aflevering",
         "newEpisodes_other": "{{count}} nieuwe afleveringen",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "toegevoegd {{date}}",
         "addedCompactAgo": "toegevoegd {{age}} geleden",
         "newEpisodesChip": "{{count}} nieuw"

@@ -160,6 +160,17 @@ function fullShelves(): ShelvesResponse {
         newEpisodes: 3,
       },
     ],
+    recentlyUpdated: [
+      {
+        ...rowBase,
+        mediaId: 'ru-1',
+        mediaType: 'movie',
+        title: 'Replaced Movie',
+        year: 2021,
+        watchedState: 'unwatched',
+        replacedEpisodes: null,
+      },
+    ],
     mostPopularMovies: [
       {
         ...rowBase,
@@ -290,15 +301,17 @@ describe('MediaOverview', () => {
     expect(screen.queryByText('media.landing.shelves.recentlyAddedMovies')).not.toBeInTheDocument();
   });
 
-  it('renders all four shelves with their rows', () => {
+  it('renders all five shelves with their rows', () => {
     mockShelvesReturn({ data: fullShelves() });
 
     renderOverview();
 
     expect(screen.getByText('media.landing.shelves.recentlyAddedMovies')).toBeInTheDocument();
     expect(screen.getByText('media.landing.shelves.recentlyAddedShows')).toBeInTheDocument();
+    expect(screen.getByText('media.landing.shelves.recentlyUpdated')).toBeInTheDocument();
     expect(screen.getByText('media.landing.shelves.mostPopularMovies')).toBeInTheDocument();
     expect(screen.getByText('media.landing.shelves.mostPopularShows')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Replaced Movie/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Recently Added Movie/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Grouped Show/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Popular Movie/ })).toBeInTheDocument();
@@ -411,6 +424,7 @@ describe('MediaOverview', () => {
         ...fullShelves(),
         recentlyAddedMovies: [],
         recentlyAddedShows: [],
+        recentlyUpdated: [],
         mostPopularMovies: [],
         mostPopularShows: [],
         deadWeight: [],

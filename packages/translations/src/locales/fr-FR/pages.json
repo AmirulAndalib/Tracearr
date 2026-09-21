@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "Films récemment ajoutés",
         "recentlyAddedShows": "Séries récemment ajoutées",
+        "recentlyUpdated": "",
         "mostPopularMovies": "Films les plus populaires",
         "mostPopularShows": "Séries les plus populaires",
         "emptyRecentlyAdded": "",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "Aucune lecture durant cette période",
         "captionRecentlyAdded": "",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "aujourd'hui",
           "week": "7 derniers jours",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "{{count}} nouvel épisode",
         "newEpisodes_other": "{{count}} nouveaux épisodes",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "ajouté {{date}}",
         "addedCompactAgo": "ajouté il y a {{age}}",
         "newEpisodesChip": "{{count}} nouveau"

@@ -9,6 +9,7 @@ import { db } from '../../db/client.js';
 import type { PosterRef } from '../../db/schema.js';
 import { posterVersionFor, proxyImage } from '../imageProxy.js';
 import { topWatched, type TopWatchedRow } from '../stats/topContent.js';
+import { reAddedPredicate } from '../library/reAdded.js';
 import { libraryPairs } from './scopeSql.js';
 
 /** Another server's copy of the same title, folded into one card with a link of its own. */
@@ -477,7 +478,7 @@ export function collapseMirrors(
   return rows.flatMap((row) => (dropped.has(row) ? [] : [replaced.get(row) ?? row]));
 }
 
-/** Items first seen inside the window, newest first and capped per media type; the server-reported added date only decides the card's display order. */
+/** Items first seen inside the window, minus copies that replace one this server lost; the server-reported added date only decides the card's display order. */
 export async function loadWindowItems(
   scope: NewsletterScope,
   window: { start: Date; end: Date }
@@ -505,6 +506,7 @@ export async function loadWindowItems(
       WHERE li.removed_at IS NULL
         AND ${seen} >= ${window.start} AND ${seen} < ${window.end}
         AND li.media_type IN ${ITEM_TYPES}
+        AND NOT ${reAddedPredicate('li')}
         ${serverFilter} ${libraryFilter}
     ) windowed
     WHERE type_rank <= ${WINDOW_TYPE_ROW_LIMIT}

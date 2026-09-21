@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "",
         "recentlyAddedShows": "",
+        "recentlyUpdated": "",
         "mostPopularMovies": "",
         "mostPopularShows": "",
         "emptyRecentlyAdded": "",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "",
         "captionRecentlyAdded": "",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "",
           "week": "",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "{{count}} nova epizoda",
         "newEpisodes_other": "{{count}} novih epizoda",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "dodato {{date}}",
         "addedCompactAgo": "",
         "newEpisodesChip": ""

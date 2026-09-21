@@ -2597,6 +2597,12 @@ export interface RecentlyAddedShelfRow extends ShelfRow {
   newEpisodes: number | null;
 }
 
+/** A title whose file this server replaced: the old copy left and a new one took its place. */
+export interface RecentlyUpdatedShelfRow extends ShelfRow {
+  /** Replaced episode count for a show card; always null for movies. */
+  replacedEpisodes: number | null;
+}
+
 export interface MostPopularShelfRow extends ShelfRow {
   plays: number;
   viewers: number;
@@ -2650,6 +2656,7 @@ export interface ShelvesResponse {
   period: ShelvesPeriod;
   recentlyAddedMovies: RecentlyAddedShelfRow[];
   recentlyAddedShows: RecentlyAddedShelfRow[];
+  recentlyUpdated: RecentlyUpdatedShelfRow[];
   mostPopularMovies: MostPopularShelfRow[];
   mostPopularShows: MostPopularShelfRow[];
   deadWeight?: DeadWeightRow[];

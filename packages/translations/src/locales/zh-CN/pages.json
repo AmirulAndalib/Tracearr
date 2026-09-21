@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "最近添加的电影",
         "recentlyAddedShows": "最近添加的剧集",
+        "recentlyUpdated": "",
         "mostPopularMovies": "最受欢迎的电影",
         "mostPopularShows": "最受欢迎的剧集",
         "emptyRecentlyAdded": "这段时间里没有添加任何内容",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "这段时间内没有播放",
         "captionRecentlyAdded": "跨服务器支持",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "今天",
           "week": "最近 7 天",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "{{count}} 集新内容",
         "newEpisodes_other": "{{count}} 集新内容",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "{{date}}添加",
         "addedCompactAgo": "",
         "newEpisodesChip": ""

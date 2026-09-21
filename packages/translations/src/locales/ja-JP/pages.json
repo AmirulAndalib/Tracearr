@@ -1926,11 +1926,14 @@
       "shelves": {
         "recentlyAddedMovies": "",
         "recentlyAddedShows": "",
+        "recentlyUpdated": "",
         "mostPopularMovies": "",
         "mostPopularShows": "",
         "emptyRecentlyAdded": "",
+        "emptyRecentlyUpdated": "",
         "emptyMostPopular": "",
         "captionRecentlyAdded": "",
+        "captionRecentlyUpdated": "",
         "captionMostPopular": {
           "day": "",
           "week": "",
@@ -1943,6 +1946,8 @@
       "card": {
         "newEpisodes_one": "新しいエピソード {{count}} 件",
         "newEpisodes_other": "新しいエピソード {{count}} 件",
+        "replacedEpisodes_one": "",
+        "replacedEpisodes_other": "",
         "addedAgo": "{{date}}に追加",
         "addedCompactAgo": "",
         "newEpisodesChip": ""
