@@ -929,6 +929,9 @@ export interface ImageCacheStatus {
   sweptAt: string | null;
   freedBytesLastSweep: number;
   deletedFilesLastSweep: number;
+  /** A full pass this process completed was followed by an empty cache, so the
+   *  directory is not surviving restarts. */
+  notPersisting: boolean;
   /** Rows in library_items with a thumb path, removed ones included. */
   postersWithThumb: number;
   /** postersWithThumb × 18 KB. */

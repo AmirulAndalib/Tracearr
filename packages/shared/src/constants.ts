@@ -244,6 +244,8 @@ export const REDIS_KEYS = {
   IMAGE_CACHE_SCHEMA: `${_redisPrefix}tracearr:image-cache:schema`,
   IMAGE_CACHE_TALLY: `${_redisPrefix}tracearr:image-cache:tally`,
   IMAGE_CACHE_DISK_LIMITED: `${_redisPrefix}tracearr:image-cache:disk-limited`,
+  // Global, not per-server: the cache directory is one path for the whole process.
+  IMAGE_CACHE_NOT_PERSISTING: `${_redisPrefix}tracearr:image-cache:not-persisting`,
   // Auth tokens
   PLEX_TEMP_TOKEN: (token: string) => `${_redisPrefix}tracearr:plex_temp:${token}`,
   MOBILE_REFRESH_TOKEN: (hash: string) => `${_redisPrefix}tracearr:mobile_refresh:${hash}`,

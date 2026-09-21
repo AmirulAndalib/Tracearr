@@ -68,7 +68,19 @@ export function ImageCacheCard() {
                   ? safeFormatDistanceToNow(status.sweptAt)
                   : t('general.imageCache.never')}
               </dd>
+
+              <dt className="text-muted-foreground">{t('general.imageCache.swept')}</dt>
+              <dd>{status.deletedFilesLastSweep}</dd>
+
+              <dt className="text-muted-foreground">{t('general.imageCache.freed')}</dt>
+              <dd>{formatBytes(status.freedBytesLastSweep)}</dd>
             </dl>
+
+            {status.notPersisting && (
+              <p className="text-destructive mt-3 text-sm">
+                {t('general.imageCache.notPersisting')}
+              </p>
+            )}
 
             {status.diskLimitedSince && (
               <p className="text-destructive mt-3 text-sm">

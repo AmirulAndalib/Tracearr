@@ -256,8 +256,9 @@ export function stopImageCacheSweep(): void {
 
 export async function getImageCacheStatus(): Promise<ImageCacheStatus> {
   const redis = getRedis();
-  const [tallyRaw, limited, space, countRow] = await Promise.all([
+  const [tallyRaw, notPersisting, limited, space, countRow] = await Promise.all([
     redis.get(REDIS_KEYS.IMAGE_CACHE_TALLY),
+    redis.get(REDIS_KEYS.IMAGE_CACHE_NOT_PERSISTING).catch(() => null),
     readDiskLimited(redis),
     readDiskSpace(IMAGE_CACHE_DIR).catch(() => ({ freeBytes: 0, totalBytes: 0 })),
     db
@@ -290,6 +291,7 @@ export async function getImageCacheStatus(): Promise<ImageCacheStatus> {
     sweptAt: tally?.sweptAt ?? null,
     freedBytesLastSweep: tally?.freedBytes ?? 0,
     deletedFilesLastSweep: tally?.deletedFiles ?? 0,
+    notPersisting: notPersisting !== null,
     postersWithThumb,
     estimatedNeedBytes: postersWithThumb * ESTIMATED_POSTER_BYTES,
     freeBytes: space.freeBytes,
