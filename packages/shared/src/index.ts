@@ -954,6 +954,7 @@ export {
   releaseChangeSchema,
   releaseHighlightSchema,
   releaseNotesFileSchema,
+  releaseLinkLabel,
   isMinorRelease,
   releaseTagIssues,
   renderReleaseNotesMarkdown,

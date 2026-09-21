@@ -50,6 +50,11 @@
       "text": "hovering the device icon on a stream card names the client"
     },
     {
+      "type": "improved",
+      "text": "the poster cache survives a container restart instead of re-downloading every poster",
+      "docs": "https://docs.tracearr.com/configuration/environment"
+    },
+    {
       "type": "fix",
       "text": "incremental syncs no longer list every movie in a library twice"
     },
@@ -68,6 +73,11 @@
     {
       "type": "fix",
       "text": "the iOS widget asks for no more wake pushes than Apple delivers, so it wakes at most every 20 minutes"
+    },
+    {
+      "type": "note",
+      "text": "standard Docker installs should add the tracearr_images volume to keep the poster cache",
+      "docs": "https://github.com/connorgallopo/Tracearr/blob/v2.5.0/docker/examples/docker-compose.pg18.yml#L51"
     }
   ]
 }
