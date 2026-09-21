@@ -796,6 +796,8 @@
         "total_pause_minutes": "the total pause time",
         "source_resolution": "the source resolution",
         "output_resolution": "the output resolution",
+        "source_dynamic_range": "the source dynamic range",
+        "source_video_codec": "the source video codec",
         "is_transcoding": "the transcoding",
         "is_transcode_downgrade": "the downgrade",
         "source_bitrate_mbps": "the source bitrate",
@@ -810,6 +812,8 @@
         "ip_in_range": "the IP address",
         "server_id": "the server",
         "media_type": "the media type",
+        "season_number": "the season number",
+        "episode_number": "the episode number",
         "library_item_type": "the item type",
         "library_name": "the library",
         "resolution_after": "the resolution",
@@ -981,6 +985,14 @@
         "label": "Output Resolution",
         "description": "Transcoded or delivered resolution"
       },
+      "source_dynamic_range": {
+        "label": "Source Dynamic Range",
+        "description": "HDR format of the file being played; unknown never matches, even for \"is not\""
+      },
+      "source_video_codec": {
+        "label": "Source Video Codec",
+        "description": "Video codec of the file being played, such as HEVC or AV1"
+      },
       "is_transcoding": {
         "label": "Is Transcoding",
         "description": "Whether video or audio streams are being transcoded"
@@ -1041,6 +1053,14 @@
       "media_type": {
         "label": "Media Type",
         "description": "Type of content"
+      },
+      "season_number": {
+        "label": "Season Number",
+        "description": "Season the episode belongs to; anything that is not an episode never matches"
+      },
+      "episode_number": {
+        "label": "Episode Number",
+        "description": "Episode within its season; anything that is not an episode never matches"
       },
       "library_item_type": {
         "label": "Item Type",
