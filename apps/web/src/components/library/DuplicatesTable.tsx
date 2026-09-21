@@ -204,13 +204,14 @@ export function DuplicatesTable({
             const isExpanded = expandedGroups.has(group.matchKey);
             // Every item in a group shares a title and a media type, so the first speaks for it
             const first = group.items[0];
+            // No year here: the second line is for a parent title, and the year stays inline
             const { title: primary, subtitle: secondary } = getMediaDisplay({
               mediaType: first?.mediaType ?? null,
               mediaTitle: first?.title ?? t('common:labels.unknown'),
               grandparentTitle: first?.grandparentTitle,
+              artistName: first?.grandparentTitle,
               seasonNumber: first?.seasonNumber,
               episodeNumber: first?.episodeNumber,
-              year: first?.year,
             });
 
             return (
@@ -236,7 +237,12 @@ export function DuplicatesTable({
                         </TableCell>
                         <TableCell>
                           <div className="min-w-0">
-                            <div className="truncate font-medium">{primary}</div>
+                            <div className="truncate">
+                              <span className="font-medium">{primary}</span>
+                              {first?.year && (
+                                <span className="text-muted-foreground ml-1">({first.year})</span>
+                              )}
+                            </div>
                             {secondary && (
                               <div className="text-muted-foreground truncate text-xs">
                                 {secondary}

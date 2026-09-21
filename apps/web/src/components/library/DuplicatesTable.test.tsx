@@ -130,7 +130,7 @@ describe('DuplicatesTable', () => {
     renderTable();
 
     expect(screen.getByText('Blade Runner 2049')).toBeInTheDocument();
-    expect(screen.getByText('2017')).toBeInTheDocument();
+    expect(screen.getByText('(2017)')).toBeInTheDocument();
     expect(screen.getByText('Movie')).toBeInTheDocument();
   });
 
@@ -147,5 +147,18 @@ describe('DuplicatesTable', () => {
     expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
     expect(screen.getByText('S02 E02 · Grilled')).toBeInTheDocument();
     expect(screen.getByText('TV')).toBeInTheDocument();
+  });
+
+  it('heads a music group with the artist under the track', () => {
+    renderTable({
+      title: 'Redbone',
+      mediaType: 'track',
+      grandparentTitle: 'Childish Gambino',
+      year: null,
+    });
+
+    expect(screen.getByText('Redbone')).toBeInTheDocument();
+    expect(screen.getByText('Childish Gambino')).toBeInTheDocument();
+    expect(screen.getByText('Music')).toBeInTheDocument();
   });
 });
