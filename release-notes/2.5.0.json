@@ -55,6 +55,10 @@
       "docs": "https://docs.tracearr.com/configuration/environment"
     },
     {
+      "type": "improved",
+      "text": "poster cache warming eases off while people are streaming and backs off when a server stops answering"
+    },
+    {
       "type": "fix",
       "text": "incremental syncs no longer list every movie in a library twice"
     },
@@ -75,9 +79,13 @@
       "text": "the iOS widget asks for no more wake pushes than Apple delivers, so it wakes at most every 20 minutes"
     },
     {
+      "type": "fix",
+      "text": "the poster cache pass finishes on large libraries instead of stopping a few percent in"
+    },
+    {
       "type": "note",
       "text": "standard Docker installs should add the tracearr_images volume to keep the poster cache",
-      "docs": "https://github.com/connorgallopo/Tracearr/blob/v2.5.0/docker/examples/docker-compose.pg18.yml#L51"
+      "docs": "https://github.com/connorgallopo/Tracearr/blob/076d7ce30eac5bab25656a1ad5d8c0444b989253/docker/examples/docker-compose.pg18.yml#L51"
     }
   ]
 }
