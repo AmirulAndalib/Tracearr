@@ -23,9 +23,12 @@ import { cacheWriteAllowed, noteCacheWrite } from './imageCacheGuard.js';
 sharp.concurrency(1);
 // Token encryption removed - tokens now stored in plain text (DB is localhost-only)
 
-// Cache directory (in project root/data/image-cache), sharded by the first two
-// hex chars of the cache key so no single directory holds every cached file.
-export const IMAGE_CACHE_DIR = join(process.cwd(), 'data', 'image-cache');
+// Cache directory, sharded by the first two hex chars of the cache key so no
+// single directory holds every cached file. The Docker images set
+// IMAGE_CACHE_DIR to a mounted volume; without it the cache lives on the
+// container's writable layer and is lost on recreate.
+export const IMAGE_CACHE_DIR =
+  process.env.IMAGE_CACHE_DIR ?? join(process.cwd(), 'data', 'image-cache');
 const CACHE_TTL_MS = TIME_MS.DAY;
 
 // Ensure cache directory exists

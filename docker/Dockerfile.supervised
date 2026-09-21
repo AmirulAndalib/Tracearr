@@ -175,6 +175,10 @@ EXPOSE 3000
 # Volumes for persistent data
 VOLUME ["/data/postgres", "/data/redis", "/data/tracearr", "/data/backup"]
 
+# Inside the already-mounted /data/tracearr volume, so existing installs keep
+# their poster cache across a recreate without editing their compose file.
+ENV IMAGE_CACHE_DIR=/data/tracearr/image-cache
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://127.0.0.1:3000/health || exit 1
 

@@ -47,6 +47,11 @@ RUN apk add --no-cache tailscale postgresql-client
 
 WORKDIR /app
 
+# Helm pins this to its own PVC mountPath; plain Docker installs mount a named
+# volume here. Must stay a path the image creates and chowns, since the server
+# mkdirs it at startup and cannot recover from EACCES.
+ENV IMAGE_CACHE_DIR=/data/tracearr/image-cache
+
 ARG CACHE_BUST
 # Write build info to JSON file - can't be overridden by compose ENV vars
 
@@ -93,7 +98,7 @@ COPY data/basemap.pmtiles ./data/basemap.pmtiles
 COPY data/BASEMAP_NOTICE.txt ./data/BASEMAP_NOTICE.txt
 
 # Create image cache and backup directories
-RUN mkdir -p /app/data/image-cache /data/backup
+RUN mkdir -p /app/data/image-cache /data/tracearr/image-cache /data/backup
 
 # Install production dependencies only (ignore-scripts prevents prepare/husky from running)
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
@@ -106,7 +111,7 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 tracearr
 
 # Set ownership
-RUN chown -R tracearr:nodejs /app /data/backup
+RUN chown -R tracearr:nodejs /app /data/tracearr /data/backup
 
 USER tracearr
 
