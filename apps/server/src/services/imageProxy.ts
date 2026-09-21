@@ -75,6 +75,10 @@ interface ProxyOptions {
   version?: string;
   /** Web grid only: race the miss against the LQIP placeholder after 2 s. Everything else waits for the real image. */
   lqip?: boolean;
+  /** Background warms: skip the original-size retry. A struggling transcoder
+   *  must not be answered with a larger request; the next pass re-warms
+   *  whatever this one missed. */
+  resizedOnly?: boolean;
 }
 
 interface ProxyResult {
@@ -83,6 +87,9 @@ interface ProxyResult {
   cached: boolean;
   /** Overrides the caller's default Cache-Control (used for the LQIP degraded response). */
   cacheControl?: string;
+  /** The upstream fetch failed and this is a placeholder. Background warms
+   *  turn it into an error; live requests render it. */
+  degraded?: boolean;
 }
 
 /**
@@ -398,6 +405,7 @@ interface MissPipelineArgs {
   fallback: FallbackType;
   cachePath: string;
   shardDir: string;
+  resizedOnly: boolean;
 }
 
 /**
@@ -425,7 +433,7 @@ async function getServerRow(serverId: string): Promise<typeof servers.$inferSele
 }
 
 async function runMissPipeline(args: MissPipelineArgs): Promise<ProxyResult> {
-  const { serverId, imagePath, width, height, fallback, cachePath, shardDir } = args;
+  const { serverId, imagePath, width, height, fallback, cachePath, shardDir, resizedOnly } = args;
 
   const server = await getServerRow(serverId);
   if (!server) {
@@ -445,10 +453,12 @@ async function runMissPipeline(args: MissPipelineArgs): Promise<ProxyResult> {
   try {
     // Inside the try so a blocked path degrades to the fallback image like any
     // other upstream failure, instead of escaping as a 500.
-    const candidates = [
-      buildUpstreamRequest(server, imagePath, { width, height }),
-      buildUpstreamRequest(server, imagePath),
-    ];
+    const candidates = resizedOnly
+      ? [buildUpstreamRequest(server, imagePath, { width, height })]
+      : [
+          buildUpstreamRequest(server, imagePath, { width, height }),
+          buildUpstreamRequest(server, imagePath),
+        ];
     let imageBuffer: Buffer | null = null;
     let lastError: unknown = null;
     for (const { imageUrl, headers } of candidates) {
@@ -500,7 +510,11 @@ async function runMissPipeline(args: MissPipelineArgs): Promise<ProxyResult> {
   } catch {
     // Return fallback on any error, capped at a short cache lifetime so an
     // upstream blip (e.g. a Plex restart) can't pin "No Image" for a year.
+    // Flagged degraded so a background warm can tell a dead transcoder from a
+    // real image; the pipeline itself must not reject, because live requests
+    // coalesce onto this same promise and would get a 500 instead.
     return {
+      degraded: true,
       data: getFallbackImage(fallback, width, height),
       contentType: 'image/svg+xml',
       cached: false,
@@ -572,6 +586,7 @@ export async function proxyImage(options: ProxyOptions): Promise<ProxyResult> {
     fallback = 'poster',
     version,
     lqip = false,
+    resizedOnly = false,
   } = options;
 
   // A 360x540 poster is always the one versioned entry, whether or not the URL
@@ -607,6 +622,7 @@ export async function proxyImage(options: ProxyOptions): Promise<ProxyResult> {
       fallback,
       cachePath,
       shardDir,
+      resizedOnly,
     }).finally(() => {
       inFlightMisses.delete(fileName);
     });
