@@ -234,6 +234,7 @@
       "noDuplicatesTitle": "Aucun doublon trouvé",
       "noDuplicatesDesc": "Aucun titre avec plus d'un fichier physique détecté.",
       "colTitle": "Titre",
+      "colType": "",
       "colMatchType": "Type de correspondance",
       "colCopies": "Copies",
       "colRecoverable": "Espace récupérable",

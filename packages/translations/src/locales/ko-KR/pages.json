@@ -234,6 +234,7 @@
       "noDuplicatesTitle": "중복된 항목이 없습니다.",
       "noDuplicatesDesc": "실제 파일이 2개 이상인 콘텐츠가 없습니다.",
       "colTitle": "제목",
+      "colType": "",
       "colMatchType": "일치 유형",
       "colCopies": "사본",
       "colRecoverable": "확보 가능 공간",

@@ -234,6 +234,7 @@
       "noDuplicatesTitle": "Geen duplicaten gevonden",
       "noDuplicatesDesc": "Er zijn geen titels gevonden met meer dan een fysiek bestand.",
       "colTitle": "Titel",
+      "colType": "",
       "colMatchType": "Overeenkomsttype",
       "colCopies": "Kopieën",
       "colRecoverable": "Herstelbare ruimte",

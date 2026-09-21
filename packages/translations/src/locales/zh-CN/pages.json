@@ -234,6 +234,7 @@
       "noDuplicatesTitle": "没有找到重复的记录",
       "noDuplicatesDesc": "未检测到多于一个物理文件的标题。",
       "colTitle": "标题",
+      "colType": "",
       "colMatchType": "匹配类型",
       "colCopies": "份数",
       "colRecoverable": "可恢复的空间",

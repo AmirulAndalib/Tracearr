@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getName as getCountryNameFromCode } from 'country-list';
-import { formatEpisodeLabel, type MediaType } from '@tracearr/shared';
+import { formatEpisodeLabel } from '@tracearr/shared';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -37,7 +37,8 @@ export function formatLocationCompact(
  * Media display fields interface for formatting media titles
  */
 interface MediaDisplayFields {
-  mediaType: MediaType | null;
+  /** Sessions say episode/track; library items add show, artist and album */
+  mediaType: string | null;
   mediaTitle: string | null;
   grandparentTitle?: string | null;
   seasonNumber?: number | null;

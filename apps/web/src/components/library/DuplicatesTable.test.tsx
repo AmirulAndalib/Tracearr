@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { DuplicatesResponse } from '@tracearr/shared';
+import type { DuplicateItem, DuplicatesResponse } from '@tracearr/shared';
 import { DuplicatesTable } from './DuplicatesTable';
 
 vi.mock('react-i18next', () => ({
@@ -19,7 +19,7 @@ vi.mock('@/hooks/queries/useLibrary', () => ({
 
 const ITEM_ID = '11111111-1111-4111-8111-111111111111';
 
-function response(): DuplicatesResponse {
+function response(itemOverrides: Partial<DuplicateItem> = {}): DuplicatesResponse {
   return {
     duplicates: [
       {
@@ -41,6 +41,9 @@ function response(): DuplicatesResponse {
             title: 'Blade Runner 2049',
             year: 2017,
             mediaType: 'movie',
+            grandparentTitle: null,
+            seasonNumber: null,
+            episodeNumber: null,
             fileSize: 17_000_000_000,
             resolution: '4k',
             versions: [
@@ -59,6 +62,7 @@ function response(): DuplicatesResponse {
                 filePath: '/data/movies/Blade Runner 2049 (2017)/BR2049.1080p.mkv',
               },
             ],
+            ...itemOverrides,
           },
         ],
       },
@@ -73,9 +77,14 @@ function response(): DuplicatesResponse {
   };
 }
 
-function renderTable() {
+function renderTable(itemOverrides: Partial<DuplicateItem> = {}) {
   return render(
-    <DuplicatesTable data={response()} onRetry={vi.fn()} page={1} onPageChange={vi.fn()} />
+    <DuplicatesTable
+      data={response(itemOverrides)}
+      onRetry={vi.fn()}
+      page={1}
+      onPageChange={vi.fn()}
+    />
   );
 }
 
@@ -115,5 +124,28 @@ describe('DuplicatesTable', () => {
     const missing = screen.getByText('library.storage.missingOnServer');
     expect(missing).toBeInTheDocument();
     expect(missing.closest('div')?.textContent).toContain('BR2049.1080p.mkv');
+  });
+
+  it('heads a movie group with its title, year and Movie badge', () => {
+    renderTable();
+
+    expect(screen.getByText('Blade Runner 2049')).toBeInTheDocument();
+    expect(screen.getByText('2017')).toBeInTheDocument();
+    expect(screen.getByText('Movie')).toBeInTheDocument();
+  });
+
+  it('heads an episode group with the series title over the episode', () => {
+    renderTable({
+      title: 'Grilled',
+      mediaType: 'episode',
+      grandparentTitle: 'Breaking Bad',
+      seasonNumber: 2,
+      episodeNumber: 2,
+      year: null,
+    });
+
+    expect(screen.getByText('Breaking Bad')).toBeInTheDocument();
+    expect(screen.getByText('S02 E02 · Grilled')).toBeInTheDocument();
+    expect(screen.getByText('TV')).toBeInTheDocument();
   });
 });

@@ -2303,6 +2303,10 @@ export interface DuplicateItem {
   title: string;
   year: number | null;
   mediaType: string;
+  /** Show for an episode, artist for a track; null for anything flat */
+  grandparentTitle: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
   fileSize: number | null;
   resolution: string | null;
   versions: DuplicateItemVersion[];

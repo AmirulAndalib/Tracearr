@@ -2,7 +2,7 @@ import { useState, useMemo, Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, Copy } from 'lucide-react';
 import { formatMediaTech, type DuplicateGroup, type DuplicatesResponse } from '@tracearr/shared';
-import { cn } from '@/lib/utils';
+import { cn, getMediaDisplay } from '@/lib/utils';
 import { formatBytes } from '@/lib/formatters';
 import { useDuplicateFiles } from '@/hooks/queries/useLibrary';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MatchTypeBadge, InlineErrorState } from '@/components/library';
+import { MatchTypeBadge, MediaTypeBadge, InlineErrorState } from '@/components/library';
 import { EmptyState } from '@/components/ui/empty-state';
 
 /** Last path segment, for both posix and windows library roots */
@@ -192,6 +192,7 @@ export function DuplicatesTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-10" />
+            <TableHead className="w-24">{t('library.storage.colType')}</TableHead>
             <TableHead>{t('library.storage.colTitle')}</TableHead>
             <TableHead>{t('library.storage.colMatchType')}</TableHead>
             <TableHead className="text-right">{t('library.storage.colCopies')}</TableHead>
@@ -201,9 +202,16 @@ export function DuplicatesTable({
         <TableBody>
           {data.duplicates.map((group) => {
             const isExpanded = expandedGroups.has(group.matchKey);
-            // Get representative title from first item
-            const displayTitle = group.items[0]?.title ?? t('common:labels.unknown');
-            const displayYear = group.items[0]?.year;
+            // Every item in a group shares a title and a media type, so the first speaks for it
+            const first = group.items[0];
+            const { title: primary, subtitle: secondary } = getMediaDisplay({
+              mediaType: first?.mediaType ?? null,
+              mediaTitle: first?.title ?? t('common:labels.unknown'),
+              grandparentTitle: first?.grandparentTitle,
+              seasonNumber: first?.seasonNumber,
+              episodeNumber: first?.episodeNumber,
+              year: first?.year,
+            });
 
             return (
               <Fragment key={group.matchKey}>
@@ -224,10 +232,15 @@ export function DuplicatesTable({
                           />
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <span className="font-medium">{displayTitle}</span>
-                            {displayYear && (
-                              <span className="text-muted-foreground ml-1">({displayYear})</span>
+                          <MediaTypeBadge mediaType={first?.mediaType ?? ''} />
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">{primary}</div>
+                            {secondary && (
+                              <div className="text-muted-foreground truncate text-xs">
+                                {secondary}
+                              </div>
                             )}
                           </div>
                         </TableCell>
@@ -257,7 +270,7 @@ export function DuplicatesTable({
                     </CollapsibleTrigger>
                     <CollapsibleContent asChild>
                       <tr>
-                        <td colSpan={5} className="p-0">
+                        <td colSpan={6} className="p-0">
                           <div className="bg-muted/30 border-b px-4 py-3">
                             <DuplicateGroupFiles group={group} expanded={isExpanded} />
                           </div>

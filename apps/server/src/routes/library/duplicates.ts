@@ -70,6 +70,9 @@ interface ItemDetailsRow {
   title: string;
   year: number | null;
   media_type: string;
+  grandparent_title: string | null;
+  parent_index: number | null;
+  item_index: number | null;
   file_size: string | null;
   video_resolution: string | null;
 }
@@ -343,6 +346,9 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
             li.title,
             li.year,
             li.media_type,
+            li.grandparent_title,
+            li.parent_index,
+            li.item_index,
             li.file_size::text AS file_size,
             li.video_resolution
           FROM library_items li
@@ -392,6 +398,9 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
         title: details.title,
         year: details.year,
         mediaType: details.media_type,
+        grandparentTitle: details.grandparent_title,
+        seasonNumber: details.parent_index,
+        episodeNumber: details.item_index,
         fileSize: details.file_size ? parseInt(details.file_size, 10) : null,
         resolution: details.video_resolution,
         versions: versionsByItem.get(details.id) ?? [],

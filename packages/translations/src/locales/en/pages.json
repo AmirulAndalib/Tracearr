@@ -234,6 +234,7 @@
       "noDuplicatesTitle": "No duplicates found",
       "noDuplicatesDesc": "No titles with more than one physical file detected.",
       "colTitle": "Title",
+      "colType": "Type",
       "colMatchType": "Match Type",
       "colCopies": "Copies",
       "colRecoverable": "Recoverable Space",
