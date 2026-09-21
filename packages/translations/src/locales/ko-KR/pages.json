@@ -238,7 +238,10 @@
       "colCopies": "사본",
       "colRecoverable": "확보 가능 공간",
       "sameServer": "같은 서버",
-      "mirror": "미러"
+      "mirror": "미러",
+      "missingOnServer": "",
+      "missingOnServerHint": "",
+      "copyPath": ""
     },
     "watch": {
       "title": "시청 분석",

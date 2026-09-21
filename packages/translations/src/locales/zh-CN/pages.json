@@ -238,7 +238,10 @@
       "colCopies": "份数",
       "colRecoverable": "可恢复的空间",
       "sameServer": "同一服务器",
-      "mirror": "镜像"
+      "mirror": "镜像",
+      "missingOnServer": "",
+      "missingOnServerHint": "",
+      "copyPath": ""
     },
     "watch": {
       "title": "观察分析",

@@ -238,7 +238,10 @@
       "colCopies": "Copies",
       "colRecoverable": "Espace récupérable",
       "sameServer": "Même serveur",
-      "mirror": "Miroir"
+      "mirror": "Miroir",
+      "missingOnServer": "",
+      "missingOnServerHint": "",
+      "copyPath": ""
     },
     "watch": {
       "title": "Regarder les analyses",

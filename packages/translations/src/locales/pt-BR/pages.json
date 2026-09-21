@@ -238,7 +238,10 @@
       "colCopies": "",
       "colRecoverable": "",
       "sameServer": "",
-      "mirror": ""
+      "mirror": "",
+      "missingOnServer": "",
+      "missingOnServerHint": "",
+      "copyPath": ""
     },
     "watch": {
       "title": "Analítico de Observação",

@@ -152,7 +152,10 @@ export const REDIS_KEYS = {
     return `${_redisPrefix}tracearr:library:stale:v2`;
   },
   get LIBRARY_DUPLICATES() {
-    return `${_redisPrefix}tracearr:library:duplicates:v3`;
+    return `${_redisPrefix}tracearr:library:duplicates:v4`;
+  },
+  get LIBRARY_DUPLICATE_FILES() {
+    return `${_redisPrefix}tracearr:library:duplicate-files`;
   },
   get LIBRARY_STORAGE() {
     return `${_redisPrefix}tracearr:library:storage:v3`;
@@ -319,6 +322,7 @@ export const CACHE_TTL = {
   LIBRARY_QUALITY: 300, // 5 minutes
   LIBRARY_STALE: 3600, // 1 hour (changes slowly)
   LIBRARY_DUPLICATES: 3600, // 1 hour (changes slowly)
+  LIBRARY_DUPLICATE_FILES: 60, // 1 minute - a live answer from the media server
   LIBRARY_STORAGE: 300, // 5 minutes
   LIBRARY_WATCH: 300, // 5 minutes
   LIBRARY_ROI: 3600, // 1 hour (ROI changes slowly)

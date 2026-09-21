@@ -2279,6 +2279,8 @@ export type MatchType = 'imdb' | 'tmdb' | 'tvdb' | 'fuzzy' | 'version';
 
 /** One physical file of a duplicate item */
 export interface DuplicateItemVersion {
+  /** The server's own id for this file, what a file-existence check answers by */
+  serverVersionKey: string;
   resolution: string | null;
   videoCodec: string | null;
   fileSize: number | null;
@@ -2337,6 +2339,23 @@ export interface DuplicatesResponse {
   duplicates: DuplicateGroup[];
   summary: DuplicatesSummary;
   pagination: { page: number; pageSize: number; total: number };
+}
+
+// Duplicate file existence (GET /library/duplicates/files)
+/** One file the server was asked about, by the item it belongs to and its version key */
+export interface DuplicateFileStatus {
+  itemId: string;
+  serverVersionKey: string;
+  exists: boolean;
+}
+
+export interface DuplicateFilesResponse {
+  /**
+   * False when no server in the requested set can answer (only Plex can) or
+   * the probe failed. Callers show nothing rather than guess at a missing file.
+   */
+  checked: boolean;
+  files: DuplicateFileStatus[];
 }
 
 // Library Stale Content Response (GET /library/stale)

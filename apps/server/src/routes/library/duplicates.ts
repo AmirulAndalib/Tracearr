@@ -76,6 +76,7 @@ interface ItemDetailsRow {
 
 interface VersionRow {
   library_item_id: string;
+  server_version_key: string;
   video_resolution: string | null;
   video_codec: string | null;
   file_size: string | null;
@@ -359,6 +360,7 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
         const versionsResult = await db.execute(sql`
           SELECT
             library_item_id,
+            server_version_key,
             video_resolution,
             video_codec,
             file_size::text AS file_size,
@@ -371,6 +373,7 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
         for (const row of versionsResult.rows as unknown as VersionRow[]) {
           const list = versionsByItem.get(row.library_item_id) ?? [];
           list.push({
+            serverVersionKey: row.server_version_key,
             resolution: row.video_resolution,
             videoCodec: row.video_codec,
             fileSize: row.file_size ? parseInt(row.file_size, 10) : null,

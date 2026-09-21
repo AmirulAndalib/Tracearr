@@ -238,7 +238,10 @@
       "colCopies": "Copies",
       "colRecoverable": "Recoverable Space",
       "sameServer": "Same server",
-      "mirror": "Mirror"
+      "mirror": "Mirror",
+      "missingOnServer": "Missing on server",
+      "missingOnServerHint": "The server still lists this file but cannot find it on disk. On Plex, empty the library trash to clear it.",
+      "copyPath": "Copy file path"
     },
     "watch": {
       "title": "Watch Analytics",

@@ -238,7 +238,10 @@
       "colCopies": "Kopieën",
       "colRecoverable": "Herstelbare ruimte",
       "sameServer": "Zelfde server",
-      "mirror": "Spiegel"
+      "mirror": "Spiegel",
+      "missingOnServer": "",
+      "missingOnServerHint": "",
+      "copyPath": ""
     },
     "watch": {
       "title": "Bekijk Analytics",
