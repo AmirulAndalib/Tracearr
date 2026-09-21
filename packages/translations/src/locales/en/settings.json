@@ -958,6 +958,8 @@
         "url": "An image at a URL"
       },
       "logoUrl": "Logo URL",
+      "systemTitle": "System title",
+      "systemTitleHelp": "Shown beside the logo at the top of every email, for example \"Tracearr for Emby\". Leave blank to use the server or newsletter name.",
       "accent": "Accent color",
       "accentPicker": "Pick the accent color",
       "footerText": "Footer text",
