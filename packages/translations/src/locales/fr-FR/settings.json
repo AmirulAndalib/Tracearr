@@ -127,7 +127,7 @@
       "size": "Sur le disque",
       "files": "Fichiers",
       "need": "Besoin estimé",
-      "needHint": "Affiches {{count}} × 18 K",
+      "needHint": "Affiches {{count}} × {{size}}",
       "free": "Disque libre",
       "freeOf": "sur {{total}}",
       "floor": "Garde libre",

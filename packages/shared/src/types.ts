@@ -932,9 +932,10 @@ export interface ImageCacheStatus {
   /** A full pass this process completed was followed by an empty cache, so the
    *  directory is not surviving restarts. */
   notPersisting: boolean;
-  /** Rows in library_items with a thumb path, removed ones included. */
+  /** Distinct (server, thumb path) pairs in library_items, removed rows
+   *  included: one cache file each, however many rows share the image. */
   postersWithThumb: number;
-  /** postersWithThumb × 18 KB. */
+  /** postersWithThumb × ESTIMATED_POSTER_BYTES. */
   estimatedNeedBytes: number;
   freeBytes: number;
   totalBytes: number;

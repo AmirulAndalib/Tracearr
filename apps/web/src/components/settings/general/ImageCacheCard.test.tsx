@@ -28,7 +28,7 @@ function status(overrides: Partial<ImageCacheStatus> = {}): ImageCacheStatus {
     deletedFilesLastSweep: 2,
     notPersisting: false,
     postersWithThumb: 42,
-    estimatedNeedBytes: 42 * 18 * 1024,
+    estimatedNeedBytes: 42 * 20 * 1024,
     freeBytes: 50 * 1024 ** 3,
     totalBytes: 100 * 1024 ** 3,
     minFreePercent: 10,
@@ -81,7 +81,9 @@ describe('ImageCacheCard', () => {
     expect(screen.getByText('10')).toBeInTheDocument(); // files
     expect(screen.getByText('10%')).toBeInTheDocument(); // minFreePercent
     expect(
-      screen.getByText('general.imageCache.needHint:{"count":42}', { exact: false })
+      screen.getByText('general.imageCache.needHint:{"count":42,"size":"20 KB"}', {
+        exact: false,
+      })
     ).toBeInTheDocument();
     expect(
       screen.getByText('general.imageCache.freeOf:{"total":"100 GB"}', { exact: false })

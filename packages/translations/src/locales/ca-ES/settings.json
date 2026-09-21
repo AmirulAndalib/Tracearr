@@ -127,7 +127,7 @@
       "size": "Al disc",
       "files": "Fitxers",
       "need": "Necessitat estimada",
-      "needHint": "{{count}} pòsters × 18 KB",
+      "needHint": "{{count}} pòsters × {{size}}",
       "free": "Espai lliure al disc",
       "freeOf": "de {{total}}",
       "floor": "Manté lliure",

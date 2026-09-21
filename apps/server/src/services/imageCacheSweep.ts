@@ -261,8 +261,13 @@ export async function getImageCacheStatus(): Promise<ImageCacheStatus> {
     redis.get(REDIS_KEYS.IMAGE_CACHE_NOT_PERSISTING).catch(() => null),
     readDiskLimited(redis),
     readDiskSpace(IMAGE_CACHE_DIR).catch(() => ({ freeBytes: 0, totalBytes: 0 })),
+    // One file per (server, path), not per row: a track row carries its album's
+    // cover, so a music library counts the same poster hundreds of times.
+    // Removed rows stay in, matching the sweep's rule that they keep their poster.
     db
-      .select({ n: sql<number>`count(*)::int` })
+      .select({
+        n: sql<number>`count(distinct (${libraryItems.serverId}, ${libraryItems.thumbPath}))::int`,
+      })
       .from(libraryItems)
       .where(isNotNull(libraryItems.thumbPath)),
   ]);
