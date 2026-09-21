@@ -1,0 +1,61 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import type { ActiveSession } from '@tracearr/shared';
+import { NowPlayingCard } from './NowPlayingCard';
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
+
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { role: 'viewer' } }) }));
+vi.mock('@/hooks/useServer', () => ({ useServer: () => ({ isMultiServer: false }) }));
+vi.mock('@/hooks/useServerColorMap', () => ({ useServerColorMap: () => new Map() }));
+
+// The dialog opens a mutation on mount, which would need a query client here
+vi.mock('./TerminateSessionDialog', () => ({ TerminateSessionDialog: () => null }));
+
+function renderCard(overrides: Partial<ActiveSession>) {
+  const session = {
+    id: 'session-1',
+    serverId: 'server-1',
+    server: { id: 'server-1', name: 'Basement', type: 'plex' },
+    user: { id: 'su-1', username: 'alice', thumbUrl: null, identityName: null },
+    state: 'playing',
+    mediaType: 'movie',
+    mediaTitle: 'Heat',
+    thumbPath: null,
+    progressMs: 0,
+    totalDurationMs: 7_200_000,
+    isTranscode: false,
+    transcodeInfo: null,
+    canTerminate: false,
+    playerName: null,
+    product: null,
+    device: null,
+    platform: null,
+    ...overrides,
+  } as unknown as ActiveSession;
+
+  render(<NowPlayingCard session={session} />);
+  return screen.getByTestId('device-icon');
+}
+
+describe('NowPlayingCard device icon', () => {
+  it('names the client on hover', () => {
+    expect(renderCard({ playerName: "Emily's Fire TV" })).toHaveAttribute(
+      'title',
+      "Emily's Fire TV"
+    );
+  });
+
+  it('builds a name from the app and hardware when the client sent none', () => {
+    expect(renderCard({ product: 'Plex for Roku', device: '50S425' })).toHaveAttribute(
+      'title',
+      'Plex for Roku - 50S425'
+    );
+  });
+
+  it('carries no hover text when the session reports no device at all', () => {
+    expect(renderCard({})).not.toHaveAttribute('title');
+  });
+});

@@ -101,6 +101,29 @@ export function getMediaDisplay(media: MediaDisplayFields): {
   };
 }
 
+/**
+ * What a client calls itself, else the app and hardware it reports. Null when
+ * the server sent nothing identifying, so callers pick their own fallback.
+ */
+export function getDeviceDisplayName(device: {
+  playerName?: string | null;
+  product?: string | null;
+  device?: string | null;
+  platform?: string | null;
+}): string | null {
+  if (device.playerName) return device.playerName;
+
+  const hardware = device.device;
+  const parts: string[] = [];
+  if (device.product) parts.push(device.product);
+  if (hardware && !parts.some((part) => part.toLowerCase().includes(hardware.toLowerCase()))) {
+    parts.push(hardware);
+  }
+  if (parts.length > 0) return parts.join(' - ');
+
+  return device.platform ?? null;
+}
+
 /** crypto.randomUUID needs a secure context; a LAN address over plain http only has getRandomValues. */
 export function randomUuid(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
