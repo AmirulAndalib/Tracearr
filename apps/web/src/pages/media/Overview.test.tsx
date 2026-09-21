@@ -147,6 +147,7 @@ function fullShelves(): ShelvesResponse {
         year: 2024,
         watchedState: 'unwatched',
         newEpisodes: null,
+        newestEpisodeAt: null,
       },
     ],
     recentlyAddedShows: [
@@ -158,6 +159,7 @@ function fullShelves(): ShelvesResponse {
         year: 2023,
         watchedState: 'partial',
         newEpisodes: 3,
+        newestEpisodeAt: '2026-03-04T00:00:00Z',
       },
     ],
     recentlyUpdated: [
@@ -169,6 +171,7 @@ function fullShelves(): ShelvesResponse {
         year: 2021,
         watchedState: 'unwatched',
         replacedEpisodes: null,
+        newestEpisodeAt: null,
       },
     ],
     mostPopularMovies: [
@@ -338,6 +341,25 @@ describe('MediaOverview', () => {
 
     // The year appears exactly once - inside the hover overlay's meta line.
     expect(screen.getAllByText(/2022/)).toHaveLength(1);
+  });
+
+  it('dates a show card by its newest episode, not by when the series was first added', () => {
+    const shelves = fullShelves();
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    mockShelvesReturn({
+      data: {
+        ...shelves,
+        recentlyAddedShows: shelves.recentlyAddedShows.map((row) => ({
+          ...row,
+          newestEpisodeAt: threeDaysAgo,
+        })),
+      },
+    });
+
+    renderOverview();
+
+    // The series' own copy sits at 2024-01-01, which would read in years.
+    expect(screen.getByText('media.landing.card.addedCompactAgo:{"age":"3d"}')).toBeInTheDocument();
   });
 
   it('refetches shelves with the new period when the time range changes', async () => {

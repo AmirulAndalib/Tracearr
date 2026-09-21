@@ -588,6 +588,39 @@ describe('shelves command center endpoint against a real database', () => {
     expect(row!.newEpisodes).toBe(1);
   });
 
+  it('dates recentlyAddedShows by the newest episode, not by when the series itself was added', async () => {
+    const server = await createTestServer({ type: 'plex' });
+    const { app } = await buildApp(ownerFor());
+
+    const show = await seedShow({
+      serverId: server.id,
+      ratingKey: 'episode-dated-show',
+      title: 'Episode Dated Show',
+      year: 2014,
+      tvdbId: 902_101,
+      addedAt: new Date(Date.now() - 400 * DAY_MS),
+    });
+
+    const episodeAddedAt = new Date(Date.now() - 2 * DAY_MS);
+    await seedEpisode({
+      serverId: server.id,
+      ratingKey: 'episode-dated-fresh',
+      title: 'Fresh Episode',
+      year: 2014,
+      tvdbId: 902_111,
+      showMediaId: show,
+      addedAt: episodeAddedAt,
+    });
+
+    const { statusCode, body } = await fetchShelves(app, '?period=month');
+    expect(statusCode).toBe(200);
+    const row = body.recentlyAddedShows.find((r) => r.mediaId === show);
+    expect(row).toBeDefined();
+    expect(new Date(row!.newestEpisodeAt!).getTime()).toBe(episodeAddedAt.getTime());
+    // The series' own copy is over a year old: reading it is the bug.
+    expect(row!.servers[0]!.addedAt).not.toBe(row!.newestEpisodeAt);
+  });
+
   it('newlyAdded counts titles added in the window, their bytes, and how many have ever been played', async () => {
     const server = await createTestServer({ type: 'plex' });
     const user = await createTestUser();
@@ -854,7 +887,7 @@ describe('shelves command center endpoint against a real database', () => {
     expect(body.recentlyAddedMovies.map((r) => r.title)).toContain('V1 Cache Movie');
 
     const versionedKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'month',
       undefined,
@@ -878,21 +911,21 @@ describe('shelves command center endpoint against a real database', () => {
     });
 
     const weekKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'week',
       undefined,
       'auto:dw1'
     );
     const weekKeyDw0 = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'week',
       undefined,
       'auto:dw0'
     );
     const yearKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'year',
       undefined,
@@ -1532,7 +1565,7 @@ describe('shelves preferred poster source', () => {
     expect(autoRow.posterUrl).toContain(`v=${autoRow.posterVersion}`);
 
     const autoKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'year',
       undefined,
@@ -1545,7 +1578,7 @@ describe('shelves preferred poster source', () => {
     // back server B's already-cached poster.
     await setSetting('preferredPosterServerId', serverA.id);
     const preferredKey = buildLibraryCacheKey(
-      `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+      `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
       'all',
       'year',
       undefined,
@@ -1571,7 +1604,7 @@ describe('shelves cache invalidation on library sync', () => {
 
   it('a sync invalidates the versioned cached shelves key', async () => {
     initLibrarySyncQueue(process.env.REDIS_URL ?? 'redis://localhost:6380');
-    const key = buildLibraryCacheKey(`${REDIS_KEYS.LIBRARY_SHELVES}:v8`, 'all', 'month');
+    const key = buildLibraryCacheKey(`${REDIS_KEYS.LIBRARY_SHELVES}:v9`, 'all', 'month');
     const { getRedis } = await import('../../src/lib/redisShared.js');
     const redis = getRedis();
     await redis.set(key, JSON.stringify({ marker: true }));

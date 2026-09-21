@@ -440,7 +440,7 @@ describe('findCachedMediaStub', () => {
   function shelfRow(
     overrides: Partial<ShelvesResponse['recentlyAddedMovies'][number]> = {}
   ): ShelvesResponse['recentlyAddedMovies'][number] {
-    return { ...stubFields, newEpisodes: null, ...overrides };
+    return { ...stubFields, newEpisodes: null, newestEpisodeAt: null, ...overrides };
   }
 
   it('finds a row cached under a catalog window query and maps it to a stub', () => {

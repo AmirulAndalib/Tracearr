@@ -2598,12 +2598,18 @@ export type ShelvesPeriod = z.infer<typeof statPeriodSchema>;
 export interface RecentlyAddedShelfRow extends ShelfRow {
   /** Newly-tracked episode count for a show card; always null for movies. */
   newEpisodes: number | null;
+  /** When the newest qualifying episode arrived. Null for movies, whose own
+   *  copy date already says it; a show's copy date is when the series first
+   *  appeared, which is years off once episodes keep arriving. */
+  newestEpisodeAt: string | null;
 }
 
 /** A title whose file this server replaced: the old copy left and a new one took its place. */
 export interface RecentlyUpdatedShelfRow extends ShelfRow {
   /** Replaced episode count for a show card; always null for movies. */
   replacedEpisodes: number | null;
+  /** When the newest replaced episode arrived; null for movies. */
+  newestEpisodeAt: string | null;
 }
 
 export interface MostPopularShelfRow extends ShelfRow {

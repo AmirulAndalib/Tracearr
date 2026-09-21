@@ -78,9 +78,10 @@ const MOVIE_CANDIDATE_LIMIT = SHELF_LIMIT * 6;
 /** ShelfRow minus watchedState: resolved once (all-users aggregate) and attached after fetch. */
 type CachedShelfRow = Omit<ShelfRow, 'watchedState'>;
 
-type CachedRecentlyAddedRow = CachedShelfRow & Pick<RecentlyAddedShelfRow, 'newEpisodes'>;
+type CachedRecentlyAddedRow = CachedShelfRow &
+  Pick<RecentlyAddedShelfRow, 'newEpisodes' | 'newestEpisodeAt'>;
 type CachedRecentlyUpdatedRow = CachedShelfRow &
-  Pick<RecentlyUpdatedShelfRow, 'replacedEpisodes'> & { sortAt: string | null };
+  Pick<RecentlyUpdatedShelfRow, 'replacedEpisodes' | 'newestEpisodeAt'> & { sortAt: string | null };
 type CachedMostPopularRow = CachedShelfRow &
   Pick<MostPopularShelfRow, 'plays' | 'viewers' | 'rank'>;
 type CachedDeadWeightRow = CachedShelfRow & Pick<DeadWeightRow, 'fileBytes' | 'addedAt'>;
@@ -178,12 +179,14 @@ async function fetchRecentlyAddedMovies(
         updated.push({
           ...toShelfRowBase(row),
           replacedEpisodes: null,
+          newestEpisodeAt: null,
           sortAt: row.latest_added_at,
         });
       }
       continue;
     }
-    if (added.length < SHELF_LIMIT) added.push({ ...toShelfRowBase(row), newEpisodes: null });
+    if (added.length < SHELF_LIMIT)
+      added.push({ ...toShelfRowBase(row), newEpisodes: null, newestEpisodeAt: null });
   }
   return { added, updated };
 }
@@ -247,7 +250,11 @@ async function fetchRecentlyAddedShows(
   preferredPosterServerId: string | null
 ): Promise<CachedRecentlyAddedRow[]> {
   const rows = await fetchShowShelf('added', serverIds, dateRange, preferredPosterServerId);
-  return rows.map((row) => ({ ...toShelfRowBase(row), newEpisodes: row.new_episodes }));
+  return rows.map((row) => ({
+    ...toShelfRowBase(row),
+    newEpisodes: row.new_episodes,
+    newestEpisodeAt: row.added_at,
+  }));
 }
 
 async function fetchRecentlyUpdatedShows(
@@ -259,6 +266,7 @@ async function fetchRecentlyUpdatedShows(
   return rows.map((row) => ({
     ...toShelfRowBase(row),
     replacedEpisodes: row.new_episodes,
+    newestEpisodeAt: row.added_at,
     sortAt: row.added_at,
   }));
 }
@@ -758,7 +766,7 @@ export const libraryShelvesRoute: FastifyPluginAsync = async (app) => {
       // v8: the recently-added shelves drop copies that replace one the server
       // lost, and those move to recentlyUpdated, which a v7 payload lacks.
       const cacheKey = buildLibraryCacheKey(
-        `${REDIS_KEYS.LIBRARY_SHELVES}:v8`,
+        `${REDIS_KEYS.LIBRARY_SHELVES}:v9`,
         serverCacheKey,
         periodCacheKey,
         undefined,

@@ -155,7 +155,9 @@ function RecentlyAddedCard({
   serverById: Map<string, ServerLookupEntry>;
 }) {
   const { t } = useTranslation('pages');
-  const addedAt = mostRecentAddedAt(row.servers);
+  // A show's own copy date is when the series first appeared, not when the
+  // episodes counted above arrived.
+  const addedAt = row.newestEpisodeAt ?? mostRecentAddedAt(row.servers);
 
   const meta = joinMeta([
     addedAt ? t('media.landing.card.addedCompactAgo', { age: formatCompactAge(addedAt) }) : null,
@@ -189,7 +191,7 @@ function RecentlyUpdatedCard({
   serverById: Map<string, ServerLookupEntry>;
 }) {
   const { t } = useTranslation('pages');
-  const addedAt = mostRecentAddedAt(row.servers);
+  const addedAt = row.newestEpisodeAt ?? mostRecentAddedAt(row.servers);
 
   const meta = joinMeta([
     row.replacedEpisodes
