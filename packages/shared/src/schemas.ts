@@ -403,6 +403,7 @@ export const historyQuerySchema = z.object({
   geoCountries: commaSeparatedArray(z.string().max(100)),
   geoCity: z.string().max(255).optional(), // City name
   geoRegion: z.string().max(255).optional(), // State/province
+  network: z.enum(['local', 'remote']).optional(),
 
   transcodeDecisions: commaSeparatedArray(z.enum(['directplay', 'copy', 'transcode'])),
 

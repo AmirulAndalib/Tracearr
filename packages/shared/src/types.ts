@@ -637,6 +637,7 @@ export interface ViolationSessionInfo {
   geoCity: string | null;
   geoRegion: string | null;
   geoCountry: string | null;
+  isLocal: boolean;
   geoContinent: string | null;
   geoPostal: string | null;
   geoLat: number | null;
@@ -705,6 +706,7 @@ export interface LocationStats {
   city: string | null;
   region: string | null; // State/province
   country: string | null;
+  isLocal: boolean;
   lat: number;
   lon: number;
   count: number;
@@ -1197,6 +1199,7 @@ export interface UserLocation {
   city: string | null;
   region: string | null; // State/province/subdivision
   country: string | null;
+  isLocal: boolean;
   lat: number | null;
   lon: number | null;
   sessionCount: number;
@@ -1209,6 +1212,7 @@ export interface DeviceLocation {
   city: string | null;
   region: string | null;
   country: string | null;
+  isLocal: boolean;
   sessionCount: number;
   lastSeenAt: Date;
 }
