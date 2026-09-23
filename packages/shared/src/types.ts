@@ -1798,7 +1798,8 @@ export type MaintenanceJobType =
   | 'repair_corrupted_chunks'
   | 'backfill_session_identity'
   | 'remove_import_duplicates'
-  | 'link_imported_history';
+  | 'link_imported_history'
+  | 'sync_server_locations';
 
 export type MaintenanceJobStatus = 'idle' | 'waiting' | 'running' | 'complete' | 'error';
 

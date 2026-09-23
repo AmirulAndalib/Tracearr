@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../db/client.js', () => ({ db: { select: vi.fn() } }));
+vi.mock('../../db/client.js', () => ({ db: { select: vi.fn(), update: vi.fn() } }));
 vi.mock('../plexGeoip.js', () => ({ lookupGeoIP: vi.fn() }));
 
 import { db } from '../../db/client.js';
@@ -12,7 +12,11 @@ import {
   placeLocal,
   type ServerLocation,
 } from '../serverLocationRanges.js';
-import { resolveSessionGeo, withLocalFlag } from '../serverLocations.js';
+import {
+  markImportedServerLocations,
+  resolveSessionGeo,
+  withLocalFlag,
+} from '../serverLocations.js';
 
 const CHICAGO: ServerLocation = {
   effectiveFrom: null,
@@ -131,5 +135,24 @@ describe('withLocalFlag', () => {
   it('derives the flag from the IP when an older pending entry lacks it', () => {
     expect(withLocalFlag(LOCAL_GEO, '192.168.1.20').isLocal).toBe(true);
     expect(withLocalFlag({ ...LOCAL_GEO, isLocal: false }, '192.168.1.20').isLocal).toBe(false);
+  });
+});
+
+describe('markImportedServerLocations', () => {
+  it('bumps the version only for a server that has a location', async () => {
+    const set = vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) }));
+    vi.mocked(db.update).mockReturnValue({ set } as never);
+
+    vi.mocked(db.select).mockReturnValue({
+      from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
+    } as never);
+    await markImportedServerLocations('server-1');
+    expect(db.update).not.toHaveBeenCalled();
+
+    vi.mocked(db.select).mockReturnValue({
+      from: () => ({ where: () => ({ limit: () => Promise.resolve([{ id: 'loc-1' }]) }) }),
+    } as never);
+    await markImportedServerLocations('server-1');
+    expect(set).toHaveBeenCalledTimes(1);
   });
 });

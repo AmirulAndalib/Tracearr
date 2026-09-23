@@ -35,3 +35,8 @@ export function normalizeToCountryCode(country: string): string | null {
   // Fallback: return the original value uppercase (might be a valid code)
   return country.length === 2 ? country.toUpperCase() : null;
 }
+
+/** Whether code is an ISO 3166-1 code; normalizeToCountryCode passes any two-letter value through. */
+export function isCountryCode(code: string): boolean {
+  return countries.isValid(code);
+}
