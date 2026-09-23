@@ -100,6 +100,10 @@
       "text": "the poster cache size estimate counts one poster per image, not one per library row"
     },
     {
+      "type": "fix",
+      "text": "mobile push registration accepts every token format Expo delivers to, and a refusal names the field"
+    },
+    {
       "type": "note",
       "text": "standard Docker installs should add the tracearr_images volume to keep the poster cache",
       "docs": "https://github.com/connorgallopo/Tracearr/blob/076d7ce30eac5bab25656a1ad5d8c0444b989253/docker/examples/docker-compose.pg18.yml#L51"
