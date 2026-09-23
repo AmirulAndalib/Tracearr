@@ -20,7 +20,7 @@ import { getGeoIPSettings } from '../routes/settings.js';
 import type { CacheService, PubSubService } from '../services/cache.js';
 import { createMediaServerClient } from '../services/mediaServer/index.js';
 import { extractLiveUuid } from '../services/mediaServer/plex/plexUtils.js';
-import { lookupGeoIP } from '../services/plexGeoip.js';
+import { resolveSessionGeo } from '../services/serverLocations.js';
 import {
   assembleEvaluationInputs,
   loadEvaluationContext,
@@ -1093,7 +1093,7 @@ async function createNewSession(
 
   // Get GeoIP location (uses Plex API if enabled, falls back to MaxMind)
   const { usePlexGeoip } = await getGeoIPSettings();
-  const geo = await lookupGeoIP(processed.ipAddress, usePlexGeoip);
+  const geo = await resolveSessionGeo(processed.ipAddress, serverId, usePlexGeoip);
 
   if (!cacheService) {
     console.warn('[SSEProcessor] Cache service not available, skipping session creation');
@@ -1215,7 +1215,7 @@ async function handleMediaChange(
   }
 
   const { usePlexGeoip } = await getGeoIPSettings();
-  const geo = await lookupGeoIP(processed.ipAddress, usePlexGeoip);
+  const geo = await resolveSessionGeo(processed.ipAddress, server.id, usePlexGeoip);
 
   if (!cacheService) {
     return;
@@ -1734,7 +1734,7 @@ async function confirmPendingSessionAndPersist(
     return false;
   }
 
-  const { insertedSession, violationResults, qualityChange, wasTerminatedByRule } = result;
+  const { insertedSession, violationResults, qualityChange, wasTerminatedByRule, geo } = result;
 
   // Handle quality change (rare but possible)
   if (qualityChange) {
@@ -1768,7 +1768,7 @@ async function confirmPendingSessionAndPersist(
     session: insertedSession,
     processed: pendingData.processed,
     user: pendingData.serverUser,
-    geo: pendingData.geo,
+    geo,
     server: pendingData.server,
   });
 

@@ -477,6 +477,8 @@ export interface Session extends StreamDetailFields {
   geoLon: number | null;
   geoAsnNumber: number | null;
   geoAsnOrganization: string | null;
+  // A local network session; its geo fields hold its server's location when one is set
+  isLocal: boolean;
   playerName: string | null; // Friendly device name
   deviceId: string | null; // Unique device identifier (machineIdentifier)
   product: string | null; // Product/app name (e.g., "Plex for iOS")
