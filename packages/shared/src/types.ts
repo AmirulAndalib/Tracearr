@@ -64,6 +64,27 @@ export interface Server {
   updatedAt: Date;
 }
 
+export interface ServerLocationEntry {
+  /** ISO datetime the location took effect; null covers everything before the first dated entry */
+  effectiveFrom: string | null;
+  lat: number;
+  lon: number;
+  city: string | null;
+  region: string | null;
+  /** ISO 3166-1 alpha-2 */
+  country: string;
+}
+
+export interface ServerLocationsResponse {
+  entries: ServerLocationEntry[];
+  /** Entries changed since the location sync last applied them */
+  syncPending: boolean;
+}
+
+export interface UpdateServerLocationsResponse extends ServerLocationsResponse {
+  syncQueued: boolean;
+}
+
 // User types - Identity layer (the real human)
 export interface User {
   id: string;

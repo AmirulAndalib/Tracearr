@@ -1,11 +1,11 @@
 import countries from 'i18n-iso-countries';
 import countriesEn from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
+import { LOCAL_NETWORK_COUNTRY } from '@tracearr/shared';
+
+export { LOCAL_NETWORK_COUNTRY };
 
 // Register English locale for country name lookups
 countries.registerLocale(countriesEn);
-
-/** Constant for local network country value - must match geoip service */
-export const LOCAL_NETWORK_COUNTRY = 'Local Network';
 
 /**
  * Normalize a country value to ISO 3166-1 alpha-2 code.

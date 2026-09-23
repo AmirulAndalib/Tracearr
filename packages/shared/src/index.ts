@@ -7,6 +7,9 @@ export type {
   // Server
   ServerType,
   Server,
+  ServerLocationEntry,
+  ServerLocationsResponse,
+  UpdateServerLocationsResponse,
   // User
   User,
   ServerUser,
@@ -444,6 +447,8 @@ export {
   serverIdParamSchema,
   reorderServersSchema,
   updateServerSchema,
+  serverLocationEntrySchema,
+  serverLocationsSchema,
   // User
   updateUserSchema,
   updateUserIdentitySchema,
@@ -649,6 +654,8 @@ export type {
 
 // User merge
 export { rankMergeTarget, type MergeRankInput } from './merge.js';
+
+export { LOCAL_NETWORK_COUNTRY, isPlacedLocal } from './localNetwork.js';
 
 export { isEmailAddress, usernameAsEmail } from './emailAddress.js';
 

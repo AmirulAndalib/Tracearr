@@ -216,6 +216,40 @@ export const updateServerSchema = z
     { message: 'At least one of name, url, color, publicUrl, or apiKey is required' }
   );
 
+const locationTextSchema = z
+  .string()
+  .trim()
+  .max(255)
+  .nullable()
+  .transform((value) => (value ? value : null));
+
+export const serverLocationEntrySchema = z.object({
+  effectiveFrom: z.iso.datetime({ offset: true }).nullable(),
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
+  city: locationTextSchema,
+  region: locationTextSchema,
+  country: z.string().regex(/^[A-Z]{2}$/, 'Country must be a two-letter ISO code'),
+});
+
+export const serverLocationsSchema = z
+  .object({ entries: z.array(serverLocationEntrySchema).max(20) })
+  .superRefine(({ entries }, ctx) => {
+    const undated = entries.filter((entry) => entry.effectiveFrom === null).length;
+    if (undated > 1) {
+      ctx.addIssue({ code: 'custom', message: 'Only one location can apply from the beginning' });
+    }
+    const dated = entries.flatMap((entry) =>
+      entry.effectiveFrom === null ? [] : [new Date(entry.effectiveFrom).getTime()]
+    );
+    if (new Set(dated).size !== dated.length) {
+      ctx.addIssue({ code: 'custom', message: 'Two locations share a start date' });
+    }
+    if (dated.some((time) => time > Date.now())) {
+      ctx.addIssue({ code: 'custom', message: 'A location cannot start in the future' });
+    }
+  });
+
 // ============================================================================
 // User Schemas
 // ============================================================================
