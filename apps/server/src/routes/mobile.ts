@@ -22,6 +22,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { randomBytes } from 'crypto';
 import { eq, and, gt, isNull, or, sql } from 'drizzle-orm';
+import { Expo } from 'expo-server-sdk';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 import type {
@@ -50,6 +51,7 @@ import { terminateSession } from '../services/termination.js';
 import { getSetting, setSetting } from '../services/settings.js';
 import { hashSha256 } from '../utils/hash.js';
 import { hasServerAccess } from '../utils/serverFiltering.js';
+import { firstIssueMessage } from '../utils/zod.js';
 import { disconnectMobileDevice } from '../websocket/index.js';
 
 // Rate limits for mobile auth endpoints
@@ -92,24 +94,32 @@ const MOBILE_ACCESS_EXPIRY = '24h';
 const MOBILE_BLACKLIST_TTL = 24 * 60 * 60; // 24 hours in seconds
 
 // Schemas
+const DEVICE_SECRET_LENGTH_MESSAGE = 'must be 32 to 64 characters';
+
+// Base64-encoded device secret for push encryption
+const deviceSecretSchema = z
+  .string()
+  .min(32, DEVICE_SECRET_LENGTH_MESSAGE)
+  .max(64, DEVICE_SECRET_LENGTH_MESSAGE);
+
 const mobilePairSchema = z.object({
   token: z.string().min(1),
   deviceName: z.string().min(1).max(100),
   deviceId: z.string().min(1).max(100),
   platform: z.enum(['ios', 'android']),
-  deviceSecret: z.string().min(32).max(64).optional(), // Base64-encoded device secret for push encryption
+  deviceSecret: deviceSecretSchema.optional(),
 });
 
 const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+// Same check the sender applies, so the route accepts every token it would push to.
 const pushTokenSchema = z.object({
   expoPushToken: z
     .string()
-    .min(1)
-    .regex(/^ExponentPushToken\[.+\]$/, 'Invalid Expo push token format'),
-  deviceSecret: z.string().min(32).max(64).optional(), // Update device secret for push encryption
+    .refine((token) => Expo.isExpoPushToken(token), 'not an Expo push token'),
+  deviceSecret: deviceSecretSchema.optional(),
 });
 
 const updateMobileSessionSchema = z.object({
@@ -1049,7 +1059,7 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
   app.post('/push-token', { preHandler: [app.requireMobile] }, async (request, reply) => {
     const body = pushTokenSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.badRequest('Invalid push token format. Expected ExponentPushToken[...]');
+      return reply.badRequest(`Invalid push token: ${firstIssueMessage(body.error)}`);
     }
 
     const { expoPushToken, deviceSecret } = body.data;
