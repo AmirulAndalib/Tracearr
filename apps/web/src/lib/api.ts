@@ -87,6 +87,9 @@ import type {
   SetupStatus,
   MediaType,
   ServerConnectionStatus,
+  ServerLocationEntry,
+  ServerLocationsResponse,
+  UpdateServerLocationsResponse,
   // New analytics types
   DeviceCompatibilityResponse,
   DeviceCompatibilityMatrix,
@@ -773,6 +776,12 @@ class ApiClient {
       );
       return response.data;
     },
+    locations: (id: string) => this.request<ServerLocationsResponse>(`/servers/${id}/locations`),
+    updateLocations: (id: string, entries: ServerLocationEntry[]) =>
+      this.request<UpdateServerLocationsResponse>(`/servers/${id}/locations`, {
+        method: 'PUT',
+        body: JSON.stringify({ entries }),
+      }),
   };
 
   // Users
