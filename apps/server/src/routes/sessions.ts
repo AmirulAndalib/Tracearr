@@ -624,17 +624,18 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     const dir = orderDir === 'desc' ? sql`DESC` : sql`ASC`;
     const playIdTiebreak = sql`COALESCE(s.reference_id, s.id)::text`;
-    // The displayed title is the show for an episode, so the key comes from the
-    // show's media row; sessions never linked to media fall back to their title.
+    // The key follows the title the table shows: an episode keys on its show's
+    // media row, every other type on its own row, and a session with no linked
+    // row falls back to that shown title (the show for an episode, else its own).
     const sortKeyExpr =
       orderBy === 'durationMs'
         ? sql`SUM(COALESCE(s.duration_ms, 0))`
         : orderBy === 'mediaTitle'
-          ? sql`COALESCE(MIN(m.sort_title), lower(MIN(COALESCE(NULLIF(s.grandparent_title, ''), s.media_title))))`
+          ? sql`COALESCE(MIN(m.sort_title), lower(MIN(CASE WHEN s.media_type = 'episode' AND s.grandparent_title <> '' THEN s.grandparent_title ELSE s.media_title END)))`
           : null;
     const mediaJoin =
       orderBy === 'mediaTitle'
-        ? sql`LEFT JOIN media m ON m.id = COALESCE(s.show_media_id, s.media_id)`
+        ? sql`LEFT JOIN media m ON m.id = CASE WHEN s.media_type = 'episode' THEN s.show_media_id ELSE s.media_id END`
         : sql``;
     // Every key in one direction so the keyset tuple comparison below is exact.
     const orderByExpr = sortKeyExpr

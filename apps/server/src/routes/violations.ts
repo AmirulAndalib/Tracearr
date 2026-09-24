@@ -75,7 +75,7 @@ function trustAdjustment(action: Action): number | null {
 }
 
 /**
- * Sort keys, every branch tiebroken on violations.id by buildOrderBy. Without a
+ * Sort keys, every branch tiebroken on automationRuns.id by buildOrderBy. Without a
  * unique tiebreak, offset paging over rows sharing a created_at (a poller tick
  * writes several at once) both repeats and drops rows between pages.
  *

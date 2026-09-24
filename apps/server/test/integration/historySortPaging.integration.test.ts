@@ -66,6 +66,34 @@ async function seed() {
       state: 'stopped',
     });
   }
+  return account;
+}
+
+async function seedTrackAndEpisode(account: { id: string; serverId: string }) {
+  const pilotId = randomUUID();
+  await db.execute(sql`
+    INSERT INTO media (id, media_type, match_key, title, sort_title)
+    VALUES (${pilotId}, 'episode', 'episode:title:pilot:0', 'Pilot', 'pilot')
+  `);
+  await createTestSession({
+    serverId: account.serverId,
+    serverUserId: account.id,
+    mediaType: 'track',
+    mediaTitle: 'Zebra Song',
+    grandparentTitle: 'Alice Artist',
+    startedAt: new Date(Date.UTC(2026, 0, 10)),
+    state: 'stopped',
+  });
+  await createTestSession({
+    serverId: account.serverId,
+    serverUserId: account.id,
+    mediaType: 'episode',
+    mediaTitle: 'Pilot',
+    grandparentTitle: 'Bob Show',
+    mediaId: pilotId,
+    startedAt: new Date(Date.UTC(2026, 0, 11)),
+    state: 'stopped',
+  });
 }
 
 async function walk(
@@ -90,9 +118,11 @@ async function walk(
 }
 
 describe('history paging under the Content and Duration sorts', () => {
+  let account: Awaited<ReturnType<typeof seed>>;
+
   beforeEach(async () => {
     await resetTestDb();
-    await seed();
+    account = await seed();
   });
 
   it('walks the Content sort ascending in key order without repeating or dropping a play', async () => {
@@ -111,6 +141,21 @@ describe('history paging under the Content and Duration sorts', () => {
     const app = await buildApp();
     expect(await walk(app, 'durationMs', 'desc')).toEqual(['Zed', 'Émile', '_x', 'Bob', 'alice']);
     expect(await walk(app, 'durationMs', 'asc')).toEqual(['alice', 'Bob', '_x', 'Émile', 'Zed']);
+    await app.close();
+  });
+
+  it('keys an episode on its show and a track on its own title', async () => {
+    await seedTrackAndEpisode(account);
+    const app = await buildApp();
+    expect(await walk(app, 'mediaTitle', 'asc')).toEqual([
+      'alice',
+      'Bob',
+      'Pilot',
+      'Émile',
+      '_x',
+      'Zebra Song',
+      'Zed',
+    ]);
     await app.close();
   });
 

@@ -109,7 +109,11 @@
     },
     {
       "type": "fix",
-      "text": "History sorted by title or duration pages in that order instead of repeating rows, and episodes sort under their show"
+      "text": "History sorted by title or duration keeps that order from page to page, and episodes sort under their show"
+    },
+    {
+      "type": "fix",
+      "text": "the Watch page ranks binge shows by score, and duplicate versions list the largest file first"
     },
     {
       "type": "note",

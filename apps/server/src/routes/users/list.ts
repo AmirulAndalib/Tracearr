@@ -384,11 +384,12 @@ export const listRoutes: FastifyPluginAsync = async (app) => {
         .innerJoin(servers, eq(serverUsers.serverId, servers.id))
         .where(identityWhereClause);
 
-      identityServerRows.sort((a, b) =>
-        compareServers(
-          { displayOrder: a.serverDisplayOrder, name: a.serverName, id: a.serverId },
-          { displayOrder: b.serverDisplayOrder, name: b.serverName, id: b.serverId }
-        )
+      identityServerRows.sort(
+        (a, b) =>
+          compareServers(
+            { displayOrder: a.serverDisplayOrder, name: a.serverName, id: a.serverId },
+            { displayOrder: b.serverDisplayOrder, name: b.serverName, id: b.serverId }
+          ) || a.serverUserId.localeCompare(b.serverUserId)
       );
       for (const row of identityServerRows) {
         const existing = identityServersByUserId.get(row.userId);
