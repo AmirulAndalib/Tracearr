@@ -77,6 +77,10 @@
     },
     {
       "type": "fix",
+      "text": "a Jellystat re-import with the Episodes table relinks episode plays an earlier import stored against the show"
+    },
+    {
+      "type": "fix",
       "text": "newsletters no longer drop new movies when more than 5,000 episodes or tracks arrive in one window"
     },
     {
