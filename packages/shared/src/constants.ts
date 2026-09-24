@@ -239,6 +239,10 @@ export const REDIS_KEYS = {
     `${_redisPrefix}tracearr:library:precache:watermark:${serverId}`,
   LIBRARY_PRECACHE_LAST_FULL: (serverId: string) =>
     `${_redisPrefix}tracearr:library:precache:last-full:${serverId}`,
+  // The cache directory that full pass walked; the persistence check only
+  // trusts a stamp taken against the directory the process is using now.
+  LIBRARY_PRECACHE_LAST_FULL_DIR: (serverId: string) =>
+    `${_redisPrefix}tracearr:library:precache:last-full-dir:${serverId}`,
   // Poster cache: one-time boot reconciliation marker, the last sweep's tally,
   // and the disk-limited flag the precache sets when the guard refused writes.
   IMAGE_CACHE_SCHEMA: `${_redisPrefix}tracearr:image-cache:schema`,
