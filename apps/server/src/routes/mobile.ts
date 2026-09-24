@@ -49,6 +49,7 @@ import {
 import { getAuth } from '../lib/auth.js';
 import { terminateSession } from '../services/termination.js';
 import { getSetting, setSetting } from '../services/settings.js';
+import { compareNames } from '../utils/collation.js';
 import { hashSha256 } from '../utils/hash.js';
 import { hasServerAccess } from '../utils/serverFiltering.js';
 import { firstIssueMessage } from '../utils/zod.js';
@@ -202,6 +203,21 @@ export async function revokeMobileDeviceSession(
   await revokeBetterAuthSession(session.betterAuthSessionId);
 }
 
+async function listPairedDevices(): Promise<MobileSession[]> {
+  const rows = await db.select().from(mobileSessions);
+  return rows
+    .sort((a, b) => compareNames(a.deviceName, b.deviceName) || a.id.localeCompare(b.id))
+    .map((s) => ({
+      id: s.id,
+      deviceName: s.deviceName,
+      deviceId: s.deviceId,
+      platform: s.platform,
+      expoPushToken: s.expoPushToken,
+      lastSeenAt: s.lastSeenAt,
+      createdAt: s.createdAt,
+    }));
+}
+
 export const mobileRoutes: FastifyPluginAsync = async (app) => {
   // Log beta mode status on startup
   if (isBetaMode()) {
@@ -227,8 +243,7 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
     // Get mobile enabled status from settings
     const isEnabled = await getSetting('mobileEnabled');
 
-    // Get mobile sessions
-    const sessionsRows = await db.select().from(mobileSessions);
+    const sessions = await listPairedDevices();
 
     // Count pending tokens (unexpired and unused)
     const pendingTokensResult = await db
@@ -236,16 +251,6 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
       .from(mobileTokens)
       .where(and(gt(mobileTokens.expiresAt, new Date()), isNull(mobileTokens.usedAt)));
     const pendingTokens = pendingTokensResult[0]?.count ?? 0;
-
-    const sessions: MobileSession[] = sessionsRows.map((s) => ({
-      id: s.id,
-      deviceName: s.deviceName,
-      deviceId: s.deviceId,
-      platform: s.platform,
-      expoPushToken: s.expoPushToken,
-      lastSeenAt: s.lastSeenAt,
-      createdAt: s.createdAt,
-    }));
 
     const config: MobileConfig = {
       isEnabled,
@@ -272,16 +277,7 @@ export const mobileRoutes: FastifyPluginAsync = async (app) => {
     await setSetting('mobileEnabled', true);
 
     // Get current state for response
-    const sessionsRows = await db.select().from(mobileSessions);
-    const sessions: MobileSession[] = sessionsRows.map((s) => ({
-      id: s.id,
-      deviceName: s.deviceName,
-      deviceId: s.deviceId,
-      platform: s.platform,
-      expoPushToken: s.expoPushToken,
-      lastSeenAt: s.lastSeenAt,
-      createdAt: s.createdAt,
-    }));
+    const sessions = await listPairedDevices();
 
     const config: MobileConfig = {
       isEnabled: true,

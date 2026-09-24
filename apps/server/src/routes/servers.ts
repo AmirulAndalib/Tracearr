@@ -3,7 +3,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { eq, inArray, and, asc } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 import {
   createServerSchema,
   serverIdParamSchema,
@@ -25,6 +25,7 @@ import { publishServersChanged } from '../jobs/poller/database.js';
 import { readServerIdentity } from '../services/serverIdentity.js';
 import { rearmImportedHistoryLink } from '../services/settings.js';
 import { buildServerAccessCondition, hasServerAccess } from '../utils/serverFiltering.js';
+import { serverOrderBy } from '../utils/serverOrder.js';
 
 export const serverRoutes: FastifyPluginAsync = async (app) => {
   /**
@@ -52,7 +53,7 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
       })
       .from(servers)
       .where(buildServerAccessCondition(authUser, servers.id))
-      .orderBy(asc(servers.displayOrder));
+      .orderBy(...serverOrderBy());
 
     // Backfill colors for any servers missing them
     const uncolored = serverList.filter((s) => !s.color);
@@ -709,7 +710,8 @@ export const serverRoutes: FastifyPluginAsync = async (app) => {
         name: servers.name,
       })
       .from(servers)
-      .where(buildServerAccessCondition(authUser, servers.id));
+      .where(buildServerAccessCondition(authUser, servers.id))
+      .orderBy(...serverOrderBy());
 
     const cacheService = getCacheService();
     const unhealthyServers: { serverId: string; serverName: string }[] = [];

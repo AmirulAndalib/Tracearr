@@ -32,6 +32,7 @@ import {
   resolveServerIds,
   buildMultiServerFragment,
 } from '../../utils/serverFiltering.js';
+import { compareServers } from '../../utils/serverOrder.js';
 import {
   buildOrderBy,
   likePattern,
@@ -371,6 +372,7 @@ export const listRoutes: FastifyPluginAsync = async (app) => {
           userId: serverUsers.userId,
           serverId: serverUsers.serverId,
           serverName: servers.name,
+          serverDisplayOrder: servers.displayOrder,
           serverUserId: serverUsers.id,
           removedAt: serverUsers.removedAt,
         })
@@ -378,6 +380,12 @@ export const listRoutes: FastifyPluginAsync = async (app) => {
         .innerJoin(servers, eq(serverUsers.serverId, servers.id))
         .where(identityWhereClause);
 
+      identityServerRows.sort((a, b) =>
+        compareServers(
+          { displayOrder: a.serverDisplayOrder, name: a.serverName, id: a.serverId },
+          { displayOrder: b.serverDisplayOrder, name: b.serverName, id: b.serverId }
+        )
+      );
       for (const row of identityServerRows) {
         const existing = identityServersByUserId.get(row.userId);
         const entry = {

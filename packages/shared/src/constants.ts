@@ -197,7 +197,7 @@ export const REDIS_KEYS = {
     return `${_redisPrefix}tracearr:library:catalog-letters:v2`;
   },
   get LIBRARY_LIBRARIES() {
-    return `${_redisPrefix}tracearr:library:libraries`;
+    return `${_redisPrefix}tracearr:library:libraries:v2`;
   },
   // Watched-filtered ordered candidate list shared by /catalog and
   // /catalog/letters (see getWatchedCandidates in catalog.ts)
@@ -287,7 +287,7 @@ export const REDIS_KEYS = {
   },
   // Filter options caching
   FILTER_OPTIONS: (userId: string, scopeHash: string) =>
-    `${_redisPrefix}tracearr:filter-options:${userId}:${scopeHash}`,
+    `${_redisPrefix}tracearr:filter-options:v2:${userId}:${scopeHash}`,
   // v1 segment invalidates cached entries if the GeoLocation shape ever changes
   PLEX_GEOIP: (ip: string) => `${_redisPrefix}tracearr:geoip:plex:v1:${ip}`,
   // Public API v2 per-media stats/watchers responses

@@ -6,8 +6,11 @@
  * are aggregated into a single row with combined duration.
  */
 
+import { createHash } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import { eq, sql, inArray } from 'drizzle-orm';
+import countries from 'i18n-iso-countries';
+import countriesEn from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
 import {
   sessionQuerySchema,
   historyQuerySchema,
@@ -26,11 +29,6 @@ import {
   type CountryOption,
   type HistoryAggregatesQueryInput,
 } from '@tracearr/shared';
-import countries from 'i18n-iso-countries';
-import countriesEn from 'i18n-iso-countries/langs/en.json' with { type: 'json' };
-
-// Register English locale for country name lookups
-countries.registerLocale(countriesEn);
 import { db } from '../db/client.js';
 import { sessions, serverUsers, servers, users } from '../db/schema.js';
 import {
@@ -39,10 +37,14 @@ import {
   buildMultiServerFragment,
 } from '../utils/serverFiltering.js';
 import { representativeAccountOrderSql } from '../utils/representativeAccount.js';
+import { compareNames } from '../utils/collation.js';
+import { serverOrderBy } from '../utils/serverOrder.js';
 import { isLocalSession, localSessionSql } from '../utils/localSession.js';
 import { terminateSession } from '../services/termination.js';
 import { getCacheService } from '../services/cache.js';
-import { createHash } from 'node:crypto';
+
+// Register English locale for country name lookups
+countries.registerLocale(countriesEn);
 
 /**
  * Result from building history filter conditions.
@@ -1242,7 +1244,10 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
         ORDER BY LOWER(COALESCE(u.name, su.username))
       `),
       // Servers (for rules builder)
-      db.select({ id: servers.id, name: servers.name, type: servers.type }).from(servers),
+      db
+        .select({ id: servers.id, name: servers.name, type: servers.type })
+        .from(servers)
+        .orderBy(...serverOrderBy()),
     ]);
 
     // Transform users result
@@ -1263,6 +1268,11 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
       identityName: row.identity_name,
       serverUserIds: row.server_user_ids ?? [row.id],
     }));
+    usersData.sort(
+      (a, b) =>
+        compareNames(a.identityName ?? a.username, b.identityName ?? b.username) ||
+        a.id.localeCompare(b.id)
+    );
 
     // Transform servers result
     const serversData = serversResult.map((row) => ({
