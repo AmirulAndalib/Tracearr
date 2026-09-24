@@ -66,15 +66,19 @@ const RESET_TRUST_REASON = 'reset by an owner';
 /**
  * Sort keys, all on the identity row so the LIMIT can ride an index on `users`
  * instead of sorting the whole server_users x users product. The directions and
- * NULLS placement mirror migration 0089's indexes exactly; see buildOrderBy.
+ * NULLS placement mirror the users_* roster indexes in schema.ts exactly; see
+ * buildOrderBy.
  *
  * `username` orders on the identity's display name rather than the
  * representative account's server username. Those differ only when users.name
  * is set or a server-side rename left users.username behind, and the roster
  * renders identityName ?? username, so this sorts by what the row shows.
+ * lower() because the database collation is byte order on every install family
+ * but the glibc dev image, so capitals would otherwise sort before every
+ * lowercase name.
  */
 const USER_SORT_KEYS: Record<UserSortField, SortKey> = {
-  username: { key: sql`coalesce(u.name, u.username)`, defaultDir: 'asc', nulls: 'last' },
+  username: { key: sql`lower(coalesce(u.name, u.username))`, defaultDir: 'asc', nulls: 'last' },
   trustScore: { key: sql`u.aggregate_trust_score`, defaultDir: 'desc', nulls: 'last' },
   joinedAt: { key: sql`u.first_joined_at`, defaultDir: 'desc', nulls: 'last' },
   lastActivityAt: { key: sql`u.last_activity_at`, defaultDir: 'desc', nulls: 'last' },

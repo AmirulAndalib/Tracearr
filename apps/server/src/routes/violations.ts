@@ -88,8 +88,8 @@ const VIOLATION_SORT_KEYS: Record<ViolationSortField, SortKey> = {
     key: sql`CASE ${automationRuns.severity} WHEN 'high' THEN 3 WHEN 'warning' THEN 2 WHEN 'low' THEN 1 END`,
     defaultDir: 'desc',
   },
-  user: { key: sql`${serverUsers.username}`, defaultDir: 'desc' },
-  rule: { key: sql`${automations.name}`, defaultDir: 'desc' },
+  user: { key: sql`lower(coalesce(${users.name}, ${serverUsers.username}))`, defaultDir: 'desc' },
+  rule: { key: sql`lower(${automations.name})`, defaultDir: 'desc' },
 };
 
 /** The run column is nullable; every row this route serves has one, and the wire shape requires it. */
