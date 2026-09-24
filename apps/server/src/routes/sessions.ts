@@ -578,42 +578,75 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
     }
     const { conditions } = filterResult;
 
-    // Cursor-based pagination - parse cursor (format: `${startedAt.getTime()}_${playId}`)
+    // Cursor: `${startedAtMs}_${playId}`, plus `_${hex(JSON sort key)}` for the
+    // Content and Duration sorts so the keyset comparison starts from the key.
     let cursorTime: Date | null = null;
     let cursorId: string | null = null;
+    let cursorKey: string | number | null = null;
     if (cursor) {
-      const parts = cursor.split('_');
-      const timeStr = parts[0];
-      const id = parts.slice(1).join('_'); // Handle UUIDs with underscores
+      const [timeStr, id, keyHex, ...extra] = cursor.split('_');
       const parsedTime = timeStr ? Number(timeStr) : NaN;
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!timeStr || !id || !Number.isInteger(parsedTime) || !uuidRegex.test(id)) {
+      if (
+        !timeStr ||
+        !id ||
+        extra.length > 0 ||
+        !Number.isInteger(parsedTime) ||
+        !uuidRegex.test(id)
+      ) {
+        return reply.badRequest('Invalid cursor');
+      }
+      if (orderBy !== 'startedAt') {
+        if (!keyHex || !/^[0-9a-f]*$/.test(keyHex)) return reply.badRequest('Invalid cursor');
+        let parsedKey: unknown;
+        try {
+          parsedKey = JSON.parse(Buffer.from(keyHex, 'hex').toString('utf8'));
+        } catch {
+          return reply.badRequest('Invalid cursor');
+        }
+        if (orderBy === 'durationMs') {
+          const asNumber = Number(parsedKey);
+          if (!Number.isInteger(asNumber)) return reply.badRequest('Invalid cursor');
+          cursorKey = asNumber;
+        } else if (typeof parsedKey === 'string') {
+          cursorKey = parsedKey;
+        } else {
+          return reply.badRequest('Invalid cursor');
+        }
+      } else if (keyHex !== undefined) {
         return reply.badRequest('Invalid cursor');
       }
       cursorTime = new Date(parsedTime);
       cursorId = id;
     }
 
-    const buildOrderByExpr = () => {
-      const dir = orderDir === 'desc' ? sql`DESC` : sql`ASC`;
-      const playIdTiebreak = sql`COALESCE(s.reference_id, s.id)::text`;
-      switch (orderBy) {
-        case 'durationMs':
-          return sql`SUM(COALESCE(s.duration_ms, 0)) ${dir}, MIN(s.started_at) DESC, ${playIdTiebreak} DESC`;
-        case 'mediaTitle':
-          return sql`MIN(s.media_title) ${dir}, MIN(s.started_at) DESC, ${playIdTiebreak} DESC`;
-        case 'startedAt':
-        default:
-          return sql`MIN(s.started_at) ${dir}, ${playIdTiebreak} ${dir}`;
-      }
-    };
-    const orderByExpr = buildOrderByExpr();
+    const dir = orderDir === 'desc' ? sql`DESC` : sql`ASC`;
+    const playIdTiebreak = sql`COALESCE(s.reference_id, s.id)::text`;
+    // The displayed title is the show for an episode, so the key comes from the
+    // show's media row; sessions never linked to media fall back to their title.
+    const sortKeyExpr =
+      orderBy === 'durationMs'
+        ? sql`SUM(COALESCE(s.duration_ms, 0))`
+        : orderBy === 'mediaTitle'
+          ? sql`COALESCE(MIN(m.sort_title), lower(MIN(COALESCE(NULLIF(s.grandparent_title, ''), s.media_title))))`
+          : null;
+    const mediaJoin =
+      orderBy === 'mediaTitle'
+        ? sql`LEFT JOIN media m ON m.id = COALESCE(s.show_media_id, s.media_id)`
+        : sql``;
+    // Every key in one direction so the keyset tuple comparison below is exact.
+    const orderByExpr = sortKeyExpr
+      ? sql`${sortKeyExpr} ${dir}, MIN(s.started_at) ${dir}, ${playIdTiebreak} ${dir}`
+      : sql`MIN(s.started_at) ${dir}, ${playIdTiebreak} ${dir}`;
 
+    const cursorOp = orderDir === 'desc' ? sql`<` : sql`>`;
+    const cursorKeyParam =
+      orderBy === 'durationMs' ? sql`${cursorKey}::bigint` : sql`${cursorKey}::text`;
     const havingClause =
       cursorTime && cursorId
-        ? orderDir === 'desc'
-          ? sql`HAVING (MIN(s.started_at), COALESCE(s.reference_id, s.id)::text) < (${cursorTime}, ${cursorId})`
-          : sql`HAVING (MIN(s.started_at), COALESCE(s.reference_id, s.id)::text) > (${cursorTime}, ${cursorId})`
+        ? sortKeyExpr
+          ? sql`HAVING (${sortKeyExpr}, MIN(s.started_at), ${playIdTiebreak}) ${cursorOp} (${cursorKeyParam}, ${cursorTime}, ${cursorId})`
+          : sql`HAVING (MIN(s.started_at), ${playIdTiebreak}) ${cursorOp} (${cursorTime}, ${cursorId})`
         : sql``;
 
     // Full per-play aggregation is scoped to this page's play ids and to started_at at or
@@ -630,8 +663,10 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
           SELECT
             COALESCE(s.reference_id, s.id) as play_id,
             MIN(s.started_at) as started_at,
+            ${sortKeyExpr ?? sql`NULL`} as sort_key,
             ROW_NUMBER() OVER (ORDER BY ${orderByExpr}) as rn
           FROM sessions s
+          ${mediaJoin}
           ${buildWhereClause(conditions)}
           GROUP BY COALESCE(s.reference_id, s.id)
           ${havingClause}
@@ -639,7 +674,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
           LIMIT ${pageSize + 1}
         ),
         history_page_ids AS MATERIALIZED (
-          SELECT play_id, started_at FROM history_page WHERE rn <= ${pageSize}
+          SELECT play_id, started_at, sort_key, rn FROM history_page WHERE rn <= ${pageSize}
         ),
         grouped_sessions AS (
           SELECT
@@ -722,8 +757,10 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
           s.stream_audio_details,
           s.transcode_info,
           s.subtitle_info,
+          hp.sort_key,
           (SELECT count(*) FROM history_page)::int as page_candidate_count
         FROM grouped_sessions gs
+        JOIN history_page_ids hp ON hp.play_id = gs.play_id
         -- bounds the join for chunk pruning
         JOIN sessions s ON s.id = gs.first_session_id AND s.started_at = gs.started_at
         JOIN server_users su ON su.id = s.server_user_id
@@ -741,8 +778,7 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
             LIMIT 20
           ) sub
         ) lat ON true
-        ORDER BY gs.started_at ${orderDir === 'desc' ? sql`DESC` : sql`ASC`},
-          gs.play_id::text ${orderDir === 'desc' ? sql`DESC` : sql`ASC`}
+        ORDER BY hp.rn
       `);
 
     const firstRow = result.rows[0] as { page_candidate_count: number } | undefined;
@@ -906,9 +942,16 @@ export const sessionRoutes: FastifyPluginAsync = async (app) => {
 
     // Generate next cursor
     const lastSession = sessionData[sessionData.length - 1];
+    const lastRow = result.rows[result.rows.length - 1] as { sort_key: string | number | null };
     const nextCursor =
       hasMore && lastSession?.startedAt
-        ? `${new Date(lastSession.startedAt).getTime()}_${lastSession.id}`
+        ? [
+            `${new Date(lastSession.startedAt).getTime()}`,
+            lastSession.id,
+            ...(orderBy === 'startedAt'
+              ? []
+              : [Buffer.from(JSON.stringify(lastRow.sort_key)).toString('hex')]),
+          ].join('_')
         : undefined;
 
     const response: HistorySessionResponse = {
