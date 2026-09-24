@@ -119,6 +119,11 @@
       "type": "note",
       "text": "standard Docker installs should add the tracearr_images volume to keep the poster cache",
       "docs": "https://github.com/connorgallopo/Tracearr/blob/076d7ce30eac5bab25656a1ad5d8c0444b989253/docker/examples/docker-compose.pg18.yml#L51"
+    },
+    {
+      "type": "fix",
+      "text": "duplicates no longer pair two different episodes that Plex tagged with the same id",
+      "refs": ["#1223"]
     }
   ]
 }

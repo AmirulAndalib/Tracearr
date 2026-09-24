@@ -152,7 +152,7 @@ export const REDIS_KEYS = {
     return `${_redisPrefix}tracearr:library:stale:v2`;
   },
   get LIBRARY_DUPLICATES() {
-    return `${_redisPrefix}tracearr:library:duplicates:v4`;
+    return `${_redisPrefix}tracearr:library:duplicates:v5`;
   },
   get LIBRARY_DUPLICATE_FILES() {
     return `${_redisPrefix}tracearr:library:duplicate-files`;
