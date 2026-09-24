@@ -374,7 +374,7 @@ export const libraryDuplicatesRoute: FastifyPluginAsync = async (app) => {
           FROM library_item_versions
           WHERE library_item_id = ANY(${idsArray}::uuid[])
             AND removed_at IS NULL
-          ORDER BY file_size DESC NULLS LAST
+          ORDER BY library_item_versions.file_size DESC NULLS LAST, library_item_versions.server_version_key ASC
         `);
         for (const row of versionsResult.rows as unknown as VersionRow[]) {
           const list = versionsByItem.get(row.library_item_id) ?? [];
