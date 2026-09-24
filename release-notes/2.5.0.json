@@ -121,6 +121,22 @@
       "refs": ["#1223"]
     },
     {
+      "type": "fix",
+      "text": "a paused Seerr link keeps the Requests page and its history instead of reading as unlinked"
+    },
+    {
+      "type": "fix",
+      "text": "Sync now refreshes the Requests page numbers right away instead of after a five-minute cache"
+    },
+    {
+      "type": "fix",
+      "text": "a user's Requests card keeps requests Seerr deleted, and Never watched skips titles they started"
+    },
+    {
+      "type": "fix",
+      "text": "the Requests page goes back to page 1 when the server picker changes"
+    },
+    {
       "type": "note",
       "text": "standard image installs should mount a volume at /data/tracearr/image-cache to keep the poster cache",
       "docs": "https://github.com/connorgallopo/Tracearr/blob/076d7ce30eac5bab25656a1ad5d8c0444b989253/docker/examples/docker-compose.pg18.yml#L51"
