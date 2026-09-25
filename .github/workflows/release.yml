@@ -668,3 +668,30 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
           TITLE_PREFIX: ${{ needs.check-release-type.outputs.prerelease == 'true' && 'Beta Release' || 'Release' }}
           NOTES_FILE: release-notes-out/release_notes.md
+
+  announce-discord:
+    name: Post to Discord
+    runs-on: ubuntu-latest
+    needs: [check-release-type, create-release]
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download release notes
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-notes
+          path: release-notes-out
+
+      - name: Post release to Discord
+        run: node .github/scripts/post-release-to-discord.mjs
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_ANNOUNCEMENTS_CHANNEL_ID: ${{ vars.DISCORD_ANNOUNCEMENTS_CHANNEL_ID }}
+          DISCORD_RELEASE_ROLE_ID: ${{ vars.DISCORD_RELEASE_ROLE_ID }}
+          DISCORD_BETA_ROLE_ID: ${{ vars.DISCORD_BETA_ROLE_ID }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.check-release-type.outputs.prerelease }}
+          NOTES_FILE: release-notes-out/release-notes.json
