@@ -14,6 +14,14 @@
     {
       "type": "note",
       "text": "plays on media, genre and catalog pages rebuild in the background after updating and show 7 days until done"
+    },
+    {
+      "type": "improved",
+      "text": "the stream map shows towns, parks, rivers and detailed coastlines up to zoom 10; the image is about 500 MB larger"
+    },
+    {
+      "type": "fix",
+      "text": "clicking a stream map location shared by more than one server no longer blanks the page"
     }
   ]
 }

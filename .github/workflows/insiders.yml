@@ -221,6 +221,9 @@ jobs:
           echo "Download failed, using existing database as fallback"
           ls -la data/GeoLite2-City.mmdb data/GeoLite2-ASN.mmdb
 
+      - name: Fetch basemap
+        uses: ./.github/actions/fetch-basemap
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
@@ -351,6 +354,9 @@ jobs:
           echo "Successfully updated GeoLite2-ASN.mmdb" || \
           echo "Download failed, using existing database as fallback"
           ls -la data/GeoLite2-City.mmdb data/GeoLite2-ASN.mmdb
+
+      - name: Fetch basemap
+        uses: ./.github/actions/fetch-basemap
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4

@@ -73,6 +73,9 @@ jobs:
           echo "Download failed, using existing database as fallback"
           ls -la data/GeoLite2-City.mmdb data/GeoLite2-ASN.mmdb
 
+      - name: Fetch basemap
+        uses: ./.github/actions/fetch-basemap
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
 
@@ -148,6 +151,9 @@ jobs:
           echo "Successfully updated GeoLite2-ASN.mmdb" || \
           echo "Download failed, using existing database as fallback"
           ls -la data/GeoLite2-City.mmdb data/GeoLite2-ASN.mmdb
+
+      - name: Fetch basemap
+        uses: ./.github/actions/fetch-basemap
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
