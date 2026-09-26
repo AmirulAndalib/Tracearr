@@ -1,6 +1,6 @@
 {
   "version": "2.5.1",
-  "date": "2026-09-25",
+  "date": "2026-09-26",
   "changes": [
     {
       "type": "fix",
@@ -17,7 +17,11 @@
     },
     {
       "type": "improved",
-      "text": "the stream map shows towns, parks, rivers and detailed coastlines up to zoom 10; the image is about 500 MB larger"
+      "text": "the stream map shows towns, parks, rivers and detailed coastlines up to zoom 10"
+    },
+    {
+      "type": "note",
+      "text": "the image is about 500 MB larger, all of it the bundled stream map"
     },
     {
       "type": "fix",
