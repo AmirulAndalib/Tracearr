@@ -53,6 +53,9 @@ import { runNewsletter } from '../send.js';
 import { EMAIL_CLIP_FIT_BYTES, deliveredBytes } from '../fit.js';
 import { EXTERNAL_URL, JELLYFIN_SERVER, heaviestDigest, heaviestRuns } from './heaviestDigest.js';
 
+// Ten days back keeps the watermark inside the 31 day window floor on any run date
+const WATERMARK = new Date(Date.now() - 10 * 86_400_000);
+
 const NEWSLETTER = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Weekly',
@@ -172,7 +175,7 @@ beforeEach(() => {
   store.getNewsletter.mockResolvedValue(NEWSLETTER);
   store.findOpenSend.mockResolvedValue(null);
   store.closeStaleSend.mockResolvedValue(false);
-  store.lastWatermark.mockResolvedValue(new Date('2026-08-26T00:00:00Z'));
+  store.lastWatermark.mockResolvedValue(WATERMARK);
   store.insertSend.mockImplementation(async (v: Record<string, unknown>) => ({
     id: 'send-1',
     ...v,
@@ -245,7 +248,7 @@ describe('runNewsletter', () => {
       newsletterId: NEWSLETTER.id,
       destinationId: NEWSLETTER.destinationId,
       trigger: 'schedule',
-      windowStart: new Date('2026-08-26T00:00:00Z'),
+      windowStart: WATERMARK,
       outcome: 'rendering',
       itemCounts: ONE_MOVIE.counts,
       variants: [
@@ -276,7 +279,7 @@ describe('runNewsletter', () => {
     expect(store.markSendSending).toHaveBeenCalledWith('send-1', 1);
     expect(mockAssemble).toHaveBeenCalledWith(
       { scope: { serverIds: ['s1'], libraries: [] }, sections: NEWSLETTER.sections },
-      { start: new Date('2026-08-26T00:00:00Z'), end: expect.any(Date) },
+      { start: WATERMARK, end: expect.any(Date) },
       {}
     );
     expect(mockDestination).toHaveBeenCalledWith(NEWSLETTER.destinationId);
