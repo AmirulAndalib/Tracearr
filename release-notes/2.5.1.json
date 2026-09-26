@@ -5,6 +5,15 @@
     {
       "type": "fix",
       "text": "a failed Postgres connection logs the pg error code and message instead of only db:false"
+    },
+    {
+      "type": "fix",
+      "text": "a title watched after a short first sitting counts as a play and lists its watcher on the media page",
+      "refs": ["#1232"]
+    },
+    {
+      "type": "note",
+      "text": "plays on media, genre and catalog pages rebuild in the background after updating and show 7 days until done"
     }
   ]
 }
