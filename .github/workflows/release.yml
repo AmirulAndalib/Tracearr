@@ -214,19 +214,37 @@ jobs:
     needs: [lint-and-typecheck, test, test-integration, release-notes]
     outputs:
       prerelease: ${{ steps.check.outputs.prerelease }}
+      # true when the next channel should follow this tag: every prerelease,
+      # and a stable that is newer than the newest beta, so beta users are
+      # never behind stable after a hotfix
+      moves-next: ${{ steps.check.outputs.moves_next }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
       - name: Check if prerelease
         id: check
         run: |
           TAG="${{ github.ref_name }}"
           if [[ "$TAG" == *-* ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "moves_next=true" >> "$GITHUB_OUTPUT"
             echo "This is a prerelease: $TAG"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "This is a stable release: $TAG"
+            exit 0
           fi
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          NEWEST_BETA=$(git tag -l 'v*-*' | sort -V | tail -1)
+          MOVES_NEXT=$(node -e '
+            const [tag, beta] = process.argv.slice(1);
+            const parse = (v) => { const [base, pre] = v.replace(/^v/, "").split("-"); return { n: base.split(".").map(Number), pre }; };
+            const cmp = (a, b) => { for (let i = 0; i < 3; i++) { if (a.n[i] !== b.n[i]) return a.n[i] - b.n[i]; } if (!a.pre && b.pre) return 1; if (a.pre && !b.pre) return -1; return 0; };
+            console.log(!beta || cmp(parse(tag), parse(beta)) > 0 ? "true" : "false");
+          ' "$TAG" "$NEWEST_BETA")
+          echo "moves_next=$MOVES_NEXT" >> "$GITHUB_OUTPUT"
+          echo "This is a stable release: $TAG (newest beta ${NEWEST_BETA:-none}, moves next: $MOVES_NEXT)"
 
   # Build each platform natively in parallel (much faster than QEMU emulation)
   build-docker:
@@ -357,7 +375,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}},enable=${{ needs.check-release-type.outputs.prerelease == 'false' }}
             type=semver,pattern={{major}},enable=${{ needs.check-release-type.outputs.prerelease == 'false' }}
             type=raw,value=latest,enable=${{ needs.check-release-type.outputs.prerelease == 'false' }}
-            type=raw,value=next,enable=${{ needs.check-release-type.outputs.prerelease == 'true' }}
+            type=raw,value=next,enable=${{ needs.check-release-type.outputs.moves-next == 'true' }}
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -506,7 +524,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=supervised,enable=${{ needs.check-release-type.outputs.prerelease == 'false' }},prefix=
-            type=raw,value=supervised-next,enable=${{ needs.check-release-type.outputs.prerelease == 'true' }},prefix=
+            type=raw,value=supervised-next,enable=${{ needs.check-release-type.outputs.moves-next == 'true' }},prefix=
 
       - name: Create manifest list and push
         working-directory: /tmp/digests
@@ -564,6 +582,11 @@ jobs:
             fi
             (cd "packages/${pkg}" && npm pkg set version="$VERSION" && npm publish --tag "$TAG")
           done
+          if [ "$TAG" = "latest" ] && [ "${{ needs.check-release-type.outputs.moves-next }}" = "true" ]; then
+            for pkg in shared translations; do
+              npm dist-tag add "@tracearr/${pkg}@${VERSION}" next
+            done
+          fi
 
   # Tells Tracearr/Mobile-App to pin this release's published packages so the
   # mobile app never drifts from a version the server actually shipped.
