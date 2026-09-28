@@ -1,0 +1,11 @@
+{
+  "version": "2.5.2",
+  "date": "2026-09-28",
+  "changes": [
+    {
+      "type": "fix",
+      "text": "Server Resources on the dashboard no longer fails to load for Plex servers with a long bandwidth history",
+      "refs": ["#1255"]
+    }
+  ]
+}
