@@ -6,6 +6,11 @@
       "type": "fix",
       "text": "Server Resources on the dashboard no longer fails to load for Plex servers with a long bandwidth history",
       "refs": ["#1255"]
+    },
+    {
+      "type": "fix",
+      "text": "avatars and images from phone photos no longer show sideways or upside down",
+      "refs": ["#1258"]
     }
   ]
 }
